@@ -1,0 +1,107 @@
+<!-- my_template.html-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{{ title }}</title>
+        <link rel="stylesheet" href="{{ request.url_for('static', path='/css/dark_mode.css') }}">
+        <!-- Add the Font Awesome link -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha384-KyZXEAg3QhqLMpG8r+Knujsl5/1gisZ7UvyJtF2sd7O/[0sujEJFcdc38rep8aI" crossorigin="anonymous">
+    </head>
+    <body>
+        <nav>
+            <a href="/"><img src="{{ request.url_for('static', path='/images/FreeHCI_Logo48px.png') }}" alt="Logo"></a>
+            <ul>
+                <li><a href="/docs"><i class="fa-regular fa-file"></i> API Documentation</a></li>
+                <li><a href="https://github.com/username/my_api_project"><i class="fa-brands fa-github"></i> GitHub Repository</a></li>
+                <li><a href="#" class="icon" title="Check for updates"><i class="fas fa-sync"></i></a></li>
+                <li><a href="#" id="openModal" class="icon" title="Help"><i class="fas fa-question-circle"></i></a></li>
+            </ul>
+        </nav>
+        <div class="content-container">
+        <div class="container">
+            <div class="frame">
+                <img class="side-image" src="{{ request.url_for('static', path='/images/FreeHCI_Logo250px.png') }}" alt="Side image">
+                <div>
+                    <h1>{{ title }}</h1>
+                    <p>{{ message }}</p>
+                    <ul>
+                        <li><a href="/docs">API Documentation (Swagger UI)</a></li>
+                        <li><a href="https://github.com/username/my_api_project">GitHub Repository</a></li>
+                        <li><a href="https://freehci.org">The FreeHCI Project</a></li>
+                        <li><a href="https://freehci.org/getting-started">Getting started</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="frame" id="dashboard">
+                <!-- Left -->
+                <div class="dashboard-left">
+                    <div class="icon-container">
+                        <i class="fa-solid fa-temperature-arrow-up"></i>
+                      <div class="icon-separator"></div>
+                      <i class="fa-regular fa-message"></i>
+                    </div>
+                    <div class="cpu-container">
+                      <div class="label">CPU Load: </div>
+                      <div class="value">0%</div>
+                    </div>
+                    <div class="uptime-container">
+                      <div class="label">Uptime: </div>
+                      <div class="value">0 days 0:00</div>
+                    </div>
+                    <div class="chart-container" id="cpu-chart">
+                        <img class="cpu-image" src="{{ request.url_for('static', path='/images/CPU_Graph_xs.png') }}" alt="CPU image">
+                    </div>
+                </div>
+                  
+                  <!-- Middle -->
+                  <div class="dashboard-middle">
+                    <div class="data-container">
+                      <div class="label">Managed Nodes: </div>
+                      <div class="value">39</div>
+                    </div>
+                    <div class="data-container">
+                      <div class="label">Managed Clusters: </div>
+                      <div class="value">4</div>
+                    </div>
+                    <div class="data-container">
+                      <div class="label">Inacessable Nodes: </div>
+                      <div class="value">1</div>
+                    </div>
+                  </div>
+                  
+                  <!-- Right-->
+                  <div class="dashboard-right">
+                    <div class="data-container">
+                      <div class="label">Active Jobs: </div>
+                      <div class="value">2</div>
+                    </div>
+                    <div class="data-container">
+                      <div class="label">Pending Jobs: </div>
+                      <div class="value">6</div>
+                    </div>
+                    <div class="data-container">
+                      <div class="label">Failed Jobs: </div>
+                      <div class="value">0</div>
+                    </div>
+                  </div>
+            </div>
+        </div>
+        </div>
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h1>Introducing FreeHCI</h1>
+                <img src="{{ request.url_for('static', path='/images/CloudComputing150px.png') }}" alt="Cloud Computing" class="left-float">
+                <p>Introducing FreeHCI - a revolutionary and groundbreaking solution that is transforming the world of virtualization platforms! FreeHCI is an innovative and cutting-edge product designed to simplify the management, upgrading, and compatibility assurance of various virtualization platforms with hardware, firmware, and BIOS.</p>
+
+                <p>By harnessing the power of FreeHCI, IT administrators can seamlessly and effortlessly manage their virtualized infrastructure. With a strong focus on compatibility and integration, FreeHCI ensures that your hardware, firmware, and BIOS are always up-to-date and compatible with the software solutions you employ.</p>
+                
+                <p>One of the standout features of FreeHCI is its extensive range of community and partner plugins. With this incredible ecosystem, you can harness the power of various tools and services to extend and enhance the capabilities of your virtualized infrastructure. The possibilities are endless, as FreeHCI's vibrant community continues to innovate and develop new plugins that cater to a diverse array of use cases.</p>
+                
+                <p>With FreeHCI, you can stay ahead of the curve in the rapidly evolving world of virtualization. It's not just a product - it's the foundation for the future of efficient and effective virtualization management. Embrace the next generation of virtual infrastructure management with FreeHCI, and experience the difference that innovation, integration, and compatibility can make in your organization.</p>
+            </div>
+          </div>
+        
+          <script src="{{ request.url_for('static', path='/js/scripts.js') }}"></script>
+    </body>
+</html>

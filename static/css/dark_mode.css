@@ -1,0 +1,325 @@
+/* dark_mode.css */
+
+/* Reset some basic styles */
+body, h1, p, ul, li, a, nav {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Add background image */
+body {
+    background-image: url('/static/images/API_Background.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #030303;
+    color: #f0f0f0;
+}
+
+.frame > div {
+    flex: 1;
+}
+
+/* Add frame style */
+.frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(39, 32, 32, 0.5);
+    padding: 2rem;
+    border-radius: 25px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: #585252 solid 2px;
+}
+
+#dashboard {
+    margin-top: 25px;
+    display: inline-flexbox;
+    grid-template-columns: repeat(3, 1fr);
+    justify-items: center;
+    align-items: center;
+    background-color: rgba(39, 32, 32, 0.5);
+    padding: 2rem;
+    border-radius: 25px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: #585252 solid 2px;
+    gap: 1rem;
+}
+
+.dashboard-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+  
+.dashboard-left .icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+  
+.dashboard-left .icon-container i {
+    margin: 0 1rem;
+}
+  
+.dashboard-left .icon-separator {
+    width: 2px;
+    height: 1rem;
+    background-color: #585252;
+    margin: 0 1rem;
+}
+  
+.dashboard-left .cpu-container, .dashboard-left .uptime-container {
+    display: flex;
+    margin-top: 2rem;
+    text-align: center;
+    align-items: center;
+}
+  
+.dashboard-left .label {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-right: 1rem;
+}
+  
+.dashboard-left .value {
+    font-size: 3rem;
+}
+  
+.dashboard-middle, .dashboard-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content:center;
+    border-left: 2px solid #2c2b2b;
+    height:400px;
+}
+  
+.dashboard-middle .data-container, .dashboard-right .data-container {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+  
+.dashboard-middle .label, .dashboard-right .label {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+  
+.dashboard-middle .value, .dashboard-right .value {
+    font-size: 3rem;
+}
+
+.dashboard-middle .data-container:not(:last-child):after,
+.dashboard-right .data-container:not(:last-child):after {
+  content: "";
+  display: block;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  border-right: 2px solid #585252;
+  width: 1px;
+  z-index: 1;
+  transform: translateY(-50%);
+}
+
+
+/* Data container styles */
+.data-container {
+    display: flex;
+    align-items: center;
+    text-align: left;
+    
+}
+  
+.data-container .label {
+    margin-left: -150px;
+    margin-bottom: 0.25rem;
+    font-size: 0.8rem;
+}
+  
+.data-container .value {
+    font-size: 1.2rem;
+}
+
+#cpu-chart {
+    height: 200px;
+    width: 100%;
+    margin-top: 2rem;
+}
+
+.chart-container {
+    margin-bottom: 0px;
+}
+
+/* Style icon container */
+.icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+  
+.icon-container i {
+    font-size: 2rem;
+    color: #3b4be4;
+}
+  
+.icon-separator {
+    border-left: 2px solid #faf6f6;
+    height: 2rem;
+    margin: 0 1rem;
+}
+  
+/* Style CPU container */
+.cpu-container, .uptime-container {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+  
+.cpu-container .label, .uptime-container .label {
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+  
+.cpu-container .value, .uptime-container .value {
+    font-size: 1.5rem;
+}
+
+
+
+h1 {
+    margin-bottom: 1rem;
+}
+
+a {
+    color: #58a6ff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Add styles for the navbar */
+nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+}
+
+nav ul {
+    display: flex;
+    align-items: center;
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+nav ul li {
+    margin-left: 1rem;
+}
+
+nav ul li a {
+    color: inherit;
+    text-decoration: none;
+}
+
+nav ul li a:hover {
+    text-decoration: underline;
+}
+
+nav img {
+    height: 40px;
+    margin-right: 1rem;
+}
+
+/* Add styles for the icons */
+nav ul li .icon {
+    font-size: 1.5rem;
+    margin-left: 0.5rem;
+}
+
+/* Add some basic layout and spacing */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+p, ul {
+    margin-bottom: 1rem;
+}
+
+/* Add your existing styles here */
+
+/* Add style for the side image */
+.side-image {
+    max-width: 100%;
+    max-height: 300px;
+    margin-right: 2rem;
+}
+
+/* The Modal (background) */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+  
+.blur {
+    filter: blur(2px);
+    -webkit-filter: blur(2px);
+}
+  
+/* Modal Content */
+.modal-content {
+    position: relative;
+    background-color: #0e0d0d;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 40%;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    border-radius: 10px;
+}
+  
+/* Close Button */
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Images placement in modal */
+.left-float {
+    float: left;
+    margin-right: 20px;
+    margin-bottom: 20px;
+}
+  
+.right-float {
+    float: right;
+    margin-left: 20px;
+    margin-bottom: 20px;
+}
