@@ -15,3 +15,5 @@ paramiko               # SSHv2 protocol library for Python
 pyVmomi                # VMware vSphere API Python bindings
 redfish                # Python library for Redfish and Swordfish APIs
 pywinrm                # Windows Remote Management (WinRM) library for Python
+omsdk                  # OpenManage Python SDK
+pyipmi                 # Python library for IPMI
