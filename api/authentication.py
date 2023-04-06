@@ -1,4 +1,4 @@
-# api\authenrication.py
+# api/authentication.py
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
