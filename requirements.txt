@@ -1,0 +1,9 @@
+fastapi
+bcrypt
+pydantic
+sqlalchemy
+passlib
+python-jwt
+starlette
+Jinja2
+requests
