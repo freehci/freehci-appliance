@@ -30,7 +30,7 @@ def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/users/{user_id}")
 def read_user(user_id: int, db: Session = Depends(get_db)):
-    user = crud.get_user(db, user_id=user_id)
+    user = crud.get_user_by_id(db, user_id=user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
