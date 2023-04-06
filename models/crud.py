@@ -1,4 +1,5 @@
 # models/crud.py
+# Create, Read, Update, Delete
 
 from sqlalchemy.orm import Session
 from .user_models import User
