@@ -10,3 +10,5 @@ requests
 httpx
 pyjwt
 python-multipart
+sshtunnel
+paramiko
