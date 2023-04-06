@@ -20,6 +20,7 @@ def test_get_user_by_id():
         "id": test_user_id,
         "username": "rolf",
         "email": "rolf@stua.net",
+        "password": "$2b$12$4gbE0DqWsl/yKkW6gN0M6e1RGLJKWsJc.41Jl8A7tELO1vvL7xXTC"
     }
 
     # Test for a invalid user-ID
