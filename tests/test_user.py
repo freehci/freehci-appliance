@@ -18,8 +18,8 @@ def test_get_user_by_id():
     assert response.status_code == 200
     assert response.json() == {
         "id": test_user_id,
-        "username": "test_username",
-        "email": "test@example.com",
+        "username": "rolf",
+        "email": "rolf@stua.net",
     }
 
     # Test for a invalid user-ID
