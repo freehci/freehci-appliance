@@ -7,10 +7,13 @@ from models.authentication import User, Token, verify_password, generate_jwt_tok
 
 
 router = APIRouter()
+# TODO: Move to routers
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Dummy users list
+# Switch to database as this now exist.
+
 users = [
     User(username="user1", password=get_password_hash("password1")),
     User(username="user2", password=get_password_hash("password2")),

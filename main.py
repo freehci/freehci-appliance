@@ -124,7 +124,7 @@ active_plugins = discover_plugins()
 
 def run_plugins():
     for plugin_module in active_plugins:
-        plugin_instance = plugin_module.Plugin(config={})  # Legg til nødvendig konfigurasjon her
+        plugin_instance = plugin_module.Plugin(config={})  # add configurations here
         plugin_instance.execute()
         
 @app.post("/run_plugins")

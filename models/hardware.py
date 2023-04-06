@@ -1,6 +1,7 @@
+# models/hardware.py
+
 from pydantic import BaseModel
 from typing import List, Optional
-
 
 # -----------------
 #   Hardware Node

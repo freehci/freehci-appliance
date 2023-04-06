@@ -1,4 +1,4 @@
-# hardware.py
+# api/hardware.py
 
 from typing import List, Optional
 from fastapi import APIRouter, Query
@@ -7,15 +7,14 @@ from models.bmc import IPMI, Redfish, SSH
 from models.hardware import Node, Model
 
 router = APIRouter()
+# TODO: Move to routers
 
-
-    
 supported_manufacturers = ["Lenovo", "Dell", "HPE"]
 
 nodes = [
     Node(id=1, name="node1", manufacturer="Lenovo", model="xyz", serial="cluster1", operating_system="Linux"),
     Node(id=2, name="node2", manufacturer="Dell", model="abc", serial="cluster2", operating_system="Windows"),
-    # ... flere noder
+    # ... more nodes
 ]
 
 models = [
@@ -52,4 +51,4 @@ async def get_node(node_id: int):
     for node in nodes:
         if node.id == node_id:
             return node
-    return None  # eller bruk en egnet feilrespons
+    return None  # Or custom error response

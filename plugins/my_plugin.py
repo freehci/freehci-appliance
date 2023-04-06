@@ -1,4 +1,4 @@
-# my_plugin.py
+# plugins/my_plugin.py
 
 from plugin_interface import PluginInterface
 
@@ -7,5 +7,5 @@ class Plugin(PluginInterface):
         super().__init__(config)
 
     def execute(self):
-        # Implementer plugin-logikken her
+        # Implement plugin logic here
         print("MyPlugin is running")

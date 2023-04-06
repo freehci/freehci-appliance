@@ -1,10 +1,11 @@
-# appliance.py
+# api/appliance.py
 
 from typing import List, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 router = APIRouter()
+# TODO: Move to routers
 
 # ---------------
 #   Appliance
@@ -42,7 +43,7 @@ class ApplianceJob(BaseModel):
 appliance_jobs = [
     ApplianceJob(jobid="1", owner="Peter Parker", status="completed", progress=100, model="Disk Check", comment="Finished successfully"),
     ApplianceJob(jobid="2", owner="Peter Parker", status="running", progress=50, model="Cleanup", comment="In progress"),
-    # ... flere jobber
+    # ... more jobs
 ]
 
         
@@ -64,7 +65,7 @@ class Scheduler(BaseModel):
 schedulers = [
     Scheduler(id=1, name="diskcheck", description="Run disk check on /dev/sda1", owner="Peter Parker", runas="root", job=appliance_jobs[0], start="47 6    * * 7", timeout=300),
     Scheduler(id=2, name="run cleanup", description="Run cleanup script", owner="Peter Parker", runas="janitor", job=appliance_jobs[1], start="25 6    * * *", timeout=300),
-    # ... flere scheduler
+    # ... more schedulers
 ]
 
 @router.get("/appliance/scheduler", response_model=List[Scheduler])
