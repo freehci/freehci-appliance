@@ -1,14 +1,17 @@
-fastapi
-bcrypt
-pydantic
-sqlalchemy
-passlib
-python-jwt
-starlette
-Jinja2
-requests
-httpx
-pyjwt
-python-multipart
-sshtunnel
-paramiko
+fastapi                # Modern web framework for building APIs
+bcrypt                 # Cryptographic library for password hashing
+pydantic               # Data validation and parsing library
+sqlalchemy             # SQL toolkit and Object-Relational Mapping (ORM) library
+passlib                # Comprehensive password hashing library
+python-jwt             # JSON Web Token implementation in Python
+starlette              # Lightweight ASGI framework/toolkit
+Jinja2                 # Template engine for Python
+requests               # HTTP library for making requests
+httpx                  # Fully featured HTTP client for Python
+pyjwt                  # JSON Web Token library
+python-multipart       # Streaming multipart parser for Python
+sshtunnel              # Library for creating SSH tunnels
+paramiko               # SSHv2 protocol library for Python
+pyVmomi                # VMware vSphere API Python bindings
+redfish                # Python library for Redfish and Swordfish APIs
+pywinrm                # Windows Remote Management (WinRM) library for Python
