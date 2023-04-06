@@ -20,6 +20,6 @@ pyipmi                 # Python library for IPMI
 ntnx-api               # Python library for Nutanix REST API
 
 # Failed packages
-pycurl                 # Python bindings to libcurl
-ovirt-engine-sdk-python # Python SDK for oVirt Engine API
-openstacksdk           # Python SDK for OpenStack APIs
+#pycurl                 # Python bindings to libcurl
+#ovirt-engine-sdk-python # Python SDK for oVirt Engine API
+#openstacksdk           # Python SDK for OpenStack APIs
