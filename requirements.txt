@@ -9,3 +9,4 @@ Jinja2
 requests
 httpx
 pyjwt
+python-multipart
