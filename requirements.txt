@@ -7,3 +7,4 @@ python-jwt
 starlette
 Jinja2
 requests
+httpx
