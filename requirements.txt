@@ -8,3 +8,4 @@ starlette
 Jinja2
 requests
 httpx
+pyjwt
