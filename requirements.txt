@@ -17,5 +17,9 @@ redfish                # Python library for Redfish and Swordfish APIs
 pywinrm                # Windows Remote Management (WinRM) library for Python
 omsdk                  # OpenManage Python SDK
 pyipmi                 # Python library for IPMI
-#pycurl                 # Python bindings to libcurl
-#ovirt-engine-sdk-python # Python SDK for oVirt Engine API
+ntnx-api               # Python library for Nutanix REST API
+
+# Failed packages
+pycurl                 # Python bindings to libcurl
+ovirt-engine-sdk-python # Python SDK for oVirt Engine API
+openstacksdk           # Python SDK for OpenStack APIs
