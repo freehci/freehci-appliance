@@ -45,7 +45,7 @@ python-zaqarclient      # OpenStack Message Queue API Client Library
 python-designateclient  # OpenStack DNS API Client Library
 python-magnumclient     # OpenStack Container Orchestration API Client Library
 pankoclient             # OpenStack Telemetry API Client Library
-python-ceilometerclient # OpenStack Telemetry API Client Library
+#python-ceilometerclient # OpenStack Telemetry API Client Library
 #python-troveclient      # OpenStack Database API Client Library <-- Failing
 python-saharaclient     # OpenStack Data Processing API Client Library
 
