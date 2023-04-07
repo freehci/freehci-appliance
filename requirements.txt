@@ -34,23 +34,23 @@ apache-libcloud         # Python library for multiple cloud provider APIs
 pyrax                   # Python library for Rackspace Cloud
 
 # OpenStack packages
-python-glanceclient     # OpenStack Image API Client Library
-python-keystoneclient   # OpenStack Identity API Client Library
-python-neutronclient    # OpenStack Networking API Client Library
-python-novaclient       # OpenStack Compute API Client Library
-python-swiftclient      # OpenStack Object Storage API Client Library
-python-ironicclient     # OpenStack Bare Metal Provisioning API Client Library
-python-heatclient       # OpenStack Orchestration API Client Library
-python-zaqarclient      # OpenStack Message Queue API Client Library
-python-designateclient  # OpenStack DNS API Client Library
-python-magnumclient     # OpenStack Container Orchestration API Client Library
-pankoclient             # OpenStack Telemetry API Client Library
-#python-ceilometerclient # OpenStack Telemetry API Client Library
-#python-troveclient      # OpenStack Database API Client Library <-- Failing
-python-saharaclient     # OpenStack Data Processing API Client Library
+#python-glanceclient     # OpenStack Image API Client Library
+#python-keystoneclient   # OpenStack Identity API Client Library
+#python-neutronclient    # OpenStack Networking API Client Library
+#python-novaclient       # OpenStack Compute API Client Library
+#python-swiftclient      # OpenStack Object Storage API Client Library
+#python-ironicclient     # OpenStack Bare Metal Provisioning API Client Library
+#python-heatclient       # OpenStack Orchestration API Client Library
+#python-zaqarclient      # OpenStack Message Queue API Client Library
+#python-designateclient  # OpenStack DNS API Client Library
+#python-magnumclient     # OpenStack Container Orchestration API Client Library
+#pankoclient             # OpenStack Telemetry API Client Library
+#python-saharaclient     # OpenStack Data Processing API Client Library
 
 
 # Failed packages
 #pycurl                 # Python bindings to libcurl
 #ovirt-engine-sdk-python # Python SDK for oVirt Engine API
 #openstacksdk           # Python SDK for OpenStack APIs
+#python-ceilometerclient # OpenStack Telemetry API Client Library   <-- Failing
+#python-troveclient      # OpenStack Database API Client Library    <-- Failing
