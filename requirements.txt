@@ -54,6 +54,6 @@ rackspacesdk            # Python library for Rackspace Cloud
 # Failed packages
 #pycurl                 # Python bindings to libcurl
 #ovirt-engine-sdk-python # Python SDK for oVirt Engine API
-#openstacksdk           # Python SDK for OpenStack APIs
+openstacksdk           # Python SDK for OpenStack APIs
 #python-ceilometerclient # OpenStack Telemetry API Client Library   <-- Failing
 #python-troveclient      # OpenStack Database API Client Library    <-- Failing
