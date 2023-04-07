@@ -14,16 +14,22 @@ sshtunnel               # Library for creating SSH tunnels
 paramiko                # SSHv2 protocol library for Python
 ansible                 # IT automation library
 
-# Hardware Vendor packages
-pyVmomi                 # VMware vSphere API Python bindings
+# BMC packages
 redfish                 # Python library for Redfish and Swordfish APIs
-pywinrm                 # Windows Remote Management (WinRM) library for Python
-omsdk                   # OpenManage Python SDK
 pyipmi                  # Python library for IPMI
+
+# Hardware Vendor packages
+omsdk                   # OpenManage Python SDK
 ntnx-api                # Python library for Nutanix REST API
 junos-eznc              # Junos PyEZ library
 pylxca                  # Lenovo XClarity Administrator Python SDK
 
+# Virtualization packages
+pywinrm                 # Windows Remote Management (WinRM) library for Python
+pywin32                 # Windows Management Instrumentation (WMI) library for Python
+
+pyVmomi                 # VMware vSphere API Python bindings
+openstacksdk            # Python SDK for OpenStack APIs
 
 # Cloud packages
 azure-mgmt-compute      # Microsoft Azure Compute Management Client Library
@@ -33,7 +39,6 @@ google-cloud-storage    # Google Cloud Storage API Client Library
 boto3                   # Amazon Web Services (AWS) SDK for Python
 botocore                # Low-level, data-driven core of boto 3
 apache-libcloud         # Python library for multiple cloud provider APIs
-#pyrax                  # Python library for Rackspace Cloud <--- Failing on Python 3.10 Depricated in favor of openstacksdk and rackspacesdk
 rackspacesdk            # Python library for Rackspace Cloud
 
 # OpenStack packages
@@ -49,11 +54,11 @@ rackspacesdk            # Python library for Rackspace Cloud
 #python-magnumclient     # OpenStack Container Orchestration API Client Library
 #pankoclient             # OpenStack Telemetry API Client Library
 #python-saharaclient     # OpenStack Data Processing API Client Library
-
+#python-tackerclient     # OpenStack NFV Orchestration API Client Library
 
 # Failed packages
 #pycurl                 # Python bindings to libcurl
 #ovirt-engine-sdk-python # Python SDK for oVirt Engine API
-openstacksdk           # Python SDK for OpenStack APIs
+#pyrax                  # Python library for Rackspace Cloud <--- Failing on Python 3.10 Depricated in favor of openstacksdk and rackspacesdk
 #python-ceilometerclient # OpenStack Telemetry API Client Library   <-- Failing
 #python-troveclient      # OpenStack Database API Client Library    <-- Failing
