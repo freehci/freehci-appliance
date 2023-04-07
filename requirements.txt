@@ -12,6 +12,7 @@ pyjwt                   # JSON Web Token library
 python-multipart        # Streaming multipart parser for Python
 sshtunnel               # Library for creating SSH tunnels
 paramiko                # SSHv2 protocol library for Python
+ansible                 # IT automation library
 
 # Hardware Vendor packages
 pyVmomi                 # VMware vSphere API Python bindings
@@ -21,7 +22,8 @@ omsdk                   # OpenManage Python SDK
 pyipmi                  # Python library for IPMI
 ntnx-api                # Python library for Nutanix REST API
 junos-eznc              # Junos PyEZ library
-ansible                 # IT automation library
+pylxca                  # Lenovo XClarity Administrator Python SDK
+
 
 # Cloud packages
 azure-mgmt-compute      # Microsoft Azure Compute Management Client Library
