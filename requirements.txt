@@ -26,7 +26,7 @@ pylxca                  # Lenovo XClarity Administrator Python SDK
 
 # Virtualization packages
 pywinrm                 # Windows Remote Management (WinRM) library for Python
-pywin32                 # Windows Management Instrumentation (WMI) library for Python
+#pywin32                 # Windows Management Instrumentation (WMI) library for Python <--- Windows only
 
 pyVmomi                 # VMware vSphere API Python bindings
 openstacksdk            # Python SDK for OpenStack APIs
