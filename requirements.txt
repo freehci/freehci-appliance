@@ -13,7 +13,7 @@ python-multipart        # Streaming multipart parser for Python
 sshtunnel               # Library for creating SSH tunnels
 paramiko                # SSHv2 protocol library for Python
 
-# Vendor packages
+# Hardware Vendor packages
 pyVmomi                 # VMware vSphere API Python bindings
 redfish                 # Python library for Redfish and Swordfish APIs
 pywinrm                 # Windows Remote Management (WinRM) library for Python
@@ -21,19 +21,34 @@ omsdk                   # OpenManage Python SDK
 pyipmi                  # Python library for IPMI
 ntnx-api                # Python library for Nutanix REST API
 junos-eznc              # Junos PyEZ library
+ansible                 # IT automation library
 
-cinderclient            # OpenStack Block Storage API Client Library
-glanceclient            # OpenStack Image API Client Library
-keystoneclient          # OpenStack Identity API Client Library
-neutronclient           # OpenStack Networking API Client Library
-novaclient              # OpenStack Compute API Client Library
-swiftclient             # OpenStack Object Storage API Client Library
+# Cloud packages
 azure-mgmt-compute      # Microsoft Azure Compute Management Client Library
 azure-mgmt-storage      # Microsoft Azure Storage Management Client Library
 google-cloud-compute    # Google Compute Engine API Client Library
 google-cloud-storage    # Google Cloud Storage API Client Library
 boto3                   # Amazon Web Services (AWS) SDK for Python
-ansible                 # IT automation library
+botocore                # Low-level, data-driven core of boto 3
+apache-libcloud         # Python library for multiple cloud provider APIs
+pyrax                   # Python library for Rackspace Cloud
+
+# OpenStack packages
+python-glanceclient     # OpenStack Image API Client Library
+python-keystoneclient   # OpenStack Identity API Client Library
+python-neutronclient    # OpenStack Networking API Client Library
+python-novaclient       # OpenStack Compute API Client Library
+python-swiftclient      # OpenStack Object Storage API Client Library
+python-ironicclient     # OpenStack Bare Metal Provisioning API Client Library
+python-heatclient       # OpenStack Orchestration API Client Library
+python-zaqarclient      # OpenStack Message Queue API Client Library
+python-designateclient  # OpenStack DNS API Client Library
+python-magnumclient     # OpenStack Container Orchestration API Client Library
+python-pankoclient      # OpenStack Telemetry API Client Library
+python-ceilometerclient # OpenStack Telemetry API Client Library
+python-troveclient      # OpenStack Database API Client Library
+python-saharaclient     # OpenStack Data Processing API Client Library
+
 
 # Failed packages
 #pycurl                 # Python bindings to libcurl
