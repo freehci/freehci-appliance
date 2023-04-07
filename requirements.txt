@@ -31,7 +31,7 @@ google-cloud-storage    # Google Cloud Storage API Client Library
 boto3                   # Amazon Web Services (AWS) SDK for Python
 botocore                # Low-level, data-driven core of boto 3
 apache-libcloud         # Python library for multiple cloud provider APIs
-pyrax                   # Python library for Rackspace Cloud
+#pyrax                   # Python library for Rackspace Cloud
 
 # OpenStack packages
 #python-glanceclient     # OpenStack Image API Client Library
