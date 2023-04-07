@@ -13,6 +13,7 @@ python-multipart        # Streaming multipart parser for Python
 sshtunnel               # Library for creating SSH tunnels
 paramiko                # SSHv2 protocol library for Python
 ansible                 # IT automation library
+vncdotool               # Python library for controlling VNC servers
 
 # BMC packages
 redfish                 # Python library for Redfish and Swordfish APIs
