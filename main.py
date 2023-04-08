@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy import inspect
+import aiofiles
 
 # Modules required for plugins
 import requests
@@ -86,6 +87,12 @@ async def read_root(request: Request):
     update_url = "https://github.com/freehci/appliance.json"
     message = "This is the landing page for the FreeHCI Appliance. You can find more information and documentation at the following links:"
     return templates.TemplateResponse("my_template.html", {"request": request, "title": title, "message": message, "update_url": update_url})
+
+@app.get("/ui/", response_class=HTMLResponse)
+async def read_root():
+    async with aiofiles.open("your_html_file.html", mode="r") as f:
+        content = await f.read()
+    return HTMLResponse(content=content)
 
 # ------------------
 #   Example Method
