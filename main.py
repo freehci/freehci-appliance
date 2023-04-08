@@ -78,19 +78,21 @@ def install_plugin_from_repository(plugin_url, plugin_name):
 
 
 # Landing page
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="html/static"), name="static")
+templates = Jinja2Templates(directory="html/templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     title = "FreeHCI Appliance"
     update_url = "https://github.com/freehci/appliance.json"
+    ui_url = "/ui/"
     message = "This is the landing page for the FreeHCI Appliance. You can find more information and documentation at the following links:"
-    return templates.TemplateResponse("my_template.html", {"request": request, "title": title, "message": message, "update_url": update_url})
+    return templates.TemplateResponse("start.html", {"request": request, "title": title, "message": message, "update_url": update_url, "ui_url": ui_url})
 
+# Serve the dashboard
 @app.get("/ui/", response_class=HTMLResponse)
 async def read_root():
-    async with aiofiles.open("your_html_file.html", mode="r") as f:
+    async with aiofiles.open("html/ui/dashboard.html", mode="r") as f:
         content = await f.read()
     return HTMLResponse(content=content)
 

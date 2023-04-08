@@ -26,9 +26,10 @@
             <div class="frame">
                 <img class="side-image" src="{{ request.url_for('static', path='/images/FreeHCI_Logo250px.png') }}" alt="Side image">
                 <div>
-                    <h1>[[ title ]] </h1>
+                    <h1>{{ title }} </h1>
                     <p>{{ message }}</p>
                     <ul>
+                        <li><a href="{{ ui_url }}">Start configuring using the Dashboard</a></li>
                         <li><a href="/docs">API Documentation (Swagger UI)</a></li>
                         <li><a href="https://github.com/freehci/">GitHub Repository</a></li>
                         <li><a href="https://freehci.org">The FreeHCI Project</a></li>
