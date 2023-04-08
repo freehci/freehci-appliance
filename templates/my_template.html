@@ -1,11 +1,15 @@
-<!-- my_template.html-->
+<!-- file: my_template.html-->
 <!DOCTYPE html>
-<html>
+<html id="app">
     <head>
-        <title>{{ title }}</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title></title>
         <link rel="stylesheet" href="{{ request.url_for('static', path='/css/dark_mode.css') }}">
         <!-- Add the Font Awesome link -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha384-KyZXEAg3QhqLMpG8r+Knujsl5/1gisZ7UvyJtF2sd7O/[0sujEJFcdc38rep8aI" crossorigin="anonymous">
+        <!-- Add the vue.js link -->
+        <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
     </head>
     <body>
         <nav>
@@ -22,7 +26,7 @@
             <div class="frame">
                 <img class="side-image" src="{{ request.url_for('static', path='/images/FreeHCI_Logo250px.png') }}" alt="Side image">
                 <div>
-                    <h1>{{ title }}</h1>
+                    <h1>[[ title ]] </h1>
                     <p>{{ message }}</p>
                     <ul>
                         <li><a href="/docs">API Documentation (Swagger UI)</a></li>
@@ -103,5 +107,24 @@
           </div>
         
           <script src="{{ request.url_for('static', path='/js/scripts.js') }}"></script>
+
+          <script>
+            new Vue({
+              el: '#app',
+              delimiters: ['[[', ']]'],
+              data: {
+                title: 'FreeHCI Appliance',
+                update_url: 'https://github.com/freehci/appliance.json',
+                message:
+                  'This is the landing page for the FreeHCI Appliance. You can find more information and documentation at the following links:',
+              },
+              mounted() {
+                document.title = this.title;
+              },
+            });
+          </script>
+          
+          
+                    
     </body>
 </html>
