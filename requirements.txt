@@ -16,9 +16,16 @@ ansible                 # IT automation library
 vncdotool               # Python library for controlling VNC servers
 aiofiles                # Asynchronous file operations
 
+# We need tessaract-ocr in order to interpret the ESXi console output
+# TODO: Find a way to install this without having to install the entire tesseract-ocr package
+#tesserocr               # Python wrapper for tesseract-ocr
+
 # BMC packages
 redfish                 # Python library for Redfish and Swordfish APIs
 pyipmi                  # Python library for IPMI
+
+# Investerigate if this is better than pyipmi or not
+#pyghmi                  # Python library for IPMI and Redfish
 
 # Hardware Vendor packages
 omsdk                   # OpenManage Python SDK
