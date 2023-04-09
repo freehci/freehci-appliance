@@ -9,6 +9,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi import File
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy import inspect
@@ -77,8 +78,13 @@ def install_plugin_from_repository(plugin_url, plugin_name):
     subprocess.check_call([sys.executable, "-m", "pip", "install", plugin_file_path])
 
 
-# Landing page
+# Landing page static files
 app.mount("/static", StaticFiles(directory="html/static"), name="static")
+
+# Static files for the UI
+app.mount("/ui/static", StaticFiles(directory="html/ui/static"), name="ui_static")
+#app.mount("/ui", StaticFiles(directory="html/ui"), name="ui")
+
 templates = Jinja2Templates(directory="html/templates")
 
 @app.get("/", response_class=HTMLResponse)
@@ -95,6 +101,11 @@ async def read_root():
     async with aiofiles.open("html/ui/dashboard.html", mode="r") as f:
         content = await f.read()
     return HTMLResponse(content=content)
+
+# Serve the UI components
+@app.get("/ui/components/{filename}")
+async def serve_vue_component(filename: str):
+    return FileResponse(f"html/ui/components/{filename}", media_type="application/javascript")
 
 # ------------------
 #   Example Method
