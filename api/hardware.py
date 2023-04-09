@@ -12,10 +12,18 @@ router = APIRouter()
 supported_manufacturers = ["Lenovo", "Dell", "HPE"]
 
 nodes = [
-    Node(id=1, name="node1", manufacturer="Lenovo", model="xyz", serial="cluster1", operating_system="Linux"),
-    Node(id=2, name="node2", manufacturer="Dell", model="abc", serial="cluster2", operating_system="Windows"),
-    # ... more nodes
+    Node(id=1, name="dc3-web-205", manufacturer="HPE", model="Proliant DL 380", serial="US2022001", operating_system="CentOS 7"),
+    Node(id=2, name="dc3-web-206", manufacturer="Dell", model="PowerEdge R740", serial="US2022002", operating_system="Windows Server 2019"),
+    Node(id=3, name="dc3-web-207", manufacturer="Lenovo", model="ThinkSystem SR650", serial="US2022003", operating_system="Ubuntu 20.04"),
+    Node(id=4, name="dc3-web-208", manufacturer="Huawei", model="FusionServer 2288H", serial="CN2022004", operating_system="Debian 10"),
+    Node(id=5, name="dc3-web-209", manufacturer="HPE", model="Proliant DL 360", serial="US2022005", operating_system="CentOS 8"),
+    Node(id=6, name="dc3-web-210", manufacturer="Dell", model="PowerEdge R640", serial="US2022006", operating_system="Windows Server 2022"),
+    Node(id=7, name="dc3-web-211", manufacturer="Lenovo", model="ThinkSystem SR630", serial="US2022007", operating_system="Ubuntu 18.04"),
+    Node(id=8, name="dc3-web-212", manufacturer="Huawei", model="FusionServer 1288H", serial="CN2022008", operating_system="Debian 9"),
+    Node(id=9, name="dc3-web-213", manufacturer="HPE", model="Proliant DL 580", serial="US2022009", operating_system="CentOS 7"),
+    Node(id=10, name="dc3-web-214", manufacturer="Dell", model="PowerEdge R440", serial="US2022010", operating_system="Windows Server 2016"),
 ]
+
 
 models = [
     Model(id=1, name="Proliant DL380", manufacturer="HPE", model="xyz", pn="cluster1"),
