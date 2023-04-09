@@ -9,7 +9,22 @@ from models.hardware import Node, Model
 router = APIRouter()
 # TODO: Move to routers
 
-supported_manufacturers = ["Lenovo", "Dell", "HPE"]
+supported_manufacturers = [
+    "Lenovo", 
+    "Dell", 
+    "HPE", 
+    "Huawei",
+    "Supermicro",
+    "Cisco",
+    "Oracle",
+    "IBM",
+    "Quanta",
+    "RackTop",
+    "Raritan",
+    "Rittal",
+    "Schneider Electric",
+    "Server Technology"
+] 
 
 nodes = [
     Node(id=1, name="dc3-web-205", manufacturer="HPE", model="Proliant DL 380", serial="US2022001", operating_system="CentOS 7"),
