@@ -15,14 +15,20 @@ const options = {
       const ref = document.head.getElementsByTagName('style')[0] || null;
       document.head.insertBefore(style, ref);
     },
-  }
+}
 
-  const { loadModule } = window['vue3-sfc-loader'];
+const { loadModule } = window['vue3-sfc-loader'];
 
-  const app = Vue.createApp({
+const app = Vue.createApp({
+    
     data() {
       return {
         currentComponent: null,
+      };
+    },
+    provide() {
+      return {
+        apiBaseUrl, // Provide the apiBaseUrl here
       };
     },
     methods: {
@@ -40,6 +46,7 @@ const options = {
       // Load standard component at startup, eg. 'Users'
       this.loadComponent('Dashboard');
     },
-  });
+    
+});
 
-  app.mount('#app');
+app.mount('#app');
