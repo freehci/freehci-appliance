@@ -8,6 +8,15 @@ class UserCreate(BaseModel):
     email: str
     password: str
     firstname: Optional[str] = ""
-    lasttname: Optional[str] = ""
+    lastname: Optional[str] = ""
     phone: Optional[str] = ""
+    streetaddress1: Optional[str] = ""
+    streetaddress2: Optional[str] = ""
+    postalcode: Optional[str] = ""
+    city: Optional[str] = ""
+    company: Optional[str] = ""
+    department: Optional[str] = ""
+    country: Optional[str] = ""
+    
+    
     

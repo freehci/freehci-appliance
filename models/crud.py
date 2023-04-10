@@ -3,6 +3,7 @@
 
 from sqlalchemy.orm import Session
 from .user_models import User
+from .role_models import Role
 from .authentication import get_password_hash
 from .user_schemas import UserCreate
 
@@ -23,3 +24,6 @@ def get_user_by_id(db: Session, user_id: int):
 
 def get_users(db: Session):
     return db.query(User).all()
+
+def get_roles(db: Session):
+    return db.query(Role).all()

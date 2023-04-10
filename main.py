@@ -28,13 +28,13 @@ from api.hardware import router as hardware_router
 from api.virtualization import router as virtualization_router
 from api.authentication import router as authentication_router
 
-from routers import user # Importing API functions for user
-
+from routers import user, role  # Importing API functions for user and role
 from models import database
-from models import User # Importing user class from models/
+from models import User, Role  # Importing user and role classes from models/
 
 #print("Imported User model")
 User.__table__.create(database.engine, checkfirst=True)
+Role.__table__.create(database.engine, checkfirst=True)
 #print("Created users table")
 
 database.Base.metadata.create_all(bind=database.engine)
@@ -154,6 +154,7 @@ async def run_all_plugins():
 
 # Include additional modules 
 app.include_router(user.router)
+app.include_router(role.router)
 app.include_router(authentication_router)
 app.include_router(appliance_router)
 app.include_router(hardware_router)
