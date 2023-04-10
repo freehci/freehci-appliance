@@ -29,10 +29,11 @@
         Metrics: [],
       };
     },
+    
     methods: {
       fetchMetrics() {
         axios
-          .get("http://localhost:8000/appliance/metrics")
+          .get(window.apiBaseUrl + "appliance/metrics")
           .then((response) => {
             this.Metrics = response.data;
           })
