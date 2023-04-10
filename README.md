@@ -19,6 +19,7 @@
 
 ```javascript
 window.apiBaseUrl = "http://localhost:8000/";
+```
 
 5. Run the project using `uvicorn`:
 `uvicorn main:app --reload`
