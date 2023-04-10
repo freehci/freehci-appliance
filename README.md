@@ -28,4 +28,4 @@ Options:
   --host TEXT                     Bind socket to this host.  [default: 127.0.0.1]
   --port INTEGER                  Bind socket to this port.  [default: 8000]
 
-For more options, please visit [https://www.uvicorn.org/](uvicorn documentation)
+For more options, please visit [uvicorn documentation](https://www.uvicorn.org/)
