@@ -25,7 +25,7 @@
     </div>
   </template>
   
-  <script>
+<script>
   export default {
     data() {
       return {
@@ -49,5 +49,5 @@
       setInterval(this.fetchNodes, 5000); // Update every 5 seconds
     },
   };
-  </script>
+</script>
   

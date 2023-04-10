@@ -38,7 +38,7 @@ const options = {
     },
     mounted() {
       // Load standard component at startup, eg. 'Users'
-      this.loadComponent('Users');
+      this.loadComponent('Dashboard');
     },
   });
 
