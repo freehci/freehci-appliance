@@ -17,7 +17,7 @@
       // Fetch items
       fetchItems() {
         axios
-          .get("http://localhost:8000/appliance/metrics")
+          .get(window.apiBaseUrl + "appliance/metrics")
           .then((response) => {
             this.items = response.data;
           })
@@ -29,7 +29,7 @@
       // Create a new item
       createItem(item) {
         axios
-          .post("http://localhost:8000/appliance/metrics", item)
+          .post(window.apiBaseUrl + "appliance/metrics", item)
           .then((response) => {
             this.items.push(response.data);
           })
@@ -41,7 +41,7 @@
       // Update an existing item
       updateItem(item) {
         axios
-          .put(`http://localhost:8000/appliance/metrics/${item.id}`, item)
+          .put(window.apiBaseUrl + `appliance/metrics/${item.id}`, item)
           .then((response) => {
             const index = this.items.findIndex((i) => i.id === item.id);
             this.items.splice(index, 1, response.data);
@@ -54,7 +54,7 @@
       // Delete an item
       deleteItem(item) {
         axios
-          .delete(`http://localhost:8000/appliance/metrics/${item.id}`)
+          .delete(window.apiBaseUrl + `appliance/metrics/${item.id}`)
           .then(() => {
             const index = this.items.findIndex((i) => i.id === item.id);
             this.items.splice(index, 1);

@@ -3,3 +3,4 @@
 // It is loaded before the application starts.
 
 window.apiBaseUrl = "http://localhost:8000/";
+window.webSocketBaseUrl = "ws://localhost:8000/ws";

@@ -17,7 +17,7 @@
     methods: {
       // Initialize WebSocket connection
       initWebSocket() {
-        this.socket = new WebSocket("ws://localhost:8000/ws");
+        this.socket = new WebSocket(window.webSocketBaseUrl);
   
         this.socket.onopen = () => {
           console.log("WebSocket connection opened.");

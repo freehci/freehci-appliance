@@ -1,9 +1,11 @@
 # models/iDRAC.py
 # Description: iDRAC model for Dell servers
 
-
 # This method is used to use SSH-tunnel to the iDRAC and then to the ESXi host.
-# Example only, not used in the API.
+# Example only, not implemented in the API.
+
+# The SSH-tunnel to the iDRAC works only with older versions iDRAC.
+# We have created a ticket with Dell to get this fixed.
 
 import paramiko
 from sshtunnel import SSHTunnelForwarder
@@ -12,6 +14,7 @@ iDRAC_ip = '10.22.15.87'
 iDRAC_username = 'root'
 iDRAC_password = 'calvin'
 ESXi_ip = '172.16.0.2'
+
 
 with SSHTunnelForwarder(
     (iDRAC_ip, 22),
