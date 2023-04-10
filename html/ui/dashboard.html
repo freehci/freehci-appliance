@@ -35,33 +35,29 @@
         <!-- Side bar -->
         <div class="row mt-3">
             <div class="col-md-2">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                    <a class="nav-link active" href="#" @click="loadComponent('Dashboard')">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link" href="#" @click="loadComponent('Users')">Users</a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link" href="#" @click="loadComponent('Groups')">Groups</a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link" href="#" @click="loadComponent('Hardware')">Hardware</a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link" href="#" @click="loadComponent('Vendors')">Vendors</a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link" href="#" @click="loadComponent('Plugins')">Plugins</a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link" href="#" @click="loadComponent('Settings')">Settings</a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link" href="#" @click="loadComponent('Help')">Help</a>
-                    </li>
-                </ul>
-            </div>
+                <div class="nav flex-column nav-pills bg-dark" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                  <a class="nav-link active text-light" href="#" @click="loadComponent('Dashboard')">Dashboard</a>
+                  
+                  <!-- Users, Roles, and Groups -->
+                  <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle text-light" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
+                      Users, Roles, and Groups
+                    </a>
+                    <div class="dropdown-menu bg-dark">
+                      <a class="dropdown-item text-light" href="#" @click="loadComponent('Users')">Users</a>
+                      <a class="dropdown-item text-light" href="#" @click="loadComponent('Roles')">Roles</a>
+                      <a class="dropdown-item text-light" href="#" @click="loadComponent('Groups')">Groups</a>
+                    </div>
+                  </div>
+              
+                  <a class="nav-link text-light" href="#" @click="loadComponent('Hardware')">Hardware</a>
+                  <a class="nav-link text-light" href="#" @click="loadComponent('Vendors')">Vendors</a>
+                  <a class="nav-link text-light" href="#" @click="loadComponent('Plugins')">Plugins</a>
+                  <a class="nav-link text-light" href="#" @click="loadComponent('Settings')">Settings</a>
+                  <a class="nav-link text-light" href="#" @click="loadComponent('Help')">Help</a>
+                </div>
+              </div>
+              
             <!-- Add main content -->
             <div class="col-md-10">
                 <div class="row">
