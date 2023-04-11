@@ -44,7 +44,7 @@ pysnmp                  # Python SNMP library
 #pysmi-writer            # Writer for pysmi
 
 # Zabbix packages for monitoring <-- Build failed on Python 3.8, 3.9, 3.10
-#zabbix-api              # Python library for Zabbix API
+zabbix-api              # Python library for Zabbix API
 #zabbix-api-scripts      # Python scripts for Zabbix API
 #zabbix-api-templates    # Python templates for Zabbix API
 #zabbix-api-extensions   # Python extensions for Zabbix API
