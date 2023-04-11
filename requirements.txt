@@ -29,7 +29,7 @@ pyipmi                  # Python library for IPMI
 # SNMP packages
 pysnmp                  # Python SNMP library
 pysnmp-mibs             # MIBs for pysnmp
-pysnmp-apps             # Applications for pysnmp
+#pysnmp-apps             # Applications for pysnmp
 pysnmp-hlapi            # High-level API for pysnmp
 pysnmp-smi              # SMI for pysnmp
 pysnmp-smi-mibs         # MIBs for pysnmp-smi
