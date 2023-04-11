@@ -15,6 +15,8 @@ paramiko                # SSHv2 protocol library for Python
 ansible                 # IT automation library
 vncdotool               # Python library for controlling VNC servers
 aiofiles                # Asynchronous file operations
+aiohttp                 # Asynchronous HTTP client/server for asyncio and Python
+
 
 # We need tessaract-ocr in order to interpret the ESXi console output
 # TODO: Find a way to install this without having to install the entire tesseract-ocr package
@@ -23,6 +25,24 @@ aiofiles                # Asynchronous file operations
 # BMC packages
 redfish                 # Python library for Redfish and Swordfish APIs
 pyipmi                  # Python library for IPMI
+
+# SNMP packages
+pysnmp                  # Python SNMP library
+pysnmp-mibs             # MIBs for pysnmp
+pysnmp-apps             # Applications for pysnmp
+
+# SNMP simulator packages
+#snmpsim                 # SNMP simulator
+#snmpsim-data            # SNMP simulator data
+#snmpsim-recording       # SNMP simulator recording
+#snmpsim-logging         # SNMP simulator logging
+#snmpsim-configuration   # SNMP simulator configuration
+#snmpsim-mibs            # SNMP simulator MIBs
+#snmpsim-templates       # SNMP simulator templates
+#snmpsim-extensions      # SNMP simulator extensions
+#snmpsim-translation     # SNMP simulator translation
+#snmpsim-variation       # SNMP simulator variation
+
 
 # Investerigate if this is better than pyipmi or not
 #pyghmi                  # Python library for IPMI and Redfish

@@ -6,6 +6,7 @@ from .user_models import User
 from .role_models import Role
 from .authentication import get_password_hash
 from .user_schemas import UserCreate
+from .role_schemas import RoleCreate
 
 def create_user(db: Session, user: UserCreate):
     hashed_password = get_password_hash(user.password)

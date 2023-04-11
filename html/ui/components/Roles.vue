@@ -1,6 +1,7 @@
 <template>
     <div>
       <!-- Your component template goes here -->
+      <h1>Roles</h1>
     </div>
   </template>
   
@@ -16,7 +17,7 @@
       // Fetch items
       fetchItems() {
         axios
-          .get(window.apiBaseUrl + "roles")
+          .get(window.apiBaseUrl + "roles/")
           .then((response) => {
             this.items = response.data;
           })
@@ -28,7 +29,7 @@
       // Create a new item
       createItem(item) {
         axios
-          .post(window.apiBaseUrl + "roles", item)
+          .post(window.apiBaseUrl + "roles/", item)
           .then((response) => {
             this.items.push(response.data);
           })
