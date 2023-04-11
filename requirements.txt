@@ -52,9 +52,11 @@ omsdk                   # OpenManage Python SDK
 ntnx-api                # Python library for Nutanix REST API
 junos-eznc              # Junos PyEZ library
 pylxca                  # Lenovo XClarity Administrator Python SDK
-
+git+https://github.com/HewlettPackard/oneview-python.git # HPE OneView Python SDK
 #pyhpeoneview            # HPE OneView Python SDK <--- Failing on Python 3.8, 3.9, 3.10
 #pyhpecw7                # HPE OneView Python SDK <--- Failing on Python 3.8, 3.9, 3.10
+
+
 
 #pyhpecfm                # HPE Composable Fabric Manager Python SDK
 #pyhpeimc                # HPE Intelligent Management Center Python SDK
