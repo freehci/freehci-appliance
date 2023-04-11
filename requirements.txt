@@ -30,6 +30,23 @@ pyipmi                  # Python library for IPMI
 pysnmp                  # Python SNMP library
 pysnmp-mibs             # MIBs for pysnmp
 pysnmp-apps             # Applications for pysnmp
+pysnmp-hlapi            # High-level API for pysnmp
+pysnmp-smi              # SMI for pysnmp
+pysnmp-smi-mibs         # MIBs for pysnmp-smi
+
+#pysmi                   # Python SMI library
+#pysmi-codegen           # Code generator for pysmi
+#pysmi-compiler          # Compiler for pysmi
+#pysmi-mibs              # MIBs for pysmi
+#pysmi-reader            # Reader for pysmi
+#pysmi-searcher          # Searcher for pysmi
+#pysmi-smparser          # SM parser for pysmi
+#pysmi-writer            # Writer for pysmi
+
+# Zabbix packages for monitoring
+zabbix-api              # Python library for Zabbix API
+zabbix-api-scripts      # Python scripts for Zabbix API
+
 
 # SNMP simulator packages
 #snmpsim                 # SNMP simulator
@@ -53,11 +70,9 @@ ntnx-api                # Python library for Nutanix REST API
 junos-eznc              # Junos PyEZ library
 pylxca                  # Lenovo XClarity Administrator Python SDK
 git+https://github.com/HewlettPackard/oneview-python.git # HPE OneView Python SDK
+
 #pyhpeoneview            # HPE OneView Python SDK <--- Failing on Python 3.8, 3.9, 3.10
 #pyhpecw7                # HPE OneView Python SDK <--- Failing on Python 3.8, 3.9, 3.10
-
-
-
 #pyhpecfm                # HPE Composable Fabric Manager Python SDK
 #pyhpeimc                # HPE Intelligent Management Center Python SDK
 #pyhpe3parclient         # HPE 3PAR Python SDK
