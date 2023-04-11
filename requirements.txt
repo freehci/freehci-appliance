@@ -1,3 +1,4 @@
+wheel                   # Wheel packaging format for Python
 fastapi                 # Modern web framework for building APIs
 bcrypt                  # Cryptographic library for password hashing
 pydantic                # Data validation and parsing library
@@ -43,7 +44,7 @@ pysnmp                  # Python SNMP library
 #pysmi-smparser          # SM parser for pysmi
 #pysmi-writer            # Writer for pysmi
 
-# Zabbix packages for monitoring <-- Build failed on Python 3.8, 3.9, 3.10
+# Zabbix packages for monitoring and alerting
 zabbix-api              # Python library for Zabbix API
 #zabbix-api-scripts      # Python scripts for Zabbix API
 #zabbix-api-templates    # Python templates for Zabbix API
