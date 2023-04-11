@@ -43,10 +43,15 @@ pysnmp-smi-mibs         # MIBs for pysnmp-smi
 #pysmi-smparser          # SM parser for pysmi
 #pysmi-writer            # Writer for pysmi
 
-# Zabbix packages for monitoring
-zabbix-api              # Python library for Zabbix API
-zabbix-api-scripts      # Python scripts for Zabbix API
-
+# Zabbix packages for monitoring <-- Build failed on Python 3.8, 3.9, 3.10
+#zabbix-api              # Python library for Zabbix API
+#zabbix-api-scripts      # Python scripts for Zabbix API
+#zabbix-api-templates    # Python templates for Zabbix API
+#zabbix-api-extensions   # Python extensions for Zabbix API
+#zabbix-api-configuration# Python configuration for Zabbix API
+#zabbix-api-mibs         # Python MIBs for Zabbix API
+#zabbix-api-translation  # Python translation for Zabbix API
+#zabbix-api-variation    # Python variation for Zabbix API
 
 # SNMP simulator packages
 #snmpsim                 # SNMP simulator
