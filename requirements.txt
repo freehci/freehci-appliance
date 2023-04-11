@@ -52,7 +52,7 @@ omsdk                   # OpenManage Python SDK
 ntnx-api                # Python library for Nutanix REST API
 junos-eznc              # Junos PyEZ library
 pylxca                  # Lenovo XClarity Administrator Python SDK
-pyhpecw7                # HPE OneView Python SDK
+#pyhpecw7                # HPE OneView Python SDK
 
 # Virtualization packages
 pywinrm                 # Windows Remote Management (WinRM) library for Python
