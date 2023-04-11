@@ -53,6 +53,22 @@ ntnx-api                # Python library for Nutanix REST API
 junos-eznc              # Junos PyEZ library
 pylxca                  # Lenovo XClarity Administrator Python SDK
 #pyhpecw7                # HPE OneView Python SDK
+#pyhpecfm                # HPE Composable Fabric Manager Python SDK
+#pyhpeimc                # HPE Intelligent Management Center Python SDK
+#pyhpe3parclient         # HPE 3PAR Python SDK
+#pyhpedockerplugin       # HPE Docker Plugin Python SDK
+#pyhpeimc                # HPE Intelligent Management Center Python SDK
+#pyhpelefthandclient     # HPE LeftHand Python SDK
+#pyhperaid               # HPE RAID Python SDK
+#pyhpeswitch             # HPE Switch Python SDK
+#pyhpeucs                # HPE UCS Python SDK
+#pyhpeuxapi              # HPE UX Python SDK
+#pyhpevsa                # HPE VSA Python SDK
+#pyhpevse                # HPE VSE Python SDK
+#pyhpevvol               # HPE VVOL Python SDK
+#pyhpewlm                # HPE Workload Manager Python SDK
+#pyhpewsp                # HPE Workspace Python SDK
+pyhpeoneview            # HPE OneView Python SDK
 
 # Virtualization packages
 pywinrm                 # Windows Remote Management (WinRM) library for Python
