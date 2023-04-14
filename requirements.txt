@@ -18,6 +18,7 @@ vncdotool               # Python library for controlling VNC servers
 aiofiles                # Asynchronous file operations
 aiohttp                 # Asynchronous HTTP client/server for asyncio and Python
 #aiohttp-jinja2          # Jinja2 template renderer for aiohttp
+syslog2                 # Syslog client library for Python
 
 # We need tessaract-ocr in order to interpret the ESXi console output
 # TODO: Find a way to install this without having to install the entire tesseract-ocr package

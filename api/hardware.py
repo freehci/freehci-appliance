@@ -6,8 +6,10 @@ from pydantic import BaseModel
 from models.bmc import IPMI, Redfish, SSH
 from models.hardware import Node, Model
 
-router = APIRouter()
 # TODO: Move to routers
+# TODO: Add support for Redfish and SSH
+
+router = APIRouter()
 
 supported_manufacturers = [
     "Lenovo", 
