@@ -1,5 +1,6 @@
 # main.py
 
+
 from fastapi import FastAPI
 from fastapi import FastAPI, UploadFile, Query
 from fastapi.responses import HTMLResponse
@@ -31,6 +32,10 @@ from api.authentication import router as authentication_router
 from routers import user, role  # Importing API functions for user and role
 from models import database
 from models import User, Role  # Importing user and role classes from models/
+
+# Logging
+#.syslog("FreeHCI Appliance started")
+
 
 #print("Imported User model")
 User.__table__.create(database.engine, checkfirst=True)
