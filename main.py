@@ -1,6 +1,6 @@
 # main.py
 
-
+from syslog2 import SysLogHandler
 from fastapi import FastAPI
 from fastapi import FastAPI, UploadFile, Query
 from fastapi.responses import HTMLResponse
@@ -34,8 +34,12 @@ from models import database
 from models import User, Role  # Importing user and role classes from models/
 
 # Logging
-#.syslog("FreeHCI Appliance started")
+# Warning: This will raise an error on Windows when running the app withouth admin rights
+#syslogserver = "192.168.41.58"
+#logger = SysLogHandler(address = (syslogserver,514))
+#logger("FreeHCI Appliance started")
 
+#.syslog("FreeHCI Appliance started")
 
 #print("Imported User model")
 User.__table__.create(database.engine, checkfirst=True)
