@@ -2,13 +2,13 @@
     <div>
         <ul class="nav nav-tabs" role="tablist">
             <li class="nav-item" @click="selectTab('networking')">
-                <a class="nav-link" data-toggle="tab" href="#networking" role="tab" :class="{ active: selectedTab === 'networking' }">Networking</a>
+                <a class="nav-link" data-toggle="tab" href="#networking" role="tab" :class="{ active: selectedTab === 'networking' }"><i class="fas fa-network-wired"></i> Networking</a>
             </li>
             <li class="nav-item" @click="selectTab('componentsAndServices')">
-                <a class="nav-link" data-toggle="tab" href="#componentsAndServices" role="tab" :class="{ active: selectedTab === 'componentsAndServices' }">Components and services</a>
+                <a class="nav-link" data-toggle="tab" href="#componentsAndServices" role="tab" :class="{ active: selectedTab === 'componentsAndServices' }"><i class="fas fa-cogs"></i> Components and services</a>
             </li>
             <li class="nav-item" @click="selectTab('Appliance')">
-                <a class="nav-link" data-toggle="tab" href="#Appliance" role="tab" :class="{ active: selectedTab === 'Appliance' }">Appliance</a>
+                <a class="nav-link" data-toggle="tab" href="#Appliance" role="tab" :class="{ active: selectedTab === 'Appliance' }"><i class="fas fa-server"></i> Appliance</a>
             </li>
         </ul>
 
@@ -22,7 +22,7 @@
 
             <!-- Components and services -->
             <div id="componentsAndServices" class="tab-pane fade" :class="{ active: selectedTab === 'componentsAndServices', show: selectedTab === 'componentsAndServices' }">
-                <h3>Components And Services</h3>
+                <h3><i class="fas fa-cogs"></i> Components And Services</h3>
                 <table class="table table-dark table-striped">
                 <thead>
                     <tr>
@@ -61,11 +61,23 @@
                         <i class="fas" :class="getStatusIcon(service.status)" :title="service.status"></i>
                     </td>
                     <td>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-toggle" type="button" id="actionDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-bars"></i>
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="actionDropdown">
+                                <a class="dropdown-item" href="#" @click="startService(service)"><i class="fa-solid fa-play"></i> Start</a>
+                                <a class="dropdown-item" href="#" @click="stopService(service)"><i class="fa-solid fa-stop"></i> Stop</a>
+                                <a class="dropdown-item" href="#" @click="restartService(service)"><i class="fa-solid fa-rotate"></i> Restart</a>
+                            </div>
+                        </div>
+                        <!--
                         <div class="action-buttons">
                             <button class="btn btn-sm btn-success" @click="startService(service)">Start</button>
                             <button class="btn btn-sm btn-danger" @click="stopService(service)">Stop</button>
                             <button class="btn btn-sm btn-warning" @click="restartService(service)">Restart</button>
                         </div>
+                        -->
                     </td>
                     </tr>
                 </tbody>
@@ -94,12 +106,12 @@
             return {
             selectedTab: 'networking',
             services: [
-                { name: 'Service 1', description: 'This is service 1' ,helptext: 'Help text for service 1', helpurl:'https://some.url.com', enabled: true, status: 'running' },
-                { name: 'Service 2', description: 'This is service 2' ,helptext: 'Help text for service 2', helpurl:'',enabled: false, status: 'stopped' },
-                { name: 'Service 3', description: 'This is service 3' ,helptext: 'Help text for service 3', helpurl:'',enabled: true, status: 'running' },
-                { name: 'Service 4', description: 'This is service 4' ,helptext: 'Help text for service 4', helpurl:'',enabled: true, status: 'running' },
-                { name: 'Service 5', description: 'This is service 5' ,helptext: 'Help text for service 5', helpurl:'',enabled: true, status: 'starting' },
-                { name: 'Service 6', description: 'This is service 6' ,helptext: 'Help text for service 6', helpurl:'',enabled: true, status: 'error' },
+                { name: 'Metrics collector', description: 'This is service 1' ,helptext: 'Help text for service 1', helpurl:'https://some.url.com', enabled: true, status: 'running' },
+                { name: 'Scheduler', description: 'This is service 2' ,helptext: 'Help text for service 2', helpurl:'',enabled: false, status: 'stopped' },
+                { name: 'Device discovery', description: 'This is service 3' ,helptext: 'Help text for service 3', helpurl:'',enabled: true, status: 'running' },
+                { name: 'Update Service', description: 'This is service 4' ,helptext: 'Help text for service 4', helpurl:'',enabled: true, status: 'running' },
+                { name: 'SNMP Server', description: 'This is service 5' ,helptext: 'Help text for service 5', helpurl:'',enabled: true, status: 'starting' },
+                { name: 'Redfish Service', description: 'This is service 6' ,helptext: 'Help text for service 6', helpurl:'',enabled: true, status: 'error' },
             ],
             };
         },
