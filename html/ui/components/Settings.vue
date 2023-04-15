@@ -32,6 +32,7 @@
                     <th>Help URL</th>
                     <th>Enabled</th>
                     <th>Status</th>
+                    <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -47,6 +48,7 @@
                         -
                         </template>
                     </td>
+                    
                     <td>
                         <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" :id="'enabled-' + index" v-model="service.enabled" @change="updateService(index)">
@@ -57,6 +59,13 @@
                     </td>
                     <td>
                         <i class="fas" :class="getStatusIcon(service.status)" :title="service.status"></i>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-success" @click="startService(service)">Start</button>
+                            <button class="btn btn-sm btn-danger" @click="stopService(service)">Stop</button>
+                            <button class="btn btn-sm btn-warning" @click="restartService(service)">Restart</button>
+                        </div>
                     </td>
                     </tr>
                 </tbody>
@@ -99,7 +108,7 @@
             this.selectedTab = tab;
             },  
             updateService(index) {
-            // Oppdater tjenesten i back-end, f.eks. med en API-kall
+            // Update service in back-end, e.g. using api.
                 console.log('Service updated:', this.services[index]);
             },
             getStatusIcon(status) {
@@ -115,6 +124,18 @@
                     default:
                         return 'fa-question-circle text-muted';
                 }
+            },
+            startService(service) {
+                // Implement your logic for starting the service
+                console.log(`Starting ${service.name}`);
+            },
+            stopService(service) {
+                // Implement your logic for stopping the service
+                console.log(`Stopping ${service.name}`);
+            },
+            restartService(service) {
+                // Implement your logic for restarting the service
+                console.log(`Restarting ${service.name}`);
             },
         },
     };
@@ -136,5 +157,13 @@
         color: #495057;
         background-color: #fff;
         border-color: #dee2e6 #dee2e6 #fff;
+    }
+
+    .action-buttons {
+        display: flex;
+    }
+
+    .action-buttons button:not(:last-child) {
+        margin-right: 10px; /* Change this to adjust space between buttons */
     }
 </style>
