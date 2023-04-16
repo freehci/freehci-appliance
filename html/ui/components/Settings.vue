@@ -133,6 +133,9 @@
                         return 'fa-exclamation-circle text-warning';
                     case 'starting':
                         return 'fa-circle-notch fa-spin text-primary';
+                    case 'pending':
+                        return 'fa-hourglass-start text-primary';
+
                     default:
                         return 'fa-question-circle text-muted';
                 }
