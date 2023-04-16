@@ -164,7 +164,7 @@ body{margin-top:20px;
 .table.table-dark {
     background-color: #1A233A;
     border-collapse: separate;
-    border-spacing: 0 0.5rem;
+    border-spacing: 0 0.1rem;
 }
 
 .table.table-dark thead {
@@ -255,6 +255,7 @@ body{margin-top:20px;
     color: #1A233A;
 }
 
+/* Custom styling for the footer */
 .footer {
     position: fixed;
     bottom: 0;
