@@ -1,7 +1,8 @@
 <template>
-    <!-- This is the main component for the Plugins page -->
+    <!-- This is the main component for the Location page -->
 
 </template>
+
 
 <script>
 
@@ -10,3 +11,4 @@
 <style>
 
 </style>
+

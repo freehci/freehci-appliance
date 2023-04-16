@@ -2,9 +2,9 @@
     <div>
       <tree :treeData="jsonData" />
     </div>
-  </template>
+</template>
   
-  <script>
+<script>
   import Tree from "./Tree.vue";
   
   export default {
@@ -52,5 +52,7 @@
       };
     },
   };
-  </script>
+</script>
   
+<style>
+</style>

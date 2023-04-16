@@ -82,6 +82,10 @@
                     </tr>
                 </tbody>
                 </table>
+                <div class="mb-3">
+                    <button type="button" class="btn btn-primary">New Service</button>
+                    <button type="button" class="btn btn-primary">Remove Service</button>
+                </div>
             </div>
 
             <!-- Appliance -->
@@ -94,7 +98,7 @@
         <!-- Save button -->
         <div class="row">
             <div class="col-md-12">
-                <button type="button" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button>
             </div>
         </div>
     </div>
@@ -104,15 +108,15 @@
     export default {
         data() {
             return {
-            selectedTab: 'networking',
-            services: [
-                { name: 'Metrics collector', description: 'This is service 1' ,helptext: 'Help text for service 1', helpurl:'https://some.url.com', enabled: true, status: 'running' },
-                { name: 'Scheduler', description: 'This is service 2' ,helptext: 'Help text for service 2', helpurl:'',enabled: false, status: 'stopped' },
-                { name: 'Device discovery', description: 'This is service 3' ,helptext: 'Help text for service 3', helpurl:'',enabled: true, status: 'running' },
-                { name: 'Update Service', description: 'This is service 4' ,helptext: 'Help text for service 4', helpurl:'',enabled: true, status: 'running' },
-                { name: 'SNMP Server', description: 'This is service 5' ,helptext: 'Help text for service 5', helpurl:'',enabled: true, status: 'starting' },
-                { name: 'Redfish Service', description: 'This is service 6' ,helptext: 'Help text for service 6', helpurl:'',enabled: true, status: 'error' },
-            ],
+                selectedTab: 'networking',
+                services: [
+                    { name: 'Metrics collector', description: 'This is service 1' ,helptext: 'Help text for service 1', helpurl:'https://some.url.com', enabled: true, status: 'running' },
+                    { name: 'Scheduler', description: 'This is service 2' ,helptext: 'Help text for service 2', helpurl:'',enabled: false, status: 'stopped' },
+                    { name: 'Device discovery', description: 'This is service 3' ,helptext: 'Help text for service 3', helpurl:'',enabled: true, status: 'running' },
+                    { name: 'Update Service', description: 'This is service 4' ,helptext: 'Help text for service 4', helpurl:'',enabled: true, status: 'running' },
+                    { name: 'SNMP Server', description: 'This is service 5' ,helptext: 'Help text for service 5', helpurl:'',enabled: true, status: 'starting' },
+                    { name: 'Redfish Service', description: 'This is service 6' ,helptext: 'Help text for service 6', helpurl:'',enabled: true, status: 'error' },
+                ],
             };
         },
         methods: {
@@ -142,7 +146,8 @@
             },
             startService(service) {
                 // Implement your logic for starting the service
-                console.log(`Starting ${service.name}`);
+                console.log(`Starting ${service.name}, - ${service.description}`);
+
             },
             stopService(service) {
                 // Implement your logic for stopping the service
@@ -157,23 +162,7 @@
 </script>
 
 <style>
-    /* Bootstrap tab styles */
-    .nav-tabs .nav-link {
-        border: 1px solid transparent;
-        border-top-left-radius: 0.25rem;
-        border-top-right-radius: 0.25rem;
-    }
-
-    .nav-tabs .nav-link:hover {
-        border-color: #e9ecef #e9ecef #dee2e6;
-    }
-
-    .nav-tabs .nav-link.active {
-        color: #495057;
-        background-color: #fff;
-        border-color: #dee2e6 #dee2e6 #fff;
-    }
-
+    
     .action-buttons {
         display: flex;
     }
@@ -181,4 +170,7 @@
     .action-buttons button:not(:last-child) {
         margin-right: 10px; /* Change this to adjust space between buttons */
     }
+
+    
+
 </style>

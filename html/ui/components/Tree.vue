@@ -4,9 +4,9 @@
         <tree-node v-for="(item, index) in treeData" :key="index" :node="item" />
       </ul>
     </div>
-  </template>
+</template>
   
-  <script>
+<script>
   import TreeNode from "./TreeNode.vue";
   
   export default {
@@ -20,5 +20,7 @@
       },
     },
   };
-  </script>
-  
+</script>
+<style>
+
+</style>

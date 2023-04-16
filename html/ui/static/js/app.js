@@ -24,6 +24,7 @@ const app = Vue.createApp({
     data() {
       return {
         currentComponent: null,
+        footerComponent: null,
       };
     },
     provide() {
@@ -41,10 +42,25 @@ const app = Vue.createApp({
           console.error('Failed to load component:', error);
         }
       },
+      logOff() {
+        // Log off the user
+        window.location.href = '/ui/logoff';
+      },
+      async loadFooterComponent() {
+        const name = 'Footer';
+        const url = `/ui/components/${name}.vue`;
+        try {
+          const component = await loadModule(url, options);
+          this.footerComponent = Vue.markRaw(Vue.defineAsyncComponent(() => Promise.resolve(component)));
+        } catch (error) {
+          console.error('Failed to load Footer component:', error);
+        }
+      },      
     },
     mounted() {
       // Load standard component at startup, eg. 'Users'
       this.loadComponent('Dashboard');
+      this.loadFooterComponent();
     },
     
 });
