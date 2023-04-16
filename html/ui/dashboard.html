@@ -29,7 +29,7 @@
     <div id="app" class="container-fluid">
         <!-- Add navigation bar -->
         <nav class="navbar navbar-expand-sm">
-            <a class="navbar-brand" href="#">Dashboard</a>
+            <a class="navbar-brand" href="#"><img src="static/images/FreeHCI_Logo48px.png" alt="Logo" class="logo">Dashboard</a>
             <ul class="navbar-nav">
             <li class="nav-item">
                 <a class="nav-link" href="#" @click="loadComponent('Users')">Users</a>
@@ -116,22 +116,18 @@
                     <main class="col-md-12">
                         <component :is="currentComponent"></component>
                     </main>
-                    
                 </div>
             </div>
             <!-- Add Footer.vue -->
             <component :is="footerComponent"></component>
         </div>
-
-        
     </div>
 
     <!-- Add Vue and config.js -->
     <script src="/ui/static/js/config.js"></script>
     <script src="/ui/static/js/app.js"></script>
 
-
-    <!-- Overriding default SCC -->
+    <!-- Overriding default CSS -->
     <link href="static/css/dark.css" rel="stylesheet">
 
   </body>

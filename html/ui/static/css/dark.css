@@ -4,6 +4,12 @@ body{margin-top:20px;
 }
 
 /* Navbar */
+
+.logo {
+    height: 30px;
+    margin-right: 10px;
+  }
+  
 .navbar {
     background-color: #1A233A;
     border: 1px solid #596280;

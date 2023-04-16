@@ -4,6 +4,7 @@
         https://www.bootdey.com/license
     -->
     <div class="container">
+        <!-- Tabs -->
         <ul class="nav nav-tabs" role="tablist">
             <li class="nav-item" @click="selectTab('user')">
                 <a class="nav-link" data-toggle="tab" href="#user" role="tab" :class="{ active: selectedTab === 'user' }"><i class="fas fa-user"></i> User</a>
@@ -19,6 +20,9 @@
             </li>
             <li class="nav-item" @click="selectTab('roles')">
                 <a class="nav-link" data-toggle="tab" href="#roles" role="tab" :class="{ active: selectedTab === 'roles' }"><i class="fa-solid fa-user-tag"></i> Roles</a>
+            </li>
+            <li class="nav-item" @click="selectTab('log')">
+                <a class="nav-link" data-toggle="tab" href="#log" role="tab" :class="{ active: selectedTab === 'log' }"><i class="fa-solid fa-clock-rotate-left"></i> Log</a>
             </li>
         </ul>
         <div class="row gutters">

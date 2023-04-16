@@ -57,6 +57,24 @@
                         progress: '100%',
                         user: 'John Doe',
                     },
+                    
+                    {
+                        id: 3,
+                        time: '12:27:00',
+                        task: 'Migrate SRV-01 to vcenter-40',
+                        status: 'Active',
+                        progress: '39%',
+                        user: 'Jane Doe',
+                    },
+                    
+                    {
+                        id: 4,
+                        time: '12:30:00',
+                        task: 'Remove snapshot from WEB-19',
+                        status: 'Success',
+                        progress: '100%',
+                        user: 'John Doe',
+                    },
                     // Add more events as needed
                 ],
             };
