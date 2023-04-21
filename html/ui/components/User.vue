@@ -21,111 +21,57 @@
             <li class="nav-item" @click="selectTab('roles')">
                 <a class="nav-link" data-toggle="tab" href="#roles" role="tab" :class="{ active: selectedTab === 'roles' }"><i class="fa-solid fa-user-tag"></i> Roles</a>
             </li>
+            <li class="nav-item" @click="selectTab('apps')">
+                <a class="nav-link" data-toggle="tab" href="#apps" role="tab" :class="{ active: selectedTab === 'apps' }"><i class="fa-solid fa-box-open"></i> Applications</a>
+            </li>
             <li class="nav-item" @click="selectTab('log')">
                 <a class="nav-link" data-toggle="tab" href="#log" role="tab" :class="{ active: selectedTab === 'log' }"><i class="fa-solid fa-clock-rotate-left"></i> Log</a>
             </li>
+            <li class="nav-item" @click="selectTab('company')">
+                <a class="nav-link" data-toggle="tab" href="#company" role="tab" :class="{ active: selectedTab === 'company' }"><i class="fa-regular fa-building"></i> Company</a>
+            </li>            
         </ul>
-        <div class="row gutters">
-            <div class="col-xl-3 col-lg-3 col-md-12 col-sm-12 col-12">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <div class="account-settings">
-                            <div class="user-profile">
-                                <div class="user-avatar">
-                                    <img src="static/images/Sofagris avatar.png" alt="Sofagris">
-                                </div>
-                                <h5 class="user-name">Roy Michelsen</h5>
-                                <h6 class="user-email">roy.michelsen@freehci.com</h6>
-                                <p class="user-website">https://www.freehci.com</p>
-                                <p>@Sofagris</p>
-                            </div>
-                            <div class="about">
-                                <h5 class="mb-2 text-primary">About</h5>
-                                <p>I'm the lead developer for FreeHCI. Live in Norway, and work IRL with HCI solutions like VxRail and other technologies</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-9 col-lg-9 col-md-12 col-sm-12 col-12">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <div class="row gutters">
-                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                                <h6 class="mb-3 text-primary">Personal Details</h6>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="fullName">Full Name</label>
-                                    <input type="text" class="form-control" id="fullName" placeholder="Enter full name">
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="eMail">Email</label>
-                                    <input type="email" class="form-control" id="eMail" placeholder="Enter email ID">
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="phone">Phone</label>
-                                    <input type="text" class="form-control" id="phone" placeholder="Enter phone number">
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="website">Website URL</label>
-                                    <input type="url" class="form-control" id="website" placeholder="Website url">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row gutters">
-                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                                <h6 class="mb-3 text-primary">Address</h6>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="Street">Street</label>
-                                    <input type="name" class="form-control" id="Street" placeholder="Enter Street">
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="ciTy">City</label>
-                                    <input type="name" class="form-control" id="ciTy" placeholder="Enter City">
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="sTate">State</label>
-                                    <input type="text" class="form-control" id="sTate" placeholder="Enter State">
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label for="zIp">Zip Code</label>
-                                    <input type="text" class="form-control" id="zIp" placeholder="Zip Code">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row gutters">
-                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                                <div class="text-right">
-                                    <button type="button" id="submit" name="submit" class="btn btn-custom">Cancel</button>
-                                    <button type="button" id="submit" name="submit" class="btn btn-custom">Update</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        
+        <!-- Tab panes -->
+        <div class="tab-content">
+            <UserTab :selected-tab="selectedTab" />
+            <MFATab :selected-tab="selectedTab" />
+            <GroupsTab :selected-tab="selectedTab" />
+            <PermissionsTab :selected-tab="selectedTab" />
+            <RolesTab :selected-tab="selectedTab" />
+            <LogTab :selected-tab="selectedTab" />
         </div>
     </div>
-
 </template>
 
 <script>
+    import UserTab from './userTabUser.vue';
+    import MFATab from './userTabMFA.vue';
+    import GroupsTab from './userTabGroups.vue';
+    import PermissionsTab from './userTabPermissions.vue';
+    import RolesTab from './userTabRoles.vue';
+    import LogTab from './userTabLog.vue';
 
+    export default {
+        components: {
+            UserTab,
+            MFATab,
+            GroupsTab,
+            PermissionsTab,
+            RolesTab,
+            LogTab
+        },
+        data() {
+            return {
+                selectedTab: 'user'
+            };
+        },
+        methods: {
+            selectTab(tabName) {
+                this.selectedTab = tabName;
+            }
+        }
+    };
 </script>
 
 <style>
@@ -176,10 +122,9 @@
         color: #bcd0f7;
     }
 
-    
-
-    
-
-
+    /* add some space between the tabs and the content */
+    .tab-content {
+        margin-top: 20px;
+    }
 
 </style>

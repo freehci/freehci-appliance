@@ -1,0 +1,622 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 22.0.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="470.7 337.8 1200 216.7" style="enable-background:new 470.7 337.8 1200 216.7;" xml:space="preserve">
+<symbol  id="blade_2" viewBox="-18.3 -89.4 36.4 178.8">
+	<g id="drive-body_13_">
+		<rect x="-15.5" y="-58.8" style="fill:#232323;" width="30.9" height="96.6"/>
+		<g>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 26.3982)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 32.365)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 21.1771)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 9.9146)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 -1.2733)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 -12.4612)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 -23.7206)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 -35.1051)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -9.5367 -46.293)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 32.3813)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 21.1934)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 9.9309)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 -1.257)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 -12.445)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 -23.7044)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 -35.0888)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 9.259 -46.2768)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 15.434)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 4.0223)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 -7.2402)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 -18.2044)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 -29.8095)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 -41.072)" style="overflow:visible;"/>
+			
+				<use xlink:href="#mesh"  width="10" height="8.6" x="-5" y="-4.3" transform="matrix(1 0 0 1 -5.642062e-02 -52.0361)" style="overflow:visible;"/>
+		</g>
+		<path style="fill:#4B4B4B;" d="M-18.3,89.4V-89.4h36.4V89.4H-18.3z M11.5-49.5h-23.7v21h23.7V-49.5z M11.5-22.7h-23.7V0.6h23.7
+			V-22.7z M11.5,5.9h-23.7v23.4h23.7V5.9z"/>
+		<g>
+			
+				<rect x="-84.8" y="-20" transform="matrix(1.534830e-06 -1 1 1.534830e-06 1.7016 -36.1912)" style="fill:#CDCDCD;" width="135.1" height="2.1"/>
+			
+				<rect x="-18.7" y="-89" transform="matrix(4.529173e-05 -1 1 4.529173e-05 70.7241 -105.2086)" style="fill:#808080;" width="2.9" height="2.1"/>
+		</g>
+		<g>
+			
+				<rect x="-50.5" y="-20" transform="matrix(1.534830e-06 -1 1 1.534830e-06 35.9847 -1.908)" style="fill:#CDCDCD;" width="135.1" height="2.1"/>
+			
+				<rect x="15.6" y="-89" transform="matrix(4.529173e-05 -1 1 4.529173e-05 105.0057 -70.9255)" style="fill:#808080;" width="2.9" height="2.1"/>
+		</g>
+		<rect x="-12" y="-54.6" style="fill:#232323;" width="23.6" height="6.6"/>
+		<rect x="-12" y="29.2" style="fill:#232323;" width="23.6" height="5.6"/>
+		<rect x="-12" y="4.5" style="fill:#232323;" width="23.6" height="2.1"/>
+		<rect x="-12" y="-0.5" style="fill:#232323;" width="23.6" height="2.1"/>
+		<rect x="-12" y="-24.2" style="fill:#232323;" width="23.6" height="2.1"/>
+		<rect x="-12" y="-29.2" style="fill:#232323;" width="23.6" height="2.1"/>
+		<rect x="-16.3" y="-89.4" style="fill:#232323;" width="32.2" height="2.9"/>
+	</g>
+	<g id="LEDs_13_">
+		<polygon id="LED-panel_13_" style="fill:#232323;" points="14.4,77.9 -13.4,77.9 -15.5,79.8 -15.5,87.5 14.4,87.5 		"/>
+		<g id="status-LED_13_">
+			<g>
+				<path id="mfid3341_25_" style="fill:#73C828;" d="M8.4,82.5L8,82.6c0,0,0,0,0,0c0,0,0,0,0,0l0,0l4.8,0.4c0,0,0,0,0,0l0,0l0,0.6
+					c0,0,0,0,0,0l0,0l-4,0.5c0,0,0,0,0,0l0,1.7H8.4l0-2.2c0,0,0,0,0,0l2.5-0.3c0,0,0,0,0,0c0,0,0,0,0,0l-4.3-0.4c0,0,0,0,0,0l0-0.5
+					c0,0,0,0,0,0l2-0.5c0,0,0,0,0,0c0,0,0,0,0,0l0,0l-0.2-0.1c0,0,0,0,0,0l0,0l0-1.6c0,0,0,0,0,0C8.1,80,8,79.7,8.1,79.4
+					c0.1-0.3,0.5-0.4,0.7-0.3c0.3,0.1,0.4,0.5,0.3,0.7C9,80,8.9,80.1,8.8,80.2c0,0,0,0,0,0l0,1.3c0,0,0,0,0,0l0,0L9.9,82
+					c0,0,0,0,0,0.1c0,0,0,0,0,0L8.4,82.5z"/>
+			</g>
+		</g>
+		<path id="storage-LED_13_" style="fill:#73C828;" d="M-8.6,85h-4c-0.5,0-0.9-0.9-0.9-2.1l0,0c0-1.2,0.4-2.1,0.8-2.1h4
+			c0.5,0,0.9,0.9,1,2.1l0,0C-7.7,84.1-8.1,85-8.6,85z M-12.6,81.1c-0.1,0-0.5,0.6-0.5,1.8l0,0c0,1.1,0.4,1.7,0.6,1.7h3.4
+			c-0.2-0.4-0.4-1.1-0.4-1.8l0,0c0-0.6,0.1-1.3,0.3-1.8H-12.6z M-8.1,82.9c0-1.1-0.5-1.7-0.6-1.8h-0.1C-9,81.3-9.3,82-9.3,82.9
+			c0,0.9,0.3,1.6,0.5,1.8h0.1C-8.4,84.7-8,84.1-8.1,82.9L-8.1,82.9z"/>
+	</g>
+	<g id="label_25_">
+		<path style="fill:#232323;" d="M11.3-82.7H-9.3c-1.1,0-2,0.9-2,2v19.1l3.5,3.6h19.1c1.1,0,2-0.9,2-2v-20.7
+			C13.3-81.8,12.4-82.7,11.3-82.7z"/>
+		<g id="text_13_" style="display:none;">
+			<path style="display:inline;fill:#D6D7D9;" d="M4.7-67.9v1.2h4.7c-0.4,0.5-0.7,1-0.9,1.6h1.1c0.1-0.3,0.3-0.7,0.6-1.1
+				c0.3-0.4,0.6-0.6,1-0.8v-1H4.7z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M11.2-70.9c0-0.6-0.2-1.1-0.7-1.5C10-72.8,9.1-73,7.9-73c-1.2,0-2.1,0.2-2.6,0.6
+				c-0.4,0.3-0.7,0.8-0.7,1.5c0,0.6,0.2,1.1,0.7,1.5c0.5,0.4,1.3,0.6,2.6,0.6c1.2,0,2.1-0.2,2.6-0.6C11-69.8,11.2-70.3,11.2-70.9z
+				 M10.2-70.9c0,0.1,0,0.3-0.1,0.4c-0.1,0.1-0.3,0.2-0.5,0.3c-0.3,0.1-0.9,0.1-1.6,0.1s-1.3,0-1.6-0.1c-0.3-0.1-0.5-0.2-0.6-0.3
+				c-0.1-0.1-0.1-0.2-0.1-0.4c0-0.2,0-0.3,0.1-0.4c0.1-0.1,0.3-0.2,0.5-0.3c0.3-0.1,0.9-0.1,1.6-0.1s1.3,0,1.6,0.1
+				c0.3,0.1,0.5,0.2,0.6,0.3C10.1-71.2,10.2-71.1,10.2-70.9z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M4.7-74.8h3.6v1.3H9V-77H8.3v1.3H4.7V-74.8z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M9-77.5v-1.7c0-0.3,0-0.6,0-0.8c0-0.2-0.1-0.3-0.2-0.4c-0.1-0.1-0.2-0.2-0.4-0.3
+				c-0.2-0.1-0.3-0.1-0.5-0.1c-0.2,0-0.4,0.1-0.6,0.2c-0.2,0.1-0.3,0.3-0.4,0.4c-0.1-0.3-0.2-0.5-0.4-0.6S6.2-81.1,6-81.1
+				c-0.2,0-0.4,0-0.6,0.1c-0.2,0.1-0.3,0.2-0.4,0.4c-0.1,0.2-0.2,0.4-0.2,0.6c0,0.1,0,0.5,0,1v1.5H9z M6.6-78.4H5.5v-0.8
+				c0-0.3,0-0.5,0-0.6c0-0.1,0.1-0.2,0.2-0.3c0.1-0.1,0.2-0.1,0.4-0.1c0.1,0,0.2,0,0.3,0.1s0.2,0.2,0.2,0.3c0,0.1,0.1,0.4,0.1,0.8
+				V-78.4z M8.3-78.4h-1V-79c0-0.3,0-0.5,0-0.6c0-0.1,0.1-0.3,0.2-0.4c0.1-0.1,0.2-0.1,0.3-0.1c0.1,0,0.2,0,0.3,0.1
+				c0.1,0.1,0.1,0.2,0.2,0.3c0,0.1,0,0.3,0,0.7V-78.4z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M0.9-65.4L1-66.2c-0.3-0.1-0.5-0.2-0.6-0.3c-0.1-0.2-0.2-0.4-0.2-0.6
+				c0-0.3,0.1-0.5,0.2-0.6C0.5-67.9,0.6-68,0.8-68C0.9-68,1-68,1-67.9c0.1,0.1,0.1,0.2,0.2,0.3c0,0.1,0.1,0.3,0.2,0.7
+				c0.1,0.5,0.3,0.8,0.4,1c0.2,0.3,0.5,0.4,0.9,0.4c0.2,0,0.4-0.1,0.6-0.2c0.2-0.1,0.3-0.3,0.4-0.5c0.1-0.2,0.1-0.5,0.1-0.8
+				c0-0.5-0.1-0.9-0.4-1.2c-0.2-0.3-0.6-0.4-0.9-0.4l0,0.9c0.2,0,0.4,0.1,0.5,0.2c0.1,0.1,0.1,0.3,0.1,0.5c0,0.3-0.1,0.4-0.2,0.6
+				c-0.1,0.1-0.2,0.1-0.3,0.1c-0.1,0-0.2,0-0.3-0.1c-0.1-0.1-0.2-0.4-0.3-0.8S2-68,1.9-68.2c-0.1-0.2-0.3-0.4-0.4-0.5
+				c-0.2-0.1-0.4-0.2-0.7-0.2c-0.2,0-0.5,0.1-0.7,0.2s-0.4,0.3-0.5,0.6c-0.1,0.3-0.2,0.6-0.2,0.9c0,0.5,0.1,1,0.4,1.3
+				C0.1-65.6,0.5-65.4,0.9-65.4z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-0.5-73.6v0.9l1,0.4v1.7l-1,0.4v0.9l4.3-1.7v-0.9L-0.5-73.6z M1.2-72l1.6,0.6
+				l-1.6,0.6V-72z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-0.5-74.7h3.6v1.3h0.7v-3.4H3.1v1.3h-3.6V-74.7z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-0.5-80.9v0.9l1,0.4v1.7l-1,0.4v0.9l4.3-1.7v-0.9L-0.5-80.9z M1.2-79.3l1.6,0.6
+				l-1.6,0.6V-79.3z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-2.7-74.3l-0.1,0.6c0.1,0,0.2,0.1,0.3,0.1c0.1,0.1,0.1,0.1,0.1,0.3
+				c0,0.1-0.1,0.3-0.2,0.3c-0.1,0.1-0.4,0.2-0.8,0.2c0.2-0.2,0.3-0.4,0.3-0.6c0-0.3-0.1-0.5-0.3-0.7c-0.2-0.2-0.5-0.3-0.8-0.3
+				c-0.3,0-0.6,0.1-0.8,0.3c-0.2,0.2-0.3,0.5-0.3,0.8c0,0.3,0.1,0.6,0.4,0.8s0.7,0.3,1.3,0.3c0.6,0,1.1-0.1,1.3-0.3s0.4-0.5,0.4-0.9
+				c0-0.3-0.1-0.5-0.2-0.6C-2.2-74.2-2.4-74.3-2.7-74.3z M-4.1-72.8c-0.2,0-0.4,0-0.5-0.1s-0.2-0.2-0.2-0.3c0-0.1,0-0.2,0.1-0.3
+				c0.1-0.1,0.2-0.1,0.5-0.1c0.2,0,0.4,0,0.5,0.1c0.1,0.1,0.2,0.2,0.2,0.3c0,0.1,0,0.2-0.1,0.3C-3.8-72.9-3.9-72.8-4.1-72.8z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-4-76.5h0.6V-78h-1.4c-0.1,0.1-0.3,0.4-0.4,0.6c-0.1,0.3-0.2,0.5-0.2,0.8
+				c0,0.4,0.1,0.7,0.2,0.9c0.1,0.3,0.4,0.5,0.6,0.6s0.6,0.2,0.9,0.2c0.4,0,0.7-0.1,0.9-0.2c0.3-0.1,0.5-0.4,0.6-0.7
+				c0.1-0.2,0.2-0.5,0.2-0.8c0-0.4-0.1-0.8-0.3-1c-0.2-0.2-0.4-0.4-0.7-0.5l-0.1,0.7c0.2,0,0.3,0.1,0.4,0.3c0.1,0.1,0.1,0.3,0.1,0.5
+				c0,0.3-0.1,0.5-0.3,0.7s-0.5,0.3-0.8,0.3c-0.4,0-0.7-0.1-0.9-0.3c-0.2-0.2-0.3-0.4-0.3-0.7c0-0.1,0-0.3,0.1-0.4s0.1-0.3,0.2-0.4
+				H-4V-76.5z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-5.3-78.6h3.4v-0.7h-1.2c0.2-0.2,0.3-0.4,0.3-0.7c0-0.3-0.1-0.5-0.3-0.7
+				C-3.3-80.9-3.6-81-4-81c-0.4,0-0.7,0.1-1,0.3c-0.2,0.2-0.3,0.4-0.3,0.7c0,0.1,0,0.3,0.1,0.4c0.1,0.1,0.2,0.3,0.3,0.4h-0.4V-78.6z
+				 M-4-79.2c-0.3,0-0.4,0-0.6-0.1c-0.2-0.1-0.3-0.3-0.3-0.4c0-0.1,0.1-0.3,0.2-0.4s0.3-0.2,0.6-0.2c0.3,0,0.5,0.1,0.6,0.2
+				c0.1,0.1,0.2,0.2,0.2,0.4c0,0.2-0.1,0.3-0.2,0.4S-3.7-79.2-4-79.2z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-7.4-71.1h0.6v-2.3h-0.5c-0.2,0.2-0.5,0.4-0.8,0.6c-0.4,0.2-0.7,0.4-1.1,0.5
+				c-0.4,0.1-0.8,0.2-1.1,0.2v0.7c0.5,0,1-0.1,1.5-0.3c0.5-0.2,1-0.5,1.4-0.8V-71.1z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-10.3-74h0.7v-0.7h-0.7V-74z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-9.6-77.6h-0.6v2.4c0.2,0,0.5-0.1,0.7-0.2c0.2-0.1,0.5-0.4,0.9-0.8
+				c0.3-0.3,0.5-0.5,0.6-0.6c0.1-0.1,0.3-0.1,0.4-0.1c0.2,0,0.3,0,0.4,0.1c0.1,0.1,0.1,0.2,0.1,0.3c0,0.1,0,0.3-0.1,0.3
+				s-0.2,0.1-0.4,0.1l0.1,0.7c0.4,0,0.6-0.2,0.8-0.4c0.2-0.2,0.2-0.5,0.2-0.8c0-0.4-0.1-0.6-0.3-0.8c-0.2-0.2-0.4-0.3-0.7-0.3
+				c-0.2,0-0.3,0-0.5,0.1c-0.1,0.1-0.3,0.1-0.5,0.3C-8.7-77.1-8.8-77-9-76.8c-0.2,0.2-0.3,0.4-0.4,0.4c-0.1,0.1-0.1,0.1-0.2,0.1
+				V-77.6z"/>
+			<path style="display:inline;fill:#D6D7D9;" d="M-10.3-78.2h3.6v-0.7h-1.9l0.9-0.8v-0.8l-0.9,0.9l-1.6-1v0.7l1.2,0.7l-0.3,0.3
+				h-0.8V-78.2z"/>
+		</g>
+		<g id="lock_22_" style="display:none;">
+			<g style="display:inline;">
+				<path style="fill:none;stroke:#D6D7D9;stroke-width:0.5;stroke-miterlimit:10;" d="M-6.9-63.7H-6c0.7,0,1.2-0.6,1.2-1.2l0,0
+					c0-0.7-0.6-1.2-1.2-1.2h-0.9"/>
+				<path style="fill:#D6D7D9;" d="M-9.8-63.3v-3.3h3.3v3.3H-9.8z M-8.2-65.8C-8.7-65.8-9-65.4-9-65c0,0.5,0.4,0.8,0.8,0.8
+					c0.5,0,0.8-0.4,0.8-0.8C-7.4-65.4-7.8-65.8-8.2-65.8z"/>
+			</g>
+		</g>
+	</g>
+	<g id="drive-button_13_">
+		<rect x="-15.3" y="48.6" width="30" height="27.1"/>
+		<path style="fill:#4B4B4B;" d="M11.7,49.2h-23.5c-1.1,0-2,0.9-2,2v21.2c0,1.1,0.9,2,2,2h23.5c1.1,0,2-0.9,2-2V51.2
+			C13.7,50.1,12.8,49.2,11.7,49.2z"/>
+		<path style="fill:none;stroke:#000000;stroke-width:0.5;stroke-miterlimit:10;" d="M-12.2,49.1v21.6c0,1.1,0.9,2,2,2H10
+			c1.1,0,2-0.9,2-2V49.1"/>
+		<circle style="fill:#373737;" cx="-0.1" cy="61.8" r="8.9"/>
+		<circle style="fill:none;stroke:#DB6423;stroke-width:1.5;stroke-miterlimit:10;" cx="-0.1" cy="61.8" r="5.9"/>
+		<g>
+			<polygon points="13.7,50.2 13.7,49.5 11.9,49.5 11.9,50.5 -12.3,50.5 -12.3,49.5 -14.1,49.5 -14.1,50.2 -18.3,50.2 -18.3,48.6 
+				18.2,48.6 18.2,50.2 			"/>
+		</g>
+	</g>
+</symbol>
+<symbol  id="circle" viewBox="-1.4 -1.4 2.9 2.9">
+	<circle style="fill:#0A0A0A;" cx="0" cy="0" r="1.4"/>
+</symbol>
+<symbol  id="drive-divider" viewBox="-2.9 -92.5 5.8 184.9">
+	<rect x="-2.1" y="-92.5" style="fill:#141414;" width="4.1" height="184.9"/>
+	<polygon style="fill:#414141;" points="0.4,72.4 0.4,61.6 1.7,61.6 1.9,61.6 2.9,61.6 2.9,72.4 1.9,72.4 1.7,72.4 	"/>
+	<polygon style="fill:#414141;" points="0.4,48.1 0.4,37.3 1.7,37.3 1.9,37.3 2.9,37.3 2.9,41.5 2.9,48.1 1.9,48.1 1.7,48.1 	"/>
+	<polygon style="fill:#414141;" points="0.4,24 0.4,13.2 1.7,13.2 1.9,13.2 2.9,13.2 2.9,24 1.9,24 1.7,24 	"/>
+	<polygon style="fill:#414141;" points="0.4,-0.6 0.4,-11.4 1.7,-11.4 1.9,-11.4 2.9,-11.4 2.9,-0.6 1.9,-0.6 1.7,-0.6 	"/>
+	<polygon style="fill:#414141;" points="0.4,-25.3 0.4,-36.1 1.7,-36.1 1.9,-36.1 2.9,-36.1 2.9,-25.3 1.9,-25.3 1.7,-25.3 	"/>
+	<polygon style="fill:#414141;" points="0.4,-49.7 0.4,-60.5 1.7,-60.5 1.9,-60.5 2.9,-60.5 2.9,-49.7 1.9,-49.7 1.7,-49.7 	"/>
+	<polygon style="fill:#414141;" points="-0.4,61.6 -0.4,72.4 -1.6,72.4 -1.9,72.4 -2.9,72.4 -2.9,61.6 -1.9,61.6 -1.6,61.6 	"/>
+	<polygon style="fill:#414141;" points="-0.4,37.3 -0.4,41.5 -0.4,48.1 -1.6,48.1 -1.9,48.1 -2.9,48.1 -2.9,37.3 -1.9,37.3 
+		-1.6,37.3 	"/>
+	<polygon style="fill:#414141;" points="-0.4,13.2 -0.4,24 -1.6,24 -1.9,24 -2.9,24 -2.9,13.2 -1.9,13.2 -1.6,13.2 	"/>
+	<polygon style="fill:#414141;" points="-0.4,-11.4 -0.4,-0.6 -1.6,-0.6 -1.9,-0.6 -2.9,-0.6 -2.9,-11.4 -1.9,-11.4 -1.6,-11.4 	"/>
+	<polygon style="fill:#414141;" points="-0.4,-36.1 -0.4,-25.3 -1.6,-25.3 -1.9,-25.3 -2.9,-25.3 -2.9,-36.1 -1.9,-36.1 -1.6,-36.1 
+			"/>
+	<polygon style="fill:#414141;" points="-0.4,-60.5 -0.4,-49.7 -1.6,-49.7 -1.9,-49.7 -2.9,-49.7 -2.9,-60.5 -1.9,-60.5 -1.6,-60.5 
+			"/>
+</symbol>
+<symbol  id="edge" viewBox="-174.4 -5.3 348.8 10.9">
+	<rect x="-174.4" y="-5.3" style="fill:#414141;" width="348.8" height="10.7"/>
+	<rect x="-160.6" y="-0.7" width="10.5" height="6"/>
+	<rect x="-114.9" y="-0.7" width="9" height="6"/>
+	<rect x="-70.6" y="-0.7" width="9" height="6"/>
+	<rect x="-26.4" y="-0.7" width="9" height="6"/>
+	<rect x="17.9" y="-0.7" width="9" height="6"/>
+	<rect x="62.1" y="-0.7" width="9" height="6"/>
+	<rect x="106.4" y="-0.7" width="9" height="6"/>
+	<rect x="150.6" y="-0.7" width="10" height="6.2"/>
+</symbol>
+<symbol  id="latch" viewBox="-15.8 -45.4 31.6 90.8">
+	<rect x="-15.4" y="-44.9" style="fill:#323232;" width="30.9" height="65.4"/>
+	<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="-9.094947e-13" y1="14.6708" x2="-9.081484e-13" y2="36.6573">
+		<stop  offset="0" style="stop-color:#323232"/>
+		<stop  offset="6.453480e-02" style="stop-color:#2D2D2D"/>
+		<stop  offset="0.1946" style="stop-color:#282828"/>
+		<stop  offset="0.4721" style="stop-color:#232323"/>
+		<stop  offset="1" style="stop-color:#1E1E1E"/>
+	</linearGradient>
+	<rect x="-15.5" y="14.7" style="fill:url(#SVGID_1_);" width="30.9" height="22"/>
+	<linearGradient id="SVGID_2_" gradientUnits="userSpaceOnUse" x1="-9.094947e-13" y1="36.6573" x2="-9.090014e-13" y2="44.7133">
+		<stop  offset="0.2709" style="stop-color:#646464"/>
+		<stop  offset="1" style="stop-color:#2D2D2D"/>
+	</linearGradient>
+	<rect x="-15.5" y="36.7" style="fill:url(#SVGID_2_);" width="30.9" height="8.1"/>
+	<g>
+		<path style="fill:#0C0C0C;" d="M15.4-45.4h-30.9c-0.2,0-0.3,0.2-0.3,0.5v89.8c0,0.3,0.2,0.5,0.3,0.5h30.9c0.2,0,0.3-0.2,0.3-0.5
+			v-89.8C15.8-45.2,15.6-45.4,15.4-45.4z M-15.1-44.4h30.2v88.2h-30.2V-44.4z"/>
+	</g>
+</symbol>
+<symbol  id="mesh" viewBox="-5 -4.3 10 8.6">
+	<polygon points="-2.5,-4.3 -5,0 -2.5,4.3 2.5,4.3 5,0 2.5,-4.3 	"/>
+</symbol>
+<symbol  id="micro_USB_2" viewBox="-12.2 -5.1 24.4 10.2">
+	<path d="M-10.8,5.1c-0.8,0-1.4-0.6-1.4-1.4v-7.4c0-0.8,0.6-1.4,1.4-1.4h21.6c0.8,0,1.4,0.6,1.4,1.4v7.4c0,0.8-0.6,1.4-1.4,1.4
+		H-10.8z"/>
+	<g>
+		<path d="M11.2-0.5v2c0,1.1-0.9,2-2,2H-9.3c-1.1,0-2-0.9-2-2v-2c0-0.5,0.2-1,0.6-1.4L-9-3.6c0.4-0.4,0.9-0.6,1.4-0.6h15
+			c0.5,0,1.1,0.2,1.4,0.6l1.7,1.7C11.1-1.5,11.2-1,11.2-0.5"/>
+		<path style="fill:#CCCCCC;" d="M10.9-0.4v2c0,0.9-0.7,1.7-1.7,1.7H-9.3c-0.9,0-1.7-0.8-1.7-1.7v-2c0-0.4,0.1-0.9,0.5-1.2l1.7-1.7
+			C-8.5-3.6-8-3.8-7.6-3.8h15c0.4,0,0.9,0.2,1.2,0.5l1.8,1.7C10.8-1.3,10.9-0.9,10.9-0.4"/>
+		
+			<path style="fill:none;stroke:#808080;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M10.9-0.4v2c0,0.9-0.7,1.7-1.7,1.7H-9.3c-0.9,0-1.7-0.8-1.7-1.7v-2c0-0.4,0.1-0.9,0.5-1.2l1.7-1.7C-8.5-3.6-8-3.8-7.6-3.8h15
+			c0.4,0,0.9,0.2,1.2,0.5l1.8,1.7C10.8-1.3,10.9-0.9,10.9-0.4"/>
+		<path d="M10.1-0.4v2c0,0.5-0.4,0.9-0.9,0.9H-9.3c-0.5,0-0.9-0.4-0.9-0.9v-2c0-0.2,0.1-0.4,0.2-0.6l1.7-1.8C-8.1-2.9-7.9-3-7.7-3
+			h15c0.2,0,0.4,0.1,0.6,0.2L9.7-1C10-0.9,10.1-0.6,10.1-0.4"/>
+		
+			<path style="fill:none;stroke:#808080;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M10.1-0.4v2c0,0.5-0.4,0.9-0.9,0.9H-9.3c-0.5,0-0.9-0.4-0.9-0.9v-2c0-0.2,0.1-0.4,0.2-0.6l1.7-1.8C-8.1-2.9-7.9-3-7.7-3h15
+			c0.2,0,0.4,0.1,0.6,0.2L9.7-1C10-0.9,10.1-0.6,10.1-0.4"/>
+		<path style="fill:#CCCCCC;" d="M0.1-3v-0.6c0-0.3,0.3-0.6,0.6-0.6h5.8c0.3,0,0.6,0.2,0.6,0.6V-3H0.1z M-7.1-3v-0.6
+			c0-0.3,0.3-0.6,0.6-0.6h5.8C-0.3-4.3,0-4.1,0-3.6V-3H-7.1z M-10.1,1.5h-0.6c-0.3,0-0.6-0.2-0.6-0.6V0.3c0-0.3,0.2-0.6,0.6-0.6h0.6
+			V1.5z M10.1,1.5v-1.7h0.6c0.3,0,0.6,0.3,0.6,0.6v0.5c0,0.3-0.2,0.6-0.6,0.6H10.1z M9,2.5v0.6c0,0.3-0.3,0.6-0.6,0.6H-8.4
+			C-8.7,3.7-9,3.5-9,3.1V2.5H9z"/>
+		
+			<path style="fill:none;stroke:#808080;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M0.1-3v-0.6c0-0.3,0.3-0.6,0.6-0.6h5.8c0.3,0,0.6,0.2,0.6,0.6V-3H0.1"/>
+		
+			<path style="fill:none;stroke:#808080;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M-7.1-3v-0.6c0-0.3,0.3-0.6,0.6-0.6h5.8C-0.3-4.3,0-4.1,0-3.6V-3H-7.1"/>
+		
+			<path style="fill:none;stroke:#808080;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M-10.1,1.5h-0.6c-0.3,0-0.6-0.2-0.6-0.6V0.3c0-0.3,0.2-0.6,0.6-0.6h0.6V1.5"/>
+		
+			<path style="fill:none;stroke:#808080;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M10.1,1.5v-1.7h0.6c0.3,0,0.6,0.3,0.6,0.6v0.5c0,0.3-0.2,0.6-0.6,0.6H10.1"/>
+		
+			<path style="fill:none;stroke:#808080;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M9,2.5v0.6c0,0.3-0.3,0.6-0.6,0.6H-8.4C-8.7,3.7-9,3.5-9,3.1V2.5H9"/>
+		<path style="fill:#CCCCCC;" d="M-4.5,0.2h8.9v0.3h-8.9V0.2z"/>
+		<path style="fill:#333333;" d="M2.5-0.1h0.7v0.6h1.1v-0.6h0.2c0.3,0,0.5,0.2,0.5,0.5v0.7c0,0.3-0.2,0.5-0.5,0.5h-9.3
+			c-0.3,0-0.5-0.2-0.5-0.5V0.4c0-0.3,0.2-0.5,0.5-0.5h0.2v0.6h1.2v-0.6h0.7v0.6h1.1v-0.6h0.7v0.6h1.2v-0.6h0.7v0.6h1.2L2.5-0.1z"/>
+		
+			<path style="fill:none;stroke:#333333;stroke-width:9.000000e-03;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;" d="
+			M2.5-0.1h0.7v0.6h1.1v-0.6h0.2c0.3,0,0.5,0.2,0.5,0.5v0.7c0,0.3-0.2,0.5-0.5,0.5h-9.3c-0.3,0-0.5-0.2-0.5-0.5V0.4
+			c0-0.3,0.2-0.5,0.5-0.5h0.2v0.6h1.2v-0.6h0.7v0.6h1.1v-0.6h0.7v0.6h1.2v-0.6h0.7v0.6h1.2L2.5-0.1"/>
+	</g>
+</symbol>
+<symbol  id="usb" viewBox="-7.4 -17.3 14.9 34.5">
+	<g>
+		<g>
+			<path style="fill:#050505;" d="M7.4-16.4l0,32.7c0,0.5-0.3,0.9-0.8,0.9l-12.9,0.1c-0.5,0-1.1-0.4-1.1-1l0,0l0-32.7
+				c0-0.5,0.6-0.8,1.1-0.8l13,0C7.2-17.3,7.4-16.9,7.4-16.4z"/>
+			<g>
+				<rect x="0.6" y="-9.6" style="fill:#4B4B4B;" width="1" height="1.4"/>
+				<rect x="0.6" y="-3.8" style="fill:#4B4B4B;" width="1" height="1.4"/>
+				<rect x="0.6" y="2.4" style="fill:#4B4B4B;" width="1" height="1.4"/>
+				<rect x="0.6" y="8.6" style="fill:#4B4B4B;" width="1" height="1.4"/>
+			</g>
+			<rect x="-4.1" y="-12.5" style="fill:#4B4B4B;" width="4.7" height="24.9"/>
+		</g>
+		<path style="fill:none;stroke:#5A5A5A;stroke-width:0.924;stroke-miterlimit:10;" d="M6.6-15.6l0,31c0,0.5-0.3,0.8-0.8,0.8
+			l-11.5,0.1c-0.5,0-1-0.4-1-0.9l0,0l0-31c0-0.5,0.5-0.8,1-0.8l11.6,0C6.4-16.4,6.6-16.1,6.6-15.6z"/>
+	</g>
+</symbol>
+<g id="chassis" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:v="http://schemas.microsoft.com/visio/2003/SVGExtensions/">
+	<path id="background" d="M523.1,554.5H1617c0.8,0,1.4-0.7,1.4-1.5c0,0,0,0,0,0v-212c0-0.8-0.6-1.5-1.4-1.5c0,0,0,0,0,0H523.1
+		c-0.8,0-1.4,0.7-1.4,1.5c0,0,0,0,0,0v212C521.7,553.8,522.3,554.5,523.1,554.5z"/>
+	<g id="left">
+		<path style="fill:#414141;" d="M505.7,554.4V337.9h-33.9c-0.6,0-1.1,0.7-1.1,1.6v4v209.3c0,0.9,0.5,1.6,1.1,1.6c0,0,0,0,0,0H505.7
+			z"/>
+		
+			<use xlink:href="#latch"  width="31.6" height="90.8" x="-15.8" y="-45.4" transform="matrix(1 0 0 -1 489.8295 502.9644)" style="overflow:visible;"/>
+	</g>
+	<g id="right">
+		<path style="fill:#414141;" d="M1617.6,554.5h51.5c0.9,0,1.7-0.7,1.7-1.6c0,0,0,0,0,0V339.5c0-0.9-0.7-1.6-1.7-1.6h0h-51.5V554.5z
+			"/>
+		
+			<use xlink:href="#latch"  width="31.6" height="90.8" x="-15.8" y="-45.4" transform="matrix(1 0 0 -1 1651.1163 502.9644)" style="overflow:visible;"/>
+	</g>
+	<g id="display-port-icon">
+		<g>
+			<path style="fill:#939598;" d="M1654.6,373.4c-0.1,0-1.9-0.3-3-0.3c-1.2,0-3,0.3-3.1,0.3l-0.2,0v1.7v0.6v1.7l0.2,0
+				c0.1,0,1.9,0.3,3.1,0.3c1.2,0,3-0.3,3-0.3l0.2,0v-1.8v-0.4v-1.8L1654.6,373.4z M1654.3,377c-0.5,0.1-1.9,0.3-2.8,0.3
+				c-0.9,0-2.3-0.2-2.8-0.3v-1.5v-1.1v-0.5c0.5-0.1,1.9-0.3,2.8-0.3c0.9,0,2.3,0.2,2.8,0.3v0.7v0.8V377z"/>
+			<rect x="1656" y="373.1" style="fill:#939598;" width="0.5" height="4.9"/>
+			<rect x="1646.5" y="373.1" style="fill:#939598;" width="0.5" height="4.9"/>
+		</g>
+	</g>
+	
+		<rect id="left-side" x="505.4" y="342.4" style="fill:#323232;stroke:#000000;stroke-miterlimit:10;" width="25.8" height="205.6"/>
+	<g id="info-icon">
+		<ellipse style="fill:#E7E8E9;" cx="526.4" cy="354.2" rx="1.4" ry="0.9"/>
+		<path style="fill:#E7E8E9;" d="M527.7,360.1c-0.6,0.5-2.7,1.2-3.4-0.4c-0.5-1.1,0.1-2.3,0.4-3c0.5-0.8,3.3-1.5,1.5,1.7
+			c-0.6,1,1,2.1,1.9,0.2C528.3,358,528.6,359.3,527.7,360.1z"/>
+	</g>
+	<g id="metal-edge">
+		<rect x="473.7" y="339.9" style="fill:#808080;" width="1193.3" height="2.1"/>
+		<rect x="473.7" y="337.8" style="fill:#CDCDCD;" width="1193.3" height="2.1"/>
+	</g>
+	
+		<rect id="right-side" x="1609.1" y="342.5" transform="matrix(-1 -1.224647e-16 1.224647e-16 -1 3243.8872 890.4874)" style="fill:#323232;stroke:#000000;stroke-width:0.9996;stroke-miterlimit:10;" width="25.8" height="205.4"/>
+	<g id="metal-edge_4_">
+		<rect x="473.7" y="551.4" style="fill:#808080;" width="972.1" height="3.1"/>
+		<rect x="473.7" y="548.4" style="fill:#CDCDCD;" width="972.1" height="3.1"/>
+	</g>
+	<g id="metal-edge_3_">
+		<rect x="1606.5" y="551.4" style="fill:#808080;" width="60.9" height="3.1"/>
+		<rect x="1606.5" y="548.4" style="fill:#CDCDCD;" width="60.9" height="3.1"/>
+	</g>
+	
+		<rect id="led-edge" x="521.3" y="345.6" style="fill:none;stroke:#000000;stroke-width:0.25;stroke-miterlimit:10;" width="10.5" height="88"/>
+	<g id="wifi-icon">
+		<path id="XMLID_9086_" style="fill:#E7E8E9;" d="M522.8,420.8c-0.1,0.1-0.1,0.4,0,0.5c0.1,0.1,0.4,0.1,0.5,0
+			c0.8-0.8,2-1.3,3.2-1.3c1.2,0,2.3,0.5,3.2,1.3c0.1,0.1,0.4,0.1,0.5,0c0.1-0.1,0.1-0.4,0-0.5c-1-1-2.3-1.5-3.7-1.5
+			C525.1,419.3,523.8,419.8,522.8,420.8"/>
+		<path id="XMLID_9088_" style="fill:#E7E8E9;" d="M523.8,422.2c-0.1,0.1-0.1,0.4,0,0.5c0.1,0.1,0.4,0.1,0.5,0
+			c0.6-0.6,1.4-0.9,2.2-0.9c0.8,0,1.6,0.3,2.2,0.9c0.1,0.1,0.4,0.1,0.5,0c0.1-0.1,0.1-0.4,0-0.5c-0.7-0.7-1.7-1.1-2.7-1.1
+			C525.4,421.1,524.5,421.5,523.8,422.2"/>
+		<path id="XMLID_9090_" style="fill:#E7E8E9;" d="M524.9,423.7c-0.1,0.1-0.1,0.4,0,0.5c0.1,0.1,0.4,0.1,0.5,0
+			c0.3-0.3,0.7-0.4,1.1-0.4c0.4,0,0.8,0.2,1.1,0.4c0.1,0.1,0.4,0.1,0.5,0c0.1-0.1,0.1-0.4,0-0.5c-0.4-0.4-1-0.6-1.6-0.6
+			C525.9,423,525.3,423.3,524.9,423.7"/>
+	</g>
+	<path id="XMLID_13554_" style="fill:#939598;" d="M1625.5,381.5l-1.6-1.2v1h-5c0.4-0.4,0.8-0.8,1-1.1c0.1-0.1,0.3-0.2,0.4-0.2h0.7
+		c0.1,0.4,0.5,0.6,0.9,0.6c0.5,0,1-0.4,1-1c0-0.5-0.4-1-1-1c-0.4,0-0.8,0.3-0.9,0.6h-0.7c-0.3,0-0.7,0.1-0.9,0.4l0,0
+		c-0.6,0.8-1.4,1.5-1.6,1.5h-0.7c-0.1-0.4-0.5-0.6-0.9-0.6c-0.5,0-1,0.4-1,1s0.4,1,1,1c0.4,0,0.8-0.3,0.9-0.6h1.7
+		c0.7,0.4,1,0.8,1.4,1.3c0.1,0.1,0.1,0.2,0.2,0.2c0.2,0.2,0.5,0.4,0.7,0.4h0.5v0.6h1.6v-1.9h-1.6v0.6h-0.5c-0.1,0-0.2,0-0.2-0.1
+		c-0.1-0.1-0.1-0.2-0.2-0.2c-0.2-0.3-0.5-0.6-0.8-0.9h4v1l1.6-1.2C1625.6,381.6,1625.6,381.6,1625.5,381.5z"/>
+	<path id="XMLID_1_" style="fill:#939598;" d="M1625.5,443.1l-1.6-1.2v1h-5c0.4-0.4,0.8-0.8,1-1.1c0.1-0.1,0.3-0.2,0.4-0.2h0.7
+		c0.1,0.4,0.5,0.6,0.9,0.6c0.5,0,1-0.4,1-1s-0.4-1-1-1c-0.4,0-0.8,0.3-0.9,0.6h-0.7c-0.3,0-0.7,0.1-0.9,0.4l0,0
+		c-0.6,0.8-1.4,1.5-1.6,1.5h-0.7c-0.1-0.4-0.5-0.6-0.9-0.6c-0.5,0-1,0.4-1,1c0,0.5,0.4,1,1,1c0.4,0,0.8-0.3,0.9-0.6h1.7
+		c0.7,0.4,1,0.8,1.4,1.3c0.1,0.1,0.1,0.2,0.2,0.2c0.2,0.2,0.5,0.4,0.7,0.4h0.5v0.6h1.6v-1.9h-1.6v0.6h-0.5c-0.1,0-0.2,0-0.2-0.1
+		c-0.1-0.1-0.1-0.2-0.2-0.2c-0.2-0.3-0.5-0.6-0.8-0.9h4v1l1.6-1.2C1625.6,443.2,1625.6,443.1,1625.5,443.1z"/>
+	<path style="fill:#939598;" d="M1624.4,493.3l-1.2-1.2c0,0,0,0,0,0l-0.9-0.9c0.3-0.5,0.2-1.2-0.2-1.6c-0.4-0.4-1-0.5-1.6-0.2
+		l0.9,0.9c0.1,0.1,0.1,0.1,0,0.2l-0.7,0.6c-0.1,0.1-0.1,0.1-0.2,0l-0.9-0.9c-0.2,0.5-0.2,1.1,0.2,1.5c0.4,0.4,1.1,0.5,1.6,0.2
+		l0.2,0.2c0,0,0,0,0,0l1.9,1.9c-0.3,0.5-0.2,1.2,0.2,1.6c0.4,0.4,1,0.5,1.6,0.2l-0.9-0.9c-0.1-0.1-0.1-0.1,0-0.2l0.7-0.6
+		c0.1-0.1,0.1-0.1,0.2,0l0.9,0.9c0.2-0.5,0.2-1.1-0.2-1.5C1625.6,493.1,1624.9,493.1,1624.4,493.3z"/>
+	
+		<use xlink:href="#edge"  width="348.8" height="10.9" x="-174.4" y="-5.3" transform="matrix(-1 0 0 1 1425.3364 347.491)" style="overflow:visible;"/>
+	
+		<use xlink:href="#edge"  width="348.8" height="10.9" x="-174.4" y="-5.3" transform="matrix(-1 0 0 1 1070.8365 347.4909)" style="overflow:visible;"/>
+	
+		<use xlink:href="#edge"  width="348.8" height="10.9" id="XMLID_2_" x="-174.4" y="-5.3" transform="matrix(-1 0 0 1 714.8365 347.4909)" style="overflow:visible;"/>
+	
+		<use xlink:href="#edge"  width="348.8" height="10.9" x="-174.4" y="-5.3" transform="matrix(1 0 0 -1 714.8365 542.991)" style="overflow:visible;"/>
+	
+		<use xlink:href="#edge"  width="348.8" height="10.9" x="-174.4" y="-5.3" transform="matrix(1 0 0 -1 1069.3364 542.991)" style="overflow:visible;"/>
+	
+		<use xlink:href="#edge"  width="348.8" height="10.9" x="-174.4" y="-5.3" transform="matrix(1 0 0 -1 1425.3364 542.991)" style="overflow:visible;"/>
+	<g id="device-label">
+		<rect x="1445.8" y="546" width="159.1" height="2.3"/>
+		<polygon style="fill:#232323;" points="1595.8,553 1456.7,553 1446.7,551 1446.7,546.9 1605.8,546.9 1605.8,551 		"/>
+		<polygon style="fill:#414141;" points="1595.8,553 1456.7,553 1456.7,551.7 1446.7,546.9 1605.8,546.9 1595.8,551.7 		"/>
+	</g>
+	<g id="metal-edge_2_">
+		
+			<rect x="430" y="444.3" transform="matrix(-3.791069e-06 1 -1 -3.791069e-06 977.3663 -87.4696)" style="fill:#808080;" width="204.8" height="1.3"/>
+		
+			<rect x="431.3" y="444.3" transform="matrix(-3.791069e-06 1 -1 -3.791069e-06 978.6357 -88.7389)" style="fill:#CDCDCD;" width="204.8" height="1.3"/>
+	</g>
+	<g id="metal-edge_1_">
+		
+			<rect x="1504.2" y="444.7" transform="matrix(-3.905379e-06 1 -1 -3.905379e-06 2051.9812 -1161.1995)" style="fill:#808080;" width="204.8" height="1.3"/>
+		
+			<rect x="1505.4" y="444.7" transform="matrix(-3.905379e-06 1 -1 -3.905379e-06 2053.2505 -1162.4688)" style="fill:#CDCDCD;" width="204.8" height="1.3"/>
+	</g>
+	<g id="drive-dividers">
+		<rect x="537" y="386.5" style="fill:none;" width="0.9" height="11.5"/>
+		<rect x="537" y="435" style="fill:none;" width="0.9" height="11.7"/>
+		<rect x="537" y="484.3" style="fill:none;" width="0.9" height="11.5"/>
+		<rect x="537" y="459.5" style="fill:none;" width="0.9" height="11.9"/>
+		<rect x="537" y="410.9" style="fill:none;" width="0.9" height="11.3"/>
+		<g>
+			<rect x="535.9" y="354.2" style="fill:#141414;" width="3.9" height="184.7"/>
+		</g>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 582.1411 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 626.5677 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 670.9943 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 715.4208 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 759.8474 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 804.274 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 848.7006 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 892.8365 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 937.5538 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 981.9803 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1026.407 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1070.8335 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1115.2601 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1159.6868 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1204.1133 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1248.5776 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1292.9664 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1337.3931 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1381.8197 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1426.2462 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1470.6729 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1515.0994 445.2891)" style="overflow:visible;"/>
+		
+			<use xlink:href="#drive-divider"  width="5.8" height="184.9" x="-2.9" y="-92.5" transform="matrix(1 0 0 -1 1559.526 445.2891)" style="overflow:visible;"/>
+		<polygon style="fill:#414141;" points="541.3,383.7 541.3,372.9 540.1,372.9 539.8,372.9 538.8,372.9 538.8,383.7 539.8,383.7 
+			540.1,383.7 		"/>
+		<polygon style="fill:#414141;" points="541.3,408 541.3,403.8 541.3,397.2 540.1,397.2 539.8,397.2 538.8,397.2 538.8,408 
+			539.8,408 540.1,408 		"/>
+		<polygon style="fill:#414141;" points="541.3,432.1 541.3,421.3 540.1,421.3 539.8,421.3 538.8,421.3 538.8,432.1 539.8,432.1 
+			540.1,432.1 		"/>
+		<polygon style="fill:#414141;" points="541.3,456.7 541.3,445.9 540.1,445.9 539.8,445.9 538.8,445.9 538.8,456.7 539.8,456.7 
+			540.1,456.7 		"/>
+		<polygon style="fill:#414141;" points="541.3,481.4 541.3,470.6 540.1,470.6 539.8,470.6 538.8,470.6 538.8,481.4 539.8,481.4 
+			540.1,481.4 		"/>
+		<polygon style="fill:#414141;" points="541.3,505.8 541.3,495 540.1,495 539.8,495 538.8,495 538.8,505.8 539.8,505.8 
+			540.1,505.8 		"/>
+		<polygon style="fill:#414141;" points="1602.9,383.7 1602.9,372.9 1601.7,372.9 1601.4,372.9 1600.4,372.9 1600.4,383.7 
+			1601.4,383.7 1601.7,383.7 		"/>
+		<polygon style="fill:#414141;" points="1602.9,408 1602.9,403.8 1602.9,397.2 1601.7,397.2 1601.4,397.2 1600.4,397.2 1600.4,408 
+			1601.4,408 1601.7,408 		"/>
+		<polygon style="fill:#414141;" points="1602.9,432.1 1602.9,421.3 1601.7,421.3 1601.4,421.3 1600.4,421.3 1600.4,432.1 
+			1601.4,432.1 1601.7,432.1 		"/>
+		<polygon style="fill:#414141;" points="1602.9,456.7 1602.9,445.9 1601.7,445.9 1601.4,445.9 1600.4,445.9 1600.4,456.7 
+			1601.4,456.7 1601.7,456.7 		"/>
+		<polygon style="fill:#414141;" points="1602.9,481.4 1602.9,470.6 1601.7,470.6 1601.4,470.6 1600.4,470.6 1600.4,481.4 
+			1601.4,481.4 1601.7,481.4 		"/>
+		<polygon style="fill:#414141;" points="1602.9,505.8 1602.9,495 1601.7,495 1601.4,495 1600.4,495 1600.4,505.8 1601.4,505.8 
+			1601.7,505.8 		"/>
+	</g>
+</g>
+<g id="LEDs_x2F_buttons">
+	<g id="Powerbutton">
+		<path style="fill:#73C828;" d="M1623.9,354.6c1.9,1.2,2.4,3.7,1.1,5.5c-1.2,1.8-3.7,2.3-5.6,1.1c-1.9-1.2-2.4-3.7-1.1-5.5
+			c0.3-0.4,0.7-0.8,1.1-1.1l0,0l-0.7-0.7c-2.3,1.6-2.8,4.7-1.1,7c1.6,2.2,4.8,2.7,7.1,1.1c2.3-1.6,2.8-4.7,1.1-7
+			c-0.3-0.4-0.7-0.8-1.1-1.1l0,0L1623.9,354.6z"/>
+		<rect x="1621.2" y="351.8" style="fill:#73C828;" width="1" height="5.3"/>
+		<path style="fill:none;stroke:#000000;stroke-width:0.75;stroke-miterlimit:10;" d="M1629.3,367.4H1614c-1.1,0-2-0.9-2-2v-15.2
+			c0-1.1,0.9-2,2-2h15.3c1.1,0,2,0.9,2,2v15.2C1631.3,366.5,1630.4,367.4,1629.3,367.4z"/>
+	</g>
+	<rect id="blue_led" x="523.3" y="368.1" style="fill:#6BACDE;" width="5.6" height="20.4"/>
+	<rect id="white_led" x="523.3" y="390" style="fill:#939598;" width="5.6" height="20.4"/>
+	<path id="storage-LED" style="fill:#414141;" d="M511.6,362v4.9c0,0.6,1.1,1.1,2.6,1.2l0.1,0c1.5,0,2.6-0.5,2.6-1v-4.9
+		c0-0.6-1.1-1.1-2.6-1.2l-0.1,0C512.7,360.9,511.6,361.4,511.6,362z M516.5,367c0,0.2-0.8,0.6-2.2,0.6l-0.1,0
+		c-1.4-0.1-2.1-0.5-2.2-0.7v-4.1c0.5,0.3,1.3,0.5,2.2,0.5l0.1,0c0.7,0,1.7-0.1,2.2-0.4V367z M514.3,361.4c1.4,0.1,2.2,0.6,2.2,0.8
+		v0.2c-0.2,0.2-1.1,0.6-2.2,0.5c-1.1,0-2-0.4-2.3-0.6V362C512.1,361.8,512.8,361.3,514.3,361.4L514.3,361.4z"/>
+	<g id="card-LED">
+		<path id="XMLID_13312_" style="fill:#414141;" d="M516.6,417.9h-3.4v-0.7c0,0-0.1-0.1-0.1-0.1H512v-1.2l0.6,0v-0.2l-0.6,0v-2h5.4
+			v2.9c0,0.3-0.2,0.5-0.5,0.5h-0.2c0,0-0.1,0.1-0.1,0.1V417.9z M513.6,417.5h2.6V417l0.1,0c0,0,0.1,0,0.1-0.1l0-0.1h0.5
+			c0.1,0,0.1,0,0.1-0.1v-2.5h-4.6v1.2l0.6,0v1h-0.6v0.4h1l0,0.1c0,0,0,0.1,0.1,0.1l0.1,0V417.5z"/>
+		<polygon id="XMLID_13315_" style="fill:#414141;" points="511,413.4 511,414 511.4,414 511.4,415.6 511,415.6 511,416.1 
+			511.4,416.1 511.4,418.9 511.8,418.9 511.8,413.4 		"/>
+	</g>
+	<g id="lightning-LED">
+		<g id="XMLID_13457_">
+			<path id="XMLID_13459_" style="fill:#414141;" d="M515.3,390h-0.9l0.5-1.6c0,0,0-0.1-0.1,0l-1.8,2.1h0.9l-0.6,1.6
+				c0,0,0,0.1,0.1,0L515.3,390z"/>
+		</g>
+		<rect x="511.4" y="387.5" style="fill:none;stroke:#414141;stroke-width:0.5;stroke-miterlimit:10;" width="5.6" height="5.6"/>
+	</g>
+	<g id="box-LED">
+		<path style="fill:#414141;" d="M512.3,401.9l1.9-1.3l1.9,1.3v1.7l-1.9,1.2l-1.9-1.2C512.3,403.5,512.3,401.9,512.3,401.9z"/>
+		<polyline style="fill:none;stroke:#414141;stroke-width:0.5;stroke-miterlimit:10;" points="511.9,404 514.1,405.5 516.4,404 		
+			"/>
+	</g>
+	<path id="temp-LED" style="fill:#414141;" d="M514.9,377.7v-3.6c0-0.4-0.3-0.7-0.7-0.7s-0.7,0.3-0.7,0.7v3.6
+		c-0.7,0.3-1.1,0.9-1.1,1.7c0,1,0.8,1.8,1.8,1.8c1,0,1.8-0.8,1.8-1.8C516,378.6,515.5,378,514.9,377.7z"/>
+</g>
+<g id="ports">
+	<g id="video-port">
+		<path style="fill:#878787;" d="M1642.4,387.7v31.9c0,1.9,1.7,3.3,3.7,3l9.4-1.5c2-0.3,3.5-2.2,3.5-4.1v-26.6
+			c0-1.9-1.5-3.8-3.4-4.1l-9.5-1.5C1644,384.4,1642.4,385.7,1642.4,387.7z"/>
+		<path style="fill:#0F0F0F;" d="M1641.4,386.3v34.3c0,2,1.9,3.5,4.2,3.1l11.1-1.6c2.3-0.3,4.2-2.3,4.2-4.3v-28.7c0-2-1.9-4-4.2-4.3
+			l-11.1-1.6C1643.3,382.9,1641.4,384.3,1641.4,386.3z"/>
+		<path style="fill:#0F0F0F;" d="M1641.7,386.3l0,34.3c0,2,1.9,3.5,4.2,3.1l11.1-1.6c2.3-0.3,4.2-2.3,4.2-4.3v-28.7
+			c0-2-1.9-4-4.2-4.3l-11.1-1.6C1643.6,382.9,1641.7,384.3,1641.7,386.3z"/>
+		<path style="fill:#414141;" d="M1644.1,388.1v30.7c0,1.5,1.2,2.5,2.6,2.3l8.9-1.5c1.5-0.3,2.6-1.7,2.6-3.2v-25.8
+			c0-1.5-1.1-2.9-2.6-3.2l-8.9-1.5C1645.2,385.6,1644.1,386.6,1644.1,388.1z"/>
+		<path style="fill:#0A0A0A;" d="M1652.5,395.5c0,0.8-0.6,1.4-1.4,1.4c-0.8,0-1.4-0.6-1.4-1.4c0-0.8,0.6-1.4,1.4-1.4
+			C1651.8,394,1652.5,394.7,1652.5,395.5z"/>
+		<path style="fill:none;" d="M1644.1,388.1v30.7c0,1.5,1.2,2.5,2.6,2.3l8.9-1.5c1.5-0.3,2.6-1.7,2.6-3.2v-25.8
+			c0-1.5-1.1-2.9-2.6-3.2l-8.9-1.5C1645.2,385.6,1644.1,386.6,1644.1,388.1z"/>
+		<path style="fill:none;" d="M1644.1,388.1v30.7c0,1.5,1.2,2.5,2.6,2.3l8.9-1.5c1.5-0.3,2.6-1.7,2.6-3.2v-25.8
+			c0-1.5-1.1-2.9-2.6-3.2l-8.9-1.5C1645.2,385.6,1644.1,386.6,1644.1,388.1z"/>
+		<path style="fill:#878787;" d="M1642.9,387.5l0,31.9c0,1.9,1.7,3.3,3.7,3l9.4-1.5c2-0.3,3.5-2.2,3.5-4.1v-26.6
+			c0-1.9-1.5-3.8-3.4-4.1l-9.5-1.5C1644.6,384.3,1642.9,385.6,1642.9,387.5z M1646.8,385.7l9,1.6c1.5,0.3,2.7,1.7,2.7,3.2v26.1
+			c0,1.5-1.1,3-2.6,3.2l-9.1,1.6c-1.5,0.3-2.8-0.8-2.8-2.3l0-31.1C1643.9,386.4,1645.3,385.4,1646.8,385.7z"/>
+		<g>
+			
+				<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1651.0117 395.4576)" style="overflow:visible;"/>
+			
+				<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1651.0117 390.6926)" style="overflow:visible;"/>
+			
+				<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1654.8312 393.2276)" style="overflow:visible;"/>
+			
+				<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1647.3868 393.2276)" style="overflow:visible;"/>
+		</g>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1651.0117 405.9145)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1651.0117 400.9265)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1654.8312 403.4478)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1647.3868 403.4849)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1654.8312 408.5938)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1647.3868 408.631)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1654.8312 413.7213)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1651.0117 411.1603)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1651.0117 416.2772)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1647.3868 413.7584)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1654.8312 398.3575)" style="overflow:visible;"/>
+		
+			<use xlink:href="#circle"  width="2.9" height="2.9" x="-1.4" y="-1.4" transform="matrix(1 0 0 -1 1647.3868 398.3575)" style="overflow:visible;"/>
+	</g>
+	
+		<use xlink:href="#usb"  width="14.9" height="34.5" id="USB-port_4_" x="-7.4" y="-17.3" transform="matrix(1 0 0 -1 1620.4475 404.4605)" style="overflow:visible;"/>
+	
+		<use xlink:href="#usb"  width="14.9" height="34.5" id="USB-port" x="-7.4" y="-17.3" transform="matrix(1 0 0 -1 1620.4475 466.4303)" style="overflow:visible;"/>
+	
+		<use xlink:href="#micro_USB_2"  width="24.4" height="10.2" id="micro-usb" x="-12.2" y="-5.1" transform="matrix(1.331331e-06 -0.7395 -0.7395 9.666555e-07 1623.8312 508.6672)" style="overflow:visible;"/>
+</g>
+<g id="drives">
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-00" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 559.9866 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-01" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 604.4132 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-02" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 648.8398 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-03" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 693.2664 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-04" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 737.6929 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-05" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 782.1195 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-06_6_" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 826.5461 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-07" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 870.9727 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-08" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 915.3993 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-09" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 959.8259 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-10" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1004.2525 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-11" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1048.6791 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-12" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1093.1056 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-13" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1137.5322 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-14" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1181.9589 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-15" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1226.3854 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-16" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1270.812 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-17" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1315.2386 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-18" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1359.6652 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-19" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1404.0918 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-20" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1448.5183 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-21" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1492.9449 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-22" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1537.3716 447.8188)" style="overflow:visible;"/>
+	
+		<use xlink:href="#blade_2"  width="36.4" height="178.8" id="drive-23" x="-18.3" y="-89.4" transform="matrix(1 0 0 -1 1581.7981 447.8188)" style="overflow:visible;"/>
+</g>
+</svg>

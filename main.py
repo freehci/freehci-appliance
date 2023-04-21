@@ -1,13 +1,18 @@
 # main.py
 
-from syslog2 import SysLogHandler
-from fastapi import FastAPI
+import logging
+#from logging import SysLogHandler # This is not available on Windows
+
 from fastapi import FastAPI, UploadFile, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from fastapi import File
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.responses import FileResponse
@@ -33,6 +38,16 @@ from routers import user, role  # Importing API functions for user and role
 from models import database
 from models import User, Role  # Importing user and role classes from models/
 
+nocache = True # Add middleware and set nocache to True to disable caching
+customize_swagger = False #Change this to True if you want to customize the swager docs
+SYSLOG_HOST = "192.168.41.58"
+SYSLOG_PORT = 514
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+#handler = SysLogHandler(address=(SYSLOG_HOST, SYSLOG_PORT))
+#logger.addHandler(handler)
+
 # Logging
 # Warning: This will raise an error on Windows when running the app withouth admin rights
 #syslogserver = "192.168.41.58"
@@ -50,11 +65,13 @@ database.Base.metadata.create_all(bind=database.engine)
 
 # Inspect the database to check if the 'users' table was created
 inspector = inspect(database.engine)
-print("Tables in the database:")
+logger.debug("Tables in the database:")
+
 for table_name in inspector.get_table_names():
     print(table_name)
 
-customize_swagger = False #Change this to True if you want to customize the swager docs
+
+
  
 if (customize_swagger):
     from swagger_customization import swagger_ui_html
@@ -75,6 +92,19 @@ if (customize_swagger):
 else:
     app = FastAPI()
 
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+
+if(nocache):
+    print("Caching disabled")
+    app.add_middleware(CacheControlMiddleware)
 
 # Plugin 
 def install_plugin_from_repository(plugin_url, plugin_name):

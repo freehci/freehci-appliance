@@ -15,7 +15,9 @@ const options = {
       const ref = document.head.getElementsByTagName('style')[0] || null;
       document.head.insertBefore(style, ref);
     },
+    
 }
+
 
 const { loadModule } = window['vue3-sfc-loader'];
 
@@ -64,5 +66,6 @@ const app = Vue.createApp({
     },
     
 });
+
 
 app.mount('#app');
