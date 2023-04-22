@@ -21,8 +21,8 @@
             <li class="nav-item" @click="selectTab('roles')">
                 <a class="nav-link" data-toggle="tab" href="#roles" role="tab" :class="{ active: selectedTab === 'roles' }"><i class="fa-solid fa-user-tag"></i> Roles</a>
             </li>
-            <li class="nav-item" @click="selectTab('apps')">
-                <a class="nav-link" data-toggle="tab" href="#apps" role="tab" :class="{ active: selectedTab === 'apps' }"><i class="fa-solid fa-box-open"></i> Applications</a>
+            <li class="nav-item" @click="selectTab('applications')">
+                <a class="nav-link" data-toggle="tab" href="#applications" role="tab" :class="{ active: selectedTab === 'applications' }"><i class="fa-solid fa-box-open"></i> Applications</a>
             </li>
             <li class="nav-item" @click="selectTab('log')">
                 <a class="nav-link" data-toggle="tab" href="#log" role="tab" :class="{ active: selectedTab === 'log' }"><i class="fa-solid fa-clock-rotate-left"></i> Log</a>
@@ -40,6 +40,7 @@
             <PermissionsTab :selected-tab="selectedTab" />
             <RolesTab :selected-tab="selectedTab" />
             <LogTab :selected-tab="selectedTab" />
+            <ApplicationsTab :selected-tab="selectedTab" />
         </div>
     </div>
 </template>
@@ -51,6 +52,8 @@
     import PermissionsTab from './userTabPermissions.vue';
     import RolesTab from './userTabRoles.vue';
     import LogTab from './userTabLog.vue';
+    import ApplicationsTab from './userTabApplications.vue';
+    // import CompanyTab from './userTabCompany.vue';
 
     export default {
         components: {
@@ -59,7 +62,9 @@
             GroupsTab,
             PermissionsTab,
             RolesTab,
-            LogTab
+            LogTab,
+            ApplicationsTab,
+            //CompanyTab
         },
         data() {
             return {
