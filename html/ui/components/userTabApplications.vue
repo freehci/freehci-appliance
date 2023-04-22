@@ -29,40 +29,55 @@
                 <div class="card-body">
                     <div class="icon-container">
                     <!-- Icon elements will be added here -->
-                        <div class="icon-item">
-                            <div class="icon-item-content">
-                                <i class="fa-brands fa-windows" style="color: #007bff;"></i>
-                                <p>Windows Server 2022</p>
+                        
+                            <div class="icon-item">
+                                <div class="icon-item-content">
+                                    <i class="fa-brands fa-windows" style="color: #007bff;"></i>
+                                    <p>Windows Server 2022</p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="icon-item">
-                            <div class="icon-item-content">
-                                <i class="fa-brands fa-ubuntu" style="color: #007bff;"></i>
-                                <p>Ubuntu</p>
+                            <div class="icon-item">
+                                <div class="icon-item-content">
+                                    <i class="fa-brands fa-ubuntu" style="color: #007bff;"></i>
+                                    <p>Ubuntu</p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="icon-item">
-                            <div class="icon-item-content">
-                                <i class="fa-brands fa-redhat" style="color: red;"></i>
-                                <p>Red Hat Enterprise Server</p>
+                            <div class="icon-item">
+                                <div class="icon-item-content">
+                                    <i class="fa-brands fa-redhat" style="color: red;"></i>
+                                    <p>Red Hat Enterprise Server</p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="icon-item">
-                            <div class="icon-item-content">
-                                <i class="fa-brands fa-centos" style="color: #007bff;"></i>
-                                <p>CentOS</p>
+                            <div class="icon-item">
+                                <div class="icon-item-content">
+                                    <i class="fa-brands fa-centos" style="color: #007bff;"></i>
+                                    <p>CentOS</p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="icon-item">
-                            <div class="icon-item-content">
-                                <i class="fa-brands fa-suse" style="color: #269c28;"></i>
-                                <p>Suse</p>
+                            <div class="icon-item">
+                                <div class="icon-item-content">
+                                    <i class="fa-brands fa-suse" style="color: #269c28;"></i>
+                                    <p>Suse 1</p>
+                                </div>
                             </div>
-                        </div>
+
+                            <div class="icon-item">
+                                <div class="icon-item-content">
+                                    <i class="fa-brands fa-suse" style="color: #269c28;"></i>
+                                    <p>Suse 2</p>
+                                </div>
+                            </div>
+
+                            <div class="icon-item">
+                                <div class="icon-item-content">
+                                    <i class="fa-brands fa-suse" style="color: #269c28;"></i>
+                                    <p>Suse 3</p>
+                                </div>
+                            </div>
                         
                     </div>
                 </div>

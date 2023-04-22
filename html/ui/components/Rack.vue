@@ -57,14 +57,21 @@
           <div class="rack-id" contenteditable="true"><h3>{{ rack.equipmentid }}</h3></div>
         </div>
       </div>
+
+      
     </div>
-  </template>
+    
+    <EquipmentModal ref="equipmentModal" :initial-selected-equipment="selectedEquipment" @close="closeModal" />
+
+
+</template>
   
 <script>
-  
+  import EquipmentModal from "./EquipmentModal.vue";
+
   export default {
     components: {
-        
+        EquipmentModal,
     },
     data() {
       return {
@@ -75,32 +82,89 @@
             { id: 4, equipmentid: "RAC-10036", name: "Rack 8", Units: 42 }
         ],
         equipmentList: [
-            { id: 1, equipmentid: "SRV-34223", name: "Server 1", rackId: 1, position: 4, size: 1, picture: "static/images/Dell-1U-Server.svg", hasError: false, powerstatus: "on"},
-            { id: 2, equipmentid: "SRV-34629", name: "Server 67", rackId: 1, position: 42, size: 1, picture: "static/images/Dell-1U-Server.svg", hasError: false, powerstatus: "on" },
-            { id: 2, equipmentid: "SRV-35330", name: "Server 42", rackId: 1, position: 41, size: 1, picture: "static/images/Dell-1U-Server.svg", hasError: false, powerstatus: "on" },
-            { id: 2, equipmentid: "SRV-31993", name: "Server 83", rackId: 1, position: 40, size: 1, picture: "static/images/Dell-1U-Server.svg", hasError: false, powerstatus: "on" },
-            { id: 3, equipmentid: "SRV-21844", name: "Router 1", rackId: 2, position: 2, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 4, equipmentid: "SRV-74001", name: "Server 14", rackId: 2, position: 4, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: true, powerstatus: "off" },
-            { id: 5, equipmentid: "SRV-30541", name: "Server 15", rackId: 2, position: 6, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 6, equipmentid: "SRV-33932", name: "Server 16", rackId: 2, position: 8, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 7, equipmentid: "SRV-54789", name: "Server 17", rackId: 3, position: 10, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 8, equipmentid: "SRV-20922", name: "Server 18", rackId: 3, position: 12, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 9, equipmentid: "SRV-49562", name: "Server 19", rackId: 3, position: 14, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 10, equipmentid: "SRV-49391", name: "Server 20", rackId: 2, position: 16, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 11, equipmentid: "SRV-32384", name: "Server 21", rackId: 2, position: 18, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 12, equipmentid: "SRV-41124", name: "Server 22", rackId: 2, position: 20, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 13, equipmentid: "SRV-23340", name: "Server 23", rackId: 4, position: 22, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 14, equipmentid: "SRV-12109", name: "Server 24", rackId: 4, position: 24, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "unknown" },
-            { id: 15, equipmentid: "SRV-80210", name: "Server 25", rackId: 2, position: 26, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "unknown" },
-            { id: 16, equipmentid: "SRV-21886", name: "Server 26", rackId: 2, position: 28, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "unknown" },
-            { id: 17, equipmentid: "SRV-34223", name: "Server 27", rackId: 2, position: 30, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 18, equipmentid: "SRV-34223", name: "Server 28", rackId: 4, position: 32, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 19, equipmentid: "SRV-34223", name: "Server 29", rackId: 2, position: 34, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 20, equipmentid: "SRV-34223", name: "Server 30", rackId: 2, position: 36, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 21, equipmentid: "SRV-34223", name: "Server 31", rackId: 4, position: 38, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" },
-            { id: 22, equipmentid: "SRV-34223", name: "Server 32", rackId: 2, position: 40, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: true, powerstatus: "on" },
-            { id: 23, equipmentid: "SRV-34223", name: "Server 33", rackId: 1, position: 39, size: 2, picture: "static/images/R740XD-24-Front.svg", hasError: false, powerstatus: "on" }
+            { id: 1, equipmentid: "SRV-34223", name: "Server 1", dnsName: "iDRAC-F59R2T2", rackId: 1, position: 4, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on"},
+            { id: 2, equipmentid: "SRV-34629", name: "Server 67", dnsName: "", rackId: 1, position: 42, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
+            { id: 2, equipmentid: "SRV-35330", name: "Server 42", dnsName: "", rackId: 1, position: 41, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
+            { id: 2, equipmentid: "SRV-31993", name: "Server 83", dnsName: "", rackId: 1, position: 40, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
+            { id: 3, equipmentid: "SRV-21844", name: "Router 1", dnsName: "", rackId: 2, position: 2, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 4, equipmentid: "SRV-74001", name: "Server 14", dnsName: "", rackId: 2, position: 4, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: true, powerstatus: "off" },
+            { id: 5, equipmentid: "SRV-30541", name: "Server 15", dnsName: "", rackId: 2, position: 6, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 6, equipmentid: "SRV-33932", name: "Server 16", dnsName: "", rackId: 2, position: 8, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 7, equipmentid: "SRV-54789", name: "Server 17", dnsName: "", rackId: 3, position: 10, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 8, equipmentid: "SRV-20922", name: "Server 18", dnsName: "", rackId: 3, position: 12, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 9, equipmentid: "SRV-49562", name: "Server 19", dnsName: "", rackId: 3, position: 14, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 10, equipmentid: "SRV-49391", name: "Server 20", dnsName: "", rackId: 2, position: 16, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
+            { id: 11, equipmentid: "SRV-32384", name: "Server 21", dnsName: "", rackId: 2, position: 18, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
+            { id: 12, equipmentid: "SRV-41124", name: "Server 22", dnsName: "", rackId: 2, position: 20, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
+            { id: 13, equipmentid: "SRV-23340", name: "Server 23", dnsName: "", rackId: 4, position: 22, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 14, equipmentid: "SRV-12109", name: "Server 24", dnsName: "", rackId: 4, position: 24, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "unknown" },
+            { id: 15, equipmentid: "SRV-80210", name: "Server 25", dnsName: "", rackId: 2, position: 26, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "unknown" },
+            { id: 16, equipmentid: "SRV-21886", name: "Server 26", dnsName: "", rackId: 2, position: 28, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "unknown" },
+            { id: 17, equipmentid: "SRV-34223", name: "Server 27", dnsName: "", rackId: 2, position: 30, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 18, equipmentid: "SRV-34223", name: "Server 28", dnsName: "", rackId: 4, position: 32, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 19, equipmentid: "SRV-34223", name: "Server 29", dnsName: "", rackId: 2, position: 34, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { 
+                id: 20,
+                equipmentid: "SRV-34223", 
+                equipmentType: "Server", // Server, Storage, Network, etc. Consider using a lookup table and a foreign key.
+                name: "Server 30",
+                brand: "Dell",
+                dnsName: "iDRAC-F49Q2E7", 
+                model: "PowerEdge R740",
+                identifier: "F49Q2E7",
+                assetTag: "F49Q2E7",
+                expressServiceCode: "92533481036",
+                managementIp: "10.28.5.217 (iDRAC)",
+                systemUpTime: "1 day, 1 hour, 2 minutes, 3 seconds",
+                connectionState: "Connected",
+                totalSystemMemory: "128 GB",
+                populatedDimmSlots: "8",
+                totalDimmSlots: "24",
+                processorSummary: "Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz",
+                processorCount: "2",
+                processorCores: "24",
+                processorThreads: "48",
+                processorSpeed: "2.5 GHz",
+                processorType: "Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz",
+                processorStatus: "Enabled",
+                processorCache: "24 MB",
+                processorCacheType: "L3",
+                processorCacheSpeed: "2.5 GHz",
+                processorCacheStatus: "Enabled",
+                processorCacheSize: "24 MB",
+                processorCacheAssociativity: "Fully Associative",
+                processorCacheLineSize: "64",
+                processorCacheMaxSize: "24 MB",
+                processorCacheMaxSpeed: "2.5 GHz",
+                osName: "Microsoft Windows Server 2016 Standard",
+                osVersion: "Version 10.0 (Build 14393) (x64)",
+                osArchitecture: "64-bit",
+                osLanguage: "English (United States)",
+                osBootTime: "2020-04-08T09:00:00Z",
+                osLastBootTime: "2020-04-08T09:00:00Z",
+                osLastShutdownTime: "2020-04-08T09:00:00Z",
+                osLastRebootTime: "2020-04-08T09:00:00Z",
+                osLastLogonTime: "2020-04-08T09:00:00Z",
+                osLastLogoffTime: "2020-04-08T09:00:00Z",
+                osLastLogonUser: "Administrator",
+                osLastLogonUserId: "S-1-5-21-1234567890-1234567890-1234567890-500",
+                osLastLogonDomain: "WORKGROUP",
+                osLastLogonDomainId: "S-1-5-21-1234567890-1234567890-1234567890-1000",
+                osHostname: "WIN-1234567890",
+                osDomain: "WORKGROUP",
+                rackId: 2, 
+                position: 36, 
+                size: 2, 
+                picture: "static/images/R740XD-24-Front.svg", 
+                screenshot: "static/images/freehci-rc-windows.png", 
+                hasError: false, 
+                powerstatus: "on" 
+            },
+            { id: 21, equipmentid: "SRV-34223", name: "Server 31", dnsName: "", rackId: 4, position: 38, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 22, equipmentid: "SRV-34223", name: "Server 32", dnsName: "", rackId: 2, position: 40, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: true, powerstatus: "on" },
+            { id: 23, equipmentid: "SRV-34223", name: "Server 33", dnsName: "", rackId: 1, position: 39, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" }
         ],
+        selectedEquipment: null,
       };
     },
     methods: {
@@ -109,9 +173,18 @@
                 (equipment) => equipment.position === unit && equipment.rackId === rackId
             );
         },
-        logClick(equipment) {
+        logClick(equipment) { // TODO: Change the name of this function to something more appropriate, e.g., equipmentClick
             console.log(`Clicked on equipment: ${equipment.name}`);
             // Implement additional logic to handle the click event, e.g., write to a log
+
+            this.selectedEquipment = equipment;
+            this.$nextTick(() => {
+                this.$refs.equipmentModal.openModal();
+            });
+            
+        },
+        closeModal() {
+          this.selectedEquipment = null;
         },
         powerStatusColor(status) {
             switch (status) {
