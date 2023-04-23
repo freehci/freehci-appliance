@@ -152,6 +152,7 @@
                 osLastLogonDomainId: "S-1-5-21-1234567890-1234567890-1234567890-1000",
                 osHostname: "WIN-1234567890",
                 osDomain: "WORKGROUP",
+                osBrandImage: "static/images/Windows_Server_2016_logo.svg",
                 rackId: 2, 
                 position: 36, 
                 size: 2, 

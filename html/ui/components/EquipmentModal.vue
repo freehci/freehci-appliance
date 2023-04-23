@@ -29,10 +29,16 @@
                             <a class="nav-link" href="#"><i class="fa-solid fa-microchip"></i> Hardware</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="#"><i class="fa-brands fa-windows"></i> OS Info</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="#"><i class="fa-solid fa-list-check"></i> Log</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#"><i class="fa-solid fa-sliders"></i> Settings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#"><i class="fa-solid fa-location-dot"></i> Location</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#"><i class="fa-solid fa-file-pdf"></i> Documentation</a>
@@ -74,7 +80,7 @@
                     <p>Express Service Code: {{ selectedEquipment ? selectedEquipment.expressServiceCode : ''}}</p>
                     <p>Management IP: {{ selectedEquipment ? selectedEquipment.managementIp : ''}}</p>
                     <p>System Up Time: {{ selectedEquipment ? selectedEquipment.systemUpTime : ''}}</p>
-                    <p>Power State: {{ selectedEquipment ? selectedEquipment.powerState : ''}}</p>
+                    <p>Power State: {{ selectedEquipment ? selectedEquipment.powerstatus : ''}}</p>
                     <p>Connection State: {{ selectedEquipment ? selectedEquipment.connectionState : ''}}</p>
                     <p>Total System Memory: {{ selectedEquipment ? selectedEquipment.totalSystemMemory : '' }}</p>
                     <p>Populated DIMM Slots: {{ selectedEquipment ? selectedEquipment.populatedDimmSlots : ''}}</p>
