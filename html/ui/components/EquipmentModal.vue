@@ -68,6 +68,11 @@
                         <p>Server Image</p>
                         <img :src="selectedEquipment ? selectedEquipment.picture : ''" alt="Equipment screenshot" class="img-thumbnail" style="max-height: 50%;">
                     </div>
+                    <div class="mt-3">
+                        <!-- Add the text you want to display under the buttons -->
+                        <p>Operating System</p>
+                        <img :src="selectedEquipment ? selectedEquipment.osBrandImage : ''" alt="Equipment screenshot" class="img-thumbnail" style="max-height: 50%;">
+                    </div>
                 </div>
                 <div class="col-8">
                     <h6 class="mb-3 text-primary">Information</h6>
@@ -187,7 +192,7 @@
 
     .img-thumbnail {
         padding: 0.1rem;
-        background-color: #fff;
+        background-color: #596280;
         border: 1px solid #596280;
         border-radius: 0.25rem;
         max-width: 100%;

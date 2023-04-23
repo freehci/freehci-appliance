@@ -107,14 +107,47 @@
                 id: 20,
                 equipmentid: "SRV-34223", 
                 equipmentType: "Server", // Server, Storage, Network, etc. Consider using a lookup table and a foreign key.
+                equipmentSubType: "Rackmount", // Rackmount, Blade, etc. Consider using a lookup table and a foreign key.
+                equipmentManufacturer: "Dell", // Dell, HP, Cisco, etc. Consider using a lookup table and a foreign key.
+                equipmentModel: "PowerEdge R740", // PowerEdge R740, PowerEdge R740XD, etc. Consider using a lookup table and a foreign key.
+                equipmentSerialNumber: "F49Q2E7", // F49Q2E7, 9ZQ2E7, etc. Consider using a lookup table and a foreign key.
+                equipmentAssetTag: "F49Q2E7", // F49Q2E7, 9ZQ2E7, etc. Consider using a lookup table and a foreign key.
+                equipmentExpressServiceCode: "92533481036", // 92533481036, 92533481037, etc. Consider using a lookup table and a foreign key.
+                equipmentWarrentyExpiration: "2020-05-20T15:00:00.000Z", // 2020-05-20T15:00:00.000Z, 2020-05-20T15:00:00.000Z, etc. Consider using a lookup table and a foreign key.
+                equipmentSupportExpiration: "2020-05-20T15:00:00.000Z", // 2020-05-20T15:00:00.000Z, 2020-05-20T15:00:00.000Z, etc. Consider using a lookup table and a foreign key.
+                equipmentWarrantyStatus: "Active", // Active, Expired, etc. Consider using a lookup table and a foreign key.
+                equipmentSupportStatus: "Active", // Active, Expired, etc. Consider using a lookup table and a foreign key.
+                equipmentSupportLevel: "ProSupport", // ProSupport, ProSupport Plus, etc. Consider using a lookup table and a foreign key.
+                equipmentSupportType: "24x7", // 24x7, 9x5, etc. Consider using a lookup table and a foreign key.
+
+                equipmentManagementIp: "10.28.5.217",
+                equipmentManagementMac: "00:0A:F7:49:B2:E7",
+                equipmentManagementType: "iDRAC",
+                equipmentManagementProtocols: "HTTPS , SSH , Telnet , IPMI 2.0 , SNMP , Web , RACADM",
+                equipmentManagementHWVersion: "7",
+                equipmentManagementFWVersion: "9.00.00",
+                equipmentManagementLicense: "iDRAC9 Enterprise",
+                equipmentManagementLicenseExpiration: "N/A",
+                equipmentManagementLicenseStatus: "Licensed",
+                equipmentManagementLicenseType: "Enterprise",
+                equipmentManagementLicenseVersion: "9",
+                equipmentManagementLicenseFeatures: "Dedicated NIC , iDRAC Direct , Quick Sync 2 , Redfish API , REST API , Serial over LAN , vFlash",
+                equipmentManagementLicenseNotes: "",
+                equipmentManagementLicenseMaxSessions: "Unlimited",
+                equipmentManagementNotes: "",
+                equipmentManagementStatus: "Up",
+                equipmentManagementStatusMessage: "",
+                equipmentManagementLastUpdate: "2020-05-20T15:00:00.000Z",
+                equipmentManagementLastUpdateBy: "admin",
+
                 name: "Server 30",
-                brand: "Dell",
                 dnsName: "iDRAC-F49Q2E7", 
                 model: "PowerEdge R740",
                 identifier: "F49Q2E7",
                 assetTag: "F49Q2E7",
                 expressServiceCode: "92533481036",
                 managementIp: "10.28.5.217 (iDRAC)",
+
                 systemUpTime: "1 day, 1 hour, 2 minutes, 3 seconds",
                 connectionState: "Connected",
                 totalSystemMemory: "128 GB",
@@ -152,7 +185,7 @@
                 osLastLogonDomainId: "S-1-5-21-1234567890-1234567890-1234567890-1000",
                 osHostname: "WIN-1234567890",
                 osDomain: "WORKGROUP",
-                osBrandImage: "static/images/Windows_Server_2016_logo.svg",
+                osBrandImage: "static/images/Brands/Windows_Server_2016_logo.svg",
                 rackId: 2, 
                 position: 36, 
                 size: 2, 
