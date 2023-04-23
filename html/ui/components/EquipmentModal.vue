@@ -41,10 +41,13 @@
                 <div class="row">
                     
                 <div class="col-4">
-                    
-                    <div class="mt-3">
-                        <h6 class="mb-3 text-primary">Server Console</h6>
-                        <img :src="selectedEquipment ? selectedEquipment.screenshot : ''" alt="Equipment screenshot" class="img-thumbnail" style="max-height: 50%;" id="remote-console">
+                    <h6 class="mb-3 text-primary">Server Console</h6>
+                    <div class="mt-3 position-relative">
+                        
+                        <div v-if="isLoading" class="spinner-overlay">
+                            <i class="fa-solid fa-spinner fa-spin-pulse fa-2xl loading-spinner" ></i>
+                        </div>
+                        <img :src="selectedEquipment ? selectedEquipment.screenshot : ''" alt="Equipment screenshot" class="img-thumbnail" style="max-height: 50%;" id="remote-console" >
 
                     </div>
 
@@ -97,7 +100,9 @@
     export default {
         data() {
             return {
-            showModal: false,
+                selectedEquipment: this.initialSelectedEquipment,
+                showModal: false,
+                isLoading: false,
             // ...
             };
         },
@@ -105,35 +110,37 @@
             initialSelectedEquipment: Object,
         },
         computed: {
-            selectedEquipment() {
+            selectedEquipment() { // TODO: Rename this to computedSelectedEquipment and change all references to it as this throws an warning in the console
             return this.initialSelectedEquipment;
             },
         },
         methods: {
             // Any methods goes here...
             openModal() {
-            console.log("openModal called");
-            console.log("Selected equipment in openModal: ", this.selectedEquipment);
-            this.showModal = true;
+                console.log("openModal called");
+                console.log("Selected equipment in openModal: ", this.selectedEquipment);
+                this.showModal = true;
+                this.showLoadingSpinner();
             },
             closeModal() {
-            this.showModal = false;
-            this.$emit("close");
+                this.showModal = false;
+                this.$emit("close");
             },
+            showLoadingSpinner() {
+                this.isLoading = true;
+                setTimeout(() => {
+                    this.isLoading = false;
+                }, 3000);
+            },
+            
         },
 
         mounted() {
             console.log("Selected equipment in EquipmentModal: ", this.selectedEquipment);
+            this.showSpinner = true;
         },
 
-        watch: {
-            selectedEquipment: {
-            immediate: true,
-            handler(newValue, oldValue) {
-                console.log("Selected equipment in EquipmentModal: ", newValue);
-            },
-            },
-        },
+        
     };
 
 </script>
@@ -184,4 +191,25 @@
     #remote-console :hover{ /* This don't work. Consider using custom css instead */
         cursor: pointer;
     }
+
+    .position-relative {
+        position: relative;
+    }
+
+    .spinner-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(51, 47, 47, 0.5);
+    }
+
+    .loading-spinner {
+        color:#d4d8e6;
+    }
+
 </style>
