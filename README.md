@@ -13,9 +13,11 @@
 2. Install `uvicorn` using `pip`:
 `pip install uvicorn`
 
-3. Configure the Vue.js frontend to work with the FreeHCI API.
+3. Install the requirements:
+`pip install -r requirements.txt`
 
-4. Edit `html/ui/static/js/config.js` to point to your API endpoint:
+4. Configure the Vue.js frontend to work with the FreeHCI API.
+Edit `html/ui/static/js/config.js` to point to your API endpoint:
 
 ```javascript
 window.apiBaseUrl = "http://localhost:8000/";
