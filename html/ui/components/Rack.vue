@@ -84,7 +84,7 @@
         equipmentList: [
             { id: 1, equipmentid: "SRV-34223", name: "Server 1", dnsName: "iDRAC-F59R2T2", rackId: 1, position: 4, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on"},
             { id: 2, equipmentid: "SRV-34629", name: "Server 67", dnsName: "", rackId: 1, position: 42, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
-            { id: 2, equipmentid: "SRV-35330", name: "Server 42", dnsName: "", rackId: 1, position: 41, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
+            { id: 2, equipmentid: "SRV-35330", name: "Server 42", dnsName: "", osBrandImage: "static/images/Brands/vmware_icon_131900.svg", rackId: 1, position: 41, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
             { id: 2, equipmentid: "SRV-31993", name: "Server 83", dnsName: "", rackId: 1, position: 40, size: 1, picture: "static/images/Dell-1U-Server.svg", screenshot: "static/images/freehci-rc-esxi.png", hasError: false, powerstatus: "on" },
             { id: 3, equipmentid: "SRV-21844", name: "Router 1", dnsName: "", rackId: 2, position: 2, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
             { id: 4, equipmentid: "SRV-74001", name: "Server 14", dnsName: "", rackId: 2, position: 4, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: true, powerstatus: "off" },
@@ -109,21 +109,22 @@
                 equipmentType: "Server", // Server, Storage, Network, etc. Consider using a lookup table and a foreign key.
                 equipmentSubType: "Rackmount", // Rackmount, Blade, etc. Consider using a lookup table and a foreign key.
                 equipmentManufacturer: "Dell", // Dell, HP, Cisco, etc. Consider using a lookup table and a foreign key.
+                equipmentManufacturerLogo: "static/images/Brands/Dell_Logo.svg", // static/images/dell-logo.png, static/images/hp-logo.png, static/images/cisco-logo.png, etc.
                 equipmentModel: "PowerEdge R740", // PowerEdge R740, PowerEdge R740XD, etc. Consider using a lookup table and a foreign key.
-                equipmentSerialNumber: "F49Q2E7", // F49Q2E7, 9ZQ2E7, etc. Consider using a lookup table and a foreign key.
-                equipmentAssetTag: "F49Q2E7", // F49Q2E7, 9ZQ2E7, etc. Consider using a lookup table and a foreign key.
-                equipmentExpressServiceCode: "92533481036", // 92533481036, 92533481037, etc. Consider using a lookup table and a foreign key.
-                equipmentWarrentyExpiration: "2020-05-20T15:00:00.000Z", // 2020-05-20T15:00:00.000Z, 2020-05-20T15:00:00.000Z, etc. Consider using a lookup table and a foreign key.
-                equipmentSupportExpiration: "2020-05-20T15:00:00.000Z", // 2020-05-20T15:00:00.000Z, 2020-05-20T15:00:00.000Z, etc. Consider using a lookup table and a foreign key.
-                equipmentWarrantyStatus: "Active", // Active, Expired, etc. Consider using a lookup table and a foreign key.
-                equipmentSupportStatus: "Active", // Active, Expired, etc. Consider using a lookup table and a foreign key.
+                equipmentSerialNumber: "F49Q2E7", // F49Q2E7, 9ZQ2E7, etc. 
+                equipmentAssetTag: "F49Q2E7", // F49Q2E7, 9ZQ2E7, etc. 
+                equipmentExpressServiceCode: "92533481036", // 92533481036, 92533481037, etc. 
+                equipmentWarrentyExpiration: "2020-05-20T15:00:00.000Z", // 2020-05-20T15:00:00.000Z, 2020-05-20T15:00:00.000Z, etc. 
+                equipmentSupportExpiration: "2020-05-20T15:00:00.000Z", // 2020-05-20T15:00:00.000Z, 2020-05-20T15:00:00.000Z, etc. 
+                equipmentWarrantyStatus: "Active", // Active, Expired, etc. 
+                equipmentSupportStatus: "Active", // Active, Expired, etc. 
                 equipmentSupportLevel: "ProSupport", // ProSupport, ProSupport Plus, etc. Consider using a lookup table and a foreign key.
                 equipmentSupportType: "24x7", // 24x7, 9x5, etc. Consider using a lookup table and a foreign key.
 
                 equipmentManagementIp: "10.28.5.217",
                 equipmentManagementMac: "00:0A:F7:49:B2:E7",
                 equipmentManagementType: "iDRAC",
-                equipmentManagementProtocols: "HTTPS , SSH , Telnet , IPMI 2.0 , SNMP , Web , RACADM",
+                equipmentManagementProtocols: "HTTPS, SSH, Telnet, IPMI 2.0, SNMP, RACADM",
                 equipmentManagementHWVersion: "7",
                 equipmentManagementFWVersion: "9.00.00",
                 equipmentManagementLicense: "iDRAC9 Enterprise",
@@ -169,6 +170,7 @@
                 processorCacheLineSize: "64",
                 processorCacheMaxSize: "24 MB",
                 processorCacheMaxSpeed: "2.5 GHz",
+                // OS Information
                 osName: "Microsoft Windows Server 2016 Standard",
                 osVersion: "Version 10.0 (Build 14393) (x64)",
                 osArchitecture: "64-bit",
@@ -185,7 +187,7 @@
                 osLastLogonDomainId: "S-1-5-21-1234567890-1234567890-1234567890-1000",
                 osHostname: "WIN-1234567890",
                 osDomain: "WORKGROUP",
-                osBrandImage: "static/images/Brands/Windows_Server_2016_logo.svg",
+                osBrandLogo: "static/images/Brands/Windows_logo_-_2012_(purple).svg",
                 rackId: 2, 
                 position: 36, 
                 size: 2, 
