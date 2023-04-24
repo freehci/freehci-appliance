@@ -95,66 +95,7 @@
     };
 </script>
 
-<style>
-    .full-width {
-        width: 100%;
-    }
-
-    .icon-container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        max-height: 500px; /* Set the maximum height for the card */
-        overflow-y: auto; /* Add a scrollbar when the content exceeds the maximum height */
-        padding: 1rem;
-    }
-
-    .icon-item :hover {
-        background-color: #596280;
-        border-radius: 10px;
-        cursor: pointer;
-    }
-
-    .icon-item {
-        flex-basis: calc(16.666% - 10px); /* 6 items per row with some space for margins */
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        margin: 5px;
-        background-color: #1A233A;
-        border: solid 1px #bcd0f7;
-        border-radius: 10px;
-        padding: 10px;
-        box-sizing: border-box;
-        text-align: center;
-        font-size: 14px;
-        position: relative;
-    }
-
-    .icon-item::before {
-        content: "";
-        display: block;
-        padding-top: 100%; /* 1:1 aspect ratio */
-    }
-
-    .icon-item-content {
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        right: 0;
-    }
-
-    .icon-item i {
-        font-size: 30px;
-        margin-bottom: 5px;
-        margin-top: 20px;
-    }
-
-    .icon-item p {
-        margin-top: 10px;
-    }
-
+<style scoped>
+    
 
 </style>

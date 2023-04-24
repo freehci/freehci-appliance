@@ -57,22 +57,44 @@
 
                     </div>
 
-                    
+                    <!-- Buttons for the server console -->
                     <div class="mt-3">
                         <button class="btn btn-primary"><i class="fa-solid fa-compact-disc fa-spin-pulse"></i> Virtual Media</button>
-                        <button class="btn btn-primary"><i class="fa-solid fa-power-off" style="color: #11d01e;"></i> Power</button>
+                        <!-- <button class="btn btn-primary"><i class="fa-solid fa-keyboard"></i> Keyboard</button> -->
+                        
+                        <div class="dropdown">
+                            <button class="btn btn-custom dropdown-toggle" type="button" id="powerDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fa-solid fa-power-off" style="color: #11d01e;"></i> Power
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-custom" aria-labelledby="powerDropdown">
+                                <li><a class="dropdown-item" @click="powerOn(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #00ff00;"></i> Power On</a></li>
+                                <li><a class="dropdown-item" @click="powerOff(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Power Off</a></li>
+                                <li><a class="dropdown-item" @click="powerReset(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Reset</a></li>
+                                
+                                <li style="border-top: 1px solid #596280;"><a class="dropdown-item" @click="powerRestart(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Restart</a></li>
+                                <li><a class="dropdown-item" @click="powerShutdown(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Shutdown</a></li>
+                            </ul>
+                        </div>
                         <button class="btn btn-primary"><i class="fa-solid fa-desktop"></i> Connect</button>
                     </div>
+
+                    <!-- Picture of the server -->
                     <div class="mt-3">
                         <!-- Add the text you want to display under the buttons -->
                         <p>Server Image</p>
                         <img :src="selectedEquipment ? selectedEquipment.picture : ''" alt="Equipment screenshot" class="img-thumbnail" style="max-height: 50%;">
                     </div>
-                    <div class="mt-3">
-                        <!-- Add the text you want to display under the buttons -->
-                        <p>Operating System</p>
-                        <img :src="selectedEquipment ? selectedEquipment.osBrandImage : ''" alt="Equipment screenshot" class="img-thumbnail" style="max-height: 50%;">
+
+                    <!-- Brand logos -->
+                    <div class="mt-3 d-flex">
+                        <div class="brand-logo-image-container mr-2" style="width: 25%; padding-bottom: 25%; position: relative;">
+                            <img :src="selectedEquipment ? selectedEquipment.equipmentManufacturerLogo : ''" alt="Equipment Vendor Logo" style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; padding: 5px;">
+                        </div>
+                        <div class="brand-logo-image-container" style="width: 25%; padding-bottom: 25%; position: relative;">
+                            <img :src="selectedEquipment ? selectedEquipment.osBrandLogo : ''" alt="OS Brand Logo" style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; padding: 5px;">
+                        </div>
                     </div>
+
                 </div>
                 <div class="col-8">
                     <h6 class="mb-3 text-primary">Information</h6>
