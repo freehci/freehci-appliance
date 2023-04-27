@@ -9,9 +9,9 @@ class Rack(Base):
     __tablename__ = "racks"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    date = Column(DateTime)
-    description = Column(String)
+    name = Column(String, unique=True, index=True) # name of rack
+    date = Column(DateTime) # date rack was created
+    description = Column(String) # description of rack
     vendor = Column(String) # vendor id
     asset_tag = Column(String) # asset tag
     units = Column(Integer) # number of units eg. 42U

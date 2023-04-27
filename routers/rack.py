@@ -7,6 +7,9 @@ from models import crud, database
 # TODO: Create rack_models.py and rack_schemas.py
 #from models.role_models import Role
 #from models.role_schemas import RoleCreate
+from models.rack_schemas import RackCreate
+from models.rack_models import Rack
+
 
 router = APIRouter()
 

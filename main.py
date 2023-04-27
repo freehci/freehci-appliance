@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from fastapi import File
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware # For CORS support (Cross Origin Resource Sharing) 
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -35,8 +35,20 @@ from api.virtualization import router as virtualization_router
 from api.authentication import router as authentication_router
 
 from routers import user, role  # Importing API functions for user and role
+from routers import equipment  # Importing API functions for equipment
+#from routers import virtualization  # Importing API functions for virtualization
+#from routers import authentication  # Importing API functions for authentication
+#from routers import appliance  # Importing API functions for appliance
+#from routers import hardware  # Importing API functions for hardware
+#from routers import plugin  # Importing API functions for plugin
+#from routers import settings  # Importing API functions for settings
+from routers import rack  # Importing API functions for logs
+#from routers import dashboard  # Importing API functions for dashboard
+
+
 from models import database
 from models import User, Role  # Importing user and role classes from models/
+from models import Rack # Importing rack class from models/
 
 nocache = True # Add middleware and set nocache to True to disable caching
 customize_swagger = False #Change this to True if you want to customize the swager docs
@@ -59,6 +71,7 @@ logger.setLevel(logging.DEBUG)
 #print("Imported User model")
 User.__table__.create(database.engine, checkfirst=True)
 Role.__table__.create(database.engine, checkfirst=True)
+Rack.__table__.create(database.engine, checkfirst=True)
 #print("Created users table")
 
 database.Base.metadata.create_all(bind=database.engine)
@@ -67,6 +80,8 @@ database.Base.metadata.create_all(bind=database.engine)
 inspector = inspect(database.engine)
 logger.debug("Tables in the database:")
 
+# TODO: Change this to logger.debug
+print("Tables in the database:")
 for table_name in inspector.get_table_names():
     print(table_name)
 
@@ -92,7 +107,7 @@ if (customize_swagger):
 else:
     app = FastAPI()
 
-
+# CORS (Cross Origin Resource Sharing) support
 class CacheControlMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -198,4 +213,5 @@ app.include_router(authentication_router)
 app.include_router(appliance_router)
 app.include_router(hardware_router)
 app.include_router(virtualization_router)
+app.include_router(rack.router)
 
