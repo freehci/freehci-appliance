@@ -198,7 +198,9 @@
             },
             { id: 21, equipmentid: "SRV-34223", name: "Server 31", dnsName: "", rackId: 4, position: 38, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
             { id: 22, equipmentid: "SRV-34223", name: "Server 32", dnsName: "", rackId: 2, position: 40, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: true, powerstatus: "on" },
-            { id: 23, equipmentid: "SRV-34223", name: "Server 33", dnsName: "", rackId: 1, position: 39, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" }
+            { id: 23, equipmentid: "SRV-34223", name: "Server 33", dnsName: "", rackId: 1, position: 39, size: 2, picture: "static/images/R740XD-24-Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 24, equipmentid: "SW-30220", name: "Switch 38", dnsName: "", rackId: 2, position: 41, size: 1, picture: "static/images/EX4400-24X_Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" },
+            { id: 25, equipmentid: "SW-30229", name: "Switch 39", dnsName: "", rackId: 2, position: 42, size: 1, picture: "static/images/EX4400-24X_Front.svg", screenshot: "static/images/freehci-rc-windows.png", hasError: false, powerstatus: "on" }
         ],
         selectedEquipment: null,
       };
@@ -358,6 +360,8 @@
         padding: 4px;
         width: 465px;
         position: relative;
+        background-size: contain;
+        background-repeat: no-repeat;
     }
 
     .equipment:hover {

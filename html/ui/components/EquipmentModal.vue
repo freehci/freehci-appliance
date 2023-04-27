@@ -19,31 +19,31 @@
             <div class="custom-modal-body">
                 <!-- Modal body content goes here -->
                 <ul class="nav nav-tabs">
-                        <li class="nav-item">
-                            <a class="nav-link active" href="#"><i class="fa-solid fa-house"></i> Overview</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fa-solid fa-temperature-low"></i> Environment</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fa-solid fa-microchip"></i> Hardware</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fa-brands fa-windows"></i> OS Info</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fa-solid fa-list-check"></i> Log</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fa-solid fa-sliders"></i> Settings</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fa-solid fa-location-dot"></i> Location</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fa-solid fa-file-pdf"></i> Documentation</a>
-                        </li>
-                    </ul>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="fa-solid fa-house"></i> Overview</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fa-solid fa-temperature-low"></i> Environment</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fa-solid fa-microchip"></i> Hardware</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fa-brands fa-windows"></i> OS Info</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fa-solid fa-list-check"></i> Log</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fa-solid fa-sliders"></i> Settings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fa-solid fa-location-dot"></i> Location</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fa-solid fa-file-pdf"></i> Documentation</a>
+                    </li>
+                </ul>
                 <div class="row">
                     
                 <div class="col-4">
@@ -81,7 +81,7 @@
                     <!-- Picture of the server -->
                     <div class="mt-3">
                         <!-- Add the text you want to display under the buttons -->
-                        <p>Server Image</p>
+                        <p>Equipment Image</p>
                         <img :src="selectedEquipment ? selectedEquipment.picture : ''" alt="Equipment screenshot" class="img-thumbnail" style="max-height: 50%;">
                     </div>
 
