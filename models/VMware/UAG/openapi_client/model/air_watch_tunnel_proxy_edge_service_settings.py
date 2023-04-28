@@ -280,7 +280,7 @@ class AirWatchTunnelProxyEdgeServiceSettings(
                 serviceConfigurationFailed: typing.Union[MetaOapg.properties.serviceConfigurationFailed, bool, schemas.Unset] = schemas.unset,
                 _configuration: typing.Optional[schemas.Configuration] = None,
                 **kwargs: typing.Union[schemas.AnyTypeSchema, dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, None, list, tuple, bytes],
-            ) -> 'all_of_1':
+            ) -> 'all_of_1': # noqa: F821
                 return super().__new__(
                     cls,
                     *_args,

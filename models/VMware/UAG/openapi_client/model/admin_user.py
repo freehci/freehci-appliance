@@ -74,7 +74,7 @@ class AdminUser(
                     cls,
                     _arg: typing.Union[typing.Tuple[typing.Union[MetaOapg.items, str, ]], typing.List[typing.Union[MetaOapg.items, str, ]]],
                     _configuration: typing.Optional[schemas.Configuration] = None,
-                ) -> 'roles':
+                ) -> 'roles': # noqa: F821
                     return super().__new__(
                         cls,
                         _arg,

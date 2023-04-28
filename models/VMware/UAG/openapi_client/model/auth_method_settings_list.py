@@ -53,7 +53,7 @@ class AuthMethodSettingsList(
                     cls,
                     _arg: typing.Union[typing.Tuple['AuthMethodSettings'], typing.List['AuthMethodSettings']],
                     _configuration: typing.Optional[schemas.Configuration] = None,
-                ) -> 'authMethodSettingsList':
+                ) -> 'authMethodSettingsList': # noqa: F821
                     return super().__new__(
                         cls,
                         _arg,

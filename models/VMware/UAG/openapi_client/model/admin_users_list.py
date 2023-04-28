@@ -56,7 +56,7 @@ class AdminUsersList(
                     cls,
                     _arg: typing.Union[typing.Tuple['AdminUser'], typing.List['AdminUser']],
                     _configuration: typing.Optional[schemas.Configuration] = None,
-                ) -> 'adminUsersList':
+                ) -> 'adminUsersList': # noqa: F821
                     return super().__new__(
                         cls,
                         _arg,
