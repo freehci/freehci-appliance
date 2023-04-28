@@ -33,6 +33,16 @@ def get_user_by_id(db: Session, user_id: int):
 def get_users(db: Session):
     return db.query(User).all()
 
+def update_user_by_id(db: Session, user_id: int, user: UserCreate):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    db_user.username = user.username
+    db_user.email = user.email
+    #db_user.password = get_password_hash(user.password)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
 
 # Roles
 def get_roles(db: Session):
@@ -135,6 +145,13 @@ def update_rack_by_id(db: Session, rack_id: int, rack: RackCreate):
     db_rack = db.query(Rack).filter(Rack.id == rack_id).first()
     db_rack.name = rack.name
     db_rack.description = rack.description
+    db_rack.units = rack.units
+    db_rack.width = rack.width
+    db_rack.height = rack.height
+    db_rack.depth = rack.depth
+    db_rack.row = rack.row
+    db_rack.col = rack.col
+    db_rack.room_id = rack.room_id
     db.commit()
     db.refresh(db_rack)
     return db_rack

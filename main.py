@@ -108,6 +108,7 @@ else:
     app = FastAPI()
 
 # CORS (Cross Origin Resource Sharing) support
+# Used to disable caching while developing
 class CacheControlMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -116,7 +117,7 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         response.headers["Expires"] = "0"
         return response
 
-
+# Add middleware to disable caching
 if(nocache):
     print("Caching disabled")
     app.add_middleware(CacheControlMiddleware)
@@ -139,12 +140,13 @@ app.mount("/static", StaticFiles(directory="html/static"), name="static")
 app.mount("/ui/static", StaticFiles(directory="html/ui/static"), name="ui_static")
 #app.mount("/ui", StaticFiles(directory="html/ui"), name="ui")
 
+# Be aware that Vue.js and Jinja2 use the same syntax for variables
 templates = Jinja2Templates(directory="html/templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     title = "FreeHCI Appliance"
-    update_url = "https://github.com/freehci/appliance.json"
+    update_url = "https://github.com/freehci/appliance.json" # this is the url for the update.json file. Check if remote file have higher version number than local file
     ui_url = "/ui/"
     message = "This is the landing page for the FreeHCI Appliance. You can find more information and documentation at the following links:"
     return templates.TemplateResponse("start.html", {"request": request, "title": title, "message": message, "update_url": update_url, "ui_url": ui_url})

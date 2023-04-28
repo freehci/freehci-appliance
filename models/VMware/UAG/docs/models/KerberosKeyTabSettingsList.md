@@ -1,0 +1,29 @@
+# openapi_client.model.kerberos_key_tab_settings_list.KerberosKeyTabSettingsList
+
+## Model Type Info
+Input Type | Accessed Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+
+### Dictionary Keys
+Key | Input Type | Accessed Type | Description | Notes
+------------ | ------------- | ------------- | ------------- | -------------
+**[kerberosKeyTabSettings](#kerberosKeyTabSettings)** | list, tuple,  | tuple,  | List of keyTabs settings - usually from powershell on first boot. | 
+**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+
+# kerberosKeyTabSettings
+
+List of keyTabs settings - usually from powershell on first boot.
+
+## Model Type Info
+Input Type | Accessed Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+list, tuple,  | tuple,  | List of keyTabs settings - usually from powershell on first boot. | 
+
+### Tuple Items
+Class Name | Input Type | Accessed Type | Description | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+[**KerberosKeyTabSettings**](KerberosKeyTabSettings.md) | [**KerberosKeyTabSettings**](KerberosKeyTabSettings.md) | [**KerberosKeyTabSettings**](KerberosKeyTabSettings.md) |  | 
+
+[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+

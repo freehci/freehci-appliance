@@ -35,6 +35,13 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+# Update user
+@router.put("/users/{user_id}")
+def update_user_endpoint(user_id: int, db: Session = Depends(get_db)):
+    
+    user = crud.update_user_by_id(db, user_id=user_id)
+    return user
+
 # ---- Roles, Groups, Company ----
 #
 # Get all roles for user

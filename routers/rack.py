@@ -42,6 +42,15 @@ def read_rack(rack_id: int, db: Session = Depends(get_db)):
     return rack
 
 
+
+# Update rack
+@router.put("/rack/{rack_id}")
+def update_rack_endpoint(rack_id: int, db: Session = Depends(get_db)):
+    
+    rack = crud.update_rack_by_id(db, rack_id=rack_id)
+    return rack
+
+# This is equipment related to a rack. Maybe this should be in a separate router?
 # Get all equipment for rack
 @router.get("/rack/equipment/{rack_id}")
 def get_equipment_endpoint(rack_id: int, db: Session = Depends(get_db)):
@@ -61,12 +70,4 @@ def remove_equipment_endpoint(rack_id: int, equipment_id: int, db: Session = Dep
 def add_equipment_endpoint(rack_id: int, equipment_id: int, db: Session = Depends(get_db)):
     equipment = crud.get_equipment(db)
     return equipment
-
-
-# Update rack
-@router.put("/rack/{rack_id}")
-def update_rack_endpoint(rack_id: int, db: Session = Depends(get_db)):
-    equipment = crud.get_equipment(db)
-    return equipment
-
 
