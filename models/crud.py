@@ -3,18 +3,37 @@
 
 from sqlalchemy.orm import Session
 
+#
 # models
+#
 from .user_models import User
 from .role_models import Role
 from .rack_models import Rack
+from .ipaddresses_models import IPAddress
+from .subnets_models import Subnet
+from .customers_models import Customer
+from .vlans_models import VLAN
+from .sections_models import Section
+from .vrf_models import Vrf
 
 from .authentication import get_password_hash
 
+#
 # schemas
+#
 from .user_schemas import UserCreate
 from .role_schemas import RoleCreate
 from .rack_schemas import RackCreate
+from .ipaddresses_schemas import IPAddressBase, IPAddressCreate, IPAddressUpdate, IPAddressInDBBase, IPAddress
+from .subnets_schemas import SubnetBase, SubnetCreate, SubnetUpdate, SubnetInDBBase, Subnet
+from .customers_schemas import CustomerBase, CustomerCreate, CustomerUpdate, CustomerInDBBase, Customer
+from .vlans_schemas import VLANBase, VLANCreate, VLANUpdate, VLANInDBBase, VLAN
+from .sections_schemas import SectionBase, SectionCreate, SectionUpdate, SectionInDBBase, Section
+from .vrf_schemas import VrfBaseSchema, VrfCreateSchema, VrfUpdateSchema, VrfInDBBaseSchema, VrfSchema
 
+#
+# User
+#
 def create_user(db: Session, user: UserCreate):
     hashed_password = get_password_hash(user.password)
     db_user = User(
@@ -163,3 +182,264 @@ def update_rack_by_name(db: Session, rack_name: str, rack: RackCreate):
     db.commit()
     db.refresh(db_rack)
     return db_rack
+
+
+# IPaddress
+
+
+
+def get_ipaddress(db: Session, ipaddress_id: int):
+    return db.query(IPAddress.IPAddress).filter(IPAddress.id == ipaddress_id).first()
+
+
+def get_ipaddresses(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(IPAddress.IPAddress).offset(skip).limit(limit).all()
+
+
+def create_ipaddress(db: Session, ipaddress: IPAddressCreate):
+    db_ipaddress = IPAddress.IPAddress(**ipaddress.dict())
+    db.add(db_ipaddress)
+    db.commit()
+    db.refresh(db_ipaddress)
+    return db_ipaddress
+
+
+def update_ipaddress(db: Session, ipaddress: IPAddressUpdate, ipaddress_id: int):
+    db_ipaddress = get_ipaddress(db, ipaddress_id)
+    if db_ipaddress is None:
+        return None
+
+    for key, value in ipaddress.dict().items():
+        if value is not None:
+            setattr(db_ipaddress, key, value)
+
+    db.add(db_ipaddress)
+    db.commit()
+    db.refresh(db_ipaddress)
+    return db_ipaddress
+
+
+def delete_ipaddress(db: Session, ipaddress_id: int):
+    db_ipaddress = get_ipaddress(db, ipaddress_id)
+    if db_ipaddress is None:
+        return None
+
+    db.delete(db_ipaddress)
+    db.commit()
+    return db_ipaddress
+
+# Subnet
+
+
+def get_subnet(db: Session, subnet_id: int):
+    return db.query(Subnet).filter(Subnet.id == subnet_id).first()
+
+
+def get_subnets(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(Subnet).offset(skip).limit(limit).all()
+
+
+def create_subnet(db: Session, subnet: SubnetCreate):
+    db_subnet = Subnet(**subnet.dict())
+    db.add(db_subnet)
+    db.commit()
+    db.refresh(db_subnet)
+    return db_subnet
+
+
+def update_subnet(db: Session, subnet: SubnetUpdate, subnet_id: int):
+    db_subnet = get_subnet(db, subnet_id)
+    if db_subnet is None:
+        return None
+
+    for key, value in subnet.dict().items():
+        if value is not None:
+            setattr(db_subnet, key, value)
+
+    db.add(db_subnet)
+    db.commit()
+    db.refresh(db_subnet)
+    return db_subnet
+
+
+def delete_subnet(db: Session, subnet_id: int):
+    db_subnet = get_subnet(db, subnet_id)
+    if db_subnet is None:
+        return None
+
+    db.delete(db_subnet)
+    db.commit()
+    return db_subnet
+
+
+
+
+# Customer
+
+def get_customer(db: Session, customer_id: int):
+    return db.query(Customer).filter(Customer.id == customer_id).first()
+
+
+def get_customers(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(Customer).offset(skip).limit(limit).all()
+
+
+def create_customer(db: Session, customer: CustomerCreate):
+    db_customer = Customer(**customer.dict())
+    db.add(db_customer)
+    db.commit()
+    db.refresh(db_customer)
+    return db_customer
+
+
+def update_customer(db: Session, customer: CustomerUpdate, customer_id: int):
+    db_customer = get_customer(db, customer_id)
+    if db_customer is None:
+        return None
+
+    for key, value in customer.dict().items():
+        if value is not None:
+            setattr(db_customer, key, value)
+
+    db.add(db_customer)
+    db.commit()
+    db.refresh(db_customer)
+    return db_customer
+
+
+def delete_customer(db: Session, customer_id: int):
+    db_customer = get_customer(db, customer_id)
+    if db_customer is None:
+        return None
+
+    db.delete(db_customer)
+    db.commit()
+    return db_customer
+
+
+# VLAN
+
+def get_vlan(db: Session, vlan_id: int):
+    return db.query(VLAN).filter(VLAN.vlanId == vlan_id).first()
+
+
+def get_vlans(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(VLAN).offset(skip).limit(limit).all()
+
+
+def create_vlan(db: Session, vlan: VLANCreate):
+    db_vlan = VLAN(**vlan.dict())
+    db.add(db_vlan)
+    db.commit()
+    db.refresh(db_vlan)
+    return db_vlan
+
+
+def update_vlan(db: Session, vlan: VLANUpdate, vlan_id: int):
+    db_vlan = get_vlan(db, vlan_id)
+    if db_vlan is None:
+        return None
+
+    for key, value in vlan.dict().items():
+        if value is not None:
+            setattr(db_vlan, key, value)
+
+    db.add(db_vlan)
+    db.commit()
+    db.refresh(db_vlan)
+    return db_vlan
+
+
+def delete_vlan(db: Session, vlan_id: int):
+    db_vlan = get_vlan(db, vlan_id)
+    if db_vlan is None:
+        return None
+
+    db.delete(db_vlan)
+    db.commit()
+    return db_vlan
+
+# Sections
+
+def get_section(db: Session, section_id: int):
+    return db.query(Section).filter(Section.id == section_id).first()
+
+
+def get_sections(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(Section).offset(skip).limit(limit).all()
+
+
+def create_section(db: Session, section: SectionCreate):
+    db_section = Section(**section.dict())
+    db.add(db_section)
+    db.commit()
+    db.refresh(db_section)
+    return db_section
+
+
+def update_section(db: Session, section: SectionUpdate, section_id: int):
+    db_section = get_section(db, section_id)
+    if db_section is None:
+        return None
+
+    for key, value in section.dict().items():
+        if value is not None:
+            setattr(db_section, key, value)
+
+    db.add(db_section)
+    db.commit()
+    db.refresh(db_section)
+    return db_section
+
+
+def delete_section(db: Session, section_id: int):
+    db_section = get_section(db, section_id)
+    if db_section is None:
+        return None
+
+    db.delete(db_section)
+    db.commit()
+    return db_section
+
+
+# VRF
+
+def get_vrf(db: Session, vrf_id: int):
+    return db.query(Vrf).filter(Vrf.vrfId == vrf_id).first()
+
+
+def get_vrfs(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(Vrf).offset(skip).limit(limit).all()
+
+
+def create_vrf(db: Session, vrf: VrfCreateSchema):
+    db_vrf = Vrf(**vrf.dict())
+    db.add(db_vrf)
+    db.commit()
+    db.refresh(db_vrf)
+    return db_vrf
+
+
+def update_vrf(db: Session, vrf: VrfUpdateSchema, vrf_id: int):
+    db_vrf = get_vrf(db, vrf_id)
+    if db_vrf is None:
+        return None
+
+    for key, value in vrf.dict().items():
+        if value is not None:
+            setattr(db_vrf, key, value)
+
+    db.add(db_vrf)
+    db.commit()
+    db.refresh(db_vrf)
+    return db_vrf
+
+
+def delete_vrf(db: Session, vrf_id: int):
+    db_vrf = get_vrf(db, vrf_id)
+    if db_vrf is None:
+        return None
+
+    db.delete(db_vrf)
+    db.commit()
+    return db_vrf

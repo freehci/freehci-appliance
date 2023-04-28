@@ -49,6 +49,7 @@ from routers import rack  # Importing API functions for logs
 from models import database
 from models import User, Role  # Importing user and role classes from models/
 from models import Rack # Importing rack class from models/
+from models import IPAddress
 
 nocache = True # Add middleware and set nocache to True to disable caching
 customize_swagger = False #Change this to True if you want to customize the swager docs
@@ -72,6 +73,8 @@ logger.setLevel(logging.DEBUG)
 User.__table__.create(database.engine, checkfirst=True)
 Role.__table__.create(database.engine, checkfirst=True)
 Rack.__table__.create(database.engine, checkfirst=True)
+IPAddress.__table__.create(database.engine, checkfirst=True)
+
 #print("Created users table")
 
 database.Base.metadata.create_all(bind=database.engine)
