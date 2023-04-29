@@ -36,6 +36,8 @@ from api.authentication import router as authentication_router
 
 from routers import user, role  # Importing API functions for user and role
 from routers import equipment  # Importing API functions for equipment
+from routers import subnets  # Importing API functions for subnets
+
 #from routers import virtualization  # Importing API functions for virtualization
 #from routers import authentication  # Importing API functions for authentication
 #from routers import appliance  # Importing API functions for appliance
@@ -50,6 +52,7 @@ from models import database
 from models import User, Role  # Importing user and role classes from models/
 from models import Rack # Importing rack class from models/
 from models import IPAddress
+from models import Subnet
 
 nocache = True # Add middleware and set nocache to True to disable caching
 customize_swagger = False #Change this to True if you want to customize the swager docs
@@ -219,4 +222,4 @@ app.include_router(appliance_router)
 app.include_router(hardware_router)
 app.include_router(virtualization_router)
 app.include_router(rack.router)
-
+app.include_router(subnets.router)

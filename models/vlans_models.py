@@ -1,3 +1,4 @@
+# File: models\vlans_models.py
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP
 from .database import Base
 from sqlalchemy.orm import relationship
@@ -14,3 +15,4 @@ class VLAN(Base):
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
 
     customer = relationship("Customer", back_populates="vlans")
+    subnets = relationship("Subnet", back_populates="vlan")

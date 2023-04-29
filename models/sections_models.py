@@ -1,4 +1,6 @@
+#Filename: sections_models.py
 from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean, BINARY
+from sqlalchemy.orm import relationship
 from .database import Base
 
 
@@ -19,3 +21,5 @@ class Section(Base):
     showVRF = Column(Boolean, nullable=False, default=False)
     showSupernetOnly = Column(Boolean, nullable=False, default=False)
     DNS = Column(String(128), nullable=True)
+
+    subnets = relationship("Subnet", back_populates="section")

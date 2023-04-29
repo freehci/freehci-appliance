@@ -1,5 +1,9 @@
+# File: models\customers_models.py
 from sqlalchemy import Column, Integer, String, Text, Enum
+from sqlalchemy.orm import relationship
 from .database import Base
+
+
 
 
 class Customer(Base):
@@ -18,3 +22,8 @@ class Customer(Base):
     contact_mail = Column(String(254), nullable=True)
     note = Column(Text, nullable=True)
     status = Column(Enum('Active', 'Reserved', 'Inactive'), default='Active')
+
+    ipaddresses = relationship("IPAddress", back_populates="customer")
+    subnets = relationship("Subnet", back_populates="customer")
+    vrfs = relationship("Vrf", back_populates="customer")
+    vlans = relationship("VLAN", back_populates="customer")

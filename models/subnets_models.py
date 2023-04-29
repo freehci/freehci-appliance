@@ -1,6 +1,8 @@
+# Filename: subnets_models.py
 from sqlalchemy import Column, Integer, String, ForeignKey, TIMESTAMP, Boolean
 from sqlalchemy.orm import relationship
 from .database import Base
+from .ipaddresses_models import IPAddress
 
 
 class Subnet(Base):
@@ -33,15 +35,16 @@ class Subnet(Base):
     isPool = Column(Boolean, default=False, nullable=False)
     state = Column(Integer, nullable=True, default=2)
     threshold = Column(Integer, nullable=True, default=0)
-    location = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
     editDate = Column(TIMESTAMP, nullable=True, onupdate="CURRENT_TIMESTAMP")
     lastScan = Column(TIMESTAMP, nullable=True)
     lastDiscovery = Column(TIMESTAMP, nullable=True)
-
+    
     linkedSubnet = relationship("Subnet", remote_side=[id], backref="linkedSubnets")
     customer = relationship("Customer", back_populates="subnets")
     section = relationship("Section", back_populates="subnets")
-    vrf = relationship("VRF", back_populates="subnets")
+    vrf = relationship("Vrf", back_populates="subnets")
     vlan = relationship("VLAN", back_populates="subnets")
-    location = relationship("Location", back_populates="subnets")
-
+    location = relationship("Location", primaryjoin="Subnet.location_id == Location.id", back_populates="subnets")
+    ipaddresses = relationship("IPAddress", back_populates="subnet")
+    

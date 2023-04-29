@@ -1,5 +1,5 @@
 # This file contains the schemas for the subnets table.
-# File location: app\models\subnets_schemas.py
+# File location: models\subnets_schemas.py
 
 from typing import Optional
 from pydantic import BaseModel
@@ -32,7 +32,8 @@ class SubnetBase(BaseModel):
     isPool: bool = False
     state: Optional[int] = 2
     threshold: Optional[int] = 0
-    location: Optional[int] = None
+    #location: Optional[int] = None
+    location_id: Optional[int] = None
     editDate: Optional[str] = None
     lastScan: Optional[str] = None
     lastDiscovery: Optional[str] = None

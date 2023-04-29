@@ -2,6 +2,7 @@
 # Create, Read, Update, Delete
 
 from sqlalchemy.orm import Session
+import ipaddress
 
 #
 # models
@@ -15,8 +16,11 @@ from .customers_models import Customer
 from .vlans_models import VLAN
 from .sections_models import Section
 from .vrf_models import Vrf
+from .locations_models import Location
 
 from .authentication import get_password_hash
+
+
 
 #
 # schemas
@@ -25,11 +29,12 @@ from .user_schemas import UserCreate
 from .role_schemas import RoleCreate
 from .rack_schemas import RackCreate
 from .ipaddresses_schemas import IPAddressBase, IPAddressCreate, IPAddressUpdate, IPAddressInDBBase, IPAddress
-from .subnets_schemas import SubnetBase, SubnetCreate, SubnetUpdate, SubnetInDBBase, Subnet
+from .subnets_schemas import SubnetBase, SubnetCreate, SubnetUpdate, SubnetInDBBase
 from .customers_schemas import CustomerBase, CustomerCreate, CustomerUpdate, CustomerInDBBase, Customer
 from .vlans_schemas import VLANBase, VLANCreate, VLANUpdate, VLANInDBBase, VLAN
 from .sections_schemas import SectionBase, SectionCreate, SectionUpdate, SectionInDBBase, Section
 from .vrf_schemas import VrfBaseSchema, VrfCreateSchema, VrfUpdateSchema, VrfInDBBaseSchema, VrfSchema
+from .locations_schemas import LocationSchema, LocationCreateSchema
 
 #
 # User
@@ -229,7 +234,7 @@ def delete_ipaddress(db: Session, ipaddress_id: int):
     return db_ipaddress
 
 # Subnet
-
+from ipaddress import IPv4Network
 
 def get_subnet(db: Session, subnet_id: int):
     return db.query(Subnet).filter(Subnet.id == subnet_id).first()
@@ -247,19 +252,19 @@ def create_subnet(db: Session, subnet: SubnetCreate):
     return db_subnet
 
 
-def update_subnet(db: Session, subnet: SubnetUpdate, subnet_id: int):
-    db_subnet = get_subnet(db, subnet_id)
-    if db_subnet is None:
+def update_subnet(db: Session, subnet_id: int, subnet_data: SubnetUpdate) -> Subnet:
+    subnet = db.query(Subnet).filter(Subnet.id == subnet_id).first()
+    if not subnet:
         return None
 
-    for key, value in subnet.dict().items():
+    for field, value in subnet_data.dict().items():
         if value is not None:
-            setattr(db_subnet, key, value)
-
-    db.add(db_subnet)
+            setattr(subnet, field, value)
+    
+    db.add(subnet)
     db.commit()
-    db.refresh(db_subnet)
-    return db_subnet
+    db.refresh(subnet)
+    return subnet
 
 
 def delete_subnet(db: Session, subnet_id: int):
@@ -271,8 +276,26 @@ def delete_subnet(db: Session, subnet_id: int):
     db.commit()
     return db_subnet
 
+def is_valid_subnet(subnet: str, mask: str) -> bool:
+    try:
+        ipaddress.IPv4Network(f"{subnet}/{mask}", strict=False)
+        return True
+    except ValueError:
+        #print("Invalid subnet : " + subnet + "/" + mask)
+        return False
 
+def is_subnet_overlapping(db: Session, subnet: str, mask: str) -> bool:
+    new_subnet = IPv4Network(f"{subnet}/{mask}", strict=False)
 
+    existing_subnets = db.query(Subnet).all()
+
+    for existing_subnet in existing_subnets:
+        existing_subnet_network = IPv4Network(f"{existing_subnet.subnet}/{existing_subnet.mask}", strict=False)
+
+        if new_subnet.overlaps(existing_subnet_network):
+            return True
+
+    return False
 
 # Customer
 
@@ -443,3 +466,34 @@ def delete_vrf(db: Session, vrf_id: int):
     db.delete(db_vrf)
     db.commit()
     return db_vrf
+
+# Location
+
+def get_location(db: Session, location_id: int):
+    return db.query(Location).filter(Location.id == location_id).first()
+
+def get_locations(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(Location).offset(skip).limit(limit).all()
+
+def create_location(db: Session, location: LocationCreateSchema):
+    db_location = Location(**location.dict())
+    db.add(db_location)
+    db.commit()
+    db.refresh(db_location)
+    return db_location
+
+def update_location(db: Session, location_id: int, updated_location: LocationCreateSchema):
+    db_location = db.query(Location).filter(Location.id == location_id).one()
+    db_location.name = updated_location.name
+    db_location.description = updated_location.description
+    db_location.address = updated_location.address
+    db_location.lat = updated_location.lat
+    db_location.long = updated_location.long
+    db.commit()
+    db.refresh(db_location)
+    return db_location
+
+def delete_location(db: Session, location_id: int):
+    db_location = db.query(Location).filter(Location.id == location_id).one()
+    db.delete(db_location)
+    db.commit()

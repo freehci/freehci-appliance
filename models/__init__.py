@@ -8,3 +8,4 @@ from .customers_models import Customer
 from .vlans_models import VLAN
 from .sections_models import Section
 from .vrf_models import Vrf
+from .locations_models import Location

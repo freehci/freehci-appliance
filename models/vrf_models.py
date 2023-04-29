@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, TIMESTAMP, ForeignKey
+from sqlalchemy.orm import relationship
 from .database import Base
 
 
@@ -13,3 +14,6 @@ class Vrf(Base):
     sections = Column(String(128), nullable=True)
     editDate = Column(TIMESTAMP, nullable=True, onupdate="CURRENT_TIMESTAMP")
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+
+    subnets = relationship("Subnet", back_populates="vrf")
+    customer = relationship("Customer", back_populates="vrfs")
