@@ -3,9 +3,6 @@ from sqlalchemy import Column, Integer, String, Text, Enum
 from sqlalchemy.orm import relationship
 from .database import Base
 
-
-
-
 class Customer(Base):
     __tablename__ = "customers"
 

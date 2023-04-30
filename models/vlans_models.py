@@ -5,8 +5,8 @@ from sqlalchemy.orm import relationship
 
 class VLAN(Base):
     __tablename__ = "vlans"
-    id = Column(Integer, primary_key=True, index=True)
-    vlanId = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    vlanId = Column(Integer, index=True)
     domainId = Column(Integer, nullable=False, default=1)
     name = Column(String(255), nullable=False)
     number = Column(Integer, nullable=True)

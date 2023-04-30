@@ -1,6 +1,7 @@
 # Filename: subnets_models.py
 from sqlalchemy import Column, Integer, String, ForeignKey, TIMESTAMP, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from .database import Base
 from .ipaddresses_models import IPAddress
 
@@ -36,7 +37,8 @@ class Subnet(Base):
     state = Column(Integer, nullable=True, default=2)
     threshold = Column(Integer, nullable=True, default=0)
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
-    editDate = Column(TIMESTAMP, nullable=True, onupdate="CURRENT_TIMESTAMP")
+    #editDate = Column(TIMESTAMP, nullable=True, onupdate="CURRENT_TIMESTAMP")
+    editDate = Column(TIMESTAMP, nullable=True, default=func.now(), onupdate=func.now())
     lastScan = Column(TIMESTAMP, nullable=True)
     lastDiscovery = Column(TIMESTAMP, nullable=True)
     

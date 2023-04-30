@@ -28,11 +28,11 @@ from .authentication import get_password_hash
 from .user_schemas import UserCreate
 from .role_schemas import RoleCreate
 from .rack_schemas import RackCreate
-from .ipaddresses_schemas import IPAddressBase, IPAddressCreate, IPAddressUpdate, IPAddressInDBBase, IPAddress
+from .ipaddresses_schemas import IPAddressBase, IPAddressCreate, IPAddressUpdate, IPAddressInDBBase
 from .subnets_schemas import SubnetBase, SubnetCreate, SubnetUpdate, SubnetInDBBase
-from .customers_schemas import CustomerBase, CustomerCreate, CustomerUpdate, CustomerInDBBase, Customer
-from .vlans_schemas import VLANBase, VLANCreate, VLANUpdate, VLANInDBBase, VLAN
-from .sections_schemas import SectionBase, SectionCreate, SectionUpdate, SectionInDBBase, Section
+from .customers_schemas import CustomerBase, CustomerCreate, CustomerUpdate, CustomerInDBBase
+from .vlans_schemas import VLANBase, VLANCreate, VLANUpdate, VLANInDBBase
+from .sections_schemas import SectionBase, SectionCreate, SectionUpdate, SectionInDBBase
 from .vrf_schemas import VrfBaseSchema, VrfCreateSchema, VrfUpdateSchema, VrfInDBBaseSchema, VrfSchema
 from .locations_schemas import LocationSchema, LocationCreateSchema
 
@@ -133,74 +133,57 @@ def remove_role_from_user(db: Session, user_id: int, role_id: int):
 # TODO: Add CRUD for Equipment
 
 
-
+# File: crud.py
 # Rack 
 
+# Get all racks
 def get_racks(db: Session):
     return db.query(Rack).all()
 
+# Create rack
 def create_rack(db: Session, rack: RackCreate):
-    db_rack = Rack(
-        name=rack.name, 
-        description=rack.description
-    )
+    db_rack = Rack(**rack.dict())
     db.add(db_rack)
     db.commit()
     db.refresh(db_rack)
     return db_rack
 
+# Update rack
+def update_rack(db: Session, rack_id: int, rack: RackCreate):
+    db_rack = db.query(Rack).filter(Rack.id == rack_id).first()
+    db_rack.name = rack.name
+    db_rack.description = rack.description
+    db.commit()
+    db.refresh(db_rack)
+    return db_rack
+
+# Get rack by id
 def get_rack_by_id(db: Session, rack_id: int):
     return db.query(Rack).filter(Rack.id == rack_id).first()
 
+# Get rack by name
 def get_rack_by_name(db: Session, rack_name: str):
     return db.query(Rack).filter(Rack.name == rack_name).first()
 
+# Delete rack by id
 def delete_rack_by_id(db: Session, rack_id: int):
     db.query(Rack).filter(Rack.id == rack_id).delete()
     db.commit()
     return True
 
-def delete_rack_by_name(db: Session, rack_name: str):
-    db.query(Rack).filter(Rack.name == rack_name).delete()
-    db.commit()
-    return True
-
-def update_rack_by_id(db: Session, rack_id: int, rack: RackCreate):
-    db_rack = db.query(Rack).filter(Rack.id == rack_id).first()
-    db_rack.name = rack.name
-    db_rack.description = rack.description
-    db_rack.units = rack.units
-    db_rack.width = rack.width
-    db_rack.height = rack.height
-    db_rack.depth = rack.depth
-    db_rack.row = rack.row
-    db_rack.col = rack.col
-    db_rack.room_id = rack.room_id
-    db.commit()
-    db.refresh(db_rack)
-    return db_rack
-
-def update_rack_by_name(db: Session, rack_name: str, rack: RackCreate):
-    db_rack = db.query(Rack).filter(Rack.name == rack_name).first()
-    db_rack.name = rack.name
-    db_rack.description = rack.description
-    db.commit()
-    db.refresh(db_rack)
-    return db_rack
 
 
 # IPaddress
-
-
-
+#
+# Get ipaddress by id
 def get_ipaddress(db: Session, ipaddress_id: int):
     return db.query(IPAddress.IPAddress).filter(IPAddress.id == ipaddress_id).first()
 
-
+# Get all ipaddresses
 def get_ipaddresses(db: Session, skip: int = 0, limit: int = 100):
     return db.query(IPAddress.IPAddress).offset(skip).limit(limit).all()
 
-
+# Create ipaddress
 def create_ipaddress(db: Session, ipaddress: IPAddressCreate):
     db_ipaddress = IPAddress.IPAddress(**ipaddress.dict())
     db.add(db_ipaddress)
@@ -208,7 +191,7 @@ def create_ipaddress(db: Session, ipaddress: IPAddressCreate):
     db.refresh(db_ipaddress)
     return db_ipaddress
 
-
+# Update ipaddress
 def update_ipaddress(db: Session, ipaddress: IPAddressUpdate, ipaddress_id: int):
     db_ipaddress = get_ipaddress(db, ipaddress_id)
     if db_ipaddress is None:
@@ -223,7 +206,7 @@ def update_ipaddress(db: Session, ipaddress: IPAddressUpdate, ipaddress_id: int)
     db.refresh(db_ipaddress)
     return db_ipaddress
 
-
+# Delete ipaddress
 def delete_ipaddress(db: Session, ipaddress_id: int):
     db_ipaddress = get_ipaddress(db, ipaddress_id)
     if db_ipaddress is None:
@@ -276,6 +259,7 @@ def delete_subnet(db: Session, subnet_id: int):
     db.commit()
     return db_subnet
 
+# Validation functions
 def is_valid_subnet(subnet: str, mask: str) -> bool:
     try:
         ipaddress.IPv4Network(f"{subnet}/{mask}", strict=False)
@@ -283,7 +267,9 @@ def is_valid_subnet(subnet: str, mask: str) -> bool:
     except ValueError:
         #print("Invalid subnet : " + subnet + "/" + mask)
         return False
-
+    
+# TODO: Check if subnet overlaps with existing subnets. Allow overlapping subnets with different customers, and allow overlapping subnets with the same customer if the subnet is smaller than the existing subnet.
+# TODO: Allso allow overlapping subnets if the existing subnet for differnt environments (prod, test, dev)
 def is_subnet_overlapping(db: Session, subnet: str, mask: str) -> bool:
     new_subnet = IPv4Network(f"{subnet}/{mask}", strict=False)
 
@@ -296,6 +282,19 @@ def is_subnet_overlapping(db: Session, subnet: str, mask: str) -> bool:
             return True
 
     return False
+
+# TODO: Check if subnet is within a parent subnet
+
+# Split a subnet into multipe smaller subnets
+# Rules: 
+# A subnetted subnet must be smaller than the parent subnet. 
+# The subnetted subnet cannot have ip addresses. 
+# The subnetted subnet cannot have a VLAN assigned.
+
+
+
+
+
 
 # Customer
 
@@ -349,14 +348,13 @@ def get_vlan(db: Session, vlan_id: int):
 def get_vlans(db: Session, skip: int = 0, limit: int = 100):
     return db.query(VLAN).offset(skip).limit(limit).all()
 
-
+# File: models\crud.py
 def create_vlan(db: Session, vlan: VLANCreate):
     db_vlan = VLAN(**vlan.dict())
     db.add(db_vlan)
     db.commit()
     db.refresh(db_vlan)
     return db_vlan
-
 
 def update_vlan(db: Session, vlan: VLANUpdate, vlan_id: int):
     db_vlan = get_vlan(db, vlan_id)

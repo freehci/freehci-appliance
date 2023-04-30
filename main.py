@@ -18,7 +18,7 @@ from starlette.responses import JSONResponse
 from starlette.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import inspect
+from sqlalchemy import engine_from_config, inspect
 import aiofiles
 
 # Modules required for plugins
@@ -34,9 +34,24 @@ from api.hardware import router as hardware_router
 from api.virtualization import router as virtualization_router
 from api.authentication import router as authentication_router
 
+
+from models import database
+from models import User, Role  # Importing user and role classes from models/
+#from models import Rack # Importing rack class from models/
+from models import IPAddress
+from models import Subnet
+from models import VLAN
+
+from models.rack_models import Rack
+from models.rack_models import Base as RackBase
+
+# Importing routers
 from routers import user, role  # Importing API functions for user and role
 from routers import equipment  # Importing API functions for equipment
-from routers import subnets  # Importing API functions for subnets
+from routers import subnets  # Importing API functions for Subnets
+from routers import vlans  # Importing API functions for VLANs
+from routers import customers  # Importing API functions for customers
+from routers import rack  # Importing API functions for racks
 
 #from routers import virtualization  # Importing API functions for virtualization
 #from routers import authentication  # Importing API functions for authentication
@@ -44,15 +59,8 @@ from routers import subnets  # Importing API functions for subnets
 #from routers import hardware  # Importing API functions for hardware
 #from routers import plugin  # Importing API functions for plugin
 #from routers import settings  # Importing API functions for settings
-from routers import rack  # Importing API functions for logs
 #from routers import dashboard  # Importing API functions for dashboard
 
-
-from models import database
-from models import User, Role  # Importing user and role classes from models/
-from models import Rack # Importing rack class from models/
-from models import IPAddress
-from models import Subnet
 
 nocache = True # Add middleware and set nocache to True to disable caching
 customize_swagger = False #Change this to True if you want to customize the swager docs
@@ -78,6 +86,9 @@ Role.__table__.create(database.engine, checkfirst=True)
 Rack.__table__.create(database.engine, checkfirst=True)
 IPAddress.__table__.create(database.engine, checkfirst=True)
 
+# Add these lines after creating the Rack table
+metadata = {**database.Base.metadata.tables, **RackBase.metadata.tables}
+
 #print("Created users table")
 
 database.Base.metadata.create_all(bind=database.engine)
@@ -86,13 +97,31 @@ database.Base.metadata.create_all(bind=database.engine)
 inspector = inspect(database.engine)
 logger.debug("Tables in the database:")
 
+from sqlalchemy import func
+from sqlalchemy.orm import sessionmaker
+
+# Opprett en session instans
+#db = database.SessionLocal()
+
 # TODO: Change this to logger.debug
 print("Tables in the database:")
 for table_name in inspector.get_table_names():
-    print(table_name)
+    # Hent tabellklassen basert på tabellnavnet
+    print(" - " + table_name)
+#    columns = inspector.get_columns(table_name)
+#    for column in columns:
+#        print(f"    - {column['name']} ({column['type']})")
+#    table_class = metadata[table_name] # <-- This is the line that causes the error
+    
+    # Utfør en COUNT(*)-spørring på tabellen og hent resultatet
+#    count_query = db.query(func.count().label('total')).select_from(table_class)
+#    record_count = count_query.scalar()
+#
+#    print(f" - {table_name}: {record_count} records")
 
-
-
+#db.close()
+#print("All tables in the dictionary:")
+#print(database.Base.metadata.tables)
  
 if (customize_swagger):
     from swagger_customization import swagger_ui_html
@@ -223,3 +252,5 @@ app.include_router(hardware_router)
 app.include_router(virtualization_router)
 app.include_router(rack.router)
 app.include_router(subnets.router)
+app.include_router(vlans.router)
+app.include_router(customers.router)

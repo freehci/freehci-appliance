@@ -1,14 +1,11 @@
 # routers/rack.py
+# This file will contain the endpoints for the Rack model
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from models import crud, database
-
-# TODO: Create rack_models.py and rack_schemas.py
-#from models.role_models import Role
-#from models.role_schemas import RoleCreate
-from models.rack_schemas import RackCreate
-from models.rack_models import Rack
+from models import rack_crud, database
+from models.rack_schemas import RackCreate      # RackCreate is a Pydantic model
+#from models.rack_models import Rack            # Rack is a SQLAlchemy model
 
 
 router = APIRouter()
@@ -23,20 +20,20 @@ def get_db():
 
 
 # Get all racks
-@router.get("/rack/")
+@router.get("/rack/", tags=["Rack"])
 def get_racks_endpoint(db: Session = Depends(get_db)):
-    racks = crud.get_racks(db)
+    racks = rack_crud.get_racks(db)
     return racks
 
 # Create rack
-@router.post("/rack/")
+@router.post("/rack/", tags=["Rack"])
 def create_rack_endpoint(rack: RackCreate, db: Session = Depends(get_db)):
-    return crud.create_rack(db=db, rack=rack)
+    return rack_crud.create_rack(db=db, rack=rack)
 
 # Get rack by id
-@router.get("/rack/{rack_id}")
+@router.get("/rack/{rack_id}", tags=["Rack"])
 def read_rack(rack_id: int, db: Session = Depends(get_db)):
-    rack = crud.get_rack_by_id(db, rack_id=rack_id)
+    rack = rack_crud.get_rack_by_id(db, rack_id=rack_id)
     if rack is None:
         raise HTTPException(status_code=404, detail="Rack not found")
     return rack
@@ -44,30 +41,30 @@ def read_rack(rack_id: int, db: Session = Depends(get_db)):
 
 
 # Update rack
-@router.put("/rack/{rack_id}")
+@router.put("/rack/{rack_id}" , tags=["Rack"])
 def update_rack_endpoint(rack_id: int, db: Session = Depends(get_db)):
     
-    rack = crud.update_rack_by_id(db, rack_id=rack_id)
+    rack = rack_crud.update_rack_by_id(db, rack_id=rack_id)
     return rack
 
 # This is equipment related to a rack. Maybe this should be in a separate router?
 # Get all equipment for rack
-@router.get("/rack/equipment/{rack_id}")
+@router.get("/rack/equipment/{rack_id}", tags=["Rack"])
 def get_equipment_endpoint(rack_id: int, db: Session = Depends(get_db)):
-    equipment = crud.get_equipment(db)
+    equipment = rack_crud.get_equipment(db)
     return equipment
 
 
 # Remove equipment from rack
-@router.delete("/rack/equipment/{rack_id}/{equipment_id}")
+@router.delete("/rack/equipment/{rack_id}/{equipment_id}", tags=["Rack"])
 def remove_equipment_endpoint(rack_id: int, equipment_id: int, db: Session = Depends(get_db)):
-    equipment = crud.get_equipment(db)
+    equipment = rack_crud.get_equipment(db)
     return equipment
 
 
 # Add equipment to rack
-@router.post("/rack/equipment/{rack_id}/{equipment_id}")
+@router.post("/rack/equipment/{rack_id}/{equipment_id}", tags=["Rack"])
 def add_equipment_endpoint(rack_id: int, equipment_id: int, db: Session = Depends(get_db)):
-    equipment = crud.get_equipment(db)
+    equipment = rack_crud.get_equipment(db)
     return equipment
 

@@ -1,2 +1,4 @@
 __pycache__/
+routers/__pycache__
+models/__pycache__
 .vscode/

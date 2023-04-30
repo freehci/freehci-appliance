@@ -1,16 +1,17 @@
 # Filename: rack_models.py
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, TIMESTAMP
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
 class Rack(Base):
     __tablename__ = "racks"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True) # <-- This should be autoincrement
     name = Column(String, unique=True, index=True) # name of rack
-    date = Column(DateTime) # date rack was created
+    date = Column(TIMESTAMP, nullable=True, default=func.now(), onupdate=func.now()) # date rack was created
     description = Column(String) # description of rack
     vendor = Column(String) # vendor id
     asset_tag = Column(String) # asset tag

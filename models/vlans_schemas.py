@@ -1,3 +1,4 @@
+# File: models\vlans_schemas.py
 from typing import Optional
 from pydantic import BaseModel
 
@@ -5,6 +6,7 @@ from pydantic import BaseModel
 class VLANBase(BaseModel):
     domainId: int = 1
     name: str
+    vlanId: int
     number: Optional[int] = None
     description: Optional[str] = None
     customer_id: Optional[int] = None
