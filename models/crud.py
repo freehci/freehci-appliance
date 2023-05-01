@@ -3,6 +3,7 @@
 
 from sqlalchemy.orm import Session
 import ipaddress
+from typing import Optional
 
 #
 # models
@@ -136,6 +137,7 @@ def remove_role_from_user(db: Session, user_id: int, role_id: int):
 # File: crud.py
 # Rack 
 
+"""
 # Get all racks
 def get_racks(db: Session):
     return db.query(Rack).all()
@@ -170,7 +172,7 @@ def delete_rack_by_id(db: Session, rack_id: int):
     db.query(Rack).filter(Rack.id == rack_id).delete()
     db.commit()
     return True
-
+"""
 
 
 # IPaddress
@@ -235,10 +237,10 @@ def create_subnet(db: Session, subnet: SubnetCreate):
     return db_subnet
 
 
-def update_subnet(db: Session, subnet_id: int, subnet_data: SubnetUpdate) -> Subnet:
+def update_subnet(db: Session, subnet_id: int, subnet_data: SubnetUpdate) -> Optional[Subnet]:
     subnet = db.query(Subnet).filter(Subnet.id == subnet_id).first()
     if not subnet:
-        return None
+        return None  # TODO: Fix this
 
     for field, value in subnet_data.dict().items():
         if value is not None:

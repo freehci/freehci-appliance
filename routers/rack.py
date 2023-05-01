@@ -3,7 +3,8 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from models import rack_crud, database
+from models import database
+from crud import rack_crud
 from models.rack_schemas import RackCreate      # RackCreate is a Pydantic model
 #from models.rack_models import Rack            # Rack is a SQLAlchemy model
 
@@ -38,33 +39,40 @@ def read_rack(rack_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Rack not found")
     return rack
 
-
-
 # Update rack
-@router.put("/rack/{rack_id}" , tags=["Rack"])
-def update_rack_endpoint(rack_id: int, db: Session = Depends(get_db)):
-    
-    rack = rack_crud.update_rack_by_id(db, rack_id=rack_id)
-    return rack
+@router.put("/rack/{rack_id}", tags=["Rack"])
+def update_rack_endpoint(rack_id: int, rack: RackCreate, db: Session = Depends(get_db)):
+    updated_rack = rack_crud.update_rack(db, rack_id=rack_id, rack=rack)
+    return updated_rack
+
 
 # This is equipment related to a rack. Maybe this should be in a separate router?
-# Get all equipment for rack
+# Get all equipment for rack 
+# TODO: Implement this in rack_crud.py
+"""
 @router.get("/rack/equipment/{rack_id}", tags=["Rack"])
 def get_equipment_endpoint(rack_id: int, db: Session = Depends(get_db)):
     equipment = rack_crud.get_equipment(db)
     return equipment
+"""
 
 
 # Remove equipment from rack
+# TODO: Implement this in rack_crud.py
+"""
 @router.delete("/rack/equipment/{rack_id}/{equipment_id}", tags=["Rack"])
 def remove_equipment_endpoint(rack_id: int, equipment_id: int, db: Session = Depends(get_db)):
     equipment = rack_crud.get_equipment(db)
     return equipment
+"""    
 
 
 # Add equipment to rack
+# TODO: Implement this in rack_crud.py
+"""
 @router.post("/rack/equipment/{rack_id}/{equipment_id}", tags=["Rack"])
 def add_equipment_endpoint(rack_id: int, equipment_id: int, db: Session = Depends(get_db)):
     equipment = rack_crud.get_equipment(db)
     return equipment
 
+"""
