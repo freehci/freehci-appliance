@@ -29,10 +29,10 @@ import os
 import importlib
 
 # Addidional modules
-from api.appliance import router as appliance_router
-from api.hardware import router as hardware_router
-from api.virtualization import router as virtualization_router
-from api.authentication import router as authentication_router
+from api.appliance import router as appliance_router # TODO: Move this to routers/appliance.py
+from api.hardware import router as hardware_router # TODO: Move this to routers/hardware.py
+from api.virtualization import router as virtualization_router # TODO: Move this to routers/virtualization.py
+from api.authentication import router as authentication_router # TODO: Move this to routers/authentication.py
 
 
 from models import database
@@ -178,7 +178,7 @@ app.mount("/ui/static", StaticFiles(directory="html/ui/static"), name="ui_static
 # Be aware that Vue.js and Jinja2 use the same syntax for variables
 templates = Jinja2Templates(directory="html/templates")
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, summary="This is the landing page where you can find information about the appliance")
 async def read_root(request: Request):
     title = "FreeHCI Appliance"
     update_url = "https://github.com/freehci/appliance.json" # this is the url for the update.json file. Check if remote file have higher version number than local file
@@ -187,7 +187,7 @@ async def read_root(request: Request):
     return templates.TemplateResponse("start.html", {"request": request, "title": title, "message": message, "update_url": update_url, "ui_url": ui_url})
 
 # Serve the dashboard
-@app.get("/ui/", response_class=HTMLResponse)
+@app.get("/ui/", response_class=HTMLResponse, summary="This is the UI Dashboard")
 async def read_root():
     async with aiofiles.open("html/ui/dashboard.html", mode="r") as f:
         content = await f.read()

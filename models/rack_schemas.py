@@ -20,8 +20,9 @@ class RackBase (BaseModel):
     row: Optional[int] = 0                  # row number
     col: Optional[int] = 0                  # column number
     
+    
 class RackCreate (RackBase):
-    pass 
+    pass
     
 class RackUpdate (RackBase):
     pass
