@@ -1,9 +1,10 @@
 # main.py
-
+print("Starting application...")
 import logging
 #from logging import SysLogHandler # This is not available on Windows
 
-from fastapi import FastAPI, UploadFile, Query
+print ("Importing reqirements...")
+from fastapi import FastAPI, HTTPException, UploadFile, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +29,7 @@ import sys
 import os
 import importlib
 
+print ("Importing modules...")
 # Addidional modules
 from api.appliance import router as appliance_router # TODO: Move this to routers/appliance.py
 from api.hardware import router as hardware_router # TODO: Move this to routers/hardware.py
@@ -80,6 +82,7 @@ logger.setLevel(logging.DEBUG)
 
 #.syslog("FreeHCI Appliance started")
 
+print("Initializing database...")
 #print("Imported User model")
 User.__table__.create(database.engine, checkfirst=True)
 Role.__table__.create(database.engine, checkfirst=True)
@@ -188,7 +191,7 @@ async def read_root(request: Request):
 
 # Serve the dashboard
 @app.get("/ui/", response_class=HTMLResponse, summary="This is the UI Dashboard")
-async def read_root():
+async def read_ui_root():
     async with aiofiles.open("html/ui/dashboard.html", mode="r") as f:
         content = await f.read()
     return HTMLResponse(content=content)
@@ -202,7 +205,7 @@ async def serve_vue_component(filename: str):
 #   Example Method
 # ------------------
 @app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None):
+def read_item(item_id: int, q: str = ""):
     return {"item_id": item_id, "q": q}
 
 # ------------------
@@ -210,6 +213,9 @@ def read_item(item_id: int, q: str = None):
 # ------------------
 @app.post("/install_plugin")
 async def install_plugin(uploaded_plugin: UploadFile = File(...)):
+    if uploaded_plugin.filename is None:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    
     plugin_file_path = os.path.join("app", "plugins", uploaded_plugin.filename)
     with open(plugin_file_path, "wb") as plugin_file:
         plugin_file.write(await uploaded_plugin.read())
@@ -243,6 +249,7 @@ async def run_all_plugins():
     run_plugins()
     return JSONResponse(content={"message": "All plugins executed successfully"})        
 
+print("Loading routers...")
 # Include additional modules 
 app.include_router(user.router)
 app.include_router(role.router)
@@ -254,3 +261,5 @@ app.include_router(rack.router)
 app.include_router(subnets.router)
 app.include_router(vlans.router)
 app.include_router(customers.router)
+
+print("FreeHCI Appliance started")

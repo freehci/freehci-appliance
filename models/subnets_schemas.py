@@ -98,7 +98,7 @@ class SubnetUpdate(SubnetBase):
 
 
 class SubnetInDBBase(SubnetBase):
-    id: int
+    id: int # TODO: Remove this, and make sure it is handled by the database as autoincrement
 
     class Config:
         orm_mode = True

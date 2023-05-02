@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models import crud, database
 
-from models.subnets_schemas import SubnetCreate, SubnetUpdate, Subnet
+from models.subnets_schemas import SubnetCreate, SubnetUpdate, Subnet, SubnetBase
 from models.subnets_models import Subnet as SubnetModel
 
 from datetime import datetime
@@ -12,8 +12,6 @@ from datetime import datetime
 def set_default_dates(subnet: SubnetCreate) -> SubnetCreate:
     now = datetime.utcnow().isoformat()
 
-    if subnet.editDate is None:
-        subnet.editDate = now
     if subnet.lastScan is None:
         subnet.lastScan = now
     if subnet.lastDiscovery is None:
@@ -51,6 +49,12 @@ def read_subnet(subnet_id: int, db: Session = Depends(get_db)):
 # TODO: Validate all date fields in the request body to be in the correct format
 @router.post("/ipam/subnets/", response_model=Subnet)
 def create_subnet(subnet: SubnetCreate, db: Session = Depends(get_db)):
+    if subnet.subnet is None:
+        raise HTTPException(status_code=400, detail="Invalid subnet.")
+    
+    if subnet.mask is None:
+        raise HTTPException(status_code=400, detail="Invalid mask.")
+    
     if not crud.is_valid_subnet(subnet.subnet, subnet.mask):
         raise HTTPException(status_code=400, detail="Invalid subnet.")
     
@@ -69,6 +73,18 @@ def create_subnet(subnet: SubnetCreate, db: Session = Depends(get_db)):
 @router.put("/ipam/subnets/{subnet_id}", response_model=Subnet)
 def update_subnet(subnet_id: int, updated_subnet: SubnetUpdate, db: Session = Depends(get_db)):
     existing_subnet = crud.get_subnet(db, subnet_id)
+
+    if existing_subnet.subnet is None:
+        raise HTTPException(status_code=400, detail="Invalid subnet.")
+    
+    if existing_subnet.mask is None:
+        raise HTTPException(status_code=400, detail="Invalid mask.")
+    
+    if updated_subnet.subnet is None:
+        raise HTTPException(status_code=400, detail="Invalid subnet.")
+    
+    if updated_subnet.mask is None:
+        raise HTTPException(status_code=400, detail="Invalid mask.")
 
     if not existing_subnet:
         raise HTTPException(status_code=404, detail="Subnet not found")
