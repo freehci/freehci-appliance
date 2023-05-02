@@ -1,4 +1,6 @@
 __pycache__/
 routers/__pycache__
 models/__pycache__
+plugins/__pycache__
+api/__pycache__
 .vscode/
