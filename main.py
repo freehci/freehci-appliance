@@ -7,11 +7,11 @@ BLUE = "\033[34m"
 YELLOW = "\033[33m"
 RESET = "\033[0m"
 
-print("Starting application...")
+print("\033[32mStarting application...\033[0m")
 import logging
 #from logging import SysLogHandler # This is not available on Windows
 
-print ("Importing reqirements...")
+print(f"{BLUE} Importing reqirements...{RESET}")
 from fastapi import FastAPI, HTTPException, UploadFile, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -37,7 +37,7 @@ import sys
 import os
 import importlib
 
-print ("Importing modules...")
+print (f"{BLUE} Importing modules...{RESET}")
 # Addidional modules
 from api.appliance import router as appliance_router # TODO: Move this to routers/appliance.py
 from api.hardware import router as hardware_router # TODO: Move this to routers/hardware.py
@@ -90,7 +90,7 @@ logger.setLevel(logging.DEBUG)
 
 #.syslog("FreeHCI Appliance started")
 
-print("Initializing database...")
+print(f"{YELLOW} Initializing database...{RESET}")
 #print("Imported User model")
 User.__table__.create(database.engine, checkfirst=True)
 Role.__table__.create(database.engine, checkfirst=True)
@@ -115,10 +115,10 @@ from sqlalchemy.orm import sessionmaker
 #db = database.SessionLocal()
 
 # TODO: Change this to logger.debug
-print("Tables in the database:")
+print(f"{BLUE} Tables in the database:{RESET}")
 for table_name in inspector.get_table_names():
     # Hent tabellklassen basert på tabellnavnet
-    print(" - " + table_name)
+    print(f"{GREEN} - " + table_name + RESET)
 #    columns = inspector.get_columns(table_name)
 #    for column in columns:
 #        print(f"    - {column['name']} ({column['type']})")

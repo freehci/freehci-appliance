@@ -92,31 +92,43 @@
         <div class="row mt-3">
             <!-- Side bar -->
             <div class="col-md-2">
-                <div class="nav flex-column nav-pills bg-dark" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                  <a class="nav-link active text-light" href="#" @click="loadComponent('Dashboard')"><i class="fas fa-columns"></i> Dashboard</a>
-                  
-                  <!-- Users, Roles, and Groups -->
-                  <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle text-light" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
-                        <i class="fas fa-users-cog"></i> Users, Roles, and Groups
-                    </a>
-                    <div class="dropdown-menu bg-dark">
-                      <a class="dropdown-item text-light" href="#" @click="loadComponent('Users')"><i class="fas fa-user"></i> Users</a>
-                      <a class="dropdown-item text-light" href="#" @click="loadComponent('Roles')"><i class="fas fa-user-tag"></i> Roles</a>
-                      <a class="dropdown-item text-light" href="#" @click="loadComponent('Groups')"><i class="fas fa-users"></i> Groups</a>
-                      <a class="dropdown-item text-light" href="#" @click="loadComponent('Tenants')"><i class="fa-solid fa-building"></i> Tenants</a>
-                    </div>
-                  </div>
-                  
-                  <a class="nav-link text-light" href="#" @click="loadComponent('Hardware')"><i class="fas fa-server"></i> Hardware</a>
-                  <a class="nav-link text-light" href="#" @click="loadComponent('Rack')"><i class="fas fa-server"></i> Racks</a>
-                  <a class="nav-link text-light" href="#" @click="loadComponent('Vendors')"><i class="fas fa-industry"></i> Vendors</a>
-                  <a class="nav-link text-light" href="#" @click="loadComponent('Plugins')"><i class="fas fa-puzzle-piece"></i> Plugins</a>
-                  <a class="nav-link text-light" href="#" @click="loadComponent('Topology')"><i class="fas fa-sitemap"></i> Topology</a>
-                  <a class="nav-link text-light" href="#" @click="loadComponent('Settings')"><i class="fas fa-tools"></i> Settings</a>
-                  <a class="nav-link text-light" href="#" @click="loadComponent('Help')"><i class="fas fa-life-ring"></i> Help</a>
+                <div class="sidebar bg-dark">
+                    <ul>
+                        <li class="nav flex-column nav-pills bg-dark"><a class="text-light" href="#" @click="loadComponent('Dashboard')"><i class="fas fa-columns"></i> Dashboard</a></li>
+                        <li>
+                            <a class="text-light" href="#"><i class="fas fa-users-cog"></i> Users, Roles, and Groups</a>
+                            <ul>
+                                <li><a class="text-light" href="#" @click="loadComponent('Users')"><i class="fas fa-user"></i> Users</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('Roles')"><i class="fas fa-user-tag"></i> Roles</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('Groups')"><i class="fas fa-users"></i> Groups</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('Tenants')"><i class="fa-solid fa-building"></i> Tenants</a></li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a class="text-light" href="#"><i class="fa-solid fa-diagram-project"></i> IPAM</a>
+                            <ul>
+                                <li><a class="text-light" href="#" @click="loadComponent('Vlans')"><i class="fa-solid fa-building"></i> VLANS</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('Subnets')"><i class="fa-solid fa-building"></i> Subnets</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('IPadresses')"><i class="fa-solid fa-building"></i> IPadresses</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('DNS')"><i class="fa-solid fa-building"></i> DNS</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('DHCP')"><i class="fa-solid fa-building"></i> DHCP</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('VRFS')"><i class="fa-solid fa-building"></i> VRFS</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('Locations')"><i class="fa-solid fa-location-dot"></i> Locations</a></li>
+                                <li><a class="text-light" href="#" @click="loadComponent('Circuits')"><i class="fa-solid fa-building"></i> Circuits</a></li>        
+                            </ul>
+                        </li>
+                        <li><a class="text-light" href="#" @click="loadComponent('Hardware')"><i class="fas fa-server"></i> Hardware</a></li>
+                        <li><a class="text-light" href="#" @click="loadComponent('Rack')"><i class="fas fa-server"></i> Racks</a></li>
+                        <li><a class="text-light" href="#" @click="loadComponent('Vendors')"><i class="fas fa-industry"></i> Vendors</a></li>
+                        <li><a class="text-light" href="#" @click="loadComponent('Plugins')"><i class="fas fa-puzzle-piece"></i> Plugins</a></li>
+                        <li><a class="text-light" href="#" @click="loadComponent('Topology')"><i class="fas fa-sitemap"></i> Topology</a></li>
+                        <li><a class="text-light" href="#" @click="loadComponent('Settings')"><i class="fas fa-tools"></i> Settings</a></li>
+                        <li><a class="text-light" href="#" @click="loadComponent('Help')"><i class="fas fa-life-ring"></i> Help</a></li>
+                    </ul>
                 </div>
-              </div>
+            </div>
+
+            
               
             <!-- Add main content -->
             <div class="col-md-10">

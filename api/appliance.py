@@ -1,5 +1,6 @@
 # api/appliance.py
 
+import socket
 from typing import List, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
@@ -12,6 +13,16 @@ router = APIRouter()
 # ---------------
 #   Appliance
 # ---------------
+
+class NetworkInfo(BaseModel):
+    interface: str
+    name: str
+    ipaddr: str
+    macaddr: str
+    bytes_sent: str
+    bytes_received: str
+    packets_sent: str
+    packets_received: str
 
 class DiskInfo(BaseModel):
     device: str
@@ -26,13 +37,14 @@ class ApplianceMetrics(BaseModel):
     total_memory: str
     free_memory: str
     disks: Optional[List[DiskInfo]]
+    network: List[NetworkInfo]
     uptime: str
     version: str
     
 def get_disk_info():
     disk_info_list = []
     disk_partitions = psutil.disk_partitions()
-    print("disk_partitions:", disk_partitions)  # Print disk_partitions
+    #print("disk_partitions:", disk_partitions)  # Print disk_partitions
 
     for partition in disk_partitions:
         disk_usage = psutil.disk_usage(partition.mountpoint)
@@ -44,10 +56,10 @@ def get_disk_info():
             free_space=f"{disk_usage.free} bytes",
             usage_percent=f"{disk_usage.percent}%",
         )
-        print("disk_info:", disk_info)  # Print disk_info
+        # print("disk_info:", disk_info)  # Print disk_info
         disk_info_list.append(disk_info)
 
-    print("disk_info_list:", disk_info_list)  # Print disk_info_list
+    # print("disk_info_list:", disk_info_list)  # Print disk_info_list
 
     # Return None if disk_info_list is empty
     if not disk_info_list:
@@ -55,6 +67,33 @@ def get_disk_info():
 
     return disk_info_list
 
+def get_interface_name(interface: str) -> str:
+    addrs = psutil.net_if_addrs()
+    for addr in addrs[interface]:
+        if addr.family == socket.AF_INET:
+            return addr.address
+    return "Unknown"
+
+def get_network_info():
+    net_stats = psutil.net_io_counters(pernic=True)
+    net_addrs = psutil.net_if_addrs()
+    network_info_list = []
+    
+    for interface in net_stats.keys():
+        if interface in net_addrs:
+            stats = net_stats[interface]
+            network_info = NetworkInfo(
+                name=interface,
+                macaddr=psutil.net_if_addrs()[interface][0].address,
+                ipaddr=get_interface_name(interface),
+                interface=interface,
+                bytes_sent=f"{stats.bytes_sent} bytes",
+                bytes_received=f"{stats.bytes_recv} bytes",
+                packets_sent=f"{stats.packets_sent}",
+                packets_received=f"{stats.packets_recv}",
+            )
+            network_info_list.append(network_info)
+    return network_info_list
  
 
 def calculate_uptime():
@@ -80,6 +119,7 @@ def get_appliance_metrics():
         total_memory=psutil.virtual_memory().total,
         free_memory=psutil.virtual_memory().free,
         disks=get_disk_info(),
+        network=get_network_info(),
         uptime=calculate_uptime(),
         version="1.0.26"
     )

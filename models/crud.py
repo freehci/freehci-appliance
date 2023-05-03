@@ -52,13 +52,25 @@ def create_user(db: Session, user: UserCreate):
     db.refresh(db_user)
     return db_user
 
+def delete_user_by_id(db: Session, user_id: int):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    db.delete(db_user)
+    db.commit()
+    return db_user
+
+def delete_user_by_username(db: Session, username: str):
+    db_user = db.query(User).filter(User.username == username).first()
+    db.delete(db_user)
+    db.commit()
+    return db_user
+
 def get_user_by_id(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
 
 def get_users(db: Session):
     return db.query(User).all()
 
-def update_user_by_id(db: Session, user_id: int, user: UserCreate):
+def update_user_by_id(db: Session, user_id: int, user: UserCreate): #TODO: This should be UserBaseSchema instead of UserCreate
     db_user = db.query(User).filter(User.id == user_id).first()
     db_user.username = user.username
     db_user.email = user.email
@@ -67,6 +79,28 @@ def update_user_by_id(db: Session, user_id: int, user: UserCreate):
     db.refresh(db_user)
     return db_user
 
+def update_user_by_username(db: Session, username: str, user: UserCreate):
+    db_user = db.query(User).filter(User.username == username).first()
+    db_user.username = user.username
+    db_user.email = user.email
+    #db_user.password = get_password_hash(user.password)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def reset_user_password_by_id(db: Session, user_id: int, user: UserCreate):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    db_user.password = get_password_hash(user.password)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def reset_user_password_by_username(db: Session, username: str, user: UserCreate):
+    db_user = db.query(User).filter(User.username == username).first()
+    db_user.password = get_password_hash(user.password)
+    db.commit()
+    db.refresh(db_user)
+    return db_user 
 
 
 # Roles
@@ -358,8 +392,8 @@ def create_vlan(db: Session, vlan: VLANCreate):
     db.refresh(db_vlan)
     return db_vlan
 
-def update_vlan(db: Session, vlan: VLANUpdate, vlan_id: int):
-    db_vlan = get_vlan(db, vlan_id)
+def update_vlan(db: Session, vlan: VLANUpdate):
+    db_vlan = get_vlan(db, vlan.vlanId)
     if db_vlan is None:
         return None
 

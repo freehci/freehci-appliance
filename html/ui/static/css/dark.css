@@ -1,6 +1,8 @@
 body{margin-top:20px;
     color: #bcd0f7;
-    background: #1A233A; 
+    background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url("../../../static/images/bg2.png") no-repeat center center fixed;
+    background-size: cover; 
+    background-color: #1A233A;
 }
 
 /* Navbar */
@@ -396,3 +398,64 @@ body{margin-top:20px;
     margin: 5px;
 
 }
+
+
+/* Custom styling for the side bar */
+
+.sidebar ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sidebar ul li {
+    padding: 5px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar ul li a {
+    text-decoration: none;
+    display: block;
+    color: #bcd0f7;
+}
+
+.sidebar ul li a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar ul ul {
+    padding-left: 20px;
+}
+
+.sidebar ul ul li {
+    border-bottom: none;
+}
+
+
+/* Custom styling for the main content */
+
+.progress-bar-container {
+    width: 100%;
+    background-color: #f3f3f3;
+    border-radius: 5px;
+    position: relative;
+}
+  
+.progress-bar {
+    background-color: #4caf50;
+    width: 0%;
+    height: 30px;
+    border-radius: 5px;
+}
+  
+.progress-bar-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: black;
+    font-weight: bold;
+    line-height: 30px;
+}
+  
+  
