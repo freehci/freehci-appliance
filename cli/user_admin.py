@@ -1,3 +1,8 @@
+import sys
+
+sys.path.append("..")
+
+
 import argparse
 from sqlalchemy.orm import Session
 from models import crud, database
@@ -22,7 +27,9 @@ def create_user(db: Session, username: str, email: str, password: str):
 
 def modify_user(db: Session, user_id: int, username: str, email: str):
     # Implement modify user logic here
-    pass
+    user_modify = UserCreate(username=username, email=email)
+    user = crud.update_user_by_id(db, user_id, user_modify)
+    print(f"User modified with ID {user.id}")
 
 def main():
     parser = argparse.ArgumentParser(description="User administration tool")
@@ -32,6 +39,9 @@ def main():
     
     find_parser = subparsers.add_parser("find", help="Find a user by ID")
     find_parser.add_argument("user_id", type=int, help="User ID to find")
+    
+    delete_parser = subparsers.add_parser("delete", help="Delete a user by username")
+    delete_parser.add_argument("username", help="Username to delete")
 
     create_parser = subparsers.add_parser("create", help="Create a new user")
     create_parser.add_argument("username", help="Username for the new user")
@@ -54,6 +64,9 @@ def main():
             create_user(db, args.username, args.email, args.password)
         elif args.command == "modify":
             modify_user(db, args.user_id, args.username, args.email)
+        elif args.command == "delete":
+            ...
+            
         else:
             parser.print_help()
 
