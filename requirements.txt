@@ -97,11 +97,13 @@ git+https://github.com/HewlettPackard/oneview-python.git # HPE OneView Python SD
 #pyhpewsp                # HPE Workspace Python SDK
 
 
-# Virtualization packages
+
+# Windows packages
 pywinrm                 # Windows Remote Management (WinRM) library for Python
-ms-active-directory     # Microsoft Active Directory library for Python
+ms-active-directory     # Microsoft Active Directory library for Python : https://pypi.org/project/ms-active-directory/
 #pywin32                 # Windows Management Instrumentation (WMI) library for Python <--- Windows only
 
+# Virtualization packages
 pyVmomi                 # VMware vSphere API Python bindings
 openstacksdk            # Python SDK for OpenStack APIs
 
