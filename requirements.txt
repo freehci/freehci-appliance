@@ -7,6 +7,7 @@ passlib                 # Comprehensive password hashing library
 python-jwt              # JSON Web Token implementation in Python
 starlette               # Lightweight ASGI framework/toolkit
 Jinja2                  # Template engine for Python
+psutil                  # Cross-platform library for retrieving information on running processes and system utilization (CPU, memory, disks, network, sensors) in Python
 requests                # HTTP library for making requests
 httpx                   # Fully featured HTTP client for Python
 pyjwt                   # JSON Web Token library
