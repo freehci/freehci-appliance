@@ -99,6 +99,7 @@ git+https://github.com/HewlettPackard/oneview-python.git # HPE OneView Python SD
 
 # Virtualization packages
 pywinrm                 # Windows Remote Management (WinRM) library for Python
+ms-active-directory     # Microsoft Active Directory library for Python
 #pywin32                 # Windows Management Instrumentation (WMI) library for Python <--- Windows only
 
 pyVmomi                 # VMware vSphere API Python bindings

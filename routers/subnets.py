@@ -32,13 +32,13 @@ def get_db():
         db.close()
 
 # Get all subnets
-@router.get("/ipam/subnets/")
+@router.get("/ipam/subnets/",tags=["IPAM"])
 def get_subnets_endpoint(db: Session = Depends(get_db)):
     subnets = crud.get_subnets(db)
     return subnets
 
 # Get subnet by id
-@router.get("/ipam/subnets/{subnet_id}")
+@router.get("/ipam/subnets/{subnet_id}", tags=["IPAM"])
 def read_subnet(subnet_id: int, db: Session = Depends(get_db)):
     subnet = crud.get_subnet(db, subnet_id=subnet_id)
     if subnet is None:
@@ -47,7 +47,7 @@ def read_subnet(subnet_id: int, db: Session = Depends(get_db)):
 
 # Create subnet
 # TODO: Validate all date fields in the request body to be in the correct format
-@router.post("/ipam/subnets/", response_model=Subnet)
+@router.post("/ipam/subnets/", response_model=Subnet, tags=["IPAM"])
 def create_subnet(subnet: SubnetCreate, db: Session = Depends(get_db)):
     if subnet.subnet is None:
         raise HTTPException(status_code=400, detail="Invalid subnet.")
@@ -70,7 +70,7 @@ def create_subnet(subnet: SubnetCreate, db: Session = Depends(get_db)):
 
 # Update subnet
 # TODO: Validate all date fields in the request body to be in the correct format
-@router.put("/ipam/subnets/{subnet_id}", response_model=Subnet)
+@router.put("/ipam/subnets/{subnet_id}", response_model=Subnet, tags=["IPAM"])
 def update_subnet(subnet_id: int, updated_subnet: SubnetUpdate, db: Session = Depends(get_db)):
     existing_subnet = crud.get_subnet(db, subnet_id)
 
@@ -95,7 +95,7 @@ def update_subnet(subnet_id: int, updated_subnet: SubnetUpdate, db: Session = De
     return crud.update_subnet(db, subnet_id, updated_subnet)
 
 # Delete subnet
-@router.delete("/ipam/subnets/{subnet_id}")
+@router.delete("/ipam/subnets/{subnet_id}", tags=["IPAM"])
 def delete_subnet(subnet_id: int, db: Session = Depends(get_db)):
     existing_subnet = crud.get_subnet(db, subnet_id)
 

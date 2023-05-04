@@ -1,13 +1,16 @@
-import sys
+# File: cli\user_admin.py
+# This file is used to create a CLI tool to manage users in the database.
 
+import sys
 sys.path.append("..")
 
 
 import argparse
 from sqlalchemy.orm import Session
 from models import crud, database
-from models.user_schemas import UserCreate
+from models.user_schemas import UserCreate, UserUpdate
 
+# CLI functions
 def list_users(db: Session):
     users = crud.get_users(db)
     for user in users:
@@ -25,9 +28,9 @@ def create_user(db: Session, username: str, email: str, password: str):
     user = crud.create_user(db, user_create)
     print(f"User created with ID {user.id}")
 
-def modify_user(db: Session, user_id: int, username: str, email: str):
+def modify_user_by_id(db: Session, user_id: int, username: str, email: str):
     # Implement modify user logic here
-    user_modify = UserCreate(username=username, email=email)
+    user_modify = UserUpdate(id=user_id, username=username, email=email)
     user = crud.update_user_by_id(db, user_id, user_modify)
     print(f"User modified with ID {user.id}")
 
@@ -63,7 +66,7 @@ def main():
         elif args.command == "create":
             create_user(db, args.username, args.email, args.password)
         elif args.command == "modify":
-            modify_user(db, args.user_id, args.username, args.email)
+            modify_user_by_id(db, args.user_id, args.username, args.email)
         elif args.command == "delete":
             ...
             

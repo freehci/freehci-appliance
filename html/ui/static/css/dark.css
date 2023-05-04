@@ -402,6 +402,12 @@ body{margin-top:20px;
 
 /* Custom styling for the side bar */
 
+.sidebar {
+    overflow-y: auto;
+    margin-bottom: 50px;
+    height: fit-content;
+}
+
 .sidebar ul {
     list-style-type: none;
     margin: 0;

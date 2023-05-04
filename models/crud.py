@@ -26,7 +26,7 @@ from .authentication import get_password_hash
 #
 # schemas
 #
-from .user_schemas import UserCreate
+from .user_schemas import UserCreate, UserUpdate
 from .role_schemas import RoleCreate
 from .rack_schemas import RackCreate
 from .ipaddresses_schemas import IPAddressBase, IPAddressCreate, IPAddressUpdate, IPAddressInDBBase
@@ -70,7 +70,7 @@ def get_user_by_id(db: Session, user_id: int):
 def get_users(db: Session):
     return db.query(User).all()
 
-def update_user_by_id(db: Session, user_id: int, user: UserCreate): #TODO: This should be UserBaseSchema instead of UserCreate
+def update_user_by_id(db: Session, user_id: int, user: UserUpdate): #TODO: This should be UserBaseSchema instead of UserCreate
     db_user = db.query(User).filter(User.id == user_id).first()
     db_user.username = user.username
     db_user.email = user.email
@@ -79,7 +79,7 @@ def update_user_by_id(db: Session, user_id: int, user: UserCreate): #TODO: This 
     db.refresh(db_user)
     return db_user
 
-def update_user_by_username(db: Session, username: str, user: UserCreate):
+def update_user_by_username(db: Session, username: str, user: UserUpdate):
     db_user = db.query(User).filter(User.username == username).first()
     db_user.username = user.username
     db_user.email = user.email

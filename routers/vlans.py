@@ -20,7 +20,7 @@ def get_db():
         
 
 # Get all vlans
-@router.get("/ipam/vlans/")
+@router.get("/ipam/vlans/", tags=["IPAM","VLAN"])
 def get_vlans_endpoint(db: Session = Depends(get_db)):
     vlans = crud.get_vlans(db)
     return vlans
@@ -28,7 +28,7 @@ def get_vlans_endpoint(db: Session = Depends(get_db)):
 # TODO: Fix Customer functionality before implementing test for existing customers
 # STATUS: Fixed
 #
-@router.post("/ipam/vlans/")
+@router.post("/ipam/vlans/", tags=["IPAM","VLAN"])
 def create_vlan_endpoint(vlan: vlans_schemas.VLANCreate, db: Session = Depends(get_db)):
     # Check if customer_id is anything but 0 and if so, check if customer exists
     if vlan.customer_id and vlan.customer_id != 0:
@@ -47,7 +47,7 @@ def create_vlan_endpoint(vlan: vlans_schemas.VLANCreate, db: Session = Depends(g
 #    return crud.create_vlan(db=db, vlan=vlan)
 
 # Get vlan by id
-@router.get("/ipam/vlans/{vlan_id}")
+@router.get("/ipam/vlans/{vlan_id}", tags=["IPAM","VLAN"])
 def read_vlan(vlan_id: int, db: Session = Depends(get_db)):
     vlan = crud.get_vlan(db, vlan_id=vlan_id)
     if vlan is None:
@@ -55,7 +55,7 @@ def read_vlan(vlan_id: int, db: Session = Depends(get_db)):
     return vlan
 
 # Update vlan
-@router.put("/ipam/vlans/{vlan_id}")
+@router.put("/ipam/vlans/{vlan_id}", tags=["IPAM","VLAN"])
 def update_vlan_endpoint(vlan: vlans_schemas.VLANUpdate, db: Session = Depends(get_db)):
     # Check if customer_id is anything but 0 and if so, check if customer exists
     if vlan.customer_id and vlan.customer_id != 0:
@@ -67,7 +67,7 @@ def update_vlan_endpoint(vlan: vlans_schemas.VLANUpdate, db: Session = Depends(g
     return vlan
 
 # Delete vlan
-@router.delete("/ipam/vlans/{vlan_id}")
+@router.delete("/ipam/vlans/{vlan_id}", tags=["IPAM","VLAN"])
 def delete_vlan_endpoint(vlan_id: int, db: Session = Depends(get_db)):
     
     vlan = crud.delete_vlan(db, vlan_id=vlan_id)
