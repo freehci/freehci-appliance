@@ -6,6 +6,12 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 import psutil
 import time
+import ctypes   # To access Windows API
+import os
+
+if os.name == 'nt':  # Windows
+    import wmi
+
 
 router = APIRouter()
 # TODO: Move to routers
@@ -13,6 +19,9 @@ router = APIRouter()
 # ---------------
 #   Appliance
 # ---------------
+
+# Get System Information (Windows)
+
 
 class NetworkInfo(BaseModel):
     interface: str
@@ -23,8 +32,11 @@ class NetworkInfo(BaseModel):
     bytes_received: str
     packets_sent: str
     packets_received: str
+    link_speed: Optional[str]
+    link_status: Optional[str]
 
 class DiskInfo(BaseModel):
+    name: str
     device: str
     total_space: str
     used_space: str
@@ -38,8 +50,39 @@ class ApplianceMetrics(BaseModel):
     free_memory: str
     disks: Optional[List[DiskInfo]]
     network: List[NetworkInfo]
+    temperature: str
     uptime: str
     version: str
+    
+def kelvin_to_celsius(kelvin):
+    return kelvin - 273.15    
+    
+def get_cpu_temp():
+    if os.name == 'nt':  # Windows
+        try:
+            # Connect to WMI
+            c = wmi.WMI()
+            # Run the WMI query
+            thermal_zone_info = c.query("select * from Win32_PerfFormattedData_Counters_ThermalZoneInformation")
+            # Print the results
+            for item in thermal_zone_info:
+                #print(f"Instance Name: {item.Name}")
+                #print(f"Temperature: {item.Temperature}")
+                #print(f"Throttle Reasons: {item.ThrottleReasons}")
+                #print(f"Timestamp: {item.Timestamp_PerfTime}")
+                #print(f"Timestamp_Sys100NS: {item.Timestamp_Sys100NS}")
+                temp_c = kelvin_to_celsius(item.Temperature).__round__(2) # Convert Kelvin to Celsius
+            temp = f"{temp_c: .2f} °C"  
+        except:
+            temp = "N/A"
+            
+    else:  # Linux, macOS, etc.
+        try:
+            temps = psutil.sensors_temperatures(fahrenheit=False)
+            temp = temps['coretemp'][0].current
+        except:
+            temp = "N/A"
+    return temp
     
 def get_disk_info():
     disk_info_list = []
@@ -48,13 +91,17 @@ def get_disk_info():
 
     for partition in disk_partitions:
         disk_usage = psutil.disk_usage(partition.mountpoint)
-
+        
+        disk_name = partition.device.split(":")[0]
+        print("disk_name:", disk_name)  # Print disk_name
+        
         disk_info = DiskInfo(
             device=partition.device,
             total_space=f"{disk_usage.total} bytes",
             used_space=f"{disk_usage.used} bytes",
             free_space=f"{disk_usage.free} bytes",
             usage_percent=f"{disk_usage.percent}%",
+            name = f"{disk_name}:"
         )
         # print("disk_info:", disk_info)  # Print disk_info
         disk_info_list.append(disk_info)
@@ -67,10 +114,18 @@ def get_disk_info():
 
     return disk_info_list
 
+def get_link_status(interface):
+    stats = psutil.net_if_stats()
+    if interface in stats:
+        return "Up" if stats[interface].isup else "Down"
+    return "Unknown"
+
 def get_interface_name(interface: str) -> str:
     addrs = psutil.net_if_addrs()
     for addr in addrs[interface]:
+        
         if addr.family == socket.AF_INET:
+            
             return addr.address
     return "Unknown"
 
@@ -87,6 +142,7 @@ def get_network_info():
                 macaddr=psutil.net_if_addrs()[interface][0].address,
                 ipaddr=get_interface_name(interface),
                 interface=interface,
+                link_status=get_link_status(interface),
                 bytes_sent=f"{stats.bytes_sent} bytes",
                 bytes_received=f"{stats.bytes_recv} bytes",
                 packets_sent=f"{stats.packets_sent}",
@@ -121,6 +177,7 @@ def get_appliance_metrics():
         disks=get_disk_info(),
         network=get_network_info(),
         uptime=calculate_uptime(),
+        temperature=get_cpu_temp(),
         version="1.0.26"
     )
 

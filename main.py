@@ -51,6 +51,8 @@ from models import User, Role  # Importing user and role classes from models/
 from models import IPAddress
 from models import Subnet
 from models import VLAN
+from models import Group
+from models import GroupMember
 
 from models.rack_models import Rack
 from models.rack_models import Base as RackBase
@@ -61,7 +63,12 @@ from routers import equipment  # Importing API functions for equipment
 from routers import subnets  # Importing API functions for Subnets
 from routers import vlans  # Importing API functions for VLANs
 from routers import customers  # Importing API functions for customers
-from routers import rack  # Importing API functions for racks
+from routers import rack  # Importing API functions for 
+#from routers import locations  # Importing API functions for locations
+#from routers import vrf  # Importing API functions for VRFs
+#from routers import sections  # Importing API functions for sections
+from routers import groups  # Importing API functions for groups
+from routers import group_members  # Importing API functions for groups members
 
 #from routers import virtualization  # Importing API functions for virtualization
 #from routers import authentication  # Importing API functions for authentication
@@ -117,14 +124,14 @@ from sqlalchemy.orm import sessionmaker
 # TODO: Change this to logger.debug
 print(f"{BLUE} Tables in the database:{RESET}")
 for table_name in inspector.get_table_names():
-    # Hent tabellklassen basert på tabellnavnet
+    # Get tabel class based on table name
     print(f"{GREEN} - " + table_name + RESET)
 #    columns = inspector.get_columns(table_name)
 #    for column in columns:
 #        print(f"    - {column['name']} ({column['type']})")
 #    table_class = metadata[table_name] # <-- This is the line that causes the error
     
-    # Utfør en COUNT(*)-spørring på tabellen og hent resultatet
+     # Utfør en COUNT(*)-spørring på tabellen og hent resultatet
 #    count_query = db.query(func.count().label('total')).select_from(table_class)
 #    record_count = count_query.scalar()
 #
@@ -269,5 +276,7 @@ app.include_router(rack.router)
 app.include_router(subnets.router)
 app.include_router(vlans.router)
 app.include_router(customers.router)
+app.include_router(groups.router)
+app.include_router(group_members.router)
 
 print("FreeHCI Appliance started")

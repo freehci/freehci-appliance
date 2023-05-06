@@ -465,3 +465,17 @@ body{margin-top:20px;
 }
   
   
+/* Custom styling for network link status */
+
+.link-status-up {
+    color: #3de010;
+}
+  
+.link-status-down {
+    color: red;
+}
+  
+.link-status-unknown {
+    color: yellow;
+}
+  

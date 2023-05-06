@@ -1,10 +1,12 @@
 # models/user_models.py
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import relationship
+from .database import Base
+from .group_and_member_models import Group, GroupStatus, GroupType, MemberType
 
-
-Base = declarative_base()
+#Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
@@ -18,6 +20,10 @@ class User(Base):
     #lastname  = Column(String)
     #streetaddress1  = Column(String)
     #streetaddress2  = Column(String)
+    
+    group_members = relationship("GroupMember", back_populates="user")
+    
+    
 
     def __repr__(self):
         return f"<User id={self.id} username={self.username} email={self.email}>"

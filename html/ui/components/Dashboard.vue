@@ -41,7 +41,7 @@
               </td>
             </tr>
             <tr v-for="(disk, index) in Metrics.disks" :key="index">
-                <td><i class="fa-regular fa-hard-drive"></i> Disk {{ index + 1 }}</td>
+                <td><i class="fa-regular fa-hard-drive"></i> Disk {{ index + 1 }} ( {{ disk.name }} )</td>
                 <td>
                     <div class="progress-bar-container"> <!-- background: linear-gradient(0.25turn, green, red);-->
                       <div 
@@ -59,7 +59,12 @@
             </tr>
             
             <tr v-for="(networkIF, index) in Metrics.network" :key="index">
-                <td><i class="fa-solid fa-network-wired"></i> Interface {{ index + 1 }} ( {{ networkIF.name }} - {{ networkIF.macaddr }}) </td>
+                <td><i class="fa-solid fa-network-wired" :class="{
+                      'link-status-up': networkIF.link_status === 'Up',
+                      'link-status-down': networkIF.link_status === 'Down',
+                      'link-status-unknown': networkIF.link_status === 'Unknown'
+                    }">
+                    </i> Interface {{ index + 1 }} ( {{ networkIF.name }} - {{ networkIF.macaddr }}) - {{ networkIF.link_status }}</td>
                 <td>
                   Sent: {{ networkIF.bytes_sent }} - Received: {{ networkIF.bytes_received }}
                 </td>
@@ -67,7 +72,7 @@
             
             
             <tr><td><i class="fa-solid fa-plug-circle-bolt"></i> Power</td> <td>PSU1: <i class="fa-regular fa-circle-check" style="color: #3de010;"></i> PSU2: <i class="fa-regular fa-circle-check" style="color: #3de010;"></i></td></tr>
-            <tr><td><i class="fa-solid fa-temperature-high"></i> Temperature</td> <td>N/A</td></tr>
+            <tr><td><i class="fa-solid fa-temperature-high"></i> Temperature</td> <td>{{ Metrics.temperature }}</td></tr>
             <tr><td><i class="fa-solid fa-stopwatch"></i> Uptime</td> <td>{{ Metrics.uptime }}</td></tr>
             <tr><td><i class="fa-solid fa-code-branch"></i> Version</td> <td>{{ Metrics.version }}</td></tr>
         </tbody>

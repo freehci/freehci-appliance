@@ -1,7 +1,7 @@
 # models/crud.py
 # Create, Read, Update, Delete
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import ipaddress
 from typing import Optional
 
@@ -10,6 +10,12 @@ from typing import Optional
 #
 from .user_models import User
 from .role_models import Role
+#from .groups_models import Group
+#from .groups_members_models import GroupMember
+
+from models import Group
+from models import GroupMember
+
 from .rack_models import Rack
 from .ipaddresses_models import IPAddress
 from .subnets_models import Subnet
@@ -21,13 +27,13 @@ from .locations_models import Location
 
 from .authentication import get_password_hash
 
-
-
 #
 # schemas
 #
 from .user_schemas import UserCreate, UserUpdate
 from .role_schemas import RoleCreate
+from .groups_schemas import GroupCreate
+from .groups_members_schemas import GroupMemberCreate
 from .rack_schemas import RackCreate
 from .ipaddresses_schemas import IPAddressBase, IPAddressCreate, IPAddressUpdate, IPAddressInDBBase
 from .subnets_schemas import SubnetBase, SubnetCreate, SubnetUpdate, SubnetInDBBase
@@ -37,9 +43,9 @@ from .sections_schemas import SectionBase, SectionCreate, SectionUpdate, Section
 from .vrf_schemas import VrfBaseSchema, VrfCreateSchema, VrfUpdateSchema, VrfInDBBaseSchema, VrfSchema
 from .locations_schemas import LocationSchema, LocationCreateSchema
 
-#
+############################################################################################################################################################################
 # User
-#
+############################################################################################################################################################################
 def create_user(db: Session, user: UserCreate):
     hashed_password = get_password_hash(user.password)
     db_user = User(
@@ -102,8 +108,9 @@ def reset_user_password_by_username(db: Session, username: str, user: UserCreate
     db.refresh(db_user)
     return db_user 
 
-
+############################################################################################################################################################################
 # Roles
+############################################################################################################################################################################
 def get_roles(db: Session):
     return db.query(Role).all()
 
@@ -165,11 +172,108 @@ def remove_role_from_user(db: Session, user_id: int, role_id: int):
     db.refresh(db_user)
     return db_user
 
+############################################################################################################################################################################
+#   Groups
+############################################################################################################################################################################
+
+def create_group(db: Session, group: GroupCreate):
+    db_group = Group(**group.dict())
+    db.add(db_group)
+    db.commit()
+    db.refresh(db_group)
+    return db_group
+
+def get_group_by_id(db: Session, group_id: int):
+    return db.query(Group).filter(Group.id == group_id).first()
+
+def get_groups(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(Group).offset(skip).limit(limit).all()
+
+def update_group(db: Session, group_id: int, group: GroupCreate):
+    db_group = db.query(Group).filter(Group.id == group_id).first()
+    for key, value in group.dict().items():
+        setattr(db_group, key, value)
+    db.commit()
+    db.refresh(db_group)
+    return db_group
+
+def delete_group(db: Session, group_id: int):
+    db_group = db.query(Group).filter(Group.id == group_id).first()
+    db.delete(db_group)
+    db.commit()
+    return db_group
+
+############################################################################################################################################################################
+#   Group Members
+############################################################################################################################################################################
+
+def create_group_member(db: Session, group_member: GroupMemberCreate):
+    db_group_member = GroupMember(**group_member.dict())
+    db.add(db_group_member)
+    db.commit()
+    db.refresh(db_group_member)
+    return db_group_member
+
+def get_group_member_by_id(db: Session, group_member_id: int):
+    return db.query(GroupMember).filter(GroupMember.id == group_member_id).first()
+
+# models/crud.py
+def get_group_members(db: Session, skip: int = 0, limit: int = 100):
+    return (
+        db.query(GroupMember)
+        .options(
+            joinedload(GroupMember.user),
+            joinedload(GroupMember.group),
+            joinedload(GroupMember.member_group)  # Legg til denne linjen for å laste medlemgruppeobjektet
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    
+def get_group_members_by_group_id(db: Session, group_id: int, skip: int = 0, limit: int = 100):
+    return (
+        db.query(GroupMember)
+        .filter(GroupMember.group_id == group_id)
+        .options(
+            joinedload(GroupMember.user),
+            joinedload(GroupMember.group),
+            joinedload(GroupMember.member_group)  # Fortsatt denne linjen for å laste medlemgruppeobjektet
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def update_group_member(db: Session, group_member_id: int, group_member_update: GroupMemberCreate):
+    db_group_member = get_group_member_by_id(db, group_member_id)
+    if not db_group_member:
+        return None
+
+    for key, value in group_member_update.dict().items():
+        setattr(db_group_member, key, value)
+
+    db.add(db_group_member)
+    db.commit()
+    db.refresh(db_group_member)
+    return db_group_member
+
+def delete_group_member(db: Session, group_member_id: int):
+    db_group_member = get_group_member_by_id(db, group_member_id)
+    if not db_group_member:
+        return None
+
+    db.delete(db_group_member)
+    db.commit()
+    return db_group_member
+
+
+
 # TODO: Add CRUD for Equipment
 
 
-# File: crud.py
-# Rack 
+# Rack (Moved to crud/crud_rack.py)
 
 """
 # Get all racks
@@ -208,9 +312,10 @@ def delete_rack_by_id(db: Session, rack_id: int):
     return True
 """
 
-
+############################################################################################################################################################################
 # IPaddress
-#
+############################################################################################################################################################################
+
 # Get ipaddress by id
 def get_ipaddress(db: Session, ipaddress_id: int):
     return db.query(IPAddress.IPAddress).filter(IPAddress.id == ipaddress_id).first()
@@ -251,8 +356,10 @@ def delete_ipaddress(db: Session, ipaddress_id: int):
     db.delete(db_ipaddress)
     db.commit()
     return db_ipaddress
-
+############################################################################################################################################################################
 # Subnet
+############################################################################################################################################################################
+
 from ipaddress import IPv4Network
 
 def get_subnet(db: Session, subnet_id: int):
@@ -331,8 +438,9 @@ def is_subnet_overlapping(db: Session, subnet: str, mask: str) -> bool:
 
 
 
-
+############################################################################################################################################################################
 # Customer
+############################################################################################################################################################################
 
 def get_customer(db: Session, customer_id: int):
     return db.query(Customer).filter(Customer.id == customer_id).first()
@@ -374,9 +482,9 @@ def delete_customer(db: Session, customer_id: int):
     db.commit()
     return db_customer
 
-
-# VLAN
-
+############################################################################################################################################################################
+#  VLAN
+############################################################################################################################################################################
 def get_vlan(db: Session, vlan_id: int):
     return db.query(VLAN).filter(VLAN.vlanId == vlan_id).first()
 
@@ -416,7 +524,9 @@ def delete_vlan(db: Session, vlan_id: int):
     db.commit()
     return db_vlan
 
+############################################################################################################################################################################
 # Sections
+############################################################################################################################################################################
 
 def get_section(db: Session, section_id: int):
     return db.query(Section).filter(Section.id == section_id).first()
@@ -458,8 +568,9 @@ def delete_section(db: Session, section_id: int):
     db.commit()
     return db_section
 
-
+############################################################################################################################################################################
 # VRF
+############################################################################################################################################################################
 
 def get_vrf(db: Session, vrf_id: int):
     return db.query(Vrf).filter(Vrf.vrfId == vrf_id).first()
@@ -501,7 +612,9 @@ def delete_vrf(db: Session, vrf_id: int):
     db.commit()
     return db_vrf
 
+############################################################################################################################################################################
 # Location
+############################################################################################################################################################################
 
 def get_location(db: Session, location_id: int):
     return db.query(Location).filter(Location.id == location_id).first()
