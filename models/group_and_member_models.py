@@ -1,3 +1,4 @@
+# File: models/group_and_member_models.py
 from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, ForeignKeyConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import Table, Column as SchemaColumn
@@ -25,7 +26,7 @@ group_members_table = Table(
     Base.metadata,
     Column("id", Integer, primary_key=True, index=True, autoincrement=True),
     Column("group_id", Integer, ForeignKey("groups.id"), nullable=False),
-    Column("member_id", Integer, ForeignKey("users.id"), nullable=False),
+    Column("member_id", Integer, ForeignKey("users.id"), nullable=True),
     Column("member_group_id", Integer, ForeignKey("groups.id"), nullable=True),
     Column("member_type", Enum(MemberType), nullable=False),  # Add missing member_type column
     Column("lastupdated", DateTime, index=True, default=datetime.datetime.utcnow),  # Add missing lastupdated column
@@ -40,7 +41,7 @@ class GroupMember(Base):
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
-    member_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    member_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     member_group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     #member_id = Column(Integer, nullable=False)
     member_type = Column(Enum(MemberType), nullable=False)

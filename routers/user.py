@@ -39,7 +39,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
 @router.put("/users/{user_id}", tags=["Users"])
 def update_user_endpoint(user_id: int, db: Session = Depends(get_db)):
     
-    user = crud.update_user_by_id(db, user_id=user_id)
+    user = crud.update_user_by_id(db, user_id=user_id) # FIXME
     return user
 
 # ---- Roles, Groups, Company ----
@@ -85,19 +85,19 @@ def add_group_endpoint(user_id: int, group_id: int, db: Session = Depends(get_db
 # Get Company Info
 @router.get("/users/company/{user_id}", tags=["Users"])
 def get_company_endpoint(user_id: int, db: Session = Depends(get_db)):
-    company = crud.get_company(db)
+    company = crud.get_company(db) # FIXME: Add function in crud.py
     return company
 
 # Add company to user
 @router.post("/users/company/{user_id}/{company_id}", tags=["Users"])
 def add_company_endpoint(user_id: int, company_id: int, db: Session = Depends(get_db)):
-    company = crud.get_company(db)
+    company = crud.get_company(db) # FIXME: Add function in crud.py
     return company
 
 # Remove company from user
 @router.delete("/users/company/{user_id}/{company_id}", tags=["Users"])
 def remove_company_endpoint(user_id: int, company_id: int, db: Session = Depends(get_db)):
-    company = crud.get_company(db)
+    company = crud.get_company(db) # FIXME: Add function in crud.py
     return company
 
 # ---- End Roles, Groups, Company ----
@@ -106,18 +106,18 @@ def remove_company_endpoint(user_id: int, company_id: int, db: Session = Depends
 # Get all applications for user
 @router.get("/users/applications/{user_id}", tags=["Users"])
 def get_applications_endpoint(user_id: int, db: Session = Depends(get_db)):
-    applications = crud.get_applications(db)
+    applications = crud.get_applications(db) # FIXME: Add function in crud.py
     return applications
 
 # Remove application from user
 @router.delete("/users/applications/{user_id}/{application_id}", tags=["Users"])
 def remove_application_endpoint(user_id: int, application_id: int, db: Session = Depends(get_db)):
-    applications = crud.get_applications(db)
+    applications = crud.get_applications(db) # FIXME: Add function in crud.py
     return applications
 
 # Add application to user
 @router.post("/users/applications/{user_id}/{application_id}", tags=["Users"])
 def add_application_endpoint(user_id: int, application_id: int, db: Session = Depends(get_db)):
-    applications = crud.get_applications(db)
+    applications = crud.get_applications(db) # FIXME: Add function in crud.py
     return applications
 

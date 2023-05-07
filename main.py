@@ -103,13 +103,18 @@ User.__table__.create(database.engine, checkfirst=True)
 Role.__table__.create(database.engine, checkfirst=True)
 Rack.__table__.create(database.engine, checkfirst=True)
 IPAddress.__table__.create(database.engine, checkfirst=True)
+Group.__table__.create(database.engine, checkfirst=True)
+GroupMember.__table__.create(database.engine, checkfirst=True)
+VLAN.__table__.create(database.engine, checkfirst=True)
+Subnet.__table__.create(database.engine, checkfirst=True)
+
 
 # Add these lines after creating the Rack table
 metadata = {**database.Base.metadata.tables, **RackBase.metadata.tables}
 
-#print("Created users table")
-
+print("Creating tables...")
 database.Base.metadata.create_all(bind=database.engine)
+print("Tables created!")
 
 # Inspect the database to check if the 'users' table was created
 inspector = inspect(database.engine)

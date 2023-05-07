@@ -15,6 +15,7 @@ from .role_models import Role
 
 from models import Group
 from models import GroupMember
+from .group_and_member_models import MemberType
 
 from .rack_models import Rack
 from .ipaddresses_models import IPAddress
@@ -33,7 +34,7 @@ from .authentication import get_password_hash
 from .user_schemas import UserCreate, UserUpdate
 from .role_schemas import RoleCreate
 from .groups_schemas import GroupCreate
-from .groups_members_schemas import GroupMemberCreate
+from .groups_members_schemas import GroupMemberCreate, GroupMemberResponse
 from .rack_schemas import RackCreate
 from .ipaddresses_schemas import IPAddressBase, IPAddressCreate, IPAddressUpdate, IPAddressInDBBase
 from .subnets_schemas import SubnetBase, SubnetCreate, SubnetUpdate, SubnetInDBBase
@@ -206,13 +207,144 @@ def delete_group(db: Session, group_id: int):
 ############################################################################################################################################################################
 #   Group Members
 ############################################################################################################################################################################
-
+"""
 def create_group_member(db: Session, group_member: GroupMemberCreate):
     db_group_member = GroupMember(**group_member.dict())
     db.add(db_group_member)
     db.commit()
     db.refresh(db_group_member)
     return db_group_member
+"""
+
+"""
+def create_group_member(db: Session, group_member: GroupMemberCreate):
+    
+    print("Inside create_group_member function:", group_member)
+    db_group_member = GroupMember(**group_member.dict())
+    print("db_group_member:", db_group_member)
+    
+    if group_member.member_type == MemberType.USER:
+        db_group_member = GroupMember(
+            group_id=group_member.group_id,
+            member_id=group_member.member_id,
+            member_type=group_member.member_type,
+            lastupdatedby=group_member.lastupdatedby,
+            expires=group_member.expires,
+            status=group_member.status
+        )
+    elif group_member.member_type == MemberType.GROUP:
+        db_group_member = GroupMember(
+            group_id=group_member.group_id,
+            member_group_id=group_member.member_group_id,
+            member_type=group_member.member_type,
+            lastupdatedby=group_member.lastupdatedby,
+            expires=group_member.expires,
+            status=group_member.status
+        )
+    else:
+        raise ValueError("Invalid member type")
+        
+    db.add(db_group_member)
+    db.commit()
+    db.refresh(db_group_member)
+    return db_group_member
+"""
+
+# Detect loops in group membership (detects circular membership) 2023-05-07 21:12
+def detect_loop(db: Session, group_id: int, member_group_id: int) -> bool:
+    visited = set()
+
+    def dfs(current_group_id: int) -> bool:
+        if current_group_id in visited:
+            return False
+        visited.add(current_group_id)
+
+        query = db.query(GroupMember).filter(GroupMember.group_id == current_group_id, GroupMember.member_type == MemberType.GROUP)
+
+        for group_member in query:
+            if group_member.member_group_id == member_group_id:
+                return True
+            if dfs(group_member.member_group_id):
+                return True
+
+        visited.remove(current_group_id)
+        return False
+
+    if group_id == member_group_id:
+        return True
+
+    return dfs(group_id)
+
+
+
+""" Removed 2021-05-07 21:12
+def detect_loop(db: Session, group_id: int, member_group_id: int) -> bool:
+    visited = set()
+
+    def dfs(current_group_id: int) -> bool:
+        if current_group_id in visited:
+            return False
+        visited.add(current_group_id)
+
+        query = db.query(GroupMember).filter(GroupMember.group_id == current_group_id, GroupMember.member_type == MemberType.GROUP)
+
+        for group_member in query:
+            if group_member.member_group_id == member_group_id:
+                return True
+            if dfs(group_member.member_group_id):
+                return True
+
+        visited.remove(current_group_id)
+        return False
+
+    return dfs(group_id)
+"""
+def create_group_member(db: Session, group_member: GroupMemberCreate):
+    existing_membership = db.query(GroupMember).filter(
+        GroupMember.group_id == group_member.group_id,
+        GroupMember.member_group_id == group_member.member_group_id,
+        GroupMember.member_type == group_member.member_type
+    ).first()
+    
+    if existing_membership:
+        raise ValueError("User or group is already a member of this group")
+    
+    if group_member.member_type == MemberType.GROUP and group_member.member_group_id is not None:
+        if detect_loop(db, group_member.group_id, group_member.member_group_id):
+            raise ValueError("Adding this group would create a circular membership")
+
+    db_group_member = GroupMember(**group_member.dict())
+    db.add(db_group_member)
+    db.commit()
+    db.refresh(db_group_member)
+    return db_group_member
+
+
+"""
+def create_group_member(db: Session, group_member: GroupMemberCreate):
+    if group_member.member_type == MemberType.GROUP:
+        if detect_loop(db, group_member.group_id, group_member.member_group_id):
+            raise ValueError("Adding this group would create a circular membership")
+    
+    db_group_member = GroupMember(**group_member.dict())
+    db.add(db_group_member)
+    db.commit()
+    db.refresh(db_group_member)
+    
+    group_member_response = GroupMemberResponse(
+        id=db_group_member.id,
+        group_id=db_group_member.group_id,
+        member_id=db_group_member.member_id,
+        member_group_id=db_group_member.member_group_id,
+        member_type=db_group_member.member_type,
+        lastupdated=db_group_member.lastupdated,
+        lastupdatedby=db_group_member.lastupdatedby,
+        expires=db_group_member.expires,
+        status=db_group_member.status,
+    )
+    return group_member_response
+"""
+
 
 def get_group_member_by_id(db: Session, group_member_id: int):
     return db.query(GroupMember).filter(GroupMember.id == group_member_id).first()
