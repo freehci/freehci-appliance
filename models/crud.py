@@ -1,5 +1,6 @@
 # models/crud.py
 # Create, Read, Update, Delete
+# Author: Roy Michelsen
 
 from sqlalchemy.orm import Session, joinedload
 import ipaddress
@@ -15,7 +16,7 @@ from .role_models import Role
 
 from models import Group
 from models import GroupMember
-from .group_and_member_models import MemberType
+from .group_and_member_models import MemberType, GroupStatus
 
 from .rack_models import Rack
 from .ipaddresses_models import IPAddress
@@ -249,8 +250,9 @@ def create_group_member(db: Session, group_member: GroupMemberCreate):
     db.refresh(db_group_member)
     return db_group_member
 """
-
-# Detect loops in group membership (detects circular membership) 2023-05-07 21:12
+############################################################################################################################################################################
+# Detect loops in group membership (detects circular membership) 2023-05-07 21:12                                                                                          #
+############################################################################################################################################################################
 def detect_loop(db: Session, group_id: int, member_group_id: int) -> bool:
     visited = set()
 
@@ -320,36 +322,10 @@ def create_group_member(db: Session, group_member: GroupMemberCreate):
     return db_group_member
 
 
-"""
-def create_group_member(db: Session, group_member: GroupMemberCreate):
-    if group_member.member_type == MemberType.GROUP:
-        if detect_loop(db, group_member.group_id, group_member.member_group_id):
-            raise ValueError("Adding this group would create a circular membership")
-    
-    db_group_member = GroupMember(**group_member.dict())
-    db.add(db_group_member)
-    db.commit()
-    db.refresh(db_group_member)
-    
-    group_member_response = GroupMemberResponse(
-        id=db_group_member.id,
-        group_id=db_group_member.group_id,
-        member_id=db_group_member.member_id,
-        member_group_id=db_group_member.member_group_id,
-        member_type=db_group_member.member_type,
-        lastupdated=db_group_member.lastupdated,
-        lastupdatedby=db_group_member.lastupdatedby,
-        expires=db_group_member.expires,
-        status=db_group_member.status,
-    )
-    return group_member_response
-"""
-
-
 def get_group_member_by_id(db: Session, group_member_id: int):
     return db.query(GroupMember).filter(GroupMember.id == group_member_id).first()
 
-# models/crud.py
+
 def get_group_members(db: Session, skip: int = 0, limit: int = 100):
     return (
         db.query(GroupMember)
@@ -376,7 +352,10 @@ def get_group_members_by_group_id(db: Session, group_id: int, skip: int = 0, lim
         .limit(limit)
         .all()
     )
-
+############################################################################################################################################################################
+# Update group member                                                                                                                                                      #
+# FIXME: This function does not work on group members with member_type == MemberType.GROUP                                                                                 #
+############################################################################################################################################################################
 
 def update_group_member(db: Session, group_member_id: int, group_member_update: GroupMemberCreate):
     db_group_member = get_group_member_by_id(db, group_member_id)
@@ -399,6 +378,73 @@ def delete_group_member(db: Session, group_member_id: int):
     db.delete(db_group_member)
     db.commit()
     return db_group_member
+
+
+############################################################################################################################################################################
+#   Group Members (Recursive)   2021-05-07  23:33                                                                                                                          #
+############################################################################################################################################################################
+
+def is_member_recursive(
+    db: Session,
+    group_id: int,
+    member_id: Optional[int] = None,
+    member_group_id: Optional[int] = None,
+    member_type: Optional[MemberType] = None,
+    depth: int = 1,
+    current_depth: int = 0
+) -> bool:
+    if member_id is not None:
+        member_type = MemberType.USER
+    elif member_group_id is not None:
+        member_type = MemberType.GROUP
+    else:
+        raise ValueError("Either member_id or member_group_id must be provided")
+    
+    if member_id is not None and member_group_id is not None:
+        raise ValueError("Only one of member_id or member_group_id must be provided")
+
+    if current_depth > depth:
+        return False
+
+    direct_membership = (
+        db.query(GroupMember)
+        .filter(
+            GroupMember.group_id == group_id,
+            GroupMember.member_type == member_type,
+            GroupMember.status == GroupStatus.ACTIVE,
+        )
+    )
+
+    if member_type == MemberType.USER:
+        direct_membership = direct_membership.filter(GroupMember.member_id == member_id)
+    else:
+        direct_membership = direct_membership.filter(GroupMember.member_group_id == member_group_id)
+
+    if direct_membership.first():
+        return True
+
+    if member_type == MemberType.GROUP:
+        subgroups = (
+            db.query(GroupMember)
+            .filter(
+                GroupMember.member_group_id == member_group_id,
+                GroupMember.member_type == MemberType.GROUP,
+                GroupMember.status == GroupStatus.ACTIVE,
+            )
+            .all()
+        )
+
+        for subgroup in subgroups:
+            if is_member_recursive(
+                db,
+                group_id,
+                member_group_id=subgroup.group_id,
+                depth=depth,
+                current_depth=current_depth + 1,
+            ):
+                return True
+
+    return False
 
 
 

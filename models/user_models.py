@@ -1,4 +1,5 @@
 # models/user_models.py
+# Author: Roy Michelsen
 
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import declarative_base

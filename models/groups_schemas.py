@@ -1,4 +1,6 @@
 # File: models/groups_schemas.py
+# Author: Roy Michelsen
+
 from pydantic import BaseModel
 from typing import Optional
 from .group_and_member_models import GroupStatus, GroupType
