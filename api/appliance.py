@@ -93,7 +93,7 @@ def get_disk_info():
         disk_usage = psutil.disk_usage(partition.mountpoint)
         
         disk_name = partition.device.split(":")[0]
-        print("disk_name:", disk_name)  # Print disk_name
+        #print("disk_name:", disk_name)  # Print disk_name
         
         disk_info = DiskInfo(
             device=partition.device,

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models import crud, database
 from models.user_models import User 
-from models.user_schemas import UserCreate
+from models.user_schemas import UserCreate, UserUpdate
 
 router = APIRouter()
 
@@ -37,9 +37,9 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
 
 # Update user
 @router.put("/users/{user_id}", tags=["Users"])
-def update_user_endpoint(user_id: int, db: Session = Depends(get_db)):
+def update_user_endpoint(user: UserUpdate, user_id: int, db: Session = Depends(get_db)):
     
-    user = crud.update_user_by_id(db, user_id=user_id) # FIXME
+    user = crud.update_user_by_id(db, user_id=user_id, user=user) # FIXME
     return user
 
 # ---- Roles, Groups, Company ----

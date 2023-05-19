@@ -124,8 +124,68 @@
         border-radius: 2px;
         font-size: .825rem;
         background: #1A233A;
+        background-color: #1A233A;
+        
         color: #bcd0f7;
     }
+
+    .form-control:focus {
+        background-color: #1A233A;
+        color: #bcd0f7;
+    }
+
+    select option {
+        background: #1A233A;
+        background-color: #1A233A;
+        color: #bcd0f7;
+        padding: #1A233A;
+    }
+
+
+    div select {
+        background: #1A233A;
+        background-color: #1A233A;
+        color: #bcd0f7;
+    }
+
+    /* Prevent odd behavior on auto-filled forms */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill,
+    textarea:-webkit-autofill:hover,
+    textarea:-webkit-autofill:focus {
+        background-color: #1A233A !important;
+        -webkit-box-shadow: 0 0 0 30px #1A233A inset !important;
+        -webkit-text-fill-color: #bcd0f7 !important;
+        box-shadow: 0 0 0 30px #1A233A inset !important;
+        font-size: .825rem !important;
+        color: #bcd0f7 !important;
+    }
+
+    /* For Chrome, Edge, and Safari */
+    
+    .custom-listbox::-webkit-scrollbar {
+        width: 12px; /* Bredden på rullefeltet */
+        height: 12px; /* Høyden på rullefeltet */
+    }
+
+    .custom-listbox::-webkit-scrollbar-thumb {
+        background-color: #47526e; /* Fargen på rullefeltets "tommel" */
+        /* border-radius: 6px; /* Avrundede hjørner på "tommelen" */
+    }
+
+    .custom-listbox::-webkit-scrollbar-track {
+        background-color: #bcd0f7; /* Fargen på rullefeltets bakgrunn */
+        /* border-radius: 6px; /* Avrundede hjørner på rullefeltets bakgrunn */
+    }
+
+    /* For Firefox */
+    .custom-listbox {
+        scrollbar-width: thin; /* Bredden på rullefeltet */
+        scrollbar-color: #1A233A #bcd0f7; /* Fargene på "tommelen" og bakgrunnen */
+    }
+
 
     /* add some space between the tabs and the content */
     .tab-content {

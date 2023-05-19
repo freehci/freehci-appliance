@@ -10,6 +10,18 @@ from main import app  # Import app-instance from main.py
 
 client = TestClient(app)
 
+def test_create_user():
+    # Create a testuser and add it to the DB
+    test_user = {
+        "username": "john.doe",
+        "email": "john.doe@freehci.com",
+        "password": "secret123"
+    }
+    response = client.post("/users/", json=test_user)
+    assert response.status_code == 200
+    
+    
+
 def test_get_user_by_id():
     # Create a testuser and add it to the DB
     test_user_id = 3

@@ -44,7 +44,7 @@
                             <!-- List box 1 -->
                             <div class="col-md-5">
                                 <label for="listBox1">Available Groups</label>
-                                <select ref="listBox1" multiple class="form-control" id="listBox1" size="10">
+                                <select ref="listBox1" multiple class="form-control custom-listbox" id="listBox1" size="10">
                                     <!-- Add your available groups here -->
                                     <option v-for="group in groups" :key="group.id" :value="group.id">
                                         {{ group.name }} - {{ group.description }}

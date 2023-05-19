@@ -3,7 +3,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from models.bmc import IPMI, Redfish, SSH
+from models.bmc import IPMIoverLAN, Redfish, SSH
 from models.hardware import Node, Model
 
 # TODO: Move to routers
@@ -43,7 +43,9 @@ nodes = [
 
 
 models = [
-    Model(id=1, name="Proliant DL380", manufacturer="HPE", model="xyz", pn="cluster1"),
+    # FIXME: Fix Pydanctic model for hardware (Mismatch). Mypy is complaining about this.
+    #Model(id=1, name="Proliant DL380", manufacturer="HPE", model="xyz", pn="cluster1"),
+    ...
     
 ]
 

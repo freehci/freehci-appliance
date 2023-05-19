@@ -493,6 +493,7 @@ def delete_rack_by_id(db: Session, rack_id: int):
 ############################################################################################################################################################################
 # IPaddress
 ############################################################################################################################################################################
+from ipaddress import IPv4Address
 
 # Get ipaddress by id
 def get_ipaddress(db: Session, ipaddress_id: int):
@@ -612,8 +613,73 @@ def is_subnet_overlapping(db: Session, subnet: str, mask: str) -> bool:
 # The subnetted subnet cannot have ip addresses. 
 # The subnetted subnet cannot have a VLAN assigned.
 
+# Split a subnet into multiple smaller subnets
+# This funcctions needs some work. It should be able to split a subnet into multiple smaller subnets.
+def split_subnet(subnet: str, new_mask_bits: int, db: Session):
+    # Parse input subnet and new mask
+    original_network = IPv4Network(subnet)
+    new_mask = int(new_mask_bits)
+
+    if new_mask <= original_network.prefixlen:
+        raise ValueError("New mask must be greater than the original mask")
+
+    # Split the subnet into smaller subnets
+    new_subnets = list(original_network.subnets(new_prefix=new_mask))
+
+    # Create SubnetCreate instances for each new subnet
+    subnet_create_list = []
+    for new_subnet in new_subnets:
+        new_subnet_create = SubnetCreate(subnet=str(new_subnet.network_address), mask=f"{new_mask}")# FIXME: This should be saved as an integer in the database. (CIDR notation))
+        subnet_create_list.append(new_subnet_create)
+
+    # Save new subnets to the database
+    new_subnets_in_db = []
+    for new_subnet_create in subnet_create_list:
+        new_subnet_in_db = create_subnet(db=db, subnet=new_subnet_create)
+        new_subnets_in_db.append(new_subnet_in_db)
+
+    return new_subnets_in_db
+
+def scan_subnet(db: Session, subnet_id: int, method: str = "ping"):
+    subnet = db.query(Subnet).filter(Subnet.id == subnet_id).first()
+    
+
+    if not subnet:
+        return None
+
+# Get all registered IP addresses in subnet
+# Comments: Roy Michelsen 2021-05-09 07:00
+# TODO: This function should be moved to crud_ipaddress.py or crud_subnet.py
+# TODO: Implememnt some checks to ensure that we are getting the IP addresses mapped to the spesific subnet id, due to the fact that we can have overlapping subnets.
+# We have no way of knowing witch subnet we are checking, as we need some function to map both the FreeHCI appliance and subnet to the same "visibility domain", "isolation domain" or something like that.
+# We can solve this by having distributed FreeHCI appliances, and have a central database that keeps track of all the appliances, subnets, vlans eg. AKA: FreeHCI orchestrator and FreeHCI satellites.
+# At least we need some way to identify wich subnets and vlans that are mapped to the same FreeHCI appliance.
+# Not sure if my explenation makes any sense, but I hope you get the idea.
+
+def get_ip_addresses_in_subnet(db: Session, subnet: str):
+    # Parse input subnet
+    network = IPv4Network(subnet)
+
+    # Get all IP addresses in the database
+    all_ip_addresses = db.query(IPAddress).all()
+
+    # Filter IP addresses that belong to the input subnet
+    ip_addresses_in_subnet = []
+    for ip_address in all_ip_addresses:
+        ip = IPv4Address(ip_address.ip)
+        if ip in network:
+            ip_addresses_in_subnet.append(ip_address)
+
+    return ip_addresses_in_subnet
 
 
+"""
+def split_subnet(db: Session, subnet_id: int, mask: int) -> Optional[Subnet]:
+    subnet_to_split = db.query(Subnet).filter(Subnet.id == subnet_id).first()
+    new_subnets = IPv4Network.subnets(subnet_to_split, new_prefix=mask)
+    #new_subnets = subnet_to_split #subnet.split(new_prefix=mask)
+    return new_subnets
+"""
 
 
 ############################################################################################################################################################################

@@ -401,7 +401,7 @@ body{margin-top:20px;
 
 
 /* Custom styling for the side bar */
-
+/* TODO: Consider adding some scroll function if size of menue is higher than screen  */
 .sidebar {
     overflow-y: auto;
     margin-bottom: 50px;
@@ -417,15 +417,17 @@ body{margin-top:20px;
 .sidebar ul li {
     padding: 5px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    transition: background-color 0.5s ease-out;
 }
 
 .sidebar ul li a {
     text-decoration: none;
     display: block;
     color: #bcd0f7;
+    
 }
 
-.sidebar ul li a:hover {
+.sidebar ul li:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -435,6 +437,10 @@ body{margin-top:20px;
 
 .sidebar ul ul li {
     border-bottom: none;
+}
+
+.custom-bg-dark {
+    background-color: #1A233A;
 }
 
 

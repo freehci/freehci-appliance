@@ -1,4 +1,11 @@
 # File: models/group_and_member_models.py
+# Author: Roy Michelsen
+# License type: AGPLv3
+#
+# TODO: Add notes column to both groups and group_members tables.
+# TODO: Add Ticket ID / Service Request ID column to both groups and group_members tables.
+# TODO: Add support for custom fields in the future.
+
 from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, ForeignKeyConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import Table, Column as SchemaColumn

@@ -11,7 +11,7 @@ class Subnet(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     subnet = Column(String(255), nullable=True)
-    mask = Column(String(3), nullable=True)
+    mask = Column(String(3), nullable=True) # Fix this to be an integer instead of a string so we can save mask as CIDR notation.
     sectionId = Column(Integer, ForeignKey("sections.id"), nullable=True)
     description = Column(String, nullable=True)
     linked_subnet = Column(Integer, ForeignKey("subnets.id"), nullable=True)
