@@ -123,6 +123,10 @@ def remove_application_endpoint(user_id: int, application_id: int, db: Session =
     return applications
 
 # Add application to user
+# This endpoint is used to add an application to a user, and to update the user's permissions for the application.
+# The application_id will be used to determine which application to add to the user, and wich thechnology / platform to use. Eg. VMware Horizon, Citrix, etc.
+# Consider adding a technology_id to the endpoint, to make it possible to add multiple applications of the same type to a user.
+# A posible solution can be to use a prefix for the application_id, eg. vmware-horizon-1, vmware-horizon-2, citrix-1, citrix-2, etc, or use a unique id for each application that is tracked in the database.
 @router.post("/users/applications/{user_id}/{application_id}", tags=["Users"])
 def add_application_endpoint(user_id: int, application_id: int, db: Session = Depends(get_db)):
     applications = crud.get_applications(db) # FIXME: Add function in crud.py
