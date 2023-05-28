@@ -55,6 +55,7 @@
                             <!-- Buttons -->
                             <div class="col-md-2 d-flex flex-column justify-content-center">
                                 <button @click="addToSelected" type="button" ref="addButton" class="btn btn-custom mb-3">Add <i class="fa-solid fa-caret-right"></i></button>
+                                <button @click="addToSelected" type="button" ref="addButton" class="btn btn-custom mb-3"><i class="fa-solid fa-calendar"> </i> Add <i class="fa-solid fa-caret-right"></i></button>
                                 <button @click="removeFromSelected" type="button" ref="removeButton" class="btn btn-custom"><i class="fa-solid fa-caret-left"></i> Remove</button>
                             </div>
 

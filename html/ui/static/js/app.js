@@ -22,11 +22,13 @@ const options = {
 const { loadModule } = window['vue3-sfc-loader'];
 
 const app = Vue.createApp({
-    
+    el: '.sidebar',
     data() {
       return {
         currentComponent: null,
         footerComponent: null,
+        activeMenu1: false,
+        activeMenu2: false,
       };
     },
     provide() {

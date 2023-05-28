@@ -402,6 +402,16 @@ body{margin-top:20px;
 
 /* Custom styling for the side bar */
 /* TODO: Consider adding some scroll function if size of menue is higher than screen  */
+
+.hide {
+    display: none;
+}
+
+.show {
+    display: block;
+}
+  
+
 .sidebar {
     overflow-y: auto;
     margin-bottom: 50px;
