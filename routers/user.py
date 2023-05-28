@@ -42,6 +42,13 @@ def update_user_endpoint(user: UserUpdate, user_id: int, db: Session = Depends(g
     user = crud.update_user_by_id(db, user_id=user_id, user=user) # FIXME
     return user
 
+@router.delete("/users/{user_id}", tags=["Users"])
+def delete_user_endpoint(user_id: int, db: Session = Depends(get_db)):
+    user = crud.delete_user_by_id(db, user_id=user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
 # ---- Roles, Groups, Company ----
 #
 # Get all roles for user
