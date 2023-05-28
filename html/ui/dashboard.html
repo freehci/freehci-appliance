@@ -95,18 +95,18 @@
                 <div class="sidebar custom-bg-dark">
                     <ul>
                         <li class="nav flex-column nav-pills bg-dark"><a class="text-light" href="#" @click="loadComponent('Dashboard')"><i class="fas fa-columns"></i> Dashboard</a></li>
-                        <li>
+                        <li v-on:click="activeMenu1 = !activeMenu1">
                             <a class="text-light" href="#"><i class="fas fa-users-cog"></i> Users, Roles, and Groups</a>
-                            <ul>
+                            <ul v-bind:class="{ 'show': activeMenu1, 'hide': !activeMenu1 }">
                                 <li><a class="" href="#" @click="loadComponent('Users')"><i class="fas fa-user"></i> Users</a></li>
                                 <li><a class="" href="#" @click="loadComponent('Roles')"><i class="fas fa-user-tag"></i> Roles</a></li>
                                 <li><a class="" href="#" @click="loadComponent('Groups')"><i class="fas fa-users"></i> Groups</a></li>
                                 <li><a class="" href="#" @click="loadComponent('Tenants')"><i class="fa-solid fa-building"></i> Tenants</a></li>
                             </ul>
                         </li>
-                        <li>
+                        <li v-on:click="activeMenu2 = !activeMenu2">
                             <a class="text-light" href="#"><i class="fa-solid fa-diagram-project"></i> IPAM</a>
-                            <ul>
+                            <ul v-bind:class="{ 'show': activeMenu2, 'hide': !activeMenu2 }">
                                 <li><a class="" href="#" @click="loadComponent('Vlans')"><i class="fa-solid fa-building"></i> VLANS</a></li>
                                 <li><a class="" href="#" @click="loadComponent('Subnets')"><i class="fa-solid fa-network-wired"></i> Subnets</a></li>
                                 <li><a class="" href="#" @click="loadComponent('IPadresses')"><i class="fa-solid fa-building"></i> IPadresses</a></li>
