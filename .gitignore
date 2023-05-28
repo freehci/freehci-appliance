@@ -5,3 +5,4 @@ plugins/__pycache__
 api/__pycache__
 .vscode/
 routers/__pycache__/user.cpython-39.pyc
+cli/npyscreen.log
