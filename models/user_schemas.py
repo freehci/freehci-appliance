@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, validator, EmailStr
 from typing import Optional
+from datetime import datetime
 
 class UserBaseClass(BaseModel):
     firstname: Optional[str] = ""
@@ -14,6 +15,11 @@ class UserBaseClass(BaseModel):
     company: Optional[str] = ""
     department: Optional[str] = ""
     country: Optional[str] = ""
+    jobtitle: Optional[str] = ""
+    image: Optional[str] = "" # Base64 encoded image or URL to image
+    expires: Optional[datetime] = None
+    active: bool = True
+    
     
 class UserCreate(UserBaseClass):
     username: str

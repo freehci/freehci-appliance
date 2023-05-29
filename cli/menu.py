@@ -88,19 +88,20 @@ class UserForm(npyscreen.ActionForm):
 
 class UserList(npyscreen.ActionForm):
     def create(self):
-        self.add_handlers({"^Q": self.when_exit})  # Add a handler for ctrl-q
+        self.add_handlers({"q": self.when_exit})  # Add a handler for ctrl-q
         self.add_handlers({"+": self.when_plus_pressed})  # Add a handler for ctrl-q
         self.add_handlers({"-": self.when_minus_pressed})  # Add a handler for ctrl-q
         
-        self.add(npyscreen.TitleText, name='[ctrl-q: back]', editable=False)
-        self.users_list = self.add(npyscreen.BoxTitle, name='Users:', max_height=15, footer="Press enter to edit user, or ctrl-q to go back")
+        self.add(npyscreen.TitleText, name="[Press 'q' to go back]", editable=False)
+        self.users_list = self.add(npyscreen.BoxTitle, name='Users:', max_height=15, footer="Press enter to edit user, or 'q' to go back")
         self.users_list.values = [f"ID: {user['id']}, Username: {user['username']}, Email: {user['email']}" for user in get_users()]
-
-        # Add help text
+        # TODO: Use another widget for the list, so that we can have headers and a more table-like layout
         
+        # Add help text
         self.help_text = self.add(npyscreen.BoxTitle, name='Help Text:', value='This is some help text.', editable=False)
         self.help_text.values = [
-            f"Press enter or space to edit user, or ctrl-q to go back", 
+            f"Use the arrow keys to navigate the list, tab to move between fields and groups",
+            f"Press enter or space to edit user, or 'q' to go back", 
             f"Press '+' to create new user",
             f"Press '-' to delete user",
             ]
@@ -110,7 +111,9 @@ class UserList(npyscreen.ActionForm):
         # DEBUG:root:when_enter_pressed called with value: None
         # DEBUG:root:when_enter_pressed called with value: None        
         self.users_list.entry_widget.when_value_edited = self.when_enter_pressed
-        self.users_list.entry_widget.when_cursor_moved = self.when_cursor_moved
+        
+        # This triggers when the cursor is moved
+        #self.users_list.entry_widget.when_cursor_moved = self.when_cursor_moved
         
 
     # this should be triggered when user presses enter on a user in the list               
@@ -129,7 +132,7 @@ class UserList(npyscreen.ActionForm):
             
         #else:
         #    npyscreen.notify_confirm("No user selected", "Error")
-
+    
     def when_cursor_moved(self, *args, **keywords):
         logging.debug(f'when_cursor_moved called with args: {args} and keywords: {keywords}')
         logging.debug(f'when_cursor_moved called with value: {self.users_list.entry_widget.value}') 
@@ -153,16 +156,21 @@ class UserList(npyscreen.ActionForm):
         #logging.debug(f'user list values: {self.users_list.entry_widget.selected_line}')
         logging.debug(f'user list cursor line: {self.users_list.entry_widget.cursor_line}')
         
-        if (npyscreen.notify_yes_no("Are you sure you want to delete this user?", "Delete user")):
+        selected_user_string = self.users_list.values[self.users_list.entry_widget.cursor_line]
+        user_id = int(selected_user_string.split(",")[0].split(":")[1].strip())
+        user_name = str(selected_user_string.split(",")[1].split(":")[1].strip())
+        title = f"Delete user {user_name}"
+        
+        if (npyscreen.notify_yes_no("Are you sure you want to delete this user?", title)):
         
             logging.debug(f'when_minus_pressed called with value: {self.users_list.values[self.users_list.entry_widget.cursor_line]}')
             
             #if self.users_list.entry_widget.value is not None and self.users_list.entry_widget.value < len(self.users_list.values):
-            selected_user_string = self.users_list.values[self.users_list.entry_widget.cursor_line]
+            
             
             logging.debug(f'Selected user: {selected_user_string}') 
             # parse the selected user string to get the user id
-            user_id = int(selected_user_string.split(",")[0].split(":")[1].strip())
+            
             delete_user(user_id)
             self.users_list.values = [f"ID: {user['id']}, Username: {user['username']}, Email: {user['email']}" for user in get_users()]
             #self.display()
