@@ -130,11 +130,9 @@ class UserForm(npyscreen.ActionForm):
         self.id = self.add(npyscreen.TitleText, name='ID:', editable=False)
         self.username = self.add(npyscreen.TitleText, name='Username:', editable=True)
         self.email = self.add(npyscreen.TitleText, name='Email:', editable=True)
-        self.active = self.add(npyscreen.CheckBox, name='Active:', editable=True)
-        self.expires = self.add(npyscreen.TitleDateCombo, name = "Date:")
-        
-        self.delete_button = self.add(npyscreen.ButtonPress, name='Delete User', relx=2, rely=10 )
-        
+        self.expires = self.add(npyscreen.TitleDateCombo, name = "Expires:")
+        self.active = self.add(npyscreen.CheckBox, name='Active:', editable=True, relx=40, rely=3)
+        self.delete_button = self.add(npyscreen.ButtonPress, name='Delete User', relx=2, rely=20 )
         
     def setup(self, user):
         logging.debug(f'UserForm.setup called with user: {user}')
@@ -151,6 +149,34 @@ class UserForm(npyscreen.ActionForm):
     def beforeEditing(self):
         if hasattr(self, 'selected_user'):
             self.setup(self.selected_user)
+    
+    # Update user details / create new user
+    def on_ok(self):
+        if self.username.value == "" or self.email.value == "":
+            npyscreen.notify_confirm("Username and email must be set", "Error")
+            
+        else:    
+            
+            if self.id.value == "":
+                # Create new user
+                user = {
+                    "username": self.username.value,
+                    "email": self.email.value,
+                    #"active": self.active.value,
+                    #"expires": self.expires.value,
+                }
+                create_user(user)
+            else:    
+                user = {
+                    "id": self.id.value,
+                    "username": self.username.value,
+                    "email": self.email.value,
+                    #"active": self.active.value,
+                    #"expires": self.expires.value,
+                }
+                update_user(user["id"], user)
+            self.parentApp.switchFormPrevious()
+        
 
 ############################################################################################################################################################################
 # Password change form
