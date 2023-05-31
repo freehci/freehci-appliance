@@ -6,6 +6,9 @@ import logging
 # Set up logging
 logging.basicConfig(filename='npyscreen.log', level=logging.DEBUG)
 
+############################################################################################################################################################################
+# Functions
+############################################################################################################################################################################
 def get_users():
     response = requests.get('http://localhost:8000/users/')
     return response.json()
@@ -31,16 +34,43 @@ def update_user(user_id, user):
     else:
         print("Failed to update user.")
 
+############################################################################################################################################################################
 # Main menu
+############################################################################################################################################################################
+
+
 class MainMenu(npyscreen.ActionForm):
     
     def create(self):
         self.add(npyscreen.TitleText, name='Welcome to FreeHCI!', editable=False)
+        
+        self.add(npyscreen.ButtonPress, name='Appliance', when_pressed_function=self.when_appliance_pressed)
         self.add(npyscreen.ButtonPress, name='Users', when_pressed_function=self.when_users_pressed)
         self.add(npyscreen.ButtonPress, name='Groups', when_pressed_function=self.when_groups_pressed)
         self.add(npyscreen.ButtonPress, name='Equipment', when_pressed_function=self.when_equipment_pressed)
+        self.add(npyscreen.ButtonPress, name='Logs', when_pressed_function=self.when_logs_pressed)
         self.add(npyscreen.ButtonPress, name='Quit', when_pressed_function=self.when_quit_pressed)
+        
 
+        # Add services overview using checkboxes
+        self.add(npyscreen.TitleText, name='Services:', editable=False, rely=2, relx=25)
+        self.add(npyscreen.CheckBox, name='DHCP', value=True, editable=False, rely=3, relx=25)
+        self.add(npyscreen.CheckBox, name='DNS', value=True, editable=False, rely=4, relx=25)
+        # Redis
+        self.add(npyscreen.CheckBox, name='Redis', value=True, editable=False, rely=5, relx=25)
+        # Docker
+        self.add(npyscreen.CheckBox, name='Docker', value=True, editable=False, rely=6, relx=25)
+        # Nginx
+        self.add(npyscreen.CheckBox, name='Nginx', value=True, editable=False, rely=7, relx=25)
+        # Postgres
+        self.add(npyscreen.CheckBox, name='Postgres', value=True, editable=False, rely=8, relx=25)
+        # Celery
+        self.add(npyscreen.CheckBox, name='Celery', value=True, editable=False, rely=9, relx=25)
+        
+
+    def when_appliance_pressed(self):
+        npyscreen.notify_confirm("Appliance functionality not implemented yet", "Error")
+    
     def when_users_pressed(self):
         self.parentApp.getForm('USERLIST').value = None
         self.parentApp.switchForm('USERLIST')
@@ -51,6 +81,9 @@ class MainMenu(npyscreen.ActionForm):
     def when_equipment_pressed(self):
         npyscreen.notify_confirm("Equipment functionality not implemented yet", "Error")
         
+    def when_logs_pressed(self):
+        npyscreen.notify_confirm("Logs functionality not implemented yet", "Error")
+        
     def when_quit_pressed(self):
         self.parentApp.switchForm(None)
         
@@ -59,22 +92,56 @@ class MainMenu(npyscreen.ActionForm):
         
     def afterEditing(self):
         pass
+    
+    
+############################################################################################################################################################################
+# Dialog - Just a test
+############################################################################################################################################################################
+class Dialog(npyscreen.NPSApp):
+    def main(self):
+        F = npyscreen.Form(name = "Welcome to Npyscreen",)
+        t = F.add(npyscreen.BoxBasic, name = "Basic Box:", max_width=30, relx=2, max_height=3)
+        t.footer = "This is a footer"
 
+        t1 = F.add(npyscreen.BoxBasic, name = "Basic Box:", rely=2, relx=32,
+        max_width=30, max_height=3)
+
+
+        t2 = F.add(npyscreen.BoxTitle, name="Box Title:", footer="This is a footer", max_height=8)
+        t2.entry_widget.scroll_exit = True
+        t2.values = [
+            "Hello",
+            "This is a Test",
+            "This is another test",
+            "And here is another line",
+            "And here is another line, which is really very long.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+            "And one more."
+            ]
+
+        F.edit()
+
+############################################################################################################################################################################
+# User form
+############################################################################################################################################################################
 
 class UserForm(npyscreen.ActionForm):
     def create(self):
         self.add(npyscreen.TitleText, name='User Details:', editable=False)
+        self.id = self.add(npyscreen.TitleText, name='ID:', editable=False)
         self.username = self.add(npyscreen.TitleText, name='Username:', editable=True)
         self.email = self.add(npyscreen.TitleText, name='Email:', editable=True)
-        self.id = self.add(npyscreen.TitleText, name='ID:', editable=False)
-        self.delete_button = self.add(npyscreen.ButtonPress, name='Delete User')
+        self.active = self.add(npyscreen.CheckBox, name='Active:', editable=True)
+        self.expires = self.add(npyscreen.TitleDateCombo, name = "Date:")
         
-    
+        self.delete_button = self.add(npyscreen.ButtonPress, name='Delete User', relx=2, rely=10 )
+        
+        
     def setup(self, user):
         logging.debug(f'UserForm.setup called with user: {user}')
         self.username.value = f'{user["username"]}'
         self.email.value = f'{user["email"]}'
         self.id.value = f'{user["id"]}'
+        self.expires.value = None
         self.delete_button.when_pressed_function = lambda: delete_user(user["id"])
         self.display()
 
@@ -85,12 +152,64 @@ class UserForm(npyscreen.ActionForm):
         if hasattr(self, 'selected_user'):
             self.setup(self.selected_user)
 
+############################################################################################################################################################################
+# Password change form
+############################################################################################################################################################################
+
+class PasswordChangeForm(npyscreen.ActionForm):
+    def create(self):
+        
+        self.title = self.add(npyscreen.TitleText, name='Change password for user:                               ', editable=False) # Initial placeholder (Must be long enough to cover the longest username)
+        
+        #self.password_field = self.add(npyscreen.TitlePassword, name=' ', begin_entry_at=30, editable=False)  # Initial empty name
+        
+        self.user = None  # Placeholder for the user data
+        
+        self.password = self.add(npyscreen.TitlePassword, name="New Password:", begin_entry_at=20)
+        self.confirm_password = self.add(npyscreen.TitlePassword, name="Confirm Password:", begin_entry_at=20)
+        
+    def setup(self, user_name):
+        logging.debug(f'PasswordChangeForm.setup called with user: {user_name}')
+        
+        self.title.label_widget.value = f'Change password for user: {user_name}'
+        
+        self.user = user_name
+        self.password.value = ""
+        self.confirm_password.value = ""
+        
+        self.title.display()
+        self.display()
+        
+    def afterEditing(self):
+        self.parentApp.setNextForm('USERLIST')
+        
+    def beforeEditing(self):
+        if hasattr(self, 'user_name'):
+            self.setup(self.user_name)
+
+    def on_ok(self):
+        if self.password.value != self.confirm_password.value:
+            npyscreen.notify_confirm("Passwords do not match", "Error")
+            # TODO: Find a way to cancel the form submission and return to the form
+        else:
+            # Call your password change function here, using self.user to identify the user
+            # For example: change_password(self.user, self.password.value)
+            self.parentApp.switchFormPrevious()
+
+    def on_cancel(self):
+        self.parentApp.switchFormPrevious()
+
+############################################################################################################################################################################
+# User list
+############################################################################################################################################################################
 
 class UserList(npyscreen.ActionForm):
     def create(self):
-        self.add_handlers({"q": self.when_exit})  # Add a handler for ctrl-q
-        self.add_handlers({"+": self.when_plus_pressed})  # Add a handler for ctrl-q
-        self.add_handlers({"-": self.when_minus_pressed})  # Add a handler for ctrl-q
+        self.add_handlers({"q": self.when_exit})  # Add a handler for q
+        self.add_handlers({"+": self.when_plus_pressed})  # Add a handler for + (plus)
+        self.add_handlers({"-": self.when_minus_pressed})  # Add a handler for - (minus)
+        self.add_handlers({"r": self.when_r_pressed})  # Add a handler for r (change password) 
+        
         
         self.add(npyscreen.TitleText, name="[Press 'q' to go back]", editable=False)
         self.users_list = self.add(npyscreen.BoxTitle, name='Users:', max_height=15, footer="Press enter to edit user, or 'q' to go back")
@@ -101,7 +220,7 @@ class UserList(npyscreen.ActionForm):
         self.help_text = self.add(npyscreen.BoxTitle, name='Help Text:', value='This is some help text.', editable=False)
         self.help_text.values = [
             f"Use the arrow keys to navigate the list, tab to move between fields and groups",
-            f"Press enter or space to edit user, or 'q' to go back", 
+            f"Press enter or space to edit user, or 'q' to go back, or 'r' to change password", 
             f"Press '+' to create new user",
             f"Press '-' to delete user",
             ]
@@ -121,12 +240,11 @@ class UserList(npyscreen.ActionForm):
         logging.debug(f'when_enter_pressed called with args: {args} and keywords: {keywords}')
         logging.debug(f'when_enter_pressed called with value: {self.users_list.entry_widget.value}') 
         if self.users_list.entry_widget.value is not None and self.users_list.entry_widget.value < len(self.users_list.values):
+            npyscreen.notify_wait("Loading user info...", title="Please Wait")
             selected_user = get_users()[self.users_list.entry_widget.value]
             logging.debug(f'Selected user: {selected_user}') 
-            self.parentApp.getForm('USERFORM').setup(selected_user)
-            #self.parentApp.setNextForm('USERFORM')  # Set the next form here
-            #self.parentApp.getForm('USERFORM').display()
             
+            self.parentApp.getForm('USERFORM').setup(selected_user)
             self.parentApp.switchForm('USERFORM') 
             self.editing = False
             
@@ -175,6 +293,22 @@ class UserList(npyscreen.ActionForm):
             self.users_list.values = [f"ID: {user['id']}, Username: {user['username']}, Email: {user['email']}" for user in get_users()]
             #self.display()
     
+    # Change password
+    def when_r_pressed(self, *args, **keywords):
+        selected_user_string = self.users_list.values[self.users_list.entry_widget.cursor_line]
+        user_id = int(selected_user_string.split(",")[0].split(":")[1].strip())
+        user_name = str(selected_user_string.split(",")[1].split(":")[1].strip())
+        
+        #selected_user = get_users()[self.users_list.values[self.users_list.entry_widget.cursor_line]]
+        
+        logging.debug(f'Selected user for password change: {user_name}')
+        
+        self.parentApp.getForm('PASSWDFORM').user_name = user_name
+        self.parentApp.getForm('PASSWDFORM').setup(user_name)
+        
+        #self.parentApp.getForm('PASSWDFORM').user_name = user_name
+        self.parentApp.switchForm('PASSWDFORM')
+        self.editing = False
     
     # This is commented out.
     def afterEditing(self):
@@ -194,13 +328,18 @@ class UserList(npyscreen.ActionForm):
     
     def on_esc(self):
         self.parentApp.switchForm('MAIN')
-
+        
+    
+############################################################################################################################################################################
+# Main application
+############################################################################################################################################################################
         
 class Application(npyscreen.NPSAppManaged):
     def onStart(self):
         self.addForm('MAIN', MainMenu, name="Main Menu")
         self.addForm('USERLIST', UserList, name="[FreeHCI User Management]")
         self.addForm('USERFORM', UserForm, name="User Form")
+        self.addForm('PASSWDFORM', PasswordChangeForm, name="Change Password")  # Add this line
 
 if __name__ == "__main__":
     App = Application().run()
