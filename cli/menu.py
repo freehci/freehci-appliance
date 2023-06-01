@@ -145,6 +145,7 @@ class UserForm(npyscreen.ActionForm):
 
     def afterEditing(self):
         self.parentApp.setNextForm('USERLIST')
+        self.parentApp.getForm('USERLIST').update_form()
         
     def beforeEditing(self):
         if hasattr(self, 'selected_user'):
@@ -162,6 +163,7 @@ class UserForm(npyscreen.ActionForm):
                 user = {
                     "username": self.username.value,
                     "email": self.email.value,
+                    "password": ""
                     #"active": self.active.value,
                     #"expires": self.expires.value,
                 }
@@ -236,11 +238,13 @@ class UserList(npyscreen.ActionForm):
         self.add_handlers({"-": self.when_minus_pressed})  # Add a handler for - (minus)
         self.add_handlers({"r": self.when_r_pressed})  # Add a handler for r (change password) 
         
+        self.add(npyscreen.TitleText, name="[Press 'q' to go back]", editable=False) # Do we need this?
         
-        self.add(npyscreen.TitleText, name="[Press 'q' to go back]", editable=False)
-        self.users_list = self.add(npyscreen.BoxTitle, name='Users:', max_height=15, footer="Press enter to edit user, or 'q' to go back")
-        self.users_list.values = [f"ID: {user['id']}, Username: {user['username']}, Email: {user['email']}" for user in get_users()]
+        # Add user list
         # TODO: Use another widget for the list, so that we can have headers and a more table-like layout
+        self.users_list = self.add(npyscreen.BoxTitle, name='Users:', max_height=15, footer="Press enter to edit user, or 'q' to go back")
+        self.update_form()
+        
         
         # Add help text
         self.help_text = self.add(npyscreen.BoxTitle, name='Help Text:', value='This is some help text.', editable=False)
@@ -260,6 +264,10 @@ class UserList(npyscreen.ActionForm):
         # This triggers when the cursor is moved
         #self.users_list.entry_widget.when_cursor_moved = self.when_cursor_moved
         
+    # Update the user list    
+    def update_form(self):
+        self.users_list.values = [f"ID: {user['id']}, Username: {user['username']}, Email: {user['email']}" for user in get_users()]
+        self.display()
 
     # this should be triggered when user presses enter on a user in the list               
     def when_enter_pressed(self, *args, **keywords):

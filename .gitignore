@@ -7,4 +7,3 @@ api/__pycache__
 routers/__pycache__/user.cpython-39.pyc
 cli/npyscreen.log
 models/test.db
-models/test.db
