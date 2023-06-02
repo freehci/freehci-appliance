@@ -33,12 +33,37 @@ def update_user(user_id, user):
         print("User updated successfully.")
     else:
         print("Failed to update user.")
+        
+        
+############################################################################################################################################################################
+# Custom theme
+############################################################################################################################################################################        
+class CustomTheme(npyscreen.ThemeManager):
+    default_colors = {
+        'DEFAULT': 'WHITE_BLACK',
+        'FORMDEFAULT': 'WHITE_BLACK',
+        'NO_EDIT': 'BLUE_BLACK',
+        'STANDOUT': 'CYAN_BLACK',
+        'CURSOR': 'BLACK_WHITE',
+        'CURSOR_INVERSE': 'BLACK_WHITE',
+        'LABEL': 'GREEN_BLACK',
+        'LABELBOLD': 'GREEN_BLACK',
+        'CONTROL': 'YELLOW_BLACK',
+        'IMPORTANT': 'GREEN_BLACK',
+        'SAFE': 'GREEN_BLACK',
+        'WARNING': 'RED_BLACK',
+        'DANGER': 'RED_BLACK',
+        'CRITICAL': 'BLACK_RED',
+        'GOOD': 'GREEN_BLACK',
+        'GOODHL': 'GREEN_BLACK',
+        'VERYGOOD': 'BLACK_GREEN',
+        'CAUTION': 'YELLOW_BLACK',
+        'CAUTIONHL': 'BLACK_YELLOW',
+    }
 
 ############################################################################################################################################################################
 # Main menu
 ############################################################################################################################################################################
-
-
 class MainMenu(npyscreen.ActionForm):
     
     def create(self):
@@ -238,23 +263,39 @@ class UserList(npyscreen.ActionForm):
         self.add_handlers({"-": self.when_minus_pressed})  # Add a handler for - (minus)
         self.add_handlers({"r": self.when_r_pressed})  # Add a handler for r (change password) 
         
-        self.add(npyscreen.TitleText, name="[Press 'q' to go back]", editable=False) # Do we need this?
+        #self.add(npyscreen.TitleText, name="[Press 'q' to go back]", editable=False) # Do we need this?
         
         # Add user list
         # TODO: Use another widget for the list, so that we can have headers and a more table-like layout
         self.users_list = self.add(npyscreen.BoxTitle, name='Users:', max_height=15, footer="Press enter to edit user, or 'q' to go back")
+        #self.users_list.entry_widget.color = 'VERYGOOD' # Testing some colors
         self.update_form()
         
         
         # Add help text
-        self.help_text = self.add(npyscreen.BoxTitle, name='Help Text:', value='This is some help text.', editable=False)
+        self.help_text = self.add(npyscreen.BoxTitle, 
+                                  name='Help:', 
+                                  value='This is some help text.', 
+                                  scroll_exit=True, 
+                                  editable=False, 
+                                  footer=f"Press 'u' and 'd' to scroll through the list"
+                                  )
         self.help_text.values = [
-            f"Use the arrow keys to navigate the list, tab to move between fields and groups",
-            f"Press enter or space to edit user, or 'q' to go back, or 'r' to change password", 
-            f"Press '+' to create new user",
-            f"Press '-' to delete user",
+            f"Navigation:                                    Editing and Viewing:",
+            f"Use the arrow keys to navigate the list.       Press Enter or Space to edit a user.",
+            f"Use Tab to move between fields and groups.     Press 'r' to change a user's password.",
+            "",
+            f"Creating and Deleting Users:                   Exiting:",
+            f"Press '+' to create a new user.                Press 'q' to go back or exit.",
+            f"Press '-' to delete a user.",
+            f"More lines of help text.",
+            f"And even more lines of help text.",
+            f"And more...."
             ]
-        
+        # Add keypress handlers for help text
+        self.add_handlers({"u": self.when_u_pressed})  # Add a handler for h (Up)
+        self.add_handlers({"d": self.when_d_pressed})  # Add a handler for j (Down)
+            
         # This causes the function to be called twice on first keypress, and then works as expected
         # Log output:
         # DEBUG:root:when_enter_pressed called with value: None
@@ -263,6 +304,26 @@ class UserList(npyscreen.ActionForm):
         
         # This triggers when the cursor is moved
         #self.users_list.entry_widget.when_cursor_moved = self.when_cursor_moved
+    
+    def when_u_pressed(self, *args, **keywords):
+        logging.debug(f'when_u_pressed called with args: {args} and keywords: {keywords}')
+        current_line = self.help_text.entry_widget.cursor_line
+        height = self.help_text.entry_widget.height
+        if current_line - height >= 0:
+            self.help_text.entry_widget.cursor_line -= height
+        else:
+            self.help_text.entry_widget.cursor_line = 0
+        self.help_text.entry_widget.display()
+
+    def when_d_pressed(self, *args, **keywords):
+        logging.debug(f'when_d_pressed called with args: {args} and keywords: {keywords}')
+        current_line = self.help_text.entry_widget.cursor_line
+        height = self.help_text.entry_widget.height
+        if current_line + height < len(self.help_text.entry_widget.values):
+            self.help_text.entry_widget.cursor_line += height
+        else:
+            self.help_text.entry_widget.cursor_line = len(self.help_text.entry_widget.values) - 1
+        self.help_text.entry_widget.display()
         
     # Update the user list    
     def update_form(self):
@@ -370,6 +431,7 @@ class UserList(npyscreen.ActionForm):
         
 class Application(npyscreen.NPSAppManaged):
     def onStart(self):
+        npyscreen.setTheme(CustomTheme)
         self.addForm('MAIN', MainMenu, name="Main Menu")
         self.addForm('USERLIST', UserList, name="[FreeHCI User Management]")
         self.addForm('USERFORM', UserForm, name="User Form")
