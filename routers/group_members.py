@@ -34,7 +34,7 @@ def get_db():
 # FIXME: -                                                                                                                                                     #
 ################################################################################################################################################################
 
-@router.post("/group_members/", response_model=GroupMemberResponse, tags=["Groups"])
+@router.post("/groups/{group_id}/members", response_model=GroupMemberResponse, tags=["Groups"])
 def create_new_group_member(
     group_member: GroupMemberCreate,
     db: Session = Depends(get_db)
@@ -88,7 +88,7 @@ def read_group_member(group_member_id: int, db: Session = Depends(get_db)):
     return db_group_member
 """
 
-@router.get("/group_members/{group_id}", response_model=List[GroupMemberRead], tags=["Groups"])
+@router.get("/groups/{group_id}/members", response_model=List[GroupMemberRead], tags=["Groups"])
 def read_group_members(
     group_id: int, 
     skip: int = 0, 
@@ -98,7 +98,7 @@ def read_group_members(
     group_members = crud.get_group_members_by_group_id(db=db, group_id=group_id, skip=skip, limit=limit)
     return group_members
 
-@router.put("/group_members/{group_member_id}", response_model=GroupMemberRead, tags=["Groups"])
+@router.put("/groups/{group_member_id}/members", response_model=GroupMemberRead, tags=["Groups"])
 def update_group_member(
     group_member_id: int, 
     group_member_update: GroupMemberCreate, 
@@ -109,7 +109,15 @@ def update_group_member(
         raise HTTPException(status_code=404, detail="Group member not found")
     return updated_group_member
 
-@router.delete("/group_members/{group_member_id}", response_model=GroupMemberRead, tags=["Groups"])
+# This function deletes the relation between a group and a member, but does not delete the member itself
+# The group_member_id is the id of the relation between the group and the member, not the id of the member
+# 
+# BUG: This function deletes the relation between a group and a member, but throws an error. 
+# INFO:     127.0.0.1:51860 - "DELETE /groups/15/members HTTP/1.1" 500 Internal Server Error
+# ERROR:    Exception in ASGI application
+# sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <GroupMember at 0x22eae4150d0> is not bound to a Session; 
+# lazy load operation of attribute 'user' cannot proceed (Background on this error at: https://sqlalche.me/e/14/bhk3)
+@router.delete("/groups/{group_member_id}/members", response_model=GroupMemberRead, tags=["Groups"])
 def delete_group_member(
     group_member_id: int, 
     db: Session = Depends(get_db)
@@ -127,7 +135,7 @@ def read_group_members(skip: int = 0, limit: int = 100, db: Session = Depends(ge
 
 """
 
-@router.get("/group_members/{group_id}/is_member/", tags=["Groups"])
+@router.get("/groups/{group_id}/is_member/", tags=["Groups"])
 def is_member(
     group_id: int,
     member_id: Optional[int] = None,
