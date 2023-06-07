@@ -1,6 +1,7 @@
 [flake8]
 exclude =
     Integrations/VMware/UAG
+    Integrations/Dell/VxRail
 
 ignore =
     # E203 whitespace before ':' (per Black, this is actually correct in some cases)

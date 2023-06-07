@@ -332,7 +332,7 @@ def get_group_members(db: Session, skip: int = 0, limit: int = 100):
         .options(
             joinedload(GroupMember.user),
             joinedload(GroupMember.group),
-            joinedload(GroupMember.member_group)  # Legg til denne linjen for å laste medlemgruppeobjektet
+            joinedload(GroupMember.member_group)
         )
         .offset(skip)
         .limit(limit)
@@ -346,7 +346,7 @@ def get_group_members_by_group_id(db: Session, group_id: int, skip: int = 0, lim
         .options(
             joinedload(GroupMember.user),
             joinedload(GroupMember.group),
-            joinedload(GroupMember.member_group)  # Fortsatt denne linjen for å laste medlemgruppeobjektet
+            joinedload(GroupMember.member_group)
         )
         .offset(skip)
         .limit(limit)

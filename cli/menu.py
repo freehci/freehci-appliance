@@ -1,14 +1,17 @@
 import npyscreen
 import requests
-import curses
+#import curses
 import logging
+#import time
 
-# Set up logging
-logging.basicConfig(filename='npyscreen.log', level=logging.DEBUG)
+# Set up logging for console app
+logging.basicConfig(filename='npyscreen.log', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
 
 ############################################################################################################################################################################
 # Functions
 ############################################################################################################################################################################
+# User functions
 def get_users():
     response = requests.get('http://localhost:8000/users/')
     return response.json()
@@ -16,24 +19,91 @@ def get_users():
 def delete_user(user_id):
     response = requests.delete(f'http://localhost:8000/users/{user_id}')
     if response.status_code == 200:
-        print("[User deleted successfully.]")
+        logging.debug(f'delete_user succeeded with response: {response.json()}')
     else:
-        print("Failed to delete user.")
+        logging.debug(f'delete_user failed with response: {response.json()}')
 
 def create_user(user):
     response = requests.post('http://localhost:8000/users/', json=user)
     if response.status_code == 200:
-        print("User created successfully.")
+        logging.debug(f'create_user succeeded with response: {response.json()}')
     else:
-        print("Failed to create user.")
+        logging.debug(f'create_user failed with response: {response.json()}')
 
 def update_user(user_id, user):
     response = requests.put(f'http://localhost:8000/users/{user_id}', json=user)
     if response.status_code == 200:
-        print("User updated successfully.")
+        logging.debug(f'update_user succeeded with response: {response.json()}')
     else:
-        print("Failed to update user.")
+        logging.debug(f'update_user failed with response: {response.json()}')
+
+# Group functions
+def get_groups():
+    response = requests.get('http://localhost:8000/groups/')
+    return response.json()
+
+def delete_group(group_id):
+    response = requests.delete(f'http://localhost:8000/groups/{group_id}')
+    if response.status_code == 200:
+        logging.debug(f'delete_group succeeded with response: {response.json()}')
+    else:
+        logging.debug(f'delete_group failed with response: {response.json()}')
+        #print("Failed to delete group.")
+
+def create_group(group):
+    response = requests.post('http://localhost:8000/groups/', json=group)
+    if response.status_code == 200:
+        logging.debug(f'create_group succeeded with response: {response.json()}')
+    else:
+        logging.debug(f'create_group failed with response: {response.json()}')
+        #print("Failed to create group.")
         
+def update_group(group_id, group):
+    response = requests.put(f'http://localhost:8000/groups/{group_id}', json=group)
+    if response.status_code == 200:
+        logging.debug(f'update_group succeeded with response: {response.json()}')
+    else:
+        logging.debug(f'update_group failed with response: {response.json()}')
+
+# Group member functions        
+def get_group_members(group_id):
+    response = requests.get(f'http://localhost:8000/groups/{group_id}/members/')
+    return response.json()
+
+def add_group_member(group_id, user_id, expires=None):
+    response = requests.post(f'http://localhost:8000/groups/{group_id}/members/', json={"user_id": user_id})
+    if response.status_code == 200:
+        logging.debug(f'add_group_member succeeded with response: {response.json()}')
+    else:
+        logging.debug(f'add_group_member failed with response: {response.json()}')
+
+def delete_group_member(group_id, user_id):
+    response = requests.delete(f'http://localhost:8000/groups/{group_id}/members/{user_id}')
+    if response.status_code == 200:
+        logging.debug(f'delete_group_member succeeded with response: {response.json()}')
+    else:
+        logging.debug(f'delete_group_member failed with response: {response.json()}')
+        
+def update_group_member(group_id, user_id, expires=None):
+    response = requests.put(f'http://localhost:8000/groups/{group_id}/members/{user_id}', json={"expires": expires})
+    if response.status_code == 200:
+        logging.debug(f'update_group_member succeeded with response: {response.json()}')
+    else:
+        logging.debug(f'update_group_member failed with response: {response.json()}')
+        
+# Equipment functions
+
+
+
+# Log functions
+
+
+# Services functions
+
+
+# Settings functions
+
+
         
 ############################################################################################################################################################################
 # Custom theme
@@ -67,6 +137,7 @@ class CustomTheme(npyscreen.ThemeManager):
 class MainMenu(npyscreen.ActionForm):
     
     def create(self):
+        self.add_handlers({"q": self.when_quit_pressed})  # Add a handler for q
         self.add(npyscreen.TitleText, name='Welcome to FreeHCI!', editable=False)
         
         self.add(npyscreen.ButtonPress, name='Appliance', when_pressed_function=self.when_appliance_pressed)
@@ -76,7 +147,6 @@ class MainMenu(npyscreen.ActionForm):
         self.add(npyscreen.ButtonPress, name='Logs', when_pressed_function=self.when_logs_pressed)
         self.add(npyscreen.ButtonPress, name='Quit', when_pressed_function=self.when_quit_pressed)
         
-
         # Add services overview using checkboxes
         self.add(npyscreen.TitleText, name='Services:', editable=False, rely=2, relx=25)
         self.add(npyscreen.CheckBox, name='DHCP', value=True, editable=False, rely=3, relx=25)
@@ -101,7 +171,8 @@ class MainMenu(npyscreen.ActionForm):
         self.parentApp.switchForm('USERLIST')
 
     def when_groups_pressed(self):
-        npyscreen.notify_confirm("Groups functionality not implemented yet", "Error")
+        self.parentApp.getForm('GROUPLIST').value = None
+        self.parentApp.switchForm('GROUPLIST')
 
     def when_equipment_pressed(self):
         npyscreen.notify_confirm("Equipment functionality not implemented yet", "Error")
@@ -109,8 +180,11 @@ class MainMenu(npyscreen.ActionForm):
     def when_logs_pressed(self):
         npyscreen.notify_confirm("Logs functionality not implemented yet", "Error")
         
-    def when_quit_pressed(self):
+    def when_quit_pressed(self, *args, **keywords):
         self.parentApp.switchForm(None)
+        
+    #def when_exit(self, *args, **keywords):
+    #    self.parentApp.switchForm('MAIN')
         
     def on_cancel(self):
         self.parentApp.switchForm(None)
@@ -253,6 +327,101 @@ class PasswordChangeForm(npyscreen.ActionForm):
         self.parentApp.switchFormPrevious()
 
 ############################################################################################################################################################################
+# Groups list
+############################################################################################################################################################################
+
+class GroupList(npyscreen.ActionForm):
+    def create(self):
+        self.add_handlers({"q": self.when_exit})  # Add a handler for q
+        self.add_handlers({"+": self.when_plus_pressed})  # Add a handler for + (plus)
+        self.add_handlers({"-": self.when_minus_pressed})  # Add a handler for - (minus)
+        self.add_handlers({"e": self.when_enter_pressed})  # Add a handler for - (minus)
+        
+        # Add group list
+        logging.debug(f'GroupList.create called')
+        self.groups_list = self.add(npyscreen.BoxTitle, name='Groups:', max_height=15, footer="Press enter to edit group, or 'q' to go back")
+        #self.update_form()
+        
+        self.group_members_list = self.add(npyscreen.BoxTitle, name='Group Members:', footer="Press enter to edit group member, or 'q' to go back")
+        # This triggers when the cursor is moved
+        self.groups_list.entry_widget.when_cursor_moved = self.when_cursor_moved
+        self.groups_list.entry_widget.when_value_edited = self.when_enter_pressed
+       
+    def update_group_members_list(self, group_id):
+        members = get_group_members(group_id)
+        member_strings = []
+        for member in members:
+            if member['member_type'] == 'user':
+                user = member['user']
+                member_strings.append(f"User ID: {user['id']}, Username: {user['username']}, Email: {user['email']}")
+            elif member['member_type'] == 'group':
+                group = member['member_group']
+                member_strings.append(f"Group ID: {group['id']}, Group Name: {group['name']}, Group Email: {group['email']}")
+        self.group_members_list.values = member_strings
+        self.group_members_list.display()
+    
+    # Reset the group members list when the cursor is moved, and only show the groups members list when pressing enter to avoid performance issues 
+    # (Lagg when scrolling through the list)
+    def when_cursor_moved(self, *args, **keywords):
+        self.group_members_list.values = None
+        self.group_members_list.display()
+
+    # TODO: 
+    # Consder moving loading of group members to "when_enter_pressed" instead of "when_cursor_moved"
+    # as loading the group members list when the cursor is moved is not very efficient. Anoing delays when scrolling through the list.
+    # NOTE: This is now implemented, but we have some issues if we try to show the group members in a group again, as the selection is not changed before selecting another group.
+    def when_enter_pressed(self, *args, **keywords): 
+        logging.debug(f'when_cursor_moved called with args: {args} and keywords: {keywords}')
+        logging.debug(f'when_cursor_moved called with value: {self.groups_list.entry_widget.value}') 
+        selected_group_string = self.groups_list.values[self.groups_list.entry_widget.cursor_line]
+        group_id = int(selected_group_string.split(",")[0].split(":")[1].strip())
+        group_name = str(selected_group_string.split(",")[1].split(":")[1].strip())
+        logging.debug(f'Selected group: ID: {group_id} Name: {group_name}')
+        
+        if group_id is not None:
+            selected_group_string = self.groups_list.values[self.groups_list.entry_widget.cursor_line]
+            #group_id = int(selected_group_string.split(",")[0].split(":")[1].strip())
+            logging.debug(f'Selected group: {group_id}') 
+            npyscreen.notify("Loading group members...", title="Please Wait")
+            self.update_group_members_list(group_id)
+            
+    
+    # Update the group list
+    def update_form(self):
+        npyscreen.notify("Loading group info...", title="Please Wait")
+        self.groups_list.values = [f"ID: {group['id']}, Name: {group['name']}" for group in get_groups()]
+        logging.debug(f'GroupList.update_form called', self.groups_list.values)
+        self.display()
+        
+    # Key bindings    
+    def when_plus_pressed(self, *args, **keywords):
+        logging.debug(f'when_plus_pressed called with args: {args} and keywords: {keywords}')
+        
+    def when_minus_pressed(self, *args, **keywords):
+        logging.debug(f'when_minus_pressed called with args: {args} and keywords: {keywords}')
+        
+    def when_exit(self, *args, **keywords):
+        self.parentApp.switchForm('MAIN')
+        
+    def on_cancel(self):
+        self.parentApp.switchForm('MAIN')
+        
+    def on_ok(self):
+        self.parentApp.switchForm('GROUPFORM')
+        
+    def on_esc(self):
+        self.parentApp.switchForm('MAIN')
+    
+    def beforeEditing(self):
+        self.update_form()
+        self.when_enter_pressed() # This is a hack to trigger the when_cursor_moved function when the form is loaded. Otherwise the group members list is not updated.
+        
+    def afterEditing(self):
+        self.parentApp.setNextForm('MAIN')
+        
+    
+
+############################################################################################################################################################################
 # User list
 ############################################################################################################################################################################
 
@@ -269,7 +438,7 @@ class UserList(npyscreen.ActionForm):
         # TODO: Use another widget for the list, so that we can have headers and a more table-like layout
         self.users_list = self.add(npyscreen.BoxTitle, name='Users:', max_height=15, footer="Press enter to edit user, or 'q' to go back")
         #self.users_list.entry_widget.color = 'VERYGOOD' # Testing some colors
-        self.update_form()
+        #self.update_form()
         
         
         # Add help text
@@ -315,18 +484,27 @@ class UserList(npyscreen.ActionForm):
             self.help_text.entry_widget.cursor_line = 0
         self.help_text.entry_widget.display()
 
+    # Navigate down in the help text
+    # BUG: This doesn't work properly. Getting index out of range error when pressing 'd' to scroll down.
     def when_d_pressed(self, *args, **keywords):
         logging.debug(f'when_d_pressed called with args: {args} and keywords: {keywords}')
+        logging.debug(f'when_d_pressed, entry_widget len: {len(self.help_text.entry_widget.values)}')
         current_line = self.help_text.entry_widget.cursor_line
+        logging.debug(f'when_d_pressed, current_line: {current_line}')
+        
         height = self.help_text.entry_widget.height
+        logging.debug(f'when_d_pressed, height: {height}')
         if current_line + height < len(self.help_text.entry_widget.values):
-            self.help_text.entry_widget.cursor_line += height
+            new_line = self.help_text.entry_widget.cursor_line + height
+            logging.debug(f'when_d_pressed, new cursor_line: {new_line}')
+            #self.help_text.entry_widget.cursor_line += height
         else:
             self.help_text.entry_widget.cursor_line = len(self.help_text.entry_widget.values) - 1
         self.help_text.entry_widget.display()
         
     # Update the user list    
     def update_form(self):
+        npyscreen.notify("Loading users list...", title="Please Wait")
         self.users_list.values = [f"ID: {user['id']}, Username: {user['username']}, Email: {user['email']}" for user in get_users()]
         self.display()
 
@@ -335,7 +513,7 @@ class UserList(npyscreen.ActionForm):
         logging.debug(f'when_enter_pressed called with args: {args} and keywords: {keywords}')
         logging.debug(f'when_enter_pressed called with value: {self.users_list.entry_widget.value}') 
         if self.users_list.entry_widget.value is not None and self.users_list.entry_widget.value < len(self.users_list.values):
-            npyscreen.notify_wait("Loading user info...", title="Please Wait")
+            npyscreen.notify("Loading user info...", title="Please Wait")
             selected_user = get_users()[self.users_list.entry_widget.value]
             logging.debug(f'Selected user: {selected_user}') 
             
@@ -345,6 +523,29 @@ class UserList(npyscreen.ActionForm):
             
         #else:
         #    npyscreen.notify_confirm("No user selected", "Error")
+
+    # Update help text when resizing the form
+    # BUG: This doesn't work properly. The help text is not updated when the form is resized, and cancel and ok buttons are stuck at the same position.
+    def resize(self):
+        logging.debug(f'resize called')
+        logging.debug(f'resize, entry_widget len: {self.help_text.entry_widget.height}')
+        self.help_text.values = [
+            f"Navigation:                                    Editing and Viewing:",
+            f"Use the arrow keys to navigate the list.       Press Enter or Space to edit a user.",
+            f"Use Tab to move between fields and groups.     Press 'r' to change a user's password.",
+            "",
+            f"Creating and Deleting Users:                   Exiting:",
+            f"Press '+' to create a new user.                Press 'q' to go back or exit.",
+            f"Press '-' to delete a user.",
+            f"More lines of help text.",
+            f"And even more lines of help text.",
+            f"And more...."
+            ]
+        self.help_text._resize()
+        self.help_text.entry_widget.display()
+        self.help_text.update()
+        self.help_text.display()
+        self.display()
     
     def when_cursor_moved(self, *args, **keywords):
         logging.debug(f'when_cursor_moved called with args: {args} and keywords: {keywords}')
@@ -409,6 +610,10 @@ class UserList(npyscreen.ActionForm):
     def afterEditing(self):
         ...
         #self.parentApp.setNextForm('MAIN')  # This will only be called if the form is exited without selecting a user
+    
+    def beforeEditing(self):
+        
+        self.update_form()
 
     def on_cancel(self):
         #self.parentApp.switchFormPrevious()
@@ -432,10 +637,13 @@ class UserList(npyscreen.ActionForm):
 class Application(npyscreen.NPSAppManaged):
     def onStart(self):
         npyscreen.setTheme(CustomTheme)
+        
         self.addForm('MAIN', MainMenu, name="Main Menu")
         self.addForm('USERLIST', UserList, name="[FreeHCI User Management]")
         self.addForm('USERFORM', UserForm, name="User Form")
+        self.addForm('GROUPLIST', GroupList, name="Group List")
         self.addForm('PASSWDFORM', PasswordChangeForm, name="Change Password")  # Add this line
+
 
 if __name__ == "__main__":
     App = Application().run()
