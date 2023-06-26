@@ -2,7 +2,11 @@ import npyscreen
 import requests
 #import curses
 import logging
-#import time
+import time
+import docker
+import json
+import os
+import git
 
 # Set up logging for console app
 logging.basicConfig(filename='npyscreen.log', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -48,7 +52,6 @@ def delete_group(group_id):
         logging.debug(f'delete_group succeeded with response: {response.json()}')
     else:
         logging.debug(f'delete_group failed with response: {response.json()}')
-        #print("Failed to delete group.")
 
 def create_group(group):
     response = requests.post('http://localhost:8000/groups/', json=group)
@@ -56,7 +59,6 @@ def create_group(group):
         logging.debug(f'create_group succeeded with response: {response.json()}')
     else:
         logging.debug(f'create_group failed with response: {response.json()}')
-        #print("Failed to create group.")
         
 def update_group(group_id, group):
     response = requests.put(f'http://localhost:8000/groups/{group_id}', json=group)
@@ -97,16 +99,211 @@ def update_group_member(group_id, user_id, expires=None):
 
 # Log functions
 
-
+############################################################################################################################################################################
 # Services functions
+# To control services, we need to use the docker API to start and stop containers
+# We need to compose the containers using docker-compose, and then start and stop the containers using the docker API
+############################################################################################################################################################################
 
+# Compose the containers
+# Redis, Postgres, Nginx, Celery, Traefik, FreeHCI, BIND, DHCP
+# Allso consider using LDAP for storing users and groups.
+# RADIUS and TACACS may allso be a good idea for authentication and authorization, as FreeHCI can be used for datacenter bootstraping and configuration management.
+# Alternatives is FreeRADIUS and tac_plus
+#
+# Docker is only applicable for Linux. If running on Windows, we need to rely on external servers for Redis, Postgres, Nginx, Celery, Traefik, BIND, DHCP and DNS
+# We can allso run services natively on Windows, but this require the users to install the services themselves, and is not desirable. 
+# In the future we will integrate into the Windows ecosystem, and use Windows DNS and DHCP services instead of BIND and DHCP containers.Maybe we will supply a Windows installer for the services.
 
+def compose_containers():
+    client = docker.from_env()
+    
+    # Redis (https://hub.docker.com/_/redis)
+    if get_settings()["redis_enabled"]:
+        client.containers.run("redis:alpine", name="redis", detach=True, restart_policy={"Name": "always"}, ports={'6379/tcp': 6379})
+    
+    # Postgres (https://hub.docker.com/_/postgres)
+    # Place the postgres data in a volume to avoid data loss when the container is removed
+    # Location of the volume: /var/lib/docker/volumes/freehci_postgres_data/_data
+    # TODO: Check config for postgres
+    if get_settings()["postgres_enabled"]:
+        client.containers.run("postgres:alpine", name="postgres", detach=True, restart_policy={"Name": "always"}, ports={'5432/tcp': 5432}, volumes={'freehci_postgres_data': {'bind': '/var/lib/postgresql/data', 'mode': 'rw'}})
+ 
+    # Load balancer (Traefik or Nginx)
+    # TODO: Check config for load balancer and disable if not configured so it doesn't start to avoid port conflicts   
+    if get_settings()["load_balancer"] == "traefik":
+        # Traefik (https://hub.docker.com/_/traefik)
+        client.containers.run("traefik:alpine", name="traefik", detach=True, restart_policy={"Name": "always"}, ports={'80/tcp': 80, '443/tcp': 443, '8080/tcp': 8080})
+    else:
+        # Nginx (https://hub.docker.com/_/nginx)
+        client.containers.run("nginx:alpine", name="nginx", detach=True, restart_policy={"Name": "always"}, ports={'80/tcp': 80, '443/tcp': 443})
+     
+    # Celery (https://hub.docker.com/r/celery/celery)
+    if get_settings()["celery_enabled"]:       
+        client.containers.run("celery/celery", name="celery", detach=True, restart_policy={"Name": "always"})
+    
+    # FreeHCI (https://hub.docker.com/r/freehci/freehci) - This is the main container - Not yet available on Docker Hub
+    # in the meantime, build the container locally using the Dockerfile in the FreeHCI repo located at github.com/freehci/freehci
+    # pull the source code from github.com/freehci/freehci and build the Dockerfile. The docker image must have python3 installed, and the FreeHCI source code must be copied to /opt/freehci
+    # The Dockerfile is located in the same folder as this file. Base image is python:3.8-slim
+    client.images.build(path=".", tag="freehci")
+    # Start the container with the following command: docker run -p 8000:8000 -v /etc/freehci:/etc/freehci my-python-app
+    client.containers.run("freehci", name="freehci", detach=True, restart_policy={"Name": "always"}, ports={'8000/tcp': 8000}, volumes={'freehci_settings': {'bind': '/etc/freehci', 'mode': 'rw'}})
+    
+    # To build the container later, we need to remove the old container first using the following command: docker rmi -f my-python-app
+    # This will allso be done when updating the container using the built-in update function (Not yet implemented)
+    
+# Start a container (service) by name
+def start_container(container_name):
+    # Command: docker start <container_name>
+    client = docker.from_env()
+    client.containers.get(container_name).start()
+    return get_container_status(container_name)
+    
+def stop_container(container_name):
+    client = docker.from_env()
+    client.containers.get(container_name).stop()
+    return get_container_status(container_name)
+    
+def restart_container(container_name):
+    client = docker.from_env()
+    client.containers.get(container_name).restart()
+    return get_container_status(container_name)
+    
+def get_container_status(container_name):
+    client = docker.from_env()
+    container = client.containers.get(container_name)
+    return container.status
+
+############################################################################################################################################################################
 # Settings functions
+############################################################################################################################################################################
+
+# Here we need to read and write to the settings file
+# The settings file is located in /etc/freehci/settings.json
+# The settings file is a json file containing a dictionary with the following keys:
+# - "hostname": The hostname of the appliance
+# - "domain": The domain of the appliance
+# - "ip": The IP address of the appliance
+# - "netmask": The netmask of the appliance
+# - "gateway": The gateway of the appliance
+# - "dns": The DNS server of the appliance
+# - "ntp": The NTP server of the appliance
+# - "timezone": The timezone of the appliance
+# - "language": The language of the appliance
+# - "keyboard": The keyboard layout of the appliance
+# - "password": The password of the appliance admin (hashed). Removing this key will force the user to set a new password on next login
+# - "email": The email address of the appliance admin
+# SNMP settings
+# - "snmp_enabled": True/False
+# - "snmp_community": The SNMP community string
+# - "snmp_location": The SNMP location
+# - "snmp_contact": The SNMP contact
+# - "snmp_trap_enabled": True/False
+# - "snmp_trap_server": The SNMP trap server
+# - "snmp_trap_community": The SNMP trap community string
+# - "snmp_trap_version": The SNMP trap version
+# - "snmp_trap_port": The SNMP trap port (default 162)
+# - "snmp_trap_level": The SNMP trap level (default 6)
+# - "snmp_trap_interval": The SNMP trap interval (default 60)
+# - "snmp_trap_retries": The SNMP trap retries (default 3)
+# - "snmp_trap_timeout": The SNMP trap timeout (default 3)
+# - "snmp_trap_v3_user": The SNMP trap v3 user
+# - "snmp_trap_v3_auth": The SNMP trap v3 auth
+# - "snmp_trap_v3_priv": The SNMP trap v3 priv
+# - "snmp_trap_v3_context": The SNMP trap v3 context
+# SMTP settings
+# - "smtp_enabled": True/False
+# - "smtp_server": The SMTP server
+# - "smtp_port": The SMTP port (default 25)
+# - "smtp_username": The SMTP username
+# - "smtp_password": The SMTP password (Clear text)
+# - "smtp_from": The SMTP from address
+# - "smtp_tls": True/False
+# - "smtp_ssl": True/False
+# - "smtp_auth": True/False
+# - "smtp_starttls": True/False
+# - "smtp_timeout": The SMTP timeout (default 10)
+# - "smtp_debug": True/False (default False)
+# Syslog settings
+# - "syslog_enabled": True/False
+# - "syslog_server": The syslog server
+# - "syslog_port": The syslog port (default 514)
+# - "syslog_protocol": The syslog protocol (default UDP)
+# - "syslog_facility": The syslog facility (default local0)
+# - "syslog_level": The syslog level (default info)
+# - "syslog_tag": The syslog tag (default freehci)
+# - "syslog_format": The syslog format (default rfc5424)
+# - "syslog_tls": True/False (default False)
+# Services settings
+# - "dhcp_enabled": True/False
+# - "redis_enabled": True/False
+# - "postgres_enabled": True/False
+# - "celery_enabled": True/False
+# - "bind_enabled": True/False
+# TODO: Find out wich load balancer to use for the services, nginx or traefik? 
+# - "load_balancer": "nginx" or "traefik" (default "traefik")
+# Plugins settings
+# - "plugins_enabled": True/False
+# - "plugins": A list of plugins to load
+# VxRail, vSphere, HorizonView, NSX-T, OpenManage, OneView, MS_SCVMM, oVirt, 
+
+# Settings file location
+# Use /etc/freehci/settings.json for Linux and C:\Program Files\FreeHCI\settings.json for Windows
+# If running on Windows, the docker functionality will not be available, but the settings will be read.
+if os.name == 'nt':
+    # Use user profile folder for Windows
+    # Make sure the service user has access to the settings file.
+    settings_file = os.path.join(os.environ['USERPROFILE'], 'settings.json')
+    #settings_file = 'C:\\Program Files\\FreeHCI\\settings.json'
+else:
+    settings_file = '/etc/freehci/settings.json'
+    
+def get_settings():
+    with open(settings_file) as f:
+        settings = json.load(f)
+    return settings
+    
+def save_settings(settings):
+    with open(settings_file, 'w') as f:
+        json.dump(settings, f, indent=4)
+        
+# Save syslog setting to file
+def save_syslog_settings(syslog_settings):
+    settings = get_settings()
+    settings["syslog_enabled"] = syslog_settings["syslog_enabled"]
+    settings["syslog_server"] = syslog_settings["syslog_server"]
+    settings["syslog_port"] = syslog_settings["syslog_port"]
+    settings["syslog_protocol"] = syslog_settings["syslog_protocol"]
+    settings["syslog_facility"] = syslog_settings["syslog_facility"]
+    settings["syslog_level"] = syslog_settings["syslog_level"]
+    settings["syslog_tag"] = syslog_settings["syslog_tag"]
+    settings["syslog_format"] = syslog_settings["syslog_format"]
+    settings["syslog_tls"] = syslog_settings["syslog_tls"]
+    save_settings(settings)
+        
+def get_hostname():
+    settings = get_settings()
+    return settings["hostname"]
+
+def get_domain():
+    settings = get_settings()
+    return settings["domain"]
+
+def get_ip():
+    settings = get_settings()
+    return settings["ip"]
+
+def get_netmask():
+    settings = get_settings()
+    return settings["netmask"]
+
 
 
         
 ############################################################################################################################################################################
 # Custom theme
+# TODO: Remove this. It's not used
 ############################################################################################################################################################################        
 class CustomTheme(npyscreen.ThemeManager):
     default_colors = {
