@@ -44,7 +44,8 @@ from api.hardware import router as hardware_router # TODO: Move this to routers/
 from api.virtualization import router as virtualization_router # TODO: Move this to routers/virtualization.py
 from api.authentication import router as authentication_router # TODO: Move this to routers/authentication.py
 
-from config.settings import app_version_number
+from config.settings import app_version_number, latest_version_number
+
 
 from models import database
 from models import User, Role  # Importing user and role classes from models/
@@ -191,7 +192,8 @@ app.add_middleware(
 )
 
 
-print(f"{YELLOW}FreeCHI ver: " + app_version_number + RESET)
+print(f"{YELLOW}FreeCHI version: " + app_version_number + RESET)
+print(f"{YELLOW}Latest version: " + latest_version_number + RESET)
 
 
 # Plugin 

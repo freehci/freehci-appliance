@@ -17,7 +17,6 @@ def read_version_number():
         
     return version_number
 
-
 app_version_number = read_version_number()
 
 
@@ -30,6 +29,26 @@ def get_latest_version_number():
     latest_version_number = response.text.strip()
     
     return latest_version_number
+
+latest_version_number = get_latest_version_number()
+
+# Function to update the appliance. We need to stop the server before updating the appliance, and then restart the server after the update is complete.
+def update_appliance():
+    # Launch the update script "update.py" as a standalone process
+    # Download the update script first to the parent directory to avoid conflicts
+    
+    # Get the parent directory
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    
+    # Jump up one directory
+    top_level = os.path.join(base_dir, '..')
+    
+    # Download the update script to the top level directory
+    url = "https://raw.githubusercontent.com/freehci/freehci-appliance/upate.py"
+    subprocess.run(["wget", url, "-P", top_level])
+    
+    # Finaly launch the update script
+    subprocess.Popen(["python", os.path.join(top_level, "update.py")])
     
 def update():
     # Compare the latest version number with the current version number
