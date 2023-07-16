@@ -1,4 +1,9 @@
+uvicorn                 # ASGI server implementation, using uvloop and httptools
+
+# Use hypercorn instead of uvicorn in the future
+#hypercorn               # ASGI server implementation, using hyper-h2 and h11
 wheel                   # Wheel packaging format for Python
+
 fastapi                 # Modern web framework for building APIs
 bcrypt                  # Cryptographic library for password hashing
 pydantic                # Data validation and parsing library
