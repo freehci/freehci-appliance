@@ -8,6 +8,7 @@ import json
 import os
 import git
 
+
 # Set up logging for console app
 logging.basicConfig(filename='npyscreen.log', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 

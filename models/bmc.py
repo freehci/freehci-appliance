@@ -13,7 +13,7 @@ class IPMIoverLAN(BMC):
     port: int = 623
     
 class Redfish(BMC):
-    port = 443
+    port: int = 443
     # https://ilorestfulapiexplorer.ext.hpe.com/
     # https://dell.github.io/iDRAC-Redfish-Scripting/
     # Add Redfish-specific properties and methods here
