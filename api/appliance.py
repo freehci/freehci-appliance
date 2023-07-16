@@ -8,6 +8,7 @@ import psutil
 import time
 import ctypes   # To access Windows API
 import os
+from config.settings import app_version_number
 
 if os.name == 'nt':  # Windows
     import wmi
@@ -120,6 +121,12 @@ def get_link_status(interface):
         return "Up" if stats[interface].isup else "Down"
     return "Unknown"
 
+def get_link_speed(interface):
+    stats = psutil.net_if_stats()
+    if interface in stats:
+        return f"{stats[interface].speed} Mbps"
+    return "Unknown"
+
 def get_interface_name(interface: str) -> str:
     addrs = psutil.net_if_addrs()
     for addr in addrs[interface]:
@@ -134,6 +141,7 @@ def get_network_info():
     net_addrs = psutil.net_if_addrs()
     network_info_list = []
     
+    # BUG: This function works only on Windows by now. Investigate how to avoid error on Linux
     for interface in net_stats.keys():
         if interface in net_addrs:
             stats = net_stats[interface]
@@ -143,6 +151,7 @@ def get_network_info():
                 ipaddr=get_interface_name(interface),
                 interface=interface,
                 link_status=get_link_status(interface),
+                link_speed=get_link_speed(interface),
                 bytes_sent=f"{stats.bytes_sent} bytes",
                 bytes_received=f"{stats.bytes_recv} bytes",
                 packets_sent=f"{stats.packets_sent}",
@@ -171,14 +180,14 @@ def calculate_uptime():
 def get_appliance_metrics():
     return ApplianceMetrics(
         nodes=7,
-        cpu=psutil.cpu_percent(interval=1),
-        total_memory=psutil.virtual_memory().total,
-        free_memory=psutil.virtual_memory().free,
-        disks=get_disk_info(),
+        cpu=str(psutil.cpu_percent(interval=1)),
+        total_memory=str(psutil.virtual_memory().total),
+        free_memory=str(psutil.virtual_memory().free),
+        disks=get_disk_info(), 
         network=get_network_info(),
         uptime=calculate_uptime(),
         temperature=get_cpu_temp(),
-        version="1.0.26"
+        version=app_version_number
     )
 
 #

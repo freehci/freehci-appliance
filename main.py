@@ -44,6 +44,7 @@ from api.hardware import router as hardware_router # TODO: Move this to routers/
 from api.virtualization import router as virtualization_router # TODO: Move this to routers/virtualization.py
 from api.authentication import router as authentication_router # TODO: Move this to routers/authentication.py
 
+from config.settings import app_version_number
 
 from models import database
 from models import User, Role  # Importing user and role classes from models/
@@ -179,6 +180,17 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 if(nocache):
     print("Caching disabled")
     app.add_middleware(CacheControlMiddleware)
+
+# For testing purposes only. Added due to hardcoding of the IP address in the UI
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+print(f"{YELLOW}FreeCHI ver: " + app_version_number + RESET)
 
 # Plugin 
 def install_plugin_from_repository(plugin_url, plugin_name):
