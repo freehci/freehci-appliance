@@ -190,7 +190,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 print(f"{YELLOW}FreeCHI ver: " + app_version_number + RESET)
+
 
 # Plugin 
 def install_plugin_from_repository(plugin_url, plugin_name):
