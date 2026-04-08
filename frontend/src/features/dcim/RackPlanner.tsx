@@ -10,6 +10,19 @@ import styles from "./RackPlanner.module.css";
 import { deviceUHeight } from "./rackUtils";
 import type { DeviceInstance, DeviceModel, Rack } from "./types";
 
+/** Unik kort suffiks uten `crypto.randomUUID` (krever ofte sikker kontekst / HTTPS). */
+function shortInstanceSuffix(): string {
+  const c = globalThis.crypto;
+  if (c != null && typeof c.randomUUID === "function") {
+    try {
+      return c.randomUUID().replace(/-/g, "").slice(0, 8);
+    } catch {
+      /* ignore */
+    }
+  }
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.slice(-10);
+}
+
 type PaletteTab = "devices" | "models";
 
 export function RackPlanner({ racks }: { racks: Rack[] }) {
@@ -66,7 +79,7 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
       const base = model?.name ?? "device";
       const dev = await api.createDevice({
         device_model_id: vars.modelId,
-        name: `${base}-${crypto.randomUUID().slice(0, 8)}`,
+        name: `${base}-${shortInstanceSuffix()}`,
       });
       return api.createPlacement({
         rack_id: vars.rackId,
