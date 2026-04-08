@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type { Ipv4Prefix } from "./types";
 
 const P = "/api/v1/ipam";
@@ -15,6 +15,13 @@ export function createIpv4Prefix(body: {
   description?: string | null;
 }): Promise<Ipv4Prefix> {
   return apiPost(`${P}/ipv4-prefixes`, body);
+}
+
+export function updateIpv4Prefix(
+  id: number,
+  body: { name?: string; cidr?: string; description?: string | null },
+): Promise<Ipv4Prefix> {
+  return apiPatch(`${P}/ipv4-prefixes/${id}`, body);
 }
 
 export function deleteIpv4Prefix(id: number): Promise<void> {

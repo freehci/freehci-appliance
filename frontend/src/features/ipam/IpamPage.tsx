@@ -15,6 +15,9 @@ export function IpamPage() {
   const [newSite, setNewSite] = useState("");
   const [newName, setNewName] = useState("");
   const [newCidr, setNewCidr] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCidr, setEditCidr] = useState("");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
@@ -49,6 +52,18 @@ export function IpamPage() {
   const delPfx = useMutation({
     mutationFn: (id: number) => ipamApi.deleteIpv4Prefix(id),
     onSuccess: () => {
+      setEditingId(null);
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-prefixes"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchPfx = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { name: string; cidr: string } }) =>
+      ipamApi.updateIpv4Prefix(id, body),
+    onSuccess: () => {
+      setEditingId(null);
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-prefixes"] });
     },
@@ -127,7 +142,7 @@ export function IpamPage() {
               <th>{t("ipam.ipv4.site")}</th>
               <th>{t("ipam.ipv4.name")}</th>
               <th>{t("ipam.ipv4.cidr")}</th>
-              <th />
+              <th>{t("ipam.ipv4.actionsCol")}</th>
             </tr>
           </thead>
           <tbody>
@@ -135,19 +150,82 @@ export function IpamPage() {
               <tr key={x.id}>
                 <td>{x.id}</td>
                 <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
-                <td>{x.name}</td>
                 <td>
-                  <code>{x.cidr}</code>
+                  {editingId === x.id ? (
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      aria-label={t("ipam.ipv4.name")}
+                    />
+                  ) : (
+                    x.name
+                  )}
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className={dcimStyles.btnDanger}
-                    onClick={() => delPfx.mutate(x.id)}
-                    disabled={delPfx.isPending}
-                  >
-                    {t("dcim.common.delete")}
-                  </button>
+                  {editingId === x.id ? (
+                    <input
+                      value={editCidr}
+                      onChange={(e) => setEditCidr(e.target.value)}
+                      aria-label={t("ipam.ipv4.cidr")}
+                    />
+                  ) : (
+                    <code>{x.cidr}</code>
+                  )}
+                </td>
+                <td>
+                  {editingId === x.id ? (
+                    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                      <button
+                        type="button"
+                        className={dcimStyles.btn}
+                        disabled={patchPfx.isPending}
+                        onClick={() => {
+                          const nm = editName.trim();
+                          const cd = editCidr.trim();
+                          if (!nm || !cd) {
+                            setErr(t("ipam.ipv4.addMissing"));
+                            return;
+                          }
+                          patchPfx.mutate({ id: x.id, body: { name: nm, cidr: cd } });
+                        }}
+                      >
+                        {patchPfx.isPending ? "…" : t("dcim.common.save")}
+                      </button>
+                      <button
+                        type="button"
+                        className={dcimStyles.btn}
+                        onClick={() => {
+                          setEditingId(null);
+                          setErr(null);
+                        }}
+                      >
+                        {t("ipam.ipv4.cancel")}
+                      </button>
+                    </span>
+                  ) : (
+                    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                      <button
+                        type="button"
+                        className={dcimStyles.btn}
+                        onClick={() => {
+                          setEditingId(x.id);
+                          setEditName(x.name);
+                          setEditCidr(x.cidr);
+                          setErr(null);
+                        }}
+                      >
+                        {t("ipam.ipv4.edit")}
+                      </button>
+                      <button
+                        type="button"
+                        className={dcimStyles.btnDanger}
+                        onClick={() => delPfx.mutate(x.id)}
+                        disabled={delPfx.isPending}
+                      >
+                        {t("dcim.common.delete")}
+                      </button>
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

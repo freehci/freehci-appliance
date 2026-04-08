@@ -67,3 +67,23 @@ def test_ipam_ipv4_prefix_unknown_site() -> None:
             json={"site_id": 99999, "name": "X", "cidr": "10.0.0.0/8"},
         )
         assert r.status_code == 404
+
+
+def test_ipam_ipv4_prefix_patch() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "PatchSite", "slug": "patch-site"}).json()["id"]
+        p = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "Old", "cidr": "10.0.0.0/24"},
+        )
+        assert p.status_code == 200
+        pid = p.json()["id"]
+
+        up = client.patch(
+            f"/api/v1/ipam/ipv4-prefixes/{pid}",
+            json={"name": "New", "cidr": "10.0.1.0/24"},
+        )
+        assert up.status_code == 200, up.text
+        assert up.json()["name"] == "New"
+        assert up.json()["cidr"] == "10.0.1.0/24"

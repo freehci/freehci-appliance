@@ -27,6 +27,7 @@ export function DcimDeviceDetailPage() {
   const [ipAddr, setIpAddr] = useState("");
   const [ipPrimary, setIpPrimary] = useState(false);
   const [ipPrefix, setIpPrefix] = useState("");
+  const [ipPrefixDraft, setIpPrefixDraft] = useState<Record<number, string>>({});
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -210,6 +211,28 @@ export function DcimDeviceDetailPage() {
       api.updateIfaceIpAssignment(id, iid, aid, { is_primary: true }),
     onSuccess: () => {
       setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchIpPrefix = useMutation({
+    mutationFn: ({
+      iid,
+      aid,
+      ipv4_prefix_id,
+    }: {
+      iid: number;
+      aid: number;
+      ipv4_prefix_id: number | null;
+    }) => api.updateIfaceIpAssignment(id, iid, aid, { ipv4_prefix_id }),
+    onSuccess: (_d, vars) => {
+      setErr(null);
+      setIpPrefixDraft((prev) => {
+        const next = { ...prev };
+        delete next[vars.aid];
+        return next;
+      });
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -484,6 +507,58 @@ export function DcimDeviceDetailPage() {
                             <span className={styles.muted}>
                               {" "}
                               · {prefixById.get(ip.ipv4_prefix_id) ?? `#${ip.ipv4_prefix_id}`}
+                            </span>
+                          ) : null}
+                          {ip.family === "ipv4" && deviceSiteId != null ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                flexWrap: "wrap",
+                                gap: "0.25rem",
+                                alignItems: "center",
+                                marginLeft: "0.35rem",
+                              }}
+                            >
+                              <select
+                                style={{ maxWidth: "14rem", fontSize: "var(--text-xs)" }}
+                                value={
+                                  ipPrefixDraft[ip.id] ??
+                                  (ip.ipv4_prefix_id != null ? String(ip.ipv4_prefix_id) : "")
+                                }
+                                onChange={(e) =>
+                                  setIpPrefixDraft((prev) => ({ ...prev, [ip.id]: e.target.value }))
+                                }
+                                title={t("dcim.equip.ip.ipv4Prefix")}
+                              >
+                                <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
+                                {(prefixesQ.data ?? []).map((p) => (
+                                  <option key={p.id} value={String(p.id)}>
+                                    {p.name} — {p.cidr}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className={styles.btn}
+                                style={{ fontSize: "var(--text-xs)", padding: "0.15rem 0.45rem" }}
+                                disabled={patchIpPrefix.isPending}
+                                onClick={() => {
+                                  setErr(null);
+                                  const raw = (
+                                    ipPrefixDraft[ip.id] ??
+                                    (ip.ipv4_prefix_id != null ? String(ip.ipv4_prefix_id) : "")
+                                  ).trim();
+                                  let ipv4_prefix_id: number | null = null;
+                                  if (raw !== "") {
+                                    const n = Number(raw);
+                                    if (!Number.isFinite(n)) return;
+                                    ipv4_prefix_id = n;
+                                  }
+                                  patchIpPrefix.mutate({ iid: x.id, aid: ip.id, ipv4_prefix_id });
+                                }}
+                              >
+                                {patchIpPrefix.isPending ? "…" : t("dcim.common.save")}
+                              </button>
                             </span>
                           ) : null}
                           {ip.is_primary ? (
