@@ -25,8 +25,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    # Matches freehci user in backend/Dockerfile; avoids Celery/Uvicorn running as root if an old image layer omits USER.
-    user: "10001:10001"
+    # Must run as root so /docker-entrypoint.sh can chown UPLOAD_ROOT and drop to `freehci` via runuser.
     ports:
       - "8000:8000"
     environment:
@@ -46,7 +45,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    user: "10001:10001"
     command:
       [
         "celery",
