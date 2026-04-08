@@ -56,9 +56,29 @@ Optional environment file: copy [`.env.example`](.env.example) and adjust values
 
 ## Automated install on Debian 13
 
-The helper script installs Git, Docker Engine from Debian, the **docker-compose-v2** plugin, clones the repo (or updates an existing clone), and runs `docker compose up --build`.
+The helper script installs **Docker** (`docker.io` from Debian), **Docker Compose** (tries apt packages first; if none exist—as on many Debian 13 / Trixie images—it installs the [official Compose CLI plugin](https://github.com/docker/compose) from GitHub), **Git**, and **curl**. It then clones the repo (or updates an existing clone) and runs `docker compose up --build`.
 
-Run as a user with `sudo` (recommended), or as root:
+### Prerequisites on minimal images
+
+To **download** the script you need `curl` or `wget` (or clone the repo with Git instead):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates
+```
+
+**`wget` alternative:**
+
+```bash
+sudo apt-get install -y wget ca-certificates
+wget -qO install-freehci.sh https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh
+chmod +x install-freehci.sh
+sudo ./install-freehci.sh
+```
+
+### Run the installer
+
+As root or with `sudo`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh -o install-freehci.sh
@@ -66,20 +86,24 @@ chmod +x install-freehci.sh
 sudo ./install-freehci.sh
 ```
 
-Or, from an already-cloned tree:
+**No `curl` yet?** Install Git, clone the repository, then run the script from the tree (the script will install the rest):
 
 ```bash
+sudo apt-get update && sudo apt-get install -y git ca-certificates
+git clone https://github.com/freehci/freehci-appliance.git
+cd freehci-appliance
 sudo bash scripts/install-debian13.sh
 ```
 
 Optional environment variables:
 
-| Variable        | Default                                           | Purpose                          |
-|----------------|---------------------------------------------------|----------------------------------|
-| `REPO_URL`     | `https://github.com/freehci/freehci-appliance.git` | Git remote to clone              |
-| `INSTALL_DIR`  | `$HOME/freehci-appliance`                         | Clone / install directory        |
-| `GIT_BRANCH`   | `main`                                            | Branch to checkout               |
-| `COMPOSE_DETACH` | `1`                                            | `1` = `docker compose up -d`, `0` = foreground |
+| Variable             | Default                                           | Purpose |
+|----------------------|---------------------------------------------------|---------|
+| `REPO_URL`           | `https://github.com/freehci/freehci-appliance.git` | Git remote to clone |
+| `INSTALL_DIR`        | `$HOME/freehci-appliance`                         | Clone / install directory |
+| `GIT_BRANCH`         | `main`                                            | Branch to checkout |
+| `COMPOSE_DETACH`     | `1`                                               | `1` = `docker compose up -d`, `0` = foreground |
+| `COMPOSE_DL_VERSION` | `2.33.1`                                          | Compose release tag when apt has no compose package (override if needed) |
 
 After install, add your user to the `docker` group if you want to run `docker` without `sudo`:
 

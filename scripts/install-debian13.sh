@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# FreeHCI Appliance – install build dependencies on Debian 13 and run Docker Compose.
+# FreeHCI Appliance – install build dependencies on Debian 13 (trixie) and run Docker Compose.
+#
+# Why not only apt compose packages? On some Debian images only docker.io is published;
+# docker-compose-v2 / docker-compose-plugin may be missing. This script falls back to the
+# official Compose CLI plugin binary from GitHub.
+#
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh | bash
-#   # or after cloning:
+#   curl -fsSL …/install-debian13.sh | bash
 #   sudo bash scripts/install-debian13.sh
 #
 # Environment (optional):
-#   REPO_URL      – Git clone URL (default: https://github.com/freehci/freehci-appliance.git)
-#   INSTALL_DIR    – Clone target (default: ~/freehci-appliance)
-#   GIT_BRANCH     – Branch to checkout (default: main)
-#   COMPOSE_DETACH – if set to 0, run compose in foreground (default: 1 = -d)
+#   REPO_URL           – Git clone URL
+#   INSTALL_DIR        – Clone target (default: ~/freehci-appliance)
+#   GIT_BRANCH         – Branch (default: main)
+#   COMPOSE_DETACH     – 1 = docker compose up -d (default), 0 = foreground
+#   COMPOSE_DL_VERSION – Compose release tag for binary fallback (default: 2.33.1)
+#                        Use a v2.x tag if Docker Engine from Debian is very old.
 
 set -euo pipefail
 
@@ -17,6 +23,7 @@ REPO_URL="${REPO_URL:-https://github.com/freehci/freehci-appliance.git}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/freehci-appliance}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
 COMPOSE_DETACH="${COMPOSE_DETACH:-1}"
+COMPOSE_DL_VERSION="${COMPOSE_DL_VERSION:-2.33.1}"
 
 die() {
   echo "error: $*" >&2
@@ -24,7 +31,7 @@ die() {
 }
 
 if [[ "$(uname -s)" != "Linux" ]]; then
-  die "this installer targets Linux (Debian 13). Detected: $(uname -s)"
+  die "this installer targets Linux (Debian). Detected: $(uname -s)"
 fi
 
 if [[ -f /etc/os-release ]]; then
@@ -44,18 +51,65 @@ if [[ "${EUID:-1000}" -ne 0 ]]; then
   fi
 fi
 
-echo "==> Updating apt and installing Docker, Git, and Compose..."
-$SUDO apt-get update
+export DEBIAN_FRONTEND=noninteractive
+
+echo "==> Updating apt and installing Docker, Git, curl..."
+$SUDO apt-get update -qq
 $SUDO apt-get install -y --no-install-recommends \
   git \
   ca-certificates \
   curl \
   docker.io
 
-if ! $SUDO apt-get install -y --no-install-recommends docker-compose-v2; then
-  echo "note: docker-compose-v2 missing; trying docker-compose-plugin..."
-  $SUDO apt-get install -y --no-install-recommends docker-compose-plugin \
-    || die "install docker-compose-v2 or docker-compose-plugin from Debian"
+compose_works() {
+  docker compose version >/dev/null 2>&1
+}
+
+install_compose_from_apt() {
+  local pkg
+  for pkg in docker-compose-v2 docker-compose-plugin docker-compose; do
+    if apt-cache show "$pkg" >/dev/null 2>&1; then
+      echo "==> Trying Compose via apt package: $pkg"
+      $SUDO apt-get install -y --no-install-recommends "$pkg" || true
+      if compose_works; then
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+compose_binary_arch() {
+  case "$(uname -m)" in
+    x86_64) echo x86_64 ;;
+    aarch64) echo aarch64 ;;
+    armv7l) echo armv7 ;;
+    *)
+      die "unsupported CPU for Compose binary: $(uname -m)"
+      ;;
+  esac
+}
+
+install_compose_from_github() {
+  local arch version url dir target tmp
+  arch="$(compose_binary_arch)"
+  version="$COMPOSE_DL_VERSION"
+  url="https://github.com/docker/compose/releases/download/v${version}/docker-compose-linux-${arch}"
+  dir="/usr/local/lib/docker/cli-plugins"
+  target="${dir}/docker-compose"
+
+  echo "==> Installing Docker Compose CLI plugin v${version} from GitHub (${arch})..."
+  $SUDO mkdir -p "$dir"
+  tmp="$(mktemp)"
+  curl -fsSL "$url" -o "$tmp"
+  $SUDO install -m 0755 "$tmp" "$target"
+  rm -f "$tmp"
+}
+
+install_compose_from_apt || true
+if ! compose_works; then
+  echo "note: 'docker compose' not available from apt; installing Compose CLI plugin from GitHub."
+  install_compose_from_github
 fi
 
 echo "==> Enabling and starting Docker..."
@@ -65,8 +119,8 @@ if ! docker info >/dev/null 2>&1; then
   die "Docker is not running. Check: systemctl status docker"
 fi
 
-if ! docker compose version >/dev/null 2>&1; then
-  die "docker compose (v2 plugin) not available. Install docker-compose-v2."
+if ! compose_works; then
+  die "docker compose still not available after install. Set COMPOSE_DL_VERSION or install compose manually."
 fi
 
 echo "==> Cloning or updating repository..."
