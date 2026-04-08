@@ -5,4 +5,6 @@ export type Ipv4Prefix = {
   cidr: string;
   description: string | null;
   created_at: string;
+  used_count: number;
+  address_total: number;
 };

@@ -289,6 +289,11 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
         assert ok.status_code == 200, ok.text
         assert ok.json()["ipv4_prefix_id"] == pfx_aid
 
+        gpx = client.get(f"/api/v1/ipam/ipv4-prefixes/{pfx_aid}")
+        assert gpx.status_code == 200
+        assert gpx.json()["used_count"] == 1
+        assert gpx.json()["address_total"] == 65536
+
         v6 = client.post(
             f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments",
             json={"address": "2001:db8::1", "ipv4_prefix_id": pfx_aid},
@@ -301,3 +306,6 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
         )
         assert clr.status_code == 200
         assert clr.json()["ipv4_prefix_id"] is None
+
+        gpx2 = client.get(f"/api/v1/ipam/ipv4-prefixes/{pfx_aid}")
+        assert gpx2.json()["used_count"] == 0

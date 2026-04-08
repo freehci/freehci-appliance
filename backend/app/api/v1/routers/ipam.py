@@ -28,7 +28,7 @@ def get_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4Prefix
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
         raise HTTPException(status_code=404, detail="prefiks ikke funnet")
-    return Ipv4PrefixRead.model_validate(row)
+    return ipam_svc.ipv4_prefix_read(db, row)
 
 
 @router.patch("/ipv4-prefixes/{prefix_id}", response_model=Ipv4PrefixRead)

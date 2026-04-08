@@ -230,6 +230,7 @@ export const en = {
   "ipam.ipv4.actionsCol": "Actions",
   "ipam.ipv4.edit": "Edit",
   "ipam.ipv4.cancel": "Cancel",
+  "ipam.ipv4.usageCol": "Usage",
   "dcim.equip.pl.title": "Rack placements",
   "dcim.equip.pl.filterRack": "Filter by rack ID",
   "dcim.equip.pl.device": "Device",

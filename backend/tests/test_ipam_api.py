@@ -32,7 +32,10 @@ def test_ipam_ipv4_prefix_same_cidr_different_sites() -> None:
         assert p1.status_code == 200, p1.text
         assert p2.status_code == 200, p2.text
         assert p1.json()["cidr"] == "192.168.1.0/24"
+        assert p1.json()["used_count"] == 0
+        assert p1.json()["address_total"] == 256
         assert p2.json()["cidr"] == "192.168.1.0/24"
+        assert p2.json()["address_total"] == 256
         assert p1.json()["site_id"] == sa
         assert p2.json()["site_id"] == sb
 
@@ -87,3 +90,5 @@ def test_ipam_ipv4_prefix_patch() -> None:
         assert up.status_code == 200, up.text
         assert up.json()["name"] == "New"
         assert up.json()["cidr"] == "10.0.1.0/24"
+        assert up.json()["used_count"] == 0
+        assert up.json()["address_total"] == 256

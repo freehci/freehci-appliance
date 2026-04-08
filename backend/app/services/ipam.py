@@ -5,13 +5,51 @@ from __future__ import annotations
 import ipaddress
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.dcim import InterfaceIpAssignment
 from app.models.ipam import IpamIpv4Prefix
 from app.schemas.ipam import Ipv4PrefixCreate, Ipv4PrefixRead, Ipv4PrefixUpdate
 from app.services import dcim as dcim_svc
+
+
+def _ipv4_address_total(cidr: str) -> int:
+    net = ipaddress.ip_network(cidr, strict=False)
+    if net.version != 4:
+        return 0
+    return int(net.num_addresses)
+
+
+def _assignment_counts_by_prefix(db: Session) -> dict[int, int]:
+    q = (
+        select(InterfaceIpAssignment.ipv4_prefix_id, func.count(InterfaceIpAssignment.id))
+        .where(InterfaceIpAssignment.ipv4_prefix_id.is_not(None))
+        .group_by(InterfaceIpAssignment.ipv4_prefix_id)
+    )
+    return {int(pid): int(n) for pid, n in db.execute(q).all() if pid is not None}
+
+
+def _count_assignments_for_prefix(db: Session, prefix_id: int) -> int:
+    q = select(func.count()).select_from(InterfaceIpAssignment).where(
+        InterfaceIpAssignment.ipv4_prefix_id == prefix_id,
+    )
+    return int(db.execute(q).scalar_one())
+
+
+def ipv4_prefix_read(db: Session, row: IpamIpv4Prefix) -> Ipv4PrefixRead:
+    used = _count_assignments_for_prefix(db, row.id)
+    return Ipv4PrefixRead(
+        id=row.id,
+        site_id=row.site_id,
+        name=row.name,
+        cidr=row.cidr,
+        description=row.description,
+        created_at=row.created_at,
+        used_count=used,
+        address_total=_ipv4_address_total(row.cidr),
+    )
 
 
 def _normalize_ipv4_cidr(raw: str) -> str:
@@ -29,7 +67,20 @@ def list_ipv4_prefixes(db: Session, *, site_id: int | None) -> list[Ipv4PrefixRe
     if site_id is not None:
         q = q.where(IpamIpv4Prefix.site_id == site_id)
     rows = list(db.execute(q).scalars().all())
-    return [Ipv4PrefixRead.model_validate(r) for r in rows]
+    counts = _assignment_counts_by_prefix(db)
+    return [
+        Ipv4PrefixRead(
+            id=r.id,
+            site_id=r.site_id,
+            name=r.name,
+            cidr=r.cidr,
+            description=r.description,
+            created_at=r.created_at,
+            used_count=counts.get(r.id, 0),
+            address_total=_ipv4_address_total(r.cidr),
+        )
+        for r in rows
+    ]
 
 
 def get_ipv4_prefix(db: Session, prefix_id: int) -> IpamIpv4Prefix | None:
@@ -56,7 +107,7 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
             detail="prefiks med samme CIDR finnes allerede på denne siten",
         ) from None
     db.refresh(row)
-    return Ipv4PrefixRead.model_validate(row)
+    return ipv4_prefix_read(db, row)
 
 
 def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate) -> Ipv4PrefixRead:
@@ -79,7 +130,7 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
             detail="prefiks med samme CIDR finnes allerede på denne siten",
         ) from None
     db.refresh(row)
-    return Ipv4PrefixRead.model_validate(row)
+    return ipv4_prefix_read(db, row)
 
 
 def delete_ipv4_prefix(db: Session, row: IpamIpv4Prefix) -> None:

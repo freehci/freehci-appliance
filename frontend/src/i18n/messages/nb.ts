@@ -236,6 +236,7 @@ export const nb = {
   "ipam.ipv4.actionsCol": "Handlinger",
   "ipam.ipv4.edit": "Rediger",
   "ipam.ipv4.cancel": "Avbryt",
+  "ipam.ipv4.usageCol": "Utnyttelse",
   "dcim.equip.pl.title": "Plasseringer i rack",
   "dcim.equip.pl.filterRack": "Filtrer på rack-ID",
   "dcim.equip.pl.device": "Enhet",

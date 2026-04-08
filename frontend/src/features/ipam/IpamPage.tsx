@@ -142,6 +142,7 @@ export function IpamPage() {
               <th>{t("ipam.ipv4.site")}</th>
               <th>{t("ipam.ipv4.name")}</th>
               <th>{t("ipam.ipv4.cidr")}</th>
+              <th>{t("ipam.ipv4.usageCol")}</th>
               <th>{t("ipam.ipv4.actionsCol")}</th>
             </tr>
           </thead>
@@ -170,6 +171,21 @@ export function IpamPage() {
                     />
                   ) : (
                     <code>{x.cidr}</code>
+                  )}
+                </td>
+                <td>
+                  {x.address_total > 0 ? (
+                    <>
+                      {x.used_count} / {x.address_total}
+                      <span className={dcimStyles.muted}>
+                        {" "}
+                        (
+                        {Math.round((100 * x.used_count) / x.address_total)}
+                        %)
+                      </span>
+                    </>
+                  ) : (
+                    "—"
                   )}
                 </td>
                 <td>

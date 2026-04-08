@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class Ipv4PrefixCreate(BaseModel):
@@ -39,7 +39,7 @@ class Ipv4PrefixUpdate(BaseModel):
 
 
 class Ipv4PrefixRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """Returneres fra tjenestelaget med telling fra DCIM IP-tildelinger."""
 
     id: int
     site_id: int
@@ -47,3 +47,5 @@ class Ipv4PrefixRead(BaseModel):
     cidr: str
     description: str | None
     created_at: dt.datetime
+    used_count: int = Field(description="Antall grensesnitt-IP knyttet til dette prefikset")
+    address_total: int = Field(description="Totalt antall IPv4-adresser i CIDR (inkl. nettverk/broadcast der relevant)")
