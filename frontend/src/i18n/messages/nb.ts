@@ -113,7 +113,7 @@ export const nb = {
   "dcim.racks.paletteModelsEmpty": "Ingen modeller ennå. Opprett under Utstyr.",
   "dcim.racks.frontView": "Fremtak (RU)",
   "dcim.racks.uLabel": "U",
-  "dcim.racks.dropError": "Kunne ikke plassere enhet:",
+  "dcim.racks.dropError": "Kunne ikke fullføre operasjonen:",
   "dcim.racks.slotBlocked": "Opptatt",
   "dcim.racks.removePlacementAria": "Fjern fra rack",
 

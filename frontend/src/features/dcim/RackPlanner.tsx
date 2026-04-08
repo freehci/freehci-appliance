@@ -8,7 +8,7 @@ import baseStyles from "./dcim.module.css";
 import { RackElevation, type DragPayload } from "./RackElevation";
 import styles from "./RackPlanner.module.css";
 import { deviceUHeight } from "./rackUtils";
-import type { DeviceInstance, DeviceModel, Rack } from "./types";
+import type { DeviceInstance, DeviceModel, Rack, RackPlacement } from "./types";
 
 /** Unik kort suffiks uten `crypto.randomUUID` (krever ofte sikker kontekst / HTTPS). */
 function shortInstanceSuffix(): string {
@@ -99,11 +99,27 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
   const movePlacementMu = useMutation({
     mutationFn: (vars: { pid: number; rackId: number; u: number }) =>
       api.updatePlacement(vars.pid, { rack_id: vars.rackId, u_position: vars.u }),
-    onSuccess: () => {
+    onMutate: async (vars) => {
       setDropErr(null);
+      await qc.cancelQueries({ queryKey: ["dcim", "placements", "all"] });
+      const previous = qc.getQueryData<RackPlacement[]>(["dcim", "placements", "all"]);
+      qc.setQueryData<RackPlacement[]>(["dcim", "placements", "all"], (old) => {
+        if (!old) return old;
+        return old.map((p) =>
+          p.id === vars.pid ? { ...p, rack_id: vars.rackId, u_position: vars.u } : p,
+        );
+      });
+      return { previous };
+    },
+    onError: (e: Error, _vars, ctx) => {
+      if (ctx?.previous !== undefined) {
+        qc.setQueryData(["dcim", "placements", "all"], ctx.previous);
+      }
+      setDropErr(e instanceof ApiError ? e.message : e.message);
+    },
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["dcim", "placements"] });
     },
-    onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
   });
 
   const removeMu = useMutation({

@@ -128,13 +128,16 @@ export function RackElevation({
     const occupied = isInsideAnyRange(u, existingRanges);
     const showDrop = Boolean(dragging) && !occupied && slotAllowsDrop(u);
     const dragActive = dragOverKey === keyFor(u);
+    const placementDrag = dragging?.kind === "placement";
     slots.push(
       <div
         key={`slot-${u}`}
         className={[
           styles.gridSlot,
           occupied ? styles.slotBlocked : showDrop ? styles.slotDroppable : "",
+          showDrop && placementDrag ? styles.slotDroppableMove : "",
           dragActive ? styles.slotDragOver : "",
+          dragActive && placementDrag ? styles.slotDragOverMove : "",
         ]
           .join(" ")
           .trim()}
@@ -163,7 +166,14 @@ export function RackElevation({
     return (
       <div
         key={p.id}
-        className={styles.deviceBlockGrid}
+        className={[
+          styles.deviceBlockGrid,
+          dragging?.kind === "placement" && dragging.placementId === p.id
+            ? styles.deviceBlockDragging
+            : "",
+        ]
+          .join(" ")
+          .trim()}
         style={{ gridRow: `${rowStart} / span ${h}`, gridColumn: 1 }}
         draggable
         onDragStart={(e) => {

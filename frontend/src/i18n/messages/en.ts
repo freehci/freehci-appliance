@@ -108,7 +108,7 @@ export const en = {
   "dcim.racks.paletteModelsEmpty": "No device models yet. Create one under Equipment.",
   "dcim.racks.frontView": "Front (RU)",
   "dcim.racks.uLabel": "U",
-  "dcim.racks.dropError": "Could not place device:",
+  "dcim.racks.dropError": "Could not complete the operation:",
   "dcim.racks.slotBlocked": "Occupied",
   "dcim.racks.removePlacementAria": "Remove from rack",
 
