@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import ipaddress
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from app.models.dcim import (
     DeviceInterface,
     DeviceModel,
     DeviceType,
+    InterfaceIpAssignment,
     Manufacturer,
     Rack,
     RackPlacement,
@@ -34,7 +37,11 @@ from app.schemas.dcim import (
     DeviceInstanceRead,
     DeviceInstanceUpdate,
     DeviceInterfaceCreate,
+    DeviceInterfaceRead,
     DeviceInterfaceUpdate,
+    IpAssignmentCreate,
+    IpAssignmentRead,
+    IpAssignmentUpdate,
     DeviceModelCreate,
     DeviceModelUpdate,
     DeviceModelBrief,
@@ -625,14 +632,45 @@ def _iface_commit(db: Session) -> None:
         ) from None
 
 
-def list_device_interfaces(db: Session, device_id: int) -> list[DeviceInterface]:
+def _normalize_ip(addr: str) -> tuple[str, str]:
+    try:
+        p = ipaddress.ip_address(addr.strip())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"ugyldig IP-adresse: {e}") from e
+    if isinstance(p, ipaddress.IPv4Address):
+        return "ipv4", str(p)
+    return "ipv6", p.compressed()
+
+
+def device_interface_read(row: DeviceInterface) -> DeviceInterfaceRead:
+    ips = sorted(
+        row.ip_assignments,
+        key=lambda x: (0 if x.is_primary else 1, x.family, x.address),
+    )
+    return DeviceInterfaceRead(
+        id=row.id,
+        device_id=row.device_id,
+        name=row.name,
+        description=row.description,
+        mac_address=row.mac_address,
+        speed_mbps=row.speed_mbps,
+        mtu=row.mtu,
+        enabled=row.enabled,
+        sort_order=row.sort_order,
+        ip_assignments=[IpAssignmentRead.model_validate(x) for x in ips],
+    )
+
+
+def list_device_interfaces(db: Session, device_id: int) -> list[DeviceInterfaceRead]:
     _require_device(db, device_id)
     q = (
         select(DeviceInterface)
         .where(DeviceInterface.device_id == device_id)
+        .options(selectinload(DeviceInterface.ip_assignments))
         .order_by(DeviceInterface.sort_order, DeviceInterface.name)
     )
-    return list(db.execute(q).scalars().all())
+    rows = list(db.execute(q).scalars().all())
+    return [device_interface_read(r) for r in rows]
 
 
 def get_device_interface(db: Session, device_id: int, interface_id: int) -> DeviceInterface | None:
@@ -642,7 +680,7 @@ def get_device_interface(db: Session, device_id: int, interface_id: int) -> Devi
     return row
 
 
-def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCreate) -> DeviceInterface:
+def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCreate) -> DeviceInterfaceRead:
     _require_device(db, device_id)
     mac = data.mac_address
     mac = None if mac is None or str(mac).strip() == "" else str(mac).strip()
@@ -659,7 +697,7 @@ def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCr
     db.add(row)
     _iface_commit(db)
     db.refresh(row)
-    return row
+    return device_interface_read(row)
 
 
 def update_device_interface(
@@ -667,7 +705,7 @@ def update_device_interface(
     device_id: int,
     row: DeviceInterface,
     data: DeviceInterfaceUpdate,
-) -> DeviceInterface:
+) -> DeviceInterfaceRead:
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
@@ -692,10 +730,97 @@ def update_device_interface(
         row.sort_order = int(patch["sort_order"])
     _iface_commit(db)
     db.refresh(row)
-    return row
+    return device_interface_read(row)
 
 
 def delete_device_interface(db: Session, row: DeviceInterface) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def _clear_primary_same_family(db: Session, interface_id: int, family: str) -> None:
+    q = select(InterfaceIpAssignment).where(
+        InterfaceIpAssignment.interface_id == interface_id,
+        InterfaceIpAssignment.family == family,
+        InterfaceIpAssignment.is_primary.is_(True),
+    )
+    for r in db.execute(q).scalars().all():
+        r.is_primary = False
+
+
+def create_iface_ip_assignment(
+    db: Session,
+    device_id: int,
+    interface_id: int,
+    data: IpAssignmentCreate,
+) -> IpAssignmentRead:
+    if get_device_interface(db, device_id, interface_id) is None:
+        raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
+    family, addr = _normalize_ip(data.address)
+    dup = db.execute(
+        select(InterfaceIpAssignment).where(
+            InterfaceIpAssignment.interface_id == interface_id,
+            InterfaceIpAssignment.address == addr,
+        )
+    ).scalar_one_or_none()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="IP-adressen finnes allerede på dette grensesnittet")
+    if data.is_primary:
+        _clear_primary_same_family(db, interface_id, family)
+    row = InterfaceIpAssignment(
+        interface_id=interface_id,
+        family=family,
+        address=addr,
+        is_primary=data.is_primary,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="IP-adressen finnes allerede på dette grensesnittet",
+        ) from None
+    db.refresh(row)
+    return IpAssignmentRead.model_validate(row)
+
+
+def get_iface_ip_assignment(
+    db: Session,
+    device_id: int,
+    interface_id: int,
+    assignment_id: int,
+) -> InterfaceIpAssignment | None:
+    if get_device_interface(db, device_id, interface_id) is None:
+        return None
+    row = db.get(InterfaceIpAssignment, assignment_id)
+    if row is None or row.interface_id != interface_id:
+        return None
+    return row
+
+
+def update_iface_ip_assignment(
+    db: Session,
+    device_id: int,
+    interface_id: int,
+    row: InterfaceIpAssignment,
+    data: IpAssignmentUpdate,
+) -> IpAssignmentRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if patch.get("is_primary") is True:
+        _clear_primary_same_family(db, interface_id, row.family)
+        row.is_primary = True
+    elif patch.get("is_primary") is False:
+        row.is_primary = False
+    db.commit()
+    db.refresh(row)
+    return IpAssignmentRead.model_validate(row)
+
+
+def delete_iface_ip_assignment(db: Session, row: InterfaceIpAssignment) -> None:
     db.delete(row)
     db.commit()
 

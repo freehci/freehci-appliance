@@ -4,6 +4,7 @@ import type {
   DeviceInterface,
   DeviceModel,
   DeviceType,
+  IpAssignment,
   Manufacturer,
   ManufacturerDetail,
   Rack,
@@ -184,6 +185,31 @@ export function updateDeviceInterface(
 
 export function deleteDeviceInterface(deviceId: number, interfaceId: number): Promise<void> {
   return apiDelete(`${P}/devices/${deviceId}/interfaces/${interfaceId}`);
+}
+
+export function createIfaceIpAssignment(
+  deviceId: number,
+  interfaceId: number,
+  body: { address: string; is_primary?: boolean },
+): Promise<IpAssignment> {
+  return apiPost(`${P}/devices/${deviceId}/interfaces/${interfaceId}/ip-assignments`, body);
+}
+
+export function updateIfaceIpAssignment(
+  deviceId: number,
+  interfaceId: number,
+  assignmentId: number,
+  body: { is_primary?: boolean },
+): Promise<IpAssignment> {
+  return apiPatch(`${P}/devices/${deviceId}/interfaces/${interfaceId}/ip-assignments/${assignmentId}`, body);
+}
+
+export function deleteIfaceIpAssignment(
+  deviceId: number,
+  interfaceId: number,
+  assignmentId: number,
+): Promise<void> {
+  return apiDelete(`${P}/devices/${deviceId}/interfaces/${interfaceId}/ip-assignments/${assignmentId}`);
 }
 
 export function createDevice(body: {

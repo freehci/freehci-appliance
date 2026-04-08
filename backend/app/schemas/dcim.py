@@ -237,8 +237,18 @@ class DeviceInterfaceUpdate(BaseModel):
     sort_order: int | None = None
 
 
-class DeviceInterfaceRead(BaseModel):
+class IpAssignmentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    interface_id: int
+    family: str
+    address: str
+    is_primary: bool
+
+
+class DeviceInterfaceRead(BaseModel):
+    """Bygges i tjenesten (ip_assignments inkludert)."""
 
     id: int
     device_id: int
@@ -249,6 +259,16 @@ class DeviceInterfaceRead(BaseModel):
     mtu: int | None
     enabled: bool
     sort_order: int
+    ip_assignments: list[IpAssignmentRead] = Field(default_factory=list)
+
+
+class IpAssignmentCreate(BaseModel):
+    address: str = Field(..., min_length=1, max_length=45)
+    is_primary: bool = False
+
+
+class IpAssignmentUpdate(BaseModel):
+    is_primary: bool | None = None
 
 
 class RackPlacementCreate(BaseModel):

@@ -14,6 +14,9 @@ from app.schemas.dcim import (
     DeviceInterfaceCreate,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
+    IpAssignmentCreate,
+    IpAssignmentRead,
+    IpAssignmentUpdate,
     DeviceModelCreate,
     DeviceModelRead,
     DeviceModelUpdate,
@@ -405,12 +408,50 @@ def create_device_interface(
     return dcim_svc.create_device_interface(db, did, data)
 
 
+@router.post(
+    "/devices/{did}/interfaces/{iid}/ip-assignments",
+    response_model=IpAssignmentRead,
+)
+def create_iface_ip_assignment(
+    did: int,
+    iid: int,
+    data: IpAssignmentCreate,
+    db: Session = Depends(get_db),
+) -> IpAssignmentRead:
+    return dcim_svc.create_iface_ip_assignment(db, did, iid, data)
+
+
+@router.patch(
+    "/devices/{did}/interfaces/{iid}/ip-assignments/{aid}",
+    response_model=IpAssignmentRead,
+)
+def patch_iface_ip_assignment(
+    did: int,
+    iid: int,
+    aid: int,
+    data: IpAssignmentUpdate,
+    db: Session = Depends(get_db),
+) -> IpAssignmentRead:
+    row = dcim_svc.get_iface_ip_assignment(db, did, iid, aid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-tildeling ikke funnet")
+    return dcim_svc.update_iface_ip_assignment(db, did, iid, row, data)
+
+
+@router.delete("/devices/{did}/interfaces/{iid}/ip-assignments/{aid}", status_code=204)
+def delete_iface_ip_assignment(did: int, iid: int, aid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_iface_ip_assignment(db, did, iid, aid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-tildeling ikke funnet")
+    dcim_svc.delete_iface_ip_assignment(db, row)
+
+
 @router.get("/devices/{did}/interfaces/{iid}", response_model=DeviceInterfaceRead)
 def get_device_interface(did: int, iid: int, db: Session = Depends(get_db)) -> DeviceInterfaceRead:
     row = dcim_svc.get_device_interface(db, did, iid)
     if row is None:
         raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
-    return row
+    return dcim_svc.device_interface_read(row)
 
 
 @router.patch("/devices/{did}/interfaces/{iid}", response_model=DeviceInterfaceRead)

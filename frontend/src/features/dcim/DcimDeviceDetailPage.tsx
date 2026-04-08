@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -20,6 +20,9 @@ export function DcimDeviceDetailPage() {
   const [ifMtu, setIfMtu] = useState("");
   const [ifDesc, setIfDesc] = useState("");
   const [ifSort, setIfSort] = useState("0");
+  const [ipIface, setIpIface] = useState("");
+  const [ipAddr, setIpAddr] = useState("");
+  const [ipPrimary, setIpPrimary] = useState(false);
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -56,6 +59,12 @@ export function DcimDeviceDetailPage() {
     const row = (modelsQ.data ?? []).find((x) => x.id === mid);
     return row ? row.name : `#${mid}`;
   }, [deviceQ.data?.device_model_id, modelsQ.data]);
+
+  useEffect(() => {
+    const rows = interfacesQ.data;
+    if (!rows?.length || ipIface !== "") return;
+    setIpIface(String(rows[0].id));
+  }, [interfacesQ.data, ipIface]);
 
   const createIf = useMutation({
     mutationFn: () => {
@@ -107,6 +116,41 @@ export function DcimDeviceDetailPage() {
   const toggleIf = useMutation({
     mutationFn: ({ iid, enabled }: { iid: number; enabled: boolean }) =>
       api.updateDeviceInterface(id, iid, { enabled }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const createIp = useMutation({
+    mutationFn: () =>
+      api.createIfaceIpAssignment(id, Number(ipIface), {
+        address: ipAddr.trim(),
+        is_primary: ipPrimary,
+      }),
+    onSuccess: () => {
+      setIpAddr("");
+      setIpPrimary(false);
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delIp = useMutation({
+    mutationFn: ({ iid, aid }: { iid: number; aid: number }) =>
+      api.deleteIfaceIpAssignment(id, iid, aid),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const setPrimaryIp = useMutation({
+    mutationFn: ({ iid, aid }: { iid: number; aid: number }) =>
+      api.updateIfaceIpAssignment(id, iid, aid, { is_primary: true }),
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
@@ -221,6 +265,56 @@ export function DcimDeviceDetailPage() {
           </button>
         </form>
 
+        {interfacesQ.data && interfacesQ.data.length > 0 ? (
+          <>
+            <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.ip.addTitle")}</h3>
+            <form
+              className={styles.formRow}
+              onSubmit={(e) => {
+                e.preventDefault();
+                setErr(null);
+                if (!ipIface) {
+                  setErr(t("dcim.equip.ip.chooseIface"));
+                  return;
+                }
+                createIp.mutate();
+              }}
+            >
+              <label>
+                {t("dcim.equip.if.name")}
+                <select value={ipIface} onChange={(e) => setIpIface(e.target.value)}>
+                  <option value="">{t("dcim.common.choose")}</option>
+                  {interfacesQ.data.map((x) => (
+                    <option key={x.id} value={String(x.id)}>
+                      {x.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("dcim.equip.ip.address")}
+                <input
+                  value={ipAddr}
+                  onChange={(e) => setIpAddr(e.target.value)}
+                  placeholder="192.168.1.1 / 2001:db8::1"
+                  required
+                />
+              </label>
+              <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  checked={ipPrimary}
+                  onChange={(e) => setIpPrimary(e.target.checked)}
+                />
+                {t("dcim.equip.ip.primary")}
+              </label>
+              <button type="submit" className={styles.btn} disabled={createIp.isPending}>
+                {createIp.isPending ? "…" : t("dcim.equip.ip.add")}
+              </button>
+            </form>
+          </>
+        ) : null}
+
         {interfacesQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
         {interfacesQ.data && interfacesQ.data.length > 0 ? (
           <table className={styles.table}>
@@ -233,6 +327,7 @@ export function DcimDeviceDetailPage() {
                 <th>{t("dcim.equip.if.mtu")}</th>
                 <th>{t("dcim.equip.if.enabled")}</th>
                 <th>{t("dcim.equip.mfr.description")}</th>
+                <th>{t("dcim.equip.ip.column")}</th>
                 <th />
               </tr>
             </thead>
@@ -255,6 +350,40 @@ export function DcimDeviceDetailPage() {
                     </button>
                   </td>
                   <td>{x.description ?? "—"}</td>
+                  <td>
+                    <ul className={styles.ipList}>
+                      {(x.ip_assignments ?? []).map((ip) => (
+                        <li key={ip.id}>
+                          <code>{ip.address}</code>{" "}
+                          <span className={styles.muted}>({ip.family})</span>
+                          {ip.is_primary ? (
+                            <span className={styles.ipPrimaryMark}> {t("dcim.equip.ip.primaryMark")}</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.btnLink}
+                              onClick={() => setPrimaryIp.mutate({ iid: x.id, aid: ip.id })}
+                              disabled={setPrimaryIp.isPending}
+                            >
+                              {t("dcim.equip.ip.setPrimary")}
+                            </button>
+                          )}{" "}
+                          <button
+                            type="button"
+                            className={styles.btnDanger}
+                            style={{ fontSize: "var(--text-xs)", padding: "0.1rem 0.4rem" }}
+                            onClick={() => delIp.mutate({ iid: x.id, aid: ip.id })}
+                            disabled={delIp.isPending}
+                          >
+                            {t("dcim.common.remove")}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {(!x.ip_assignments || x.ip_assignments.length === 0) && (
+                      <span className={styles.muted}>—</span>
+                    )}
+                  </td>
                   <td>
                     <button
                       type="button"

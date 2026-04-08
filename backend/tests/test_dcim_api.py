@@ -139,6 +139,26 @@ def test_dcim_site_room_rack_device_flow() -> None:
         assert up_if.status_code == 200
         assert up_if.json()["enabled"] is False
         assert up_if.json()["description"] == "uplink"
+        assert up_if.json()["ip_assignments"] == []
+
+        ip_a = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if1_id}/ip-assignments",
+            json={"address": "192.168.1.10", "is_primary": True},
+        )
+        assert ip_a.status_code == 200, ip_a.text
+        assert ip_a.json()["family"] == "ipv4"
+        assert ip_a.json()["address"] == "192.168.1.10"
+        assert ip_a.json()["is_primary"] is True
+
+        bad_ip = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if1_id}/ip-assignments",
+            json={"address": "not-an-ip"},
+        )
+        assert bad_ip.status_code == 400
+
+        li2 = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
+        assert len(li2.json()) == 1
+        assert len(li2.json()[0]["ip_assignments"]) == 1
 
         p = client.post(
             "/api/v1/dcim/placements",

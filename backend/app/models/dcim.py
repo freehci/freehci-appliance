@@ -149,6 +149,29 @@ class DeviceInterface(Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     device: Mapped["DeviceInstance"] = relationship(back_populates="interfaces")
+    ip_assignments: Mapped[list["InterfaceIpAssignment"]] = relationship(
+        back_populates="interface",
+        cascade="all, delete-orphan",
+        order_by="InterfaceIpAssignment.family, InterfaceIpAssignment.address",
+    )
+
+
+class InterfaceIpAssignment(Base):
+    """IP-adresse på et grensesnitt; kan senere kobles til IPAM-prefix."""
+
+    __tablename__ = "dcim_interface_ip_assignments"
+    __table_args__ = (UniqueConstraint("interface_id", "address", name="uq_dcim_iface_ip_addr"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    interface_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_interfaces.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    family: Mapped[str] = mapped_column(String(4), nullable=False)
+    address: Mapped[str] = mapped_column(String(45), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    interface: Mapped["DeviceInterface"] = relationship(back_populates="ip_assignments")
 
 
 class RackPlacement(Base):

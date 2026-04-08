@@ -73,6 +73,15 @@ export type DeviceInstance = {
   attributes: Record<string, unknown>;
 };
 
+/** IP-tildeling på et grensesnitt (IPAM-forberedelse). */
+export type IpAssignment = {
+  id: number;
+  interface_id: number;
+  family: string;
+  address: string;
+  is_primary: boolean;
+};
+
 /** Port / interface on a device (forberedelse for IPAM). */
 export type DeviceInterface = {
   id: number;
@@ -84,6 +93,7 @@ export type DeviceInterface = {
   mtu: number | null;
   enabled: boolean;
   sort_order: number;
+  ip_assignments: IpAssignment[];
 };
 
 export type RackPlacement = {
