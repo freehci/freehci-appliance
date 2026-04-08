@@ -58,7 +58,7 @@ From the clone directory (where `docker-compose.yml` lives):
 bash scripts/upgrade.sh
 ```
 
-This runs `git pull --ff-only`, `docker compose build`, and `docker compose up -d`.
+This runs `git pull --ff-only`, `docker compose build`, and `docker compose up -d --force-recreate` for **api**, **worker**, and **frontend** (so new images are actually used; plain `up -d` often keeps old containers).
 
 Options via environment:
 

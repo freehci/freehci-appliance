@@ -171,6 +171,13 @@ fi
 
 cd "${INSTALL_DIR}"
 
+echo "==> Making scripts/*.sh executable…"
+shopt -s nullglob
+for _sh in scripts/*.sh; do
+  chmod +x "${_sh}" || true
+done
+shopt -u nullglob
+
 echo "==> Building and starting services (PostgreSQL, Redis, API, worker, frontend)..."
 if [[ "${COMPOSE_DETACH}" == "1" ]]; then
   run_compose up --build -d

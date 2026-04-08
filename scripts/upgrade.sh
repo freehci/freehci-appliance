@@ -11,6 +11,9 @@
 #   GIT_BRANCH      – checkout this branch before pull (optional)
 #   SKIP_GIT=1      – skip git fetch/pull (only rebuild & up)
 #   GIT_RESET_HARD  – default 1: after failed ff-only, git reset --hard origin/<branch>
+#
+# After build, api/worker/frontend are force-recreated so new image layers are used
+# (plain `up -d` often leaves old containers running when compose.yml is unchanged).
 
 set -euo pipefail
 
@@ -22,6 +25,12 @@ if [[ ! -f "${REPO_ROOT}/docker-compose.yml" ]]; then
   echo "error: docker-compose.yml not found in ${REPO_ROOT}" >&2
   exit 1
 fi
+
+shopt -s nullglob
+for _sh in "${SCRIPT_DIR}"/*.sh; do
+  chmod +x "${_sh}" || true
+done
+shopt -u nullglob
 
 echo "==> Repository: ${REPO_ROOT}"
 
@@ -80,8 +89,8 @@ fi
 
 docker compose build "${BUILD_ARGS[@]}"
 
-echo "==> Recreating containers..."
-docker compose up -d
+echo "==> Recreating application containers (api, worker, frontend)…"
+docker compose up -d --force-recreate --no-deps api worker frontend
 
 echo ""
 echo "Upgrade complete."
