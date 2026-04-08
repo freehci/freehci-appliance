@@ -1,10 +1,12 @@
 import { Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
-import { PluginRoutes } from "@/plugins/PluginRoutes";
+import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 
 export function App() {
+  const pluginRoutes = usePluginRouteElements();
+
   return (
     <AppShell>
       <Routes>
@@ -54,7 +56,7 @@ export function App() {
             />
           }
         />
-        <PluginRoutes />
+        {pluginRoutes}
       </Routes>
     </AppShell>
   );
