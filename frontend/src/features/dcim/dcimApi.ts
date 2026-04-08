@@ -63,6 +63,8 @@ export function createDeviceModel(body: {
   name: string;
   u_height?: number;
   form_factor?: string | null;
+  image_front_url?: string | null;
+  image_back_url?: string | null;
 }): Promise<DeviceModel> {
   return apiPost(`${P}/device-models`, body);
 }

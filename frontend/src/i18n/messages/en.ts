@@ -94,11 +94,18 @@ export const en = {
   "dcim.racks.tableRoom": "Room ID",
 
   "dcim.racks.plannerTitle": "Rack elevation (drag & drop)",
-  "dcim.racks.selectRack": "Rack for layout",
-  "dcim.racks.selectRackHint": "Choose a rack to show the front elevation and place equipment.",
-  "dcim.racks.paletteTitle": "Unplaced equipment",
-  "dcim.racks.paletteHint": "Drag a device onto a U slot. Bottom RU is U1 (standard rack view).",
-  "dcim.racks.paletteEmpty": "No unplaced devices. Create equipment under Equipment or remove a placement.",
+  "dcim.racks.adminSummary": "Register and list racks (admin)",
+  "dcim.racks.matrixHint":
+    "All racks in the table below are shown side by side. Drag from the palette to any rack. U1 is at the bottom.",
+  "dcim.racks.paletteTitle": "Palette",
+  "dcim.racks.paletteTabDevices": "Devices",
+  "dcim.racks.paletteTabModels": "Models",
+  "dcim.racks.paletteHint":
+    "Drag an unplaced device onto a free U slot. Bottom RU is U1 (EIA rack view).",
+  "dcim.racks.paletteModelsHint":
+    "Drag a device model: a new device instance is created and placed. Optional front image is shown when set on the model.",
+  "dcim.racks.paletteEmpty": "No unplaced devices. Use the Models tab, or free a placement under Equipment.",
+  "dcim.racks.paletteModelsEmpty": "No device models yet. Create one under Equipment.",
   "dcim.racks.frontView": "Front (RU)",
   "dcim.racks.uLabel": "U",
   "dcim.racks.dropError": "Could not place device:",
@@ -115,6 +122,8 @@ export const en = {
   "dcim.equip.dm.mfrCol": "Mfr.",
   "dcim.equip.dm.modelName": "Model name",
   "dcim.equip.dm.u": "U height",
+  "dcim.equip.dm.imageFront": "Front image URL (optional)",
+  "dcim.equip.dm.imageBack": "Back image URL (optional)",
   "dcim.equip.dm.create": "Create model",
   "dcim.equip.dm.empty": "No models.",
   "dcim.equip.dev.title": "Devices",

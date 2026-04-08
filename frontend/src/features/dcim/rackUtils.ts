@@ -47,3 +47,18 @@ export function canPlaceDeviceAt(
   }
   return true;
 }
+
+/** CSS grid row from top (1 = top of rack = highest U). */
+export function gridRowStartForPlacement(n: number, uBottom: number, uHeight: number): number {
+  const topRu = uBottom + uHeight - 1;
+  return n - topRu + 1;
+}
+
+function isInsideAnyRange(u: number, ranges: { bottom: number; top: number }[]): boolean {
+  for (const r of ranges) {
+    if (u >= r.bottom && u <= r.top) return true;
+  }
+  return false;
+}
+
+export { isInsideAnyRange };

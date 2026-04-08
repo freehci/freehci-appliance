@@ -72,6 +72,8 @@ class DeviceModel(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     u_height: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     form_factor: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_front_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    image_back_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
 
 class DeviceInstance(Base):

@@ -34,6 +34,8 @@ export type DeviceModel = {
   name: string;
   u_height: number;
   form_factor: string | null;
+  image_front_url: string | null;
+  image_back_url: string | null;
 };
 
 export type DeviceInstance = {

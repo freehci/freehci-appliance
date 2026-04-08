@@ -15,6 +15,8 @@ export function DcimEquipmentPage() {
   const [dmMfr, setDmMfr] = useState<string>("");
   const [dmName, setDmName] = useState("");
   const [dmU, setDmU] = useState("1");
+  const [dmImgFront, setDmImgFront] = useState("");
+  const [dmImgBack, setDmImgBack] = useState("");
   const [devModel, setDevModel] = useState<string>("");
   const [devName, setDevName] = useState("");
   const [plRack, setPlRack] = useState<string>("");
@@ -62,9 +64,13 @@ export function DcimEquipmentPage() {
         name: dmName.trim(),
         u_height: Number(dmU) || 1,
         manufacturer_id: dmMfr === "" ? null : Number(dmMfr),
+        image_front_url: dmImgFront.trim() === "" ? null : dmImgFront.trim(),
+        image_back_url: dmImgBack.trim() === "" ? null : dmImgBack.trim(),
       }),
     onSuccess: () => {
       setDmName("");
+      setDmImgFront("");
+      setDmImgBack("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
     },
@@ -196,6 +202,24 @@ export function DcimEquipmentPage() {
           <label>
             {t("dcim.equip.dm.u")}
             <input type="number" min={1} max={64} value={dmU} onChange={(e) => setDmU(e.target.value)} />
+          </label>
+          <label>
+            {t("dcim.equip.dm.imageFront")}
+            <input
+              type="url"
+              value={dmImgFront}
+              onChange={(e) => setDmImgFront(e.target.value)}
+              placeholder="https://"
+            />
+          </label>
+          <label>
+            {t("dcim.equip.dm.imageBack")}
+            <input
+              type="url"
+              value={dmImgBack}
+              onChange={(e) => setDmImgBack(e.target.value)}
+              placeholder="https://"
+            />
           </label>
           <button type="submit" className={styles.btn} disabled={createDm.isPending}>
             {createDm.isPending ? "…" : t("dcim.equip.dm.create")}

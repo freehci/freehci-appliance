@@ -98,13 +98,19 @@ export const nb = {
   "dcim.racks.tableRoom": "Rom-ID",
 
   "dcim.racks.plannerTitle": "Rack-fremtak (dra og slipp)",
-  "dcim.racks.selectRack": "Rack for layout",
-  "dcim.racks.selectRackHint": "Velg et rack for å vise fremtak og plassere utstyr.",
-  "dcim.racks.paletteTitle": "Utstyr uten plassering",
+  "dcim.racks.adminSummary": "Registrer og list racks (admin)",
+  "dcim.racks.matrixHint":
+    "Alle racks i tabellen vises side om side. Dra fra paletten til et rack. U1 er nederst.",
+  "dcim.racks.paletteTitle": "Palett",
+  "dcim.racks.paletteTabDevices": "Enheter",
+  "dcim.racks.paletteTabModels": "Modeller",
   "dcim.racks.paletteHint":
-    "Dra en enhet til en U-posisjon. Nederste RU er U1 (vanlig rack-visning).",
+    "Dra en u-plassert enhet til en ledig U-posisjon. Nederste RU er U1 (EIA rack).",
+  "dcim.racks.paletteModelsHint":
+    "Dra en modell: det opprettes en ny enhet og plasseres. Valgfritt frontbilde vises om det er satt på modellen.",
   "dcim.racks.paletteEmpty":
-    "Ingen u-plasserte enheter. Opprett utstyr under Utstyr, eller fjern en plassering.",
+    "Ingen u-plasserte enheter. Bruk fanen Modeller, eller fjern en plassering under Utstyr.",
+  "dcim.racks.paletteModelsEmpty": "Ingen modeller ennå. Opprett under Utstyr.",
   "dcim.racks.frontView": "Fremtak (RU)",
   "dcim.racks.uLabel": "U",
   "dcim.racks.dropError": "Kunne ikke plassere enhet:",
@@ -121,6 +127,8 @@ export const nb = {
   "dcim.equip.dm.mfrCol": "Prod.",
   "dcim.equip.dm.modelName": "Modellnavn",
   "dcim.equip.dm.u": "U-høyde",
+  "dcim.equip.dm.imageFront": "Front-bilde URL (valgfritt)",
+  "dcim.equip.dm.imageBack": "Bak-bilde URL (valgfritt)",
   "dcim.equip.dm.create": "Opprett modell",
   "dcim.equip.dm.empty": "Ingen modeller.",
   "dcim.equip.dev.title": "Enheter",

@@ -256,6 +256,8 @@ def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModel:
         name=data.name.strip(),
         u_height=data.u_height,
         form_factor=data.form_factor,
+        image_front_url=data.image_front_url,
+        image_back_url=data.image_back_url,
     )
     db.add(row)
     db.commit()
@@ -280,6 +282,10 @@ def update_device_model(db: Session, row: DeviceModel, data: DeviceModelUpdate) 
         row.u_height = data.u_height
     if data.form_factor is not None:
         row.form_factor = data.form_factor
+    if data.image_front_url is not None:
+        row.image_front_url = data.image_front_url
+    if data.image_back_url is not None:
+        row.image_back_url = data.image_back_url
     db.commit()
     db.refresh(row)
     return row

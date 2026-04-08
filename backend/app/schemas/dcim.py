@@ -98,6 +98,8 @@ class DeviceModelCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     u_height: int = Field(1, ge=1, le=64)
     form_factor: str | None = Field(None, max_length=64)
+    image_front_url: str | None = Field(None, max_length=1024)
+    image_back_url: str | None = Field(None, max_length=1024)
 
 
 class DeviceModelUpdate(BaseModel):
@@ -105,6 +107,8 @@ class DeviceModelUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     u_height: int | None = Field(None, ge=1, le=64)
     form_factor: str | None = Field(None, max_length=64)
+    image_front_url: str | None = Field(None, max_length=1024)
+    image_back_url: str | None = Field(None, max_length=1024)
 
 
 class DeviceModelRead(BaseModel):
@@ -115,6 +119,8 @@ class DeviceModelRead(BaseModel):
     name: str
     u_height: int
     form_factor: str | None
+    image_front_url: str | None
+    image_back_url: str | None
 
 
 class DeviceInstanceCreate(BaseModel):
