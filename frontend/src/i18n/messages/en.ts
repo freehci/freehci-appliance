@@ -217,7 +217,7 @@ export const en = {
   "dcim.equip.ip.prefixNeedsSite": "Place the device in a rack to link an IPv4 address to a site-scoped prefix.",
   "ipam.ipv4.title": "IPAM — IPv4 prefixes",
   "ipam.ipv4.intro":
-    "Prefixes are unique per site: the same CIDR (e.g. 192.168.1.0/24) may exist at multiple sites. VLAN IDs are also interpreted per site when the device is placed in a rack.",
+    "Prefixes are unique per site: the same CIDR (e.g. 192.168.1.0/24) may exist at multiple sites. VLAN IDs are also interpreted per site when the device is placed in a rack. Usage counts every placed device address inside the CIDR (including hosts linked to a more specific prefix such as /32), so a /24 reflects all addresses in that subnet.",
   "ipam.ipv4.filterTitle": "Filter",
   "ipam.ipv4.filterSite": "Site",
   "ipam.ipv4.allSites": "All sites",

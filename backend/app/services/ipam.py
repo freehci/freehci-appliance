@@ -5,11 +5,18 @@ from __future__ import annotations
 import ipaddress
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.dcim import InterfaceIpAssignment
+from app.models.dcim import (
+    DeviceInstance,
+    DeviceInterface,
+    InterfaceIpAssignment,
+    Rack,
+    RackPlacement,
+    Room,
+)
 from app.models.ipam import IpamIpv4Prefix
 from app.schemas.ipam import Ipv4PrefixCreate, Ipv4PrefixRead, Ipv4PrefixUpdate
 from app.services import dcim as dcim_svc
@@ -22,24 +29,50 @@ def _ipv4_address_total(cidr: str) -> int:
     return int(net.num_addresses)
 
 
-def _assignment_counts_by_prefix(db: Session) -> dict[int, int]:
+def _ipv4_assignments_with_site(db: Session) -> list[tuple[ipaddress.IPv4Address, int]]:
+    """IPv4-tildelinger på plasserte enheter: (adresse, site_id)."""
     q = (
-        select(InterfaceIpAssignment.ipv4_prefix_id, func.count(InterfaceIpAssignment.id))
-        .where(InterfaceIpAssignment.ipv4_prefix_id.is_not(None))
-        .group_by(InterfaceIpAssignment.ipv4_prefix_id)
+        select(InterfaceIpAssignment.address, Room.site_id)
+        .join(DeviceInterface, DeviceInterface.id == InterfaceIpAssignment.interface_id)
+        .join(DeviceInstance, DeviceInstance.id == DeviceInterface.device_id)
+        .join(RackPlacement, RackPlacement.device_id == DeviceInstance.id)
+        .join(Rack, Rack.id == RackPlacement.rack_id)
+        .join(Room, Room.id == Rack.room_id)
+        .where(InterfaceIpAssignment.family == "ipv4")
     )
-    return {int(pid): int(n) for pid, n in db.execute(q).all() if pid is not None}
+    out: list[tuple[ipaddress.IPv4Address, int]] = []
+    for addr, sid in db.execute(q).all():
+        try:
+            ip = ipaddress.ip_address(str(addr).strip())
+            if isinstance(ip, ipaddress.IPv4Address):
+                out.append((ip, int(sid)))
+        except ValueError:
+            continue
+    return out
 
 
-def _count_assignments_for_prefix(db: Session, prefix_id: int) -> int:
-    q = select(func.count()).select_from(InterfaceIpAssignment).where(
-        InterfaceIpAssignment.ipv4_prefix_id == prefix_id,
-    )
-    return int(db.execute(q).scalar_one())
+def _used_count_in_network(
+    cidr: str,
+    site_id: int,
+    cache: list[tuple[ipaddress.IPv4Address, int]],
+) -> int:
+    try:
+        net = ipaddress.ip_network(cidr, strict=False)
+    except ValueError:
+        return 0
+    if net.version != 4:
+        return 0
+    return sum(1 for ip, sid in cache if sid == site_id and ip in net)
 
 
-def ipv4_prefix_read(db: Session, row: IpamIpv4Prefix) -> Ipv4PrefixRead:
-    used = _count_assignments_for_prefix(db, row.id)
+def ipv4_prefix_read(
+    db: Session,
+    row: IpamIpv4Prefix,
+    *,
+    _cache: list[tuple[ipaddress.IPv4Address, int]] | None = None,
+) -> Ipv4PrefixRead:
+    cache = _ipv4_assignments_with_site(db) if _cache is None else _cache
+    used = _used_count_in_network(row.cidr, row.site_id, cache)
     return Ipv4PrefixRead(
         id=row.id,
         site_id=row.site_id,
@@ -67,20 +100,8 @@ def list_ipv4_prefixes(db: Session, *, site_id: int | None) -> list[Ipv4PrefixRe
     if site_id is not None:
         q = q.where(IpamIpv4Prefix.site_id == site_id)
     rows = list(db.execute(q).scalars().all())
-    counts = _assignment_counts_by_prefix(db)
-    return [
-        Ipv4PrefixRead(
-            id=r.id,
-            site_id=r.site_id,
-            name=r.name,
-            cidr=r.cidr,
-            description=r.description,
-            created_at=r.created_at,
-            used_count=counts.get(r.id, 0),
-            address_total=_ipv4_address_total(r.cidr),
-        )
-        for r in rows
-    ]
+    cache = _ipv4_assignments_with_site(db)
+    return [ipv4_prefix_read(db, r, _cache=cache) for r in rows]
 
 
 def get_ipv4_prefix(db: Session, prefix_id: int) -> IpamIpv4Prefix | None:

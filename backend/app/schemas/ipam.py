@@ -47,5 +47,10 @@ class Ipv4PrefixRead(BaseModel):
     cidr: str
     description: str | None
     created_at: dt.datetime
-    used_count: int = Field(description="Antall grensesnitt-IP knyttet til dette prefikset")
+    used_count: int = Field(
+        description=(
+            "Antall IPv4-tildelinger der adressen ligger i dette CIDR-et og enheten er "
+            "plassert på samme site (uavhengig av om tildelingen peker på et mer spesifikt prefiks, f.eks. /32)"
+        ),
+    )
     address_total: int = Field(description="Totalt antall IPv4-adresser i CIDR (inkl. nettverk/broadcast der relevant)")

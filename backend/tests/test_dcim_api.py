@@ -308,4 +308,5 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
         assert clr.json()["ipv4_prefix_id"] is None
 
         gpx2 = client.get(f"/api/v1/ipam/ipv4-prefixes/{pfx_aid}")
-        assert gpx2.json()["used_count"] == 0
+        # Utnyttelse følger adresse i CIDR, ikke bare FK: fjernet prefiks-lenke, IP ligger fortsatt i /16
+        assert gpx2.json()["used_count"] == 1

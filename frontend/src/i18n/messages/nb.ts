@@ -223,7 +223,7 @@ export const nb = {
     "Plasser enheten i et rack for å knytte IPv4-adresse til et prefiks på riktig site.",
   "ipam.ipv4.title": "IPAM — IPv4-prefiks",
   "ipam.ipv4.intro":
-    "Prefiks er unike per site: samme CIDR (f.eks. 192.168.1.0/24) kan finnes på flere sites. VLAN-ID tolkes også per site når enheten er plassert i rack.",
+    "Prefiks er unike per site: samme CIDR (f.eks. 192.168.1.0/24) kan finnes på flere sites. VLAN-ID tolkes også per site når enheten er plassert i rack. Utnyttelse teller alle plasserte adresser innenfor CIDR (også når tildelingen peker på et smalere prefiks, f.eks. /32), slik at et /24 viser bruk i hele subnettet.",
   "ipam.ipv4.filterTitle": "Filter",
   "ipam.ipv4.filterSite": "Site",
   "ipam.ipv4.allSites": "Alle sites",
