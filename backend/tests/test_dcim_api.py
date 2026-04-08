@@ -107,6 +107,39 @@ def test_dcim_site_room_rack_device_flow() -> None:
         assert d.json()["effective_device_type_id"] == type_id
         assert d.json()["attributes"] == {"os": "Linux"}
 
+        if_empty = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
+        assert if_empty.status_code == 200
+        assert if_empty.json() == []
+
+        if1 = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={
+                "name": "eth0",
+                "speed_mbps": 1000,
+                "mac_address": "aa:bb:cc:dd:ee:ff",
+            },
+        )
+        assert if1.status_code == 200, if1.text
+        if1_id = if1.json()["id"]
+        assert if1.json()["enabled"] is True
+
+        dup = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={"name": "eth0"},
+        )
+        assert dup.status_code == 409
+
+        li = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
+        assert len(li.json()) == 1
+
+        up_if = client.patch(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if1_id}",
+            json={"description": "uplink", "enabled": False},
+        )
+        assert up_if.status_code == 200
+        assert up_if.json()["enabled"] is False
+        assert up_if.json()["description"] == "uplink"
+
         p = client.post(
             "/api/v1/dcim/placements",
             json={

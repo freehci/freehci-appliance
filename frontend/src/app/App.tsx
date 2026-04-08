@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { DcimDeviceDetailPage } from "@/features/dcim/DcimDeviceDetailPage";
 import { DcimEquipmentPage } from "@/features/dcim/DcimEquipmentPage";
 import { DcimManufacturerDetailPage } from "@/features/dcim/DcimManufacturerDetailPage";
 import { DcimLayout } from "@/features/dcim/DcimLayout";
@@ -24,6 +25,7 @@ export function App() {
           <Route path="rooms" element={<DcimRoomsPage />} />
           <Route path="racks" element={<DcimRacksPage />} />
           <Route path="equipment" element={<DcimEquipmentPage />} />
+          <Route path="equipment/devices/:deviceId" element={<DcimDeviceDetailPage />} />
           <Route path="equipment/manufacturers/:manufacturerId" element={<DcimManufacturerDetailPage />} />
         </Route>
         <Route

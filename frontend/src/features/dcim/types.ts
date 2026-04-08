@@ -73,6 +73,19 @@ export type DeviceInstance = {
   attributes: Record<string, unknown>;
 };
 
+/** Port / interface on a device (forberedelse for IPAM). */
+export type DeviceInterface = {
+  id: number;
+  device_id: number;
+  name: string;
+  description: string | null;
+  mac_address: string | null;
+  speed_mbps: number | null;
+  mtu: number | null;
+  enabled: boolean;
+  sort_order: number;
+};
+
 export type RackPlacement = {
   id: number;
   rack_id: number;

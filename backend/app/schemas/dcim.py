@@ -217,6 +217,40 @@ class DeviceInstanceRead(BaseModel):
     attributes: dict[str, Any] = Field(default_factory=dict)
 
 
+class DeviceInterfaceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    description: str | None = None
+    mac_address: str | None = Field(None, max_length=32)
+    speed_mbps: int | None = Field(None, ge=0, le=1_000_000_000)
+    mtu: int | None = Field(None, ge=68, le=65535)
+    enabled: bool = True
+    sort_order: int = 0
+
+
+class DeviceInterfaceUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+    mac_address: str | None = Field(None, max_length=32)
+    speed_mbps: int | None = Field(None, ge=0, le=1_000_000_000)
+    mtu: int | None = Field(None, ge=68, le=65535)
+    enabled: bool | None = None
+    sort_order: int | None = None
+
+
+class DeviceInterfaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    name: str
+    description: str | None
+    mac_address: str | None
+    speed_mbps: int | None
+    mtu: int | None
+    enabled: bool
+    sort_order: int
+
+
 class RackPlacementCreate(BaseModel):
     rack_id: int
     device_id: int

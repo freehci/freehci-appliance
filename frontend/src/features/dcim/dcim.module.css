@@ -40,6 +40,34 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
+.dlInline {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--text-xs);
+  margin: 0 0 var(--space-3);
+}
+
+.dlInline dt {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.dlInline dd {
+  margin: 0;
+}
+
+.codeBlock {
+  margin: 0;
+  padding: var(--space-2);
+  font-size: var(--text-xs);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  overflow: auto;
+  max-width: 40rem;
+}
+
 .mfrDetailBack {
   margin: 0 0 var(--space-2);
 }

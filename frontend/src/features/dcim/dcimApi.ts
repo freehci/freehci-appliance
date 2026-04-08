@@ -1,6 +1,7 @@
 import { apiDelete, apiDeleteJson, apiGet, apiPatch, apiPost, apiPostMultipart, apiUrl } from "@/lib/api";
 import type {
   DeviceInstance,
+  DeviceInterface,
   DeviceModel,
   DeviceType,
   Manufacturer,
@@ -140,6 +141,49 @@ export function deleteDeviceModelImageBack(id: number): Promise<DeviceModel> {
 
 export function listDevices(): Promise<DeviceInstance[]> {
   return apiGet(`${P}/devices`);
+}
+
+export function getDevice(id: number): Promise<DeviceInstance> {
+  return apiGet(`${P}/devices/${id}`);
+}
+
+export function listDeviceInterfaces(deviceId: number): Promise<DeviceInterface[]> {
+  return apiGet(`${P}/devices/${deviceId}/interfaces`);
+}
+
+export function createDeviceInterface(
+  deviceId: number,
+  body: {
+    name: string;
+    description?: string | null;
+    mac_address?: string | null;
+    speed_mbps?: number | null;
+    mtu?: number | null;
+    enabled?: boolean;
+    sort_order?: number;
+  },
+): Promise<DeviceInterface> {
+  return apiPost(`${P}/devices/${deviceId}/interfaces`, body);
+}
+
+export function updateDeviceInterface(
+  deviceId: number,
+  interfaceId: number,
+  body: {
+    name?: string;
+    description?: string | null;
+    mac_address?: string | null;
+    speed_mbps?: number | null;
+    mtu?: number | null;
+    enabled?: boolean;
+    sort_order?: number;
+  },
+): Promise<DeviceInterface> {
+  return apiPatch(`${P}/devices/${deviceId}/interfaces/${interfaceId}`, body);
+}
+
+export function deleteDeviceInterface(deviceId: number, interfaceId: number): Promise<void> {
+  return apiDelete(`${P}/devices/${deviceId}/interfaces/${interfaceId}`);
 }
 
 export function createDevice(body: {

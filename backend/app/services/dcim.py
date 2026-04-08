@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pathlib import Path
@@ -19,6 +20,7 @@ from app.core.media_storage import (
 )
 from app.models.dcim import (
     DeviceInstance,
+    DeviceInterface,
     DeviceModel,
     DeviceType,
     Manufacturer,
@@ -31,6 +33,8 @@ from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
     DeviceInstanceUpdate,
+    DeviceInterfaceCreate,
+    DeviceInterfaceUpdate,
     DeviceModelCreate,
     DeviceModelUpdate,
     DeviceModelBrief,
@@ -599,6 +603,99 @@ def update_device(db: Session, row: DeviceInstance, data: DeviceInstanceUpdate) 
 
 
 def delete_device(db: Session, row: DeviceInstance) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def _require_device(db: Session, did: int) -> DeviceInstance:
+    dev = get_device(db, did)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="device ikke funnet")
+    return dev
+
+
+def _iface_commit(db: Session) -> None:
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="grensesnitt med samme navn finnes allerede på denne enheten",
+        ) from None
+
+
+def list_device_interfaces(db: Session, device_id: int) -> list[DeviceInterface]:
+    _require_device(db, device_id)
+    q = (
+        select(DeviceInterface)
+        .where(DeviceInterface.device_id == device_id)
+        .order_by(DeviceInterface.sort_order, DeviceInterface.name)
+    )
+    return list(db.execute(q).scalars().all())
+
+
+def get_device_interface(db: Session, device_id: int, interface_id: int) -> DeviceInterface | None:
+    row = db.get(DeviceInterface, interface_id)
+    if row is None or row.device_id != device_id:
+        return None
+    return row
+
+
+def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCreate) -> DeviceInterface:
+    _require_device(db, device_id)
+    mac = data.mac_address
+    mac = None if mac is None or str(mac).strip() == "" else str(mac).strip()
+    row = DeviceInterface(
+        device_id=device_id,
+        name=data.name.strip(),
+        description=data.description,
+        mac_address=mac,
+        speed_mbps=data.speed_mbps,
+        mtu=data.mtu,
+        enabled=data.enabled,
+        sort_order=data.sort_order,
+    )
+    db.add(row)
+    _iface_commit(db)
+    db.refresh(row)
+    return row
+
+
+def update_device_interface(
+    db: Session,
+    device_id: int,
+    row: DeviceInterface,
+    data: DeviceInterfaceUpdate,
+) -> DeviceInterface:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "name" in patch:
+        nm = patch["name"]
+        if not nm or not str(nm).strip():
+            raise HTTPException(status_code=400, detail="navn kan ikke være tomt")
+        row.name = str(nm).strip()
+    if "description" in patch:
+        v = patch["description"]
+        row.description = None if v is None else (str(v).strip() or None)
+    if "mac_address" in patch:
+        v = patch["mac_address"]
+        row.mac_address = None if v is None or str(v).strip() == "" else str(v).strip()
+    if "speed_mbps" in patch:
+        row.speed_mbps = patch["speed_mbps"]
+    if "mtu" in patch:
+        row.mtu = patch["mtu"]
+    if "enabled" in patch and patch["enabled"] is not None:
+        row.enabled = bool(patch["enabled"])
+    if "sort_order" in patch and patch["sort_order"] is not None:
+        row.sort_order = int(patch["sort_order"])
+    _iface_commit(db)
+    db.refresh(row)
+    return row
+
+
+def delete_device_interface(db: Session, row: DeviceInterface) -> None:
     db.delete(row)
     db.commit()
 

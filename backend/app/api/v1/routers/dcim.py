@@ -11,6 +11,9 @@ from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
     DeviceInstanceUpdate,
+    DeviceInterfaceCreate,
+    DeviceInterfaceRead,
+    DeviceInterfaceUpdate,
     DeviceModelCreate,
     DeviceModelRead,
     DeviceModelUpdate,
@@ -386,6 +389,49 @@ def list_devices(db: Session = Depends(get_db)) -> list[DeviceInstanceRead]:
 @router.post("/devices", response_model=DeviceInstanceRead)
 def create_device(data: DeviceInstanceCreate, db: Session = Depends(get_db)) -> DeviceInstanceRead:
     return dcim_svc.create_device(db, data)
+
+
+@router.get("/devices/{did}/interfaces", response_model=list[DeviceInterfaceRead])
+def list_device_interfaces(did: int, db: Session = Depends(get_db)) -> list[DeviceInterfaceRead]:
+    return dcim_svc.list_device_interfaces(db, did)
+
+
+@router.post("/devices/{did}/interfaces", response_model=DeviceInterfaceRead)
+def create_device_interface(
+    did: int,
+    data: DeviceInterfaceCreate,
+    db: Session = Depends(get_db),
+) -> DeviceInterfaceRead:
+    return dcim_svc.create_device_interface(db, did, data)
+
+
+@router.get("/devices/{did}/interfaces/{iid}", response_model=DeviceInterfaceRead)
+def get_device_interface(did: int, iid: int, db: Session = Depends(get_db)) -> DeviceInterfaceRead:
+    row = dcim_svc.get_device_interface(db, did, iid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
+    return row
+
+
+@router.patch("/devices/{did}/interfaces/{iid}", response_model=DeviceInterfaceRead)
+def patch_device_interface(
+    did: int,
+    iid: int,
+    data: DeviceInterfaceUpdate,
+    db: Session = Depends(get_db),
+) -> DeviceInterfaceRead:
+    row = dcim_svc.get_device_interface(db, did, iid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
+    return dcim_svc.update_device_interface(db, did, row, data)
+
+
+@router.delete("/devices/{did}/interfaces/{iid}", status_code=204)
+def delete_device_interface(did: int, iid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_interface(db, did, iid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
+    dcim_svc.delete_device_interface(db, row)
 
 
 @router.get("/devices/{did}", response_model=DeviceInstanceRead)

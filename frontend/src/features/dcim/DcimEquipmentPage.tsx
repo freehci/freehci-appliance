@@ -632,7 +632,11 @@ export function DcimEquipmentPage() {
                         "—"
                       )}
                     </td>
-                    <td>{x.name}</td>
+                    <td>
+                      <Link to={`/dcim/equipment/devices/${x.id}`} className={styles.tableLink}>
+                        {x.name}
+                      </Link>
+                    </td>
                     <td>
                       {pl ? (
                         <>

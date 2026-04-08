@@ -122,6 +122,33 @@ class DeviceInstance(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    interfaces: Mapped[list["DeviceInterface"]] = relationship(
+        back_populates="device",
+        cascade="all, delete-orphan",
+        order_by="DeviceInterface.sort_order, DeviceInterface.name",
+    )
+
+
+class DeviceInterface(Base):
+    """Grensesnitt eller port på en enhet (forberedelse for IPAM/VLAN)."""
+
+    __tablename__ = "dcim_device_interfaces"
+    __table_args__ = (UniqueConstraint("device_id", "name", name="uq_dcim_device_interface_device_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mac_address: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    speed_mbps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mtu: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    device: Mapped["DeviceInstance"] = relationship(back_populates="interfaces")
 
 
 class RackPlacement(Base):
