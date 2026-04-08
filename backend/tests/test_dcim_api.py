@@ -106,6 +106,7 @@ def test_dcim_site_room_rack_device_flow() -> None:
         dev_id = d.json()["id"]
         assert d.json()["effective_device_type_id"] == type_id
         assert d.json()["attributes"] == {"os": "Linux"}
+        assert d.json()["effective_site_id"] is None
 
         if_empty = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
         assert if_empty.status_code == 200
@@ -165,6 +166,7 @@ def test_dcim_site_room_rack_device_flow() -> None:
         assert ip_a.json()["family"] == "ipv4"
         assert ip_a.json()["address"] == "192.168.1.10"
         assert ip_a.json()["is_primary"] is True
+        assert ip_a.json()["ipv4_prefix_id"] is None
 
         bad_ip = client.post(
             f"/api/v1/dcim/devices/{dev_id}/interfaces/{if1_id}/ip-assignments",
@@ -188,6 +190,9 @@ def test_dcim_site_room_rack_device_flow() -> None:
         assert p.status_code == 200, p.text
         assert p.json()["u_position"] == 10
 
+        g_placed = client.get(f"/api/v1/dcim/devices/{dev_id}")
+        assert g_placed.json()["effective_site_id"] == site_id
+
         p2 = client.post(
             "/api/v1/dcim/placements",
             json={
@@ -206,3 +211,93 @@ def test_dcim_site_room_rack_device_flow() -> None:
         )
         assert mv.status_code == 200, mv.text
         assert mv.json()["u_position"] == 25
+
+
+def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "S1", "slug": "ipam-s1"}).json()["id"]
+        sb = client.post("/api/v1/dcim/sites", json={"name": "S2", "slug": "ipam-s2"}).json()["id"]
+        ra = client.post("/api/v1/dcim/rooms", json={"site_id": sa, "name": "R1"}).json()["id"]
+        rb = client.post("/api/v1/dcim/rooms", json={"site_id": sb, "name": "R2"}).json()["id"]
+        ka = client.post("/api/v1/dcim/racks", json={"room_id": ra, "name": "K1"}).json()["id"]
+        kb = client.post("/api/v1/dcim/racks", json={"room_id": rb, "name": "K2"}).json()["id"]
+
+        mid = client.post(
+            "/api/v1/dcim/manufacturers",
+            json={"name": "MIP", "description": "x"},
+        ).json()["id"]
+        tid = client.post(
+            "/api/v1/dcim/device-types",
+            json={"name": "Srv", "slug": "srv-ipam"},
+        ).json()["id"]
+        dmod = client.post(
+            "/api/v1/dcim/device-models",
+            json={"manufacturer_id": mid, "device_type_id": tid, "name": "X1", "u_height": 1},
+        ).json()["id"]
+        dev_id = client.post(
+            "/api/v1/dcim/devices",
+            json={"device_model_id": dmod, "name": "host-a"},
+        ).json()["id"]
+        if_id = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={"name": "eth0"},
+        ).json()["id"]
+
+        pfx_a = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "LAN", "cidr": "10.10.0.0/16"},
+        )
+        assert pfx_a.status_code == 200, pfx_a.text
+        pfx_aid = pfx_a.json()["id"]
+
+        pfx_b = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sb, "name": "LAN", "cidr": "10.10.0.0/16"},
+        )
+        assert pfx_b.status_code == 200
+        pfx_bid = pfx_b.json()["id"]
+
+        no_pl = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments",
+            json={"address": "10.10.1.1", "ipv4_prefix_id": pfx_aid},
+        )
+        assert no_pl.status_code == 400
+
+        pl = client.post(
+            "/api/v1/dcim/placements",
+            json={"rack_id": ka, "device_id": dev_id, "u_position": 1, "mounting": "front"},
+        )
+        assert pl.status_code == 200
+
+        wrong_site = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments",
+            json={"address": "10.10.1.2", "ipv4_prefix_id": pfx_bid},
+        )
+        assert wrong_site.status_code == 400
+
+        outside = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments",
+            json={"address": "192.168.1.1", "ipv4_prefix_id": pfx_aid},
+        )
+        assert outside.status_code == 400
+
+        ok = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments",
+            json={"address": "10.10.1.5", "ipv4_prefix_id": pfx_aid},
+        )
+        assert ok.status_code == 200, ok.text
+        assert ok.json()["ipv4_prefix_id"] == pfx_aid
+
+        v6 = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments",
+            json={"address": "2001:db8::1", "ipv4_prefix_id": pfx_aid},
+        )
+        assert v6.status_code == 400
+
+        clr = client.patch(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments/{ok.json()['id']}",
+            json={"ipv4_prefix_id": None},
+        )
+        assert clr.status_code == 200
+        assert clr.json()["ipv4_prefix_id"] is None

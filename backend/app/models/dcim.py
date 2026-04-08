@@ -178,6 +178,10 @@ class InterfaceIpAssignment(Base):
         ForeignKey("dcim_device_interfaces.id", ondelete="CASCADE"),
         nullable=False,
     )
+    ipv4_prefix_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_ipv4_prefixes.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     family: Mapped[str] = mapped_column(String(4), nullable=False)
     address: Mapped[str] = mapped_column(String(45), nullable=False)
     is_primary: Mapped[bool] = mapped_column(default=False, nullable=False)

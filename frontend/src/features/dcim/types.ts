@@ -67,6 +67,8 @@ export type DeviceInstance = {
   device_model_id: number | null;
   device_type_id: number | null;
   effective_device_type_id: number | null;
+  /** Site fra rack-plassering; null hvis enheten ikke er plassert */
+  effective_site_id: number | null;
   name: string;
   serial_number: string | null;
   asset_tag: string | null;
@@ -77,6 +79,7 @@ export type DeviceInstance = {
 export type IpAssignment = {
   id: number;
   interface_id: number;
+  ipv4_prefix_id: number | null;
   family: string;
   address: string;
   is_primary: boolean;

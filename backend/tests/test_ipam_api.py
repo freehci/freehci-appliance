@@ -44,11 +44,13 @@ def test_ipam_ipv4_prefix_same_cidr_different_sites() -> None:
 
         li = client.get("/api/v1/ipam/ipv4-prefixes")
         assert li.status_code == 200
-        assert len(li.json()) == 2
+        rows = li.json()
+        assert sum(1 for x in rows if x["site_id"] == sa and x["cidr"] == "192.168.1.0/24") == 1
+        assert sum(1 for x in rows if x["site_id"] == sb and x["cidr"] == "192.168.1.0/24") == 1
 
         f = client.get(f"/api/v1/ipam/ipv4-prefixes?site_id={sa}")
         assert f.status_code == 200
-        assert len(f.json()) == 1
+        assert sum(1 for x in f.json() if x["cidr"] == "192.168.1.0/24") == 1
 
         bad = client.post(
             "/api/v1/ipam/ipv4-prefixes",

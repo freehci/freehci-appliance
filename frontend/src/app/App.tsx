@@ -8,6 +8,7 @@ import { DcimOverviewPage } from "@/features/dcim/DcimOverviewPage";
 import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
+import { IpamPage } from "@/features/ipam/IpamPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -28,15 +29,7 @@ export function App() {
           <Route path="equipment/devices/:deviceId" element={<DcimDeviceDetailPage />} />
           <Route path="equipment/manufacturers/:manufacturerId" element={<DcimManufacturerDetailPage />} />
         </Route>
-        <Route
-          path="/ipam"
-          element={
-            <PlaceholderPage
-              titleKey="placeholders.ipam.title"
-              descriptionKey="placeholders.ipam.desc"
-            />
-          }
-        />
+        <Route path="/ipam" element={<IpamPage />} />
         <Route
           path="/jobs"
           element={

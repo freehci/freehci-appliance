@@ -18,6 +18,7 @@ get_settings.cache_clear()
 import pytest
 
 import app.models.dcim  # noqa: F401
+import app.models.ipam  # noqa: F401 — tabeller for IPAM + FK fra DCIM
 from app.core.db import engine
 from app.models.base import Base
 

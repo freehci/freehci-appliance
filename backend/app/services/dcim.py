@@ -32,6 +32,8 @@ from app.models.dcim import (
     Room,
     Site,
 )
+from app.models.ipam import IpamIpv4Prefix
+
 from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
@@ -61,6 +63,70 @@ from app.schemas.dcim import (
     SiteCreate,
     SiteUpdate,
 )
+
+_SITE_QUERY = object()
+
+
+def device_effective_site_id(db: Session, device_id: int) -> int | None:
+    q = (
+        select(Room.site_id)
+        .join(Rack, Rack.room_id == Room.id)
+        .join(RackPlacement, RackPlacement.rack_id == Rack.id)
+        .where(RackPlacement.device_id == device_id)
+        .limit(1)
+    )
+    return db.execute(q).scalar_one_or_none()
+
+
+def _device_site_ids_batch(db: Session, device_ids: list[int]) -> dict[int, int]:
+    if not device_ids:
+        return {}
+    q = (
+        select(RackPlacement.device_id, Room.site_id)
+        .join(Rack, Rack.id == RackPlacement.rack_id)
+        .join(Room, Room.id == Rack.room_id)
+        .where(RackPlacement.device_id.in_(device_ids))
+    )
+    return {did: sid for did, sid in db.execute(q).all()}
+
+
+def _validate_ipv4_prefix_for_assignment(
+    db: Session,
+    *,
+    device_id: int,
+    prefix_id: int | None,
+    family: str,
+    address: str,
+) -> int | None:
+    if prefix_id is None:
+        return None
+    if family != "ipv4":
+        raise HTTPException(
+            status_code=400,
+            detail="IPv4-prefiks kan bare knyttes til IPv4-adresser",
+        )
+    pfx = db.get(IpamIpv4Prefix, prefix_id)
+    if pfx is None:
+        raise HTTPException(status_code=404, detail="IPAM-prefiks ikke funnet")
+    site_id = device_effective_site_id(db, device_id)
+    if site_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="enhet uten rack-plassering kan ikke knyttes til site-prefiks — plasser enheten i rack først",
+        )
+    if pfx.site_id != site_id:
+        raise HTTPException(
+            status_code=400,
+            detail="prefiks tilhører en annen site enn enhetens rack-plassering",
+        )
+    try:
+        net = ipaddress.ip_network(pfx.cidr, strict=False)
+        ip_a = ipaddress.ip_address(address)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"ugyldig adresse eller prefiks: {e}") from e
+    if ip_a not in net:
+        raise HTTPException(status_code=400, detail="IP-adressen ligger ikke innenfor valgt prefiks")
+    return prefix_id
 
 
 def _device_u_height(db: Session, device: DeviceInstance) -> int:
@@ -537,14 +603,24 @@ def _effective_device_type_id(db: Session, dev: DeviceInstance) -> int | None:
     return None if m is None else m.device_type_id
 
 
-def device_instance_read(db: Session, dev: DeviceInstance) -> DeviceInstanceRead:
+def device_instance_read(
+    db: Session,
+    dev: DeviceInstance,
+    *,
+    effective_site_id: int | None | object = _SITE_QUERY,
+) -> DeviceInstanceRead:
     raw = dev.attributes
     attrs: dict = dict(raw) if isinstance(raw, dict) else {}
+    if effective_site_id is _SITE_QUERY:
+        es: int | None = device_effective_site_id(db, dev.id)
+    else:
+        es = effective_site_id  # type: ignore[assignment]
     return DeviceInstanceRead(
         id=dev.id,
         device_model_id=dev.device_model_id,
         device_type_id=dev.device_type_id,
         effective_device_type_id=_effective_device_type_id(db, dev),
+        effective_site_id=es,
         name=dev.name,
         serial_number=dev.serial_number,
         asset_tag=dev.asset_tag,
@@ -554,7 +630,8 @@ def device_instance_read(db: Session, dev: DeviceInstance) -> DeviceInstanceRead
 
 def list_devices(db: Session) -> list[DeviceInstanceRead]:
     rows = list(db.execute(select(DeviceInstance).order_by(DeviceInstance.name)).scalars().all())
-    return [device_instance_read(db, r) for r in rows]
+    site_by_dev = _device_site_ids_batch(db, [r.id for r in rows])
+    return [device_instance_read(db, r, effective_site_id=site_by_dev.get(r.id)) for r in rows]
 
 
 def create_device(db: Session, data: DeviceInstanceCreate) -> DeviceInstanceRead:
@@ -639,7 +716,7 @@ def _normalize_ip(addr: str) -> tuple[str, str]:
         raise HTTPException(status_code=400, detail=f"ugyldig IP-adresse: {e}") from e
     if isinstance(p, ipaddress.IPv4Address):
         return "ipv4", str(p)
-    return "ipv6", p.compressed()
+    return "ipv6", p.compressed
 
 
 def device_interface_read(row: DeviceInterface) -> DeviceInterfaceRead:
@@ -769,10 +846,18 @@ def create_iface_ip_assignment(
     ).scalar_one_or_none()
     if dup is not None:
         raise HTTPException(status_code=409, detail="IP-adressen finnes allerede på dette grensesnittet")
+    pfx_id = _validate_ipv4_prefix_for_assignment(
+        db,
+        device_id=device_id,
+        prefix_id=data.ipv4_prefix_id,
+        family=family,
+        address=addr,
+    )
     if data.is_primary:
         _clear_primary_same_family(db, interface_id, family)
     row = InterfaceIpAssignment(
         interface_id=interface_id,
+        ipv4_prefix_id=pfx_id,
         family=family,
         address=addr,
         is_primary=data.is_primary,
@@ -814,6 +899,18 @@ def update_iface_ip_assignment(
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "ipv4_prefix_id" in patch:
+        v = patch["ipv4_prefix_id"]
+        if v is None:
+            row.ipv4_prefix_id = None
+        else:
+            row.ipv4_prefix_id = _validate_ipv4_prefix_for_assignment(
+                db,
+                device_id=device_id,
+                prefix_id=int(v),
+                family=row.family,
+                address=row.address,
+            )
     if patch.get("is_primary") is True:
         _clear_primary_same_family(db, interface_id, row.family)
         row.is_primary = True

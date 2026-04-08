@@ -211,6 +211,8 @@ class DeviceInstanceRead(BaseModel):
     device_model_id: int | None
     device_type_id: int | None
     effective_device_type_id: int | None
+    # Site fra rack → rom når enheten er plassert; brukes bl.a. for IPAM-prefiks i riktig site.
+    effective_site_id: int | None
     name: str
     serial_number: str | None
     asset_tag: str | None
@@ -244,6 +246,7 @@ class IpAssignmentRead(BaseModel):
 
     id: int
     interface_id: int
+    ipv4_prefix_id: int | None = None
     family: str
     address: str
     is_primary: bool
@@ -268,10 +271,12 @@ class DeviceInterfaceRead(BaseModel):
 class IpAssignmentCreate(BaseModel):
     address: str = Field(..., min_length=1, max_length=45)
     is_primary: bool = False
+    ipv4_prefix_id: int | None = None
 
 
 class IpAssignmentUpdate(BaseModel):
     is_primary: bool | None = None
+    ipv4_prefix_id: int | None = None
 
 
 class RackPlacementCreate(BaseModel):

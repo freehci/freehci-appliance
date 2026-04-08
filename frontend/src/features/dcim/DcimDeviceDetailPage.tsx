@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
+import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
 
@@ -25,6 +26,7 @@ export function DcimDeviceDetailPage() {
   const [ipIface, setIpIface] = useState("");
   const [ipAddr, setIpAddr] = useState("");
   const [ipPrimary, setIpPrimary] = useState(false);
+  const [ipPrefix, setIpPrefix] = useState("");
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -48,6 +50,22 @@ export function DcimDeviceDetailPage() {
     queryFn: api.listDeviceModels,
   });
 
+  const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
+
+  const deviceSiteId = deviceQ.data?.effective_site_id ?? null;
+
+  const prefixesQ = useQuery({
+    queryKey: ["ipam", "ipv4-prefixes", deviceSiteId ?? "none"],
+    queryFn: () => ipamApi.listIpv4Prefixes(deviceSiteId!),
+    enabled: deviceSiteId != null && deviceSiteId > 0,
+  });
+
+  const prefixById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const p of prefixesQ.data ?? []) m.set(p.id, p.cidr);
+    return m;
+  }, [prefixesQ.data]);
+
   const typeLabel = useMemo(() => {
     const tid = deviceQ.data?.effective_device_type_id;
     if (tid == null) return null;
@@ -61,6 +79,13 @@ export function DcimDeviceDetailPage() {
     const row = (modelsQ.data ?? []).find((x) => x.id === mid);
     return row ? row.name : `#${mid}`;
   }, [deviceQ.data?.device_model_id, modelsQ.data]);
+
+  const siteLabel = useMemo(() => {
+    const sid = deviceQ.data?.effective_site_id;
+    if (sid == null) return null;
+    const row = (sitesQ.data ?? []).find((x) => x.id === sid);
+    return row ? `${row.name} (#${sid})` : `#${sid}`;
+  }, [deviceQ.data?.effective_site_id, sitesQ.data]);
 
   useEffect(() => {
     const rows = interfacesQ.data;
@@ -152,14 +177,18 @@ export function DcimDeviceDetailPage() {
   });
 
   const createIp = useMutation({
-    mutationFn: () =>
-      api.createIfaceIpAssignment(id, Number(ipIface), {
+    mutationFn: () => {
+      const body: { address: string; is_primary: boolean; ipv4_prefix_id?: number } = {
         address: ipAddr.trim(),
         is_primary: ipPrimary,
-      }),
+      };
+      if (ipPrefix !== "") body.ipv4_prefix_id = Number(ipPrefix);
+      return api.createIfaceIpAssignment(id, Number(ipIface), body);
+    },
     onSuccess: () => {
       setIpAddr("");
       setIpPrimary(false);
+      setIpPrefix("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
     },
@@ -237,6 +266,8 @@ export function DcimDeviceDetailPage() {
           <dd>{modelLabel ?? "—"}</dd>
           <dt>{t("dcim.equip.dev.effectiveTypeCol")}</dt>
           <dd>{typeLabel ?? "—"}</dd>
+          <dt>{t("dcim.equip.dev.siteCol")}</dt>
+          <dd>{siteLabel ?? "—"}</dd>
         </dl>
         {hasAttrs ? (
           <section className={styles.mfrDetailSection}>
@@ -308,6 +339,9 @@ export function DcimDeviceDetailPage() {
         {interfacesQ.data && interfacesQ.data.length > 0 ? (
           <>
             <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.ip.addTitle")}</h3>
+            {deviceSiteId == null ? (
+              <p className={styles.muted}>{t("dcim.equip.ip.prefixNeedsSite")}</p>
+            ) : null}
             <form
               className={styles.formRow}
               onSubmit={(e) => {
@@ -340,6 +374,19 @@ export function DcimDeviceDetailPage() {
                   required
                 />
               </label>
+              {deviceSiteId != null ? (
+                <label>
+                  {t("dcim.equip.ip.ipv4Prefix")}
+                  <select value={ipPrefix} onChange={(e) => setIpPrefix(e.target.value)}>
+                    <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
+                    {(prefixesQ.data ?? []).map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.name} — {p.cidr}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
                 <input
                   type="checkbox"
@@ -433,6 +480,12 @@ export function DcimDeviceDetailPage() {
                         <li key={ip.id}>
                           <code>{ip.address}</code>{" "}
                           <span className={styles.muted}>({ip.family})</span>
+                          {ip.family === "ipv4" && ip.ipv4_prefix_id != null ? (
+                            <span className={styles.muted}>
+                              {" "}
+                              · {prefixById.get(ip.ipv4_prefix_id) ?? `#${ip.ipv4_prefix_id}`}
+                            </span>
+                          ) : null}
                           {ip.is_primary ? (
                             <span className={styles.ipPrimaryMark}> {t("dcim.equip.ip.primaryMark")}</span>
                           ) : (
