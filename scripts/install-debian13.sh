@@ -15,6 +15,7 @@
 #   GIT_BRANCH         – Branch (default: main)
 #   COMPOSE_DETACH     – 1 = up -d (default), 0 = foreground
 #   COMPOSE_DL_VERSION – Compose plugin tag for GitHub fallback (default: 2.33.1)
+#   GIT_RESET_HARD     – default 1: if pull --ff-only fails (diverged/rewritten main), reset --hard to origin branch
 
 set -euo pipefail
 
@@ -153,9 +154,16 @@ run_compose version >/dev/null
 
 echo "==> Cloning or updating repository..."
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
-  git -C "${INSTALL_DIR}" fetch --depth 1 origin "${GIT_BRANCH}" || git -C "${INSTALL_DIR}" fetch origin
+  git -C "${INSTALL_DIR}" fetch origin "${GIT_BRANCH}" --depth 1 || git -C "${INSTALL_DIR}" fetch origin "${GIT_BRANCH}"
   git -C "${INSTALL_DIR}" checkout "${GIT_BRANCH}"
-  git -C "${INSTALL_DIR}" pull --ff-only origin "${GIT_BRANCH}" || true
+  if git -C "${INSTALL_DIR}" pull --ff-only origin "${GIT_BRANCH}"; then
+    :
+  elif [[ "${GIT_RESET_HARD:-1}" == "1" ]]; then
+    echo "warning: could not fast-forward ${GIT_BRANCH} (diverged history or force-push). Resetting to origin/${GIT_BRANCH} — local commits in this clone are discarded."
+    git -C "${INSTALL_DIR}" reset --hard "origin/${GIT_BRANCH}"
+  else
+    die "git pull --ff-only failed. Resolve conflicts manually or rerun with GIT_RESET_HARD=1"
+  fi
 else
   mkdir -p "$(dirname "${INSTALL_DIR}")"
   git clone --branch "${GIT_BRANCH}" --depth 1 "${REPO_URL}" "${INSTALL_DIR}"

@@ -7,9 +7,10 @@
 #   ./scripts/upgrade.sh
 #
 # Environment:
-#   NO_CACHE=1     – docker compose build --no-cache (clean rebuild)
-#   GIT_BRANCH     – checkout this branch before pull (optional)
-#   SKIP_GIT=1     – skip git fetch/pull (only rebuild & up)
+#   NO_CACHE=1      – docker compose build --no-cache (clean rebuild)
+#   GIT_BRANCH      – checkout this branch before pull (optional)
+#   SKIP_GIT=1      – skip git fetch/pull (only rebuild & up)
+#   GIT_RESET_HARD  – default 1: after failed ff-only, git reset --hard origin/<branch>
 
 set -euo pipefail
 
@@ -24,6 +25,24 @@ fi
 
 echo "==> Repository: ${REPO_ROOT}"
 
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+git_try_pull_or_reset() {
+  local branch="$1"
+  if git pull --ff-only origin "${branch}"; then
+    return 0
+  fi
+  if [[ "${GIT_RESET_HARD:-1}" == "1" ]]; then
+    echo "warning: could not fast-forward ${branch}. Resetting to origin/${branch} — local commits in this clone are discarded."
+    git reset --hard "origin/${branch}"
+    return 0
+  fi
+  die "git pull --ff-only failed. Fix manually or set GIT_RESET_HARD=1"
+}
+
 if [[ "${SKIP_GIT:-0}" != "1" ]]; then
   if [[ ! -d "${REPO_ROOT}/.git" ]]; then
     echo "error: not a git clone; use SKIP_GIT=1 to only rebuild" >&2
@@ -33,10 +52,19 @@ if [[ "${SKIP_GIT:-0}" != "1" ]]; then
     echo "==> Fetching and checking out ${GIT_BRANCH}..."
     git fetch origin "${GIT_BRANCH}"
     git checkout "${GIT_BRANCH}"
-    git pull --ff-only origin "${GIT_BRANCH}"
+    git_try_pull_or_reset "${GIT_BRANCH}"
   else
     echo "==> Pulling latest changes..."
-    git pull --ff-only
+    current="$(git rev-parse --abbrev-ref HEAD)"
+    git fetch origin "${current}"
+    if git pull --ff-only; then
+      :
+    elif [[ "${GIT_RESET_HARD:-1}" == "1" ]]; then
+      echo "warning: could not fast-forward ${current}. Resetting to origin/${current} — local commits in this clone are discarded."
+      git reset --hard "origin/${current}"
+    else
+      die "git pull --ff-only failed. Fix manually or set GIT_RESET_HARD=1"
+    fi
   fi
 else
   echo "==> Skipping git (SKIP_GIT=1)"

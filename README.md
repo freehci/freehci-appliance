@@ -67,6 +67,7 @@ Options via environment:
 | `NO_CACHE=1` | `docker compose build --no-cache` (full rebuild) |
 | `SKIP_GIT=1` | Only rebuild and restart; no `git pull` |
 | `GIT_BRANCH=name` | `git fetch` + checkout branch before pull |
+| `GIT_RESET_HARD=0` | Stop if `git pull --ff-only` fails instead of resetting to `origin/<branch>` (default is reset) |
 
 Optional environment file: copy [`.env.example`](.env.example) and adjust values; override variables in `docker-compose.yml` or via a Compose `env_file` if you extend the setup.
 
@@ -113,6 +114,7 @@ Optional environment variables:
 | `GIT_BRANCH`         | `main`                                            | Branch to checkout |
 | `COMPOSE_DETACH`     | `1`                                               | `1` = `docker compose up -d`, `0` = foreground |
 | `COMPOSE_DL_VERSION` | `2.33.1`                                          | Compose release tag when apt has no compose package (override if needed) |
+| `GIT_RESET_HARD`     | `1`                                               | If `git pull --ff-only` fails (diverged/`main` rewritten), run `git reset --hard origin/<branch>`. Set `0` to abort instead. |
 
 After install, add your user to the `docker` group if you want to run `docker` without `sudo`:
 
