@@ -50,6 +50,24 @@ Stop the stack:
 docker compose down
 ```
 
+### Upgrade an existing install
+
+From the clone directory (where `docker-compose.yml` lives):
+
+```bash
+bash scripts/upgrade.sh
+```
+
+This runs `git pull --ff-only`, `docker compose build`, and `docker compose up -d`.
+
+Options via environment:
+
+| Variable    | Effect |
+|-------------|--------|
+| `NO_CACHE=1` | `docker compose build --no-cache` (full rebuild) |
+| `SKIP_GIT=1` | Only rebuild and restart; no `git pull` |
+| `GIT_BRANCH=name` | `git fetch` + checkout branch before pull |
+
 Optional environment file: copy [`.env.example`](.env.example) and adjust values; override variables in `docker-compose.yml` or via a Compose `env_file` if you extend the setup.
 
 ---
