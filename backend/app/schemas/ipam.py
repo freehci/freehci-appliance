@@ -54,3 +54,21 @@ class Ipv4PrefixRead(BaseModel):
         ),
     )
     address_total: int = Field(description="Totalt antall IPv4-adresser i CIDR (inkl. nettverk/broadcast der relevant)")
+
+
+class Ipv4AssignmentInPrefixRead(BaseModel):
+    assignment_id: int
+    address: str
+    ipv4_prefix_id: int | None
+    interface_id: int
+    interface_name: str
+    device_id: int
+    device_name: str
+
+
+class Ipv4PrefixExploreRead(BaseModel):
+    """Undprefiks og alle IPv4-tildelinger innenfor et prefiks (samme site)."""
+
+    prefix: Ipv4PrefixRead
+    child_prefixes: list[Ipv4PrefixRead]
+    assignments: list[Ipv4AssignmentInPrefixRead]

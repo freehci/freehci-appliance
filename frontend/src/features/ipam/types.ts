@@ -8,3 +8,19 @@ export type Ipv4Prefix = {
   used_count: number;
   address_total: number;
 };
+
+export type Ipv4AssignmentInPrefix = {
+  assignment_id: number;
+  address: string;
+  ipv4_prefix_id: number | null;
+  interface_id: number;
+  interface_name: string;
+  device_id: number;
+  device_name: string;
+};
+
+export type Ipv4PrefixExplore = {
+  prefix: Ipv4Prefix;
+  child_prefixes: Ipv4Prefix[];
+  assignments: Ipv4AssignmentInPrefix[];
+};

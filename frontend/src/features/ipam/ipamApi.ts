@@ -1,11 +1,15 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
-import type { Ipv4Prefix } from "./types";
+import type { Ipv4Prefix, Ipv4PrefixExplore } from "./types";
 
 const P = "/api/v1/ipam";
 
 export function listIpv4Prefixes(siteId?: number): Promise<Ipv4Prefix[]> {
   const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
   return apiGet(`${P}/ipv4-prefixes${q}`);
+}
+
+export function getIpv4PrefixExplore(prefixId: number): Promise<Ipv4PrefixExplore> {
+  return apiGet(`${P}/ipv4-prefixes/${prefixId}/explore`);
 }
 
 export function createIpv4Prefix(body: {

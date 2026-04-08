@@ -18,7 +18,13 @@ from app.models.dcim import (
     Room,
 )
 from app.models.ipam import IpamIpv4Prefix
-from app.schemas.ipam import Ipv4PrefixCreate, Ipv4PrefixRead, Ipv4PrefixUpdate
+from app.schemas.ipam import (
+    Ipv4AssignmentInPrefixRead,
+    Ipv4PrefixCreate,
+    Ipv4PrefixExploreRead,
+    Ipv4PrefixRead,
+    Ipv4PrefixUpdate,
+)
 from app.services import dcim as dcim_svc
 
 
@@ -49,6 +55,106 @@ def _ipv4_assignments_with_site(db: Session) -> list[tuple[ipaddress.IPv4Address
         except ValueError:
             continue
     return out
+
+
+def _prefix_sort_key(row: IpamIpv4Prefix) -> tuple[int, str]:
+    """Bredeste prefiks først (lavest prefixlen), deretter adresse."""
+    net = ipaddress.ip_network(row.cidr, strict=False)
+    return (net.prefixlen, str(net.network_address))
+
+
+def _child_prefix_orms(
+    parent: IpamIpv4Prefix,
+    same_site_rows: list[IpamIpv4Prefix],
+) -> list[IpamIpv4Prefix]:
+    """Andre prefiks på samme site som er strengere delnett av parent."""
+    try:
+        parent_net = ipaddress.ip_network(parent.cidr, strict=False)
+    except ValueError:
+        return []
+    if parent_net.version != 4:
+        return []
+    out: list[IpamIpv4Prefix] = []
+    for o in same_site_rows:
+        if o.id == parent.id:
+            continue
+        try:
+            on = ipaddress.ip_network(o.cidr, strict=False)
+        except ValueError:
+            continue
+        if on.version != 4:
+            continue
+        if on.prefixlen <= parent_net.prefixlen:
+            continue
+        if on.subnet_of(parent_net):
+            out.append(o)
+    out.sort(key=_prefix_sort_key)
+    return out
+
+
+def _assignment_rows_in_prefix(db: Session, parent: IpamIpv4Prefix) -> list[Ipv4AssignmentInPrefixRead]:
+    try:
+        parent_net = ipaddress.ip_network(parent.cidr, strict=False)
+    except ValueError:
+        return []
+    if parent_net.version != 4:
+        return []
+    q = (
+        select(
+            InterfaceIpAssignment.id,
+            InterfaceIpAssignment.address,
+            InterfaceIpAssignment.ipv4_prefix_id,
+            DeviceInterface.id,
+            DeviceInterface.name,
+            DeviceInstance.id,
+            DeviceInstance.name,
+        )
+        .join(DeviceInterface, DeviceInterface.id == InterfaceIpAssignment.interface_id)
+        .join(DeviceInstance, DeviceInstance.id == DeviceInterface.device_id)
+        .join(RackPlacement, RackPlacement.device_id == DeviceInstance.id)
+        .join(Rack, Rack.id == RackPlacement.rack_id)
+        .join(Room, Room.id == Rack.room_id)
+        .where(InterfaceIpAssignment.family == "ipv4", Room.site_id == parent.site_id)
+    )
+    out: list[Ipv4AssignmentInPrefixRead] = []
+    for a_id, addr, pfx_id, if_id, if_name, dev_id, dev_name in db.execute(q).all():
+        try:
+            ip = ipaddress.ip_address(str(addr).strip())
+            if not isinstance(ip, ipaddress.IPv4Address) or ip not in parent_net:
+                continue
+            out.append(
+                Ipv4AssignmentInPrefixRead(
+                    assignment_id=int(a_id),
+                    address=str(ip),
+                    ipv4_prefix_id=pfx_id,
+                    interface_id=int(if_id),
+                    interface_name=str(if_name),
+                    device_id=int(dev_id),
+                    device_name=str(dev_name),
+                )
+            )
+        except ValueError:
+            continue
+    out.sort(key=lambda x: ipaddress.ip_address(x.address))
+    return out
+
+
+def explore_ipv4_prefix(db: Session, prefix_id: int) -> Ipv4PrefixExploreRead:
+    row = get_ipv4_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+    same_site = list(
+        db.execute(select(IpamIpv4Prefix).where(IpamIpv4Prefix.site_id == row.site_id)).scalars().all(),
+    )
+    cache = _ipv4_assignments_with_site(db)
+    children = _child_prefix_orms(row, same_site)
+    child_reads = [ipv4_prefix_read(db, c, _cache=cache) for c in children]
+    assigns = _assignment_rows_in_prefix(db, row)
+    return Ipv4PrefixExploreRead(
+        prefix=ipv4_prefix_read(db, row, _cache=cache),
+        child_prefixes=child_reads,
+        assignments=assigns,
+    )
 
 
 def _used_count_in_network(
@@ -100,6 +206,7 @@ def list_ipv4_prefixes(db: Session, *, site_id: int | None) -> list[Ipv4PrefixRe
     if site_id is not None:
         q = q.where(IpamIpv4Prefix.site_id == site_id)
     rows = list(db.execute(q).scalars().all())
+    rows.sort(key=_prefix_sort_key)
     cache = _ipv4_assignments_with_site(db)
     return [ipv4_prefix_read(db, r, _cache=cache) for r in rows]
 

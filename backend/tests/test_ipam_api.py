@@ -72,6 +72,34 @@ def test_ipam_ipv4_prefix_unknown_site() -> None:
         assert r.status_code == 404
 
 
+def test_ipam_ipv4_prefix_explore_child_prefixes() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "Ex", "slug": "ipam-ex"}).json()["id"]
+        p16 = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "Core", "cidr": "10.0.0.0/16"},
+        )
+        p24 = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "LAN", "cidr": "10.0.1.0/24"},
+        )
+        assert p16.status_code == 200 and p24.status_code == 200
+        id16 = p16.json()["id"]
+        id24 = p24.json()["id"]
+
+        ex = client.get(f"/api/v1/ipam/ipv4-prefixes/{id16}/explore")
+        assert ex.status_code == 200, ex.text
+        data = ex.json()
+        assert data["prefix"]["id"] == id16
+        child_ids = [x["id"] for x in data["child_prefixes"]]
+        assert id24 in child_ids
+
+        ex24 = client.get(f"/api/v1/ipam/ipv4-prefixes/{id24}/explore")
+        assert ex24.status_code == 200
+        assert ex24.json()["child_prefixes"] == []
+
+
 def test_ipam_ipv4_prefix_patch() -> None:
     app = create_app()
     with TestClient(app) as client:

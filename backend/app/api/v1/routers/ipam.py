@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.schemas.ipam import Ipv4PrefixCreate, Ipv4PrefixRead, Ipv4PrefixUpdate
+from app.schemas.ipam import Ipv4PrefixCreate, Ipv4PrefixExploreRead, Ipv4PrefixRead, Ipv4PrefixUpdate
 from app.services import ipam as ipam_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
@@ -21,6 +21,11 @@ def list_ipv4_prefixes(
 @router.post("/ipv4-prefixes", response_model=Ipv4PrefixRead)
 def create_ipv4_prefix(data: Ipv4PrefixCreate, db: Session = Depends(get_db)) -> Ipv4PrefixRead:
     return ipam_svc.create_ipv4_prefix(db, data)
+
+
+@router.get("/ipv4-prefixes/{prefix_id}/explore", response_model=Ipv4PrefixExploreRead)
+def explore_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4PrefixExploreRead:
+    return ipam_svc.explore_ipv4_prefix(db, prefix_id)
 
 
 @router.get("/ipv4-prefixes/{prefix_id}", response_model=Ipv4PrefixRead)
