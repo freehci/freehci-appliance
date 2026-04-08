@@ -1,10 +1,12 @@
 """DCIM REST API (fase 2 – kjerne)."""
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.core.config import get_settings
+from app.core.media_storage import resolve_manufacturer_logo_path
 from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
@@ -164,11 +166,14 @@ def create_manufacturer(data: ManufacturerCreate, db: Session = Depends(get_db))
 
 
 @router.get("/manufacturers/{mid}/logo")
-def get_manufacturer_logo(mid: int, db: Session = Depends(get_db)) -> Response:
+def get_manufacturer_logo(mid: int, db: Session = Depends(get_db)) -> FileResponse:
     row = dcim_svc.get_manufacturer(db, mid)
-    if row is None or row.logo_mime_type is None or row.logo_data is None:
+    if row is None or not row.logo_relpath or not row.logo_mime_type:
         raise HTTPException(status_code=404, detail="logo finnes ikke")
-    return Response(content=bytes(row.logo_data), media_type=row.logo_mime_type)
+    path = resolve_manufacturer_logo_path(get_settings().upload_root_path, row.logo_relpath)
+    if path is None:
+        raise HTTPException(status_code=404, detail="logo finnes ikke")
+    return FileResponse(path, media_type=row.logo_mime_type)
 
 
 @router.post("/manufacturers/{mid}/logo", response_model=ManufacturerRead)

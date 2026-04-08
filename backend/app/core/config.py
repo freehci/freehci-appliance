@@ -1,6 +1,7 @@
 """Applikasjonskonfigurasjon (12-factor via miljøvariabler)."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -41,6 +42,11 @@ class Settings(BaseSettings):
     # Hemmelighet for enkel API-nøkkel senere; brukes ikke i fase 1 utover struktur
     internal_api_secret: SecretStr | None = Field(default=None)
 
+    upload_root: str = Field(
+        default="data/uploads",
+        description="Rotkatalog for opplastede filer (logoer m.m.), relativ til arbeidskatalog eller absolutt sti",
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -52,6 +58,10 @@ class Settings(BaseSettings):
     @property
     def effective_celery_backend(self) -> str:
         return self.celery_result_backend or self.redis_url
+
+    @property
+    def upload_root_path(self) -> Path:
+        return Path(self.upload_root).expanduser()
 
 
 @lru_cache

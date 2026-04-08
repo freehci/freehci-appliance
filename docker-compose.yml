@@ -33,6 +33,7 @@ services:
       DATABASE_URL: postgresql+psycopg://freehci:freehci@postgres:5432/freehci
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      UPLOAD_ROOT: /app/data/uploads
     depends_on:
       postgres:
         condition: service_healthy

@@ -8,6 +8,8 @@ from pathlib import Path
 _tmp_db_dir = Path(tempfile.mkdtemp(prefix="freehci-pytest-"))
 _tmp_db = _tmp_db_dir / "test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp_db.as_posix()}"
+_upload_root = Path(tempfile.mkdtemp(prefix="freehci-uploads-"))
+os.environ["UPLOAD_ROOT"] = str(_upload_root)
 
 from app.core.config import get_settings
 

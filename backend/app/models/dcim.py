@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -62,7 +62,7 @@ class Manufacturer(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     website_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     logo_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    logo_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    logo_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
 
 class DeviceModel(Base):

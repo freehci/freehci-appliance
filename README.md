@@ -64,6 +64,7 @@ Options via environment:
 
 | Variable    | Effect |
 |-------------|--------|
+| `UPLOAD_ROOT` | Katalog for opplastede DCIM-filer (logoer); standard i Compose er `/app/data/uploads`. Bind et volum hit for varig lagring. |
 | `NO_CACHE=1` | `docker compose build --no-cache` (full rebuild) |
 | `SKIP_GIT=1` | Only rebuild and restart; no `git pull` |
 | `GIT_BRANCH=name` | `git fetch` + checkout branch before pull |

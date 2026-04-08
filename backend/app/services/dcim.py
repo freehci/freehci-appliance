@@ -5,8 +5,15 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from pathlib import Path
+
 from fastapi import HTTPException
 
+from app.core.config import get_settings
+from app.core.media_storage import (
+    delete_manufacturer_logo_files,
+    write_manufacturer_logo_file,
+)
 from app.models.dcim import (
     DeviceInstance,
     DeviceModel,
@@ -236,7 +243,7 @@ def manufacturer_read(m: Manufacturer) -> ManufacturerRead:
         name=m.name,
         description=m.description,
         website_url=m.website_url,
-        has_logo=m.logo_mime_type is not None,
+        has_logo=m.logo_relpath is not None,
     )
 
 
@@ -294,7 +301,7 @@ def get_manufacturer_detail(db: Session, mid: int) -> ManufacturerDetailRead | N
         name=m.name,
         description=m.description,
         website_url=m.website_url,
-        has_logo=m.logo_mime_type is not None,
+        has_logo=m.logo_relpath is not None,
         device_models=[DeviceModelBrief.model_validate(x) for x in models],
     )
 
@@ -307,20 +314,26 @@ def set_manufacturer_logo(db: Session, m: Manufacturer, content: bytes, mime: st
             status_code=400,
             detail="logo må være PNG, JPEG, WebP eller SVG",
         )
-    m.logo_data = content
+    root: Path = get_settings().upload_root_path
+    relpath = write_manufacturer_logo_file(root, m.id, content, mime)
+    m.logo_relpath = relpath
     m.logo_mime_type = mime
     db.commit()
     db.refresh(m)
 
 
 def clear_manufacturer_logo(db: Session, m: Manufacturer) -> None:
-    m.logo_data = None
+    root: Path = get_settings().upload_root_path
+    delete_manufacturer_logo_files(root, m.id)
+    m.logo_relpath = None
     m.logo_mime_type = None
     db.commit()
     db.refresh(m)
 
 
 def delete_manufacturer(db: Session, m: Manufacturer) -> None:
+    root: Path = get_settings().upload_root_path
+    delete_manufacturer_logo_files(root, m.id)
     db.delete(m)
     db.commit()
 
