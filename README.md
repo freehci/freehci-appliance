@@ -56,7 +56,7 @@ Optional environment file: copy [`.env.example`](.env.example) and adjust values
 
 ## Automated install on Debian 13
 
-The helper script installs **Docker** (`docker.io` from Debian), **Docker Compose** (tries apt packages first; if none exist—as on many Debian 13 / Trixie images—it installs the [official Compose CLI plugin](https://github.com/docker/compose) from GitHub), **Git**, and **curl**. It then clones the repo (or updates an existing clone) and runs `docker compose up --build`.
+The helper script installs **`docker.io`** and **`docker-cli`** (on Debian the CLI is a separate package and is often only “recommended”, so a minimal install can leave you with a running daemon but no `docker` command), **Docker Compose** (tries apt packages first, including standalone `docker-compose`; if needed it installs the [Compose CLI plugin](https://github.com/docker/compose) from GitHub), **Git**, and **curl**. It then clones the repo (or updates an existing clone) and runs Compose.
 
 ### Prerequisites on minimal images
 

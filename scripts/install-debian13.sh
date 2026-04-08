@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # FreeHCI Appliance – install build dependencies on Debian 13 (trixie) and run Docker Compose.
 #
-# Why not only apt compose packages? On some Debian images only docker.io is published;
-# docker-compose-v2 / docker-compose-plugin may be missing. This script falls back to the
-# official Compose CLI plugin binary from GitHub.
+# Debian notes:
+# - docker.io is often the daemon only; the client is docker-cli (may be "Recommended" and not installed).
+# - Package "docker-compose" may install /usr/bin/docker-compose only (no "docker compose" plugin).
 #
 # Usage:
 #   curl -fsSL …/install-debian13.sh | bash
@@ -13,9 +13,8 @@
 #   REPO_URL           – Git clone URL
 #   INSTALL_DIR        – Clone target (default: ~/freehci-appliance)
 #   GIT_BRANCH         – Branch (default: main)
-#   COMPOSE_DETACH     – 1 = docker compose up -d (default), 0 = foreground
-#   COMPOSE_DL_VERSION – Compose release tag for binary fallback (default: 2.33.1)
-#                        Use a v2.x tag if Docker Engine from Debian is very old.
+#   COMPOSE_DETACH     – 1 = up -d (default), 0 = foreground
+#   COMPOSE_DL_VERSION – Compose plugin tag for GitHub fallback (default: 2.33.1)
 
 set -euo pipefail
 
@@ -53,15 +52,35 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 
-echo "==> Updating apt and installing Docker, Git, curl..."
+echo "==> Updating apt and installing Docker (engine + CLI), Git, curl..."
 $SUDO apt-get update -qq
 $SUDO apt-get install -y --no-install-recommends \
   git \
   ca-certificates \
   curl \
-  docker.io
+  docker.io \
+  docker-cli
 
-compose_works() {
+echo "==> Enabling and starting Docker..."
+$SUDO systemctl enable --now docker 2>/dev/null || true
+
+if ! command -v docker >/dev/null 2>&1; then
+  die "docker CLI still missing. Install manually: apt install docker-cli"
+fi
+
+echo "==> Waiting for Docker daemon..."
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if docker info >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+if ! docker info >/dev/null 2>&1; then
+  die "Cannot talk to Docker daemon. Check: systemctl status docker (install docker.io if needed)"
+fi
+
+docker_compose_plugin_works() {
   docker compose version >/dev/null 2>&1
 }
 
@@ -71,7 +90,11 @@ install_compose_from_apt() {
     if apt-cache show "$pkg" >/dev/null 2>&1; then
       echo "==> Trying Compose via apt package: $pkg"
       $SUDO apt-get install -y --no-install-recommends "$pkg" || true
-      if compose_works; then
+      if docker_compose_plugin_works; then
+        return 0
+      fi
+      if command -v docker-compose >/dev/null 2>&1 && docker-compose version >/dev/null 2>&1; then
+        echo "note: using standalone /usr/bin/docker-compose from $pkg"
         return 0
       fi
     fi
@@ -91,37 +114,42 @@ compose_binary_arch() {
 }
 
 install_compose_from_github() {
-  local arch version url dir target tmp
+  local arch version url dir tmp
   arch="$(compose_binary_arch)"
   version="$COMPOSE_DL_VERSION"
   url="https://github.com/docker/compose/releases/download/v${version}/docker-compose-linux-${arch}"
   dir="/usr/local/lib/docker/cli-plugins"
-  target="${dir}/docker-compose"
 
   echo "==> Installing Docker Compose CLI plugin v${version} from GitHub (${arch})..."
   $SUDO mkdir -p "$dir"
   tmp="$(mktemp)"
   curl -fsSL "$url" -o "$tmp"
-  $SUDO install -m 0755 "$tmp" "$target"
+  $SUDO install -m 0755 "$tmp" "$dir/docker-compose"
   rm -f "$tmp"
 }
 
+run_compose() {
+  if docker_compose_plugin_works; then
+    docker compose "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  else
+    die "no working docker compose command (plugin or docker-compose)"
+  fi
+}
+
 install_compose_from_apt || true
-if ! compose_works; then
-  echo "note: 'docker compose' not available from apt; installing Compose CLI plugin from GitHub."
+if ! docker_compose_plugin_works && ! command -v docker-compose >/dev/null 2>&1; then
+  echo "note: no usable compose from apt; installing Compose CLI plugin from GitHub."
   install_compose_from_github
 fi
 
-echo "==> Enabling and starting Docker..."
-$SUDO systemctl enable --now docker 2>/dev/null || true
-
-if ! docker info >/dev/null 2>&1; then
-  die "Docker is not running. Check: systemctl status docker"
+if ! docker_compose_plugin_works && ! command -v docker-compose >/dev/null 2>&1; then
+  die "docker compose still not available. Set COMPOSE_DL_VERSION or install compose manually."
 fi
 
-if ! compose_works; then
-  die "docker compose still not available after install. Set COMPOSE_DL_VERSION or install compose manually."
-fi
+# Smoke-test
+run_compose version >/dev/null
 
 echo "==> Cloning or updating repository..."
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
@@ -137,9 +165,9 @@ cd "${INSTALL_DIR}"
 
 echo "==> Building and starting services (PostgreSQL, Redis, API, worker, frontend)..."
 if [[ "${COMPOSE_DETACH}" == "1" ]]; then
-  docker compose up --build -d
+  run_compose up --build -d
 else
-  docker compose up --build
+  run_compose up --build
 fi
 
 echo ""
@@ -147,5 +175,5 @@ echo "FreeHCI is starting."
 echo "  Web UI:  http://localhost:8080"
 echo "  API docs: http://localhost:8000/docs"
 echo ""
-echo "To follow logs: cd ${INSTALL_DIR} && docker compose logs -f"
-echo "To stop:        cd ${INSTALL_DIR} && docker compose down"
+echo "To follow logs: cd ${INSTALL_DIR} && $(docker_compose_plugin_works && echo 'docker compose' || echo 'docker-compose') logs -f"
+echo "To stop:        cd ${INSTALL_DIR} && $(docker_compose_plugin_works && echo 'docker compose' || echo 'docker-compose') down"
