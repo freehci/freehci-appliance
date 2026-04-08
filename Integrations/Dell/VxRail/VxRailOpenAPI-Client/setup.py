@@ -21,7 +21,7 @@ VERSION = "1.0.0"
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 
-REQUIRES = ["urllib3 >= 1.15", "six >= 1.10", "certifi", "python-dateutil"]
+REQUIRES = ["urllib3 >= 2.6.0, < 3", "six >= 1.10", "certifi", "python-dateutil"]
 
 setup(
     name=NAME,
@@ -30,6 +30,7 @@ setup(
     author_email="",
     url="",
     keywords=["Swagger", "VxRail REST API"],
+    python_requires=">=3.9",
     install_requires=REQUIRES,
     packages=find_packages(),
     include_package_data=True,
