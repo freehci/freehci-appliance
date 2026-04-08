@@ -130,7 +130,12 @@ class DeviceInstance(Base):
 
 
 class DeviceInterface(Base):
-    """Grensesnitt eller port på en enhet (forberedelse for IPAM/VLAN)."""
+    """Grensesnitt eller port på en enhet (forberedelse for IPAM/VLAN).
+
+    vlan_id er bare et 802.1Q-tall uten global semantikk: samme VLAN-ID kan brukes på
+    flere sites. For plasserte enheter er site gitt via rack → rom → site; da er
+    (site, vlan_id) den naturlige konteksten — ikke VLAN-ID alene.
+    """
 
     __tablename__ = "dcim_device_interfaces"
     __table_args__ = (UniqueConstraint("device_id", "name", name="uq_dcim_device_interface_device_name"),)
@@ -159,7 +164,11 @@ class DeviceInterface(Base):
 
 
 class InterfaceIpAssignment(Base):
-    """IP-adresse på et grensesnitt; kan senere kobles til IPAM-prefix."""
+    """IPv4/IPv6-adresse på et grensesnitt; kan senere kobles til IPAM-prefiks.
+
+    Overlappende subnet mellom sites (samme privat CIDR flere steder) håndteres i IPAM
+    ved at prefiks alltid er knyttet til site — ikke global unikhet på CIDR.
+    """
 
     __tablename__ = "dcim_interface_ip_assignments"
     __table_args__ = (UniqueConstraint("interface_id", "address", name="uq_dcim_iface_ip_addr"),)
