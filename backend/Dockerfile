@@ -13,9 +13,14 @@ COPY alembic.ini .
 COPY alembic ./alembic
 COPY app ./app
 
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data \
+    && groupadd --gid 10001 freehci \
+    && useradd --uid 10001 --gid freehci --system --no-create-home freehci \
+    && chown -R freehci:freehci /app
 
 ENV PYTHONPATH=/app
+
+USER freehci
 
 EXPOSE 8000
 

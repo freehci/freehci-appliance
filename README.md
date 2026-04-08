@@ -67,23 +67,14 @@ sudo apt-get update
 sudo apt-get install -y curl ca-certificates
 ```
 
-**`wget` alternative:**
+**`wget` alternative** (if `curl` is missing): `sudo apt-get install -y wget ca-certificates`, then download the script and run `sudo bash install-debian13.sh`, or use the Git clone path below.
+
+### One-liner install
+
+Requires `curl` (see prerequisites above). Run as root **or** as a user with `sudo`; the script elevates for `apt` / Docker when needed.
 
 ```bash
-sudo apt-get install -y wget ca-certificates
-wget -qO install-freehci.sh https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh
-chmod +x install-freehci.sh
-sudo ./install-freehci.sh
-```
-
-### Run the installer
-
-As root or with `sudo`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh -o install-freehci.sh
-chmod +x install-freehci.sh
-sudo ./install-freehci.sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh)"
 ```
 
 **No `curl` yet?** Install Git, clone the repository, then run the script from the tree (the script will install the rest):
@@ -145,6 +136,21 @@ npm run build
 ```
 
 Output is written to `frontend/dist/`.
+
+---
+
+## Docker Compose: vanlige loggmeldinger
+
+Etter `docker compose up` er dette normalt eller forventet i utvikling:
+
+| Kilde | Melding | Forklaring |
+|--------|---------|------------|
+| **API** | Alembic `Running upgrade -> 20260408_0001` | Første migrasjon kjørt; OK. |
+| **Frontend (nginx)** | `default.conf differs from the packaged version` | Vi bytter ut standard nginx-konfig; **ingen feil**. |
+| **PostgreSQL (Alpine)** | `locale: not found` / `no usable system locales` | Vanlig i slanke images; databasen bruker likevel UTF-8. Kan ignoreres for dev. |
+| **PostgreSQL** | `trust` authentication for local | Typisk ved første `initdb` i container; **ikke** bruk slik i produksjon uten ekte `pg_hba`-sikkerhet. |
+| **Redis** | `Memory overcommit must be enabled` | **Verten** (Linux): kjør én gang `sysctl vm.overcommit_memory=1` eller legg i `/etc/sysctl.d/` og last på nytt. |
+| **Celery worker** | `running the worker with superuser privileges` | Skal **ikke** vises etter nyeste image: prosessene kjører som ikke-root (`freehci`, uid 10001). Bygg på nytt med `docker compose build --no-cache api worker`. |
 
 ---
 

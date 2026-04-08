@@ -6,7 +6,7 @@
 # - Package "docker-compose" may install /usr/bin/docker-compose only (no "docker compose" plugin).
 #
 # Usage:
-#   curl -fsSL …/install-debian13.sh | bash
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh)"
 #   sudo bash scripts/install-debian13.sh
 #
 # Environment (optional):
