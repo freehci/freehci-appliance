@@ -117,11 +117,19 @@ def test_dcim_site_room_rack_device_flow() -> None:
                 "name": "eth0",
                 "speed_mbps": 1000,
                 "mac_address": "aa:bb:cc:dd:ee:ff",
+                "vlan_id": 100,
             },
         )
         assert if1.status_code == 200, if1.text
         if1_id = if1.json()["id"]
         assert if1.json()["enabled"] is True
+        assert if1.json()["vlan_id"] == 100
+
+        bad_vlan = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={"name": "eth99", "vlan_id": 5000},
+        )
+        assert bad_vlan.status_code == 422
 
         dup = client.post(
             f"/api/v1/dcim/devices/{dev_id}/interfaces",
@@ -134,12 +142,20 @@ def test_dcim_site_room_rack_device_flow() -> None:
 
         up_if = client.patch(
             f"/api/v1/dcim/devices/{dev_id}/interfaces/{if1_id}",
-            json={"description": "uplink", "enabled": False},
+            json={"description": "uplink", "enabled": False, "vlan_id": None},
         )
         assert up_if.status_code == 200
         assert up_if.json()["enabled"] is False
         assert up_if.json()["description"] == "uplink"
+        assert up_if.json()["vlan_id"] is None
         assert up_if.json()["ip_assignments"] == []
+
+        up_vlan = client.patch(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{if1_id}",
+            json={"vlan_id": 200},
+        )
+        assert up_vlan.status_code == 200
+        assert up_vlan.json()["vlan_id"] == 200
 
         ip_a = client.post(
             f"/api/v1/dcim/devices/{dev_id}/interfaces/{if1_id}/ip-assignments",

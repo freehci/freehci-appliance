@@ -160,6 +160,7 @@ export function createDeviceInterface(
     mac_address?: string | null;
     speed_mbps?: number | null;
     mtu?: number | null;
+    vlan_id?: number | null;
     enabled?: boolean;
     sort_order?: number;
   },
@@ -176,6 +177,7 @@ export function updateDeviceInterface(
     mac_address?: string | null;
     speed_mbps?: number | null;
     mtu?: number | null;
+    vlan_id?: number | null;
     enabled?: boolean;
     sort_order?: number;
   },

@@ -223,6 +223,7 @@ class DeviceInterfaceCreate(BaseModel):
     mac_address: str | None = Field(None, max_length=32)
     speed_mbps: int | None = Field(None, ge=0, le=1_000_000_000)
     mtu: int | None = Field(None, ge=68, le=65535)
+    vlan_id: int | None = Field(None, ge=1, le=4094)
     enabled: bool = True
     sort_order: int = 0
 
@@ -233,6 +234,7 @@ class DeviceInterfaceUpdate(BaseModel):
     mac_address: str | None = Field(None, max_length=32)
     speed_mbps: int | None = Field(None, ge=0, le=1_000_000_000)
     mtu: int | None = Field(None, ge=68, le=65535)
+    vlan_id: int | None = Field(None, ge=1, le=4094)
     enabled: bool | None = None
     sort_order: int | None = None
 
@@ -257,6 +259,7 @@ class DeviceInterfaceRead(BaseModel):
     mac_address: str | None
     speed_mbps: int | None
     mtu: int | None
+    vlan_id: int | None
     enabled: bool
     sort_order: int
     ip_assignments: list[IpAssignmentRead] = Field(default_factory=list)

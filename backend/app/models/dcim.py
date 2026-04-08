@@ -145,6 +145,8 @@ class DeviceInterface(Base):
     mac_address: Mapped[str | None] = mapped_column(String(32), nullable=True)
     speed_mbps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mtu: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 802.1Q brukbar rekkevidde 1–4094; NULL = ikke satt (ingen kobling til legacy VLAN-tabell).
+    vlan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

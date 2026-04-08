@@ -20,6 +20,8 @@ export function DcimDeviceDetailPage() {
   const [ifMtu, setIfMtu] = useState("");
   const [ifDesc, setIfDesc] = useState("");
   const [ifSort, setIfSort] = useState("0");
+  const [ifVlan, setIfVlan] = useState("");
+  const [vlanDraft, setVlanDraft] = useState<Record<number, string>>({});
   const [ipIface, setIpIface] = useState("");
   const [ipAddr, setIpAddr] = useState("");
   const [ipPrimary, setIpPrimary] = useState(false);
@@ -82,11 +84,21 @@ export function DcimDeviceDetailPage() {
         if (!Number.isFinite(n) || n < 68 || n > 65535) throw new Error(t("dcim.equip.if.badMtu"));
         mtu = n;
       }
+      const vlanS = ifVlan.trim();
+      let vlan_id: number | null = null;
+      if (vlanS !== "") {
+        const n = Number(vlanS);
+        if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 4094) {
+          throw new Error(t("dcim.equip.if.badVlan"));
+        }
+        vlan_id = n;
+      }
       return api.createDeviceInterface(id, {
         name: ifName.trim(),
         mac_address: ifMac.trim() === "" ? null : ifMac.trim(),
         speed_mbps,
         mtu,
+        vlan_id,
         description: ifDesc.trim() === "" ? null : ifDesc.trim(),
         sort_order: Number(ifSort) || 0,
       });
@@ -98,7 +110,23 @@ export function DcimDeviceDetailPage() {
       setIfMtu("");
       setIfDesc("");
       setIfSort("0");
+      setIfVlan("");
       setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchVlan = useMutation({
+    mutationFn: ({ iid, vlan_id }: { iid: number; vlan_id: number | null }) =>
+      api.updateDeviceInterface(id, iid, { vlan_id }),
+    onSuccess: (_data, vars) => {
+      setErr(null);
+      setVlanDraft((prev) => {
+        const next = { ...prev };
+        delete next[vars.iid];
+        return next;
+      });
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -253,6 +281,18 @@ export function DcimDeviceDetailPage() {
             <input type="number" min={68} max={65535} value={ifMtu} onChange={(e) => setIfMtu(e.target.value)} />
           </label>
           <label>
+            {t("dcim.equip.if.vlan")}
+            <input
+              type="number"
+              min={1}
+              max={4094}
+              value={ifVlan}
+              onChange={(e) => setIfVlan(e.target.value)}
+              placeholder="100"
+              title={t("dcim.equip.if.vlanHint")}
+            />
+          </label>
+          <label>
             {t("dcim.equip.mfr.description")}
             <input value={ifDesc} onChange={(e) => setIfDesc(e.target.value)} />
           </label>
@@ -325,6 +365,7 @@ export function DcimDeviceDetailPage() {
                 <th>{t("dcim.equip.if.mac")}</th>
                 <th>{t("dcim.equip.if.speed")}</th>
                 <th>{t("dcim.equip.if.mtu")}</th>
+                <th>{t("dcim.equip.if.vlan")}</th>
                 <th>{t("dcim.equip.if.enabled")}</th>
                 <th>{t("dcim.equip.mfr.description")}</th>
                 <th>{t("dcim.equip.ip.column")}</th>
@@ -339,6 +380,42 @@ export function DcimDeviceDetailPage() {
                   <td>{x.mac_address ?? "—"}</td>
                   <td>{x.speed_mbps ?? "—"}</td>
                   <td>{x.mtu ?? "—"}</td>
+                  <td>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                      <input
+                        type="number"
+                        min={1}
+                        max={4094}
+                        style={{ width: "4.5rem" }}
+                        value={vlanDraft[x.id] ?? (x.vlan_id != null ? String(x.vlan_id) : "")}
+                        onChange={(e) => setVlanDraft((prev) => ({ ...prev, [x.id]: e.target.value }))}
+                        title={t("dcim.equip.if.vlanHint")}
+                      />
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        disabled={patchVlan.isPending}
+                        onClick={() => {
+                          setErr(null);
+                          const raw = (
+                            vlanDraft[x.id] ?? (x.vlan_id != null ? String(x.vlan_id) : "")
+                          ).trim();
+                          let vlan_id: number | null = null;
+                          if (raw !== "") {
+                            const n = Number(raw);
+                            if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 4094) {
+                              setErr(t("dcim.equip.if.badVlan"));
+                              return;
+                            }
+                            vlan_id = n;
+                          }
+                          patchVlan.mutate({ iid: x.id, vlan_id });
+                        }}
+                      >
+                        {patchVlan.isPending ? "…" : t("dcim.common.save")}
+                      </button>
+                    </div>
+                  </td>
                   <td>
                     <button
                       type="button"

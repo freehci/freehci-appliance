@@ -655,6 +655,7 @@ def device_interface_read(row: DeviceInterface) -> DeviceInterfaceRead:
         mac_address=row.mac_address,
         speed_mbps=row.speed_mbps,
         mtu=row.mtu,
+        vlan_id=row.vlan_id,
         enabled=row.enabled,
         sort_order=row.sort_order,
         ip_assignments=[IpAssignmentRead.model_validate(x) for x in ips],
@@ -691,6 +692,7 @@ def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCr
         mac_address=mac,
         speed_mbps=data.speed_mbps,
         mtu=data.mtu,
+        vlan_id=data.vlan_id,
         enabled=data.enabled,
         sort_order=data.sort_order,
     )
@@ -724,6 +726,8 @@ def update_device_interface(
         row.speed_mbps = patch["speed_mbps"]
     if "mtu" in patch:
         row.mtu = patch["mtu"]
+    if "vlan_id" in patch:
+        row.vlan_id = patch["vlan_id"]
     if "enabled" in patch and patch["enabled"] is not None:
         row.enabled = bool(patch["enabled"])
     if "sort_order" in patch and patch["sort_order"] is not None:

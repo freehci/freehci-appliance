@@ -91,6 +91,8 @@ export type DeviceInterface = {
   mac_address: string | null;
   speed_mbps: number | null;
   mtu: number | null;
+  /** 802.1Q (1–4094), valgfritt */
+  vlan_id: number | null;
   enabled: boolean;
   sort_order: number;
   ip_assignments: IpAssignment[];
