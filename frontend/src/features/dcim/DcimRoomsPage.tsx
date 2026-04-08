@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
+import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
 
 export function DcimRoomsPage() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [siteFilter, setSiteFilter] = useState<string>("");
   const [siteId, setSiteId] = useState<string>("");
@@ -24,8 +26,7 @@ export function DcimRoomsPage() {
   });
 
   const m = useMutation({
-    mutationFn: () =>
-      api.createRoom({ site_id: Number(siteId), name: name.trim() }),
+    mutationFn: () => api.createRoom({ site_id: Number(siteId), name: name.trim() }),
     onSuccess: () => {
       setErr(null);
       setName("");
@@ -35,17 +36,17 @@ export function DcimRoomsPage() {
   });
 
   return (
-    <Panel title="Rom">
+    <Panel title={t("dcim.rooms.title")}>
       {err ? <p className={styles.err}>{err}</p> : null}
       <div className={styles.formRow}>
         <label>
-          Filtrer på site-ID
+          {t("dcim.rooms.filterSite")}
           <input
             type="number"
             min={1}
             value={siteFilter}
             onChange={(e) => setSiteFilter(e.target.value)}
-            placeholder="alle"
+            placeholder={t("dcim.common.all")}
           />
         </label>
       </div>
@@ -55,16 +56,16 @@ export function DcimRoomsPage() {
           e.preventDefault();
           setErr(null);
           if (!siteId) {
-            setErr("Velg site");
+            setErr(t("dcim.rooms.chooseSite"));
             return;
           }
           m.mutate();
         }}
       >
         <label>
-          Site
+          {t("dcim.common.site")}
           <select value={siteId} onChange={(e) => setSiteId(e.target.value)} required>
-            <option value="">— velg —</option>
+            <option value="">{t("dcim.common.choose")}</option>
             {(sitesQ.data ?? []).map((s) => (
               <option key={s.id} value={String(s.id)}>
                 {s.name} ({s.slug})
@@ -73,25 +74,27 @@ export function DcimRoomsPage() {
           </select>
         </label>
         <label>
-          Romnavn
+          {t("dcim.rooms.roomName")}
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <button type="submit" className={styles.btn} disabled={m.isPending || sitesQ.isLoading}>
-          {m.isPending ? "Oppretter…" : "Opprett rom"}
+          {m.isPending ? t("dcim.common.creating") : t("dcim.rooms.create")}
         </button>
       </form>
       {roomsQ.isError ? (
-        <p className={styles.err}>Kunne ikke hente rom: {(roomsQ.error as Error).message}</p>
+        <p className={styles.err}>
+          {t("dcim.rooms.loadError")} {(roomsQ.error as Error).message}
+        </p>
       ) : null}
-      {roomsQ.isLoading ? <p className={styles.muted}>Laster…</p> : null}
-      {roomsQ.data && roomsQ.data.length === 0 ? <p className={styles.muted}>Ingen rom.</p> : null}
+      {roomsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+      {roomsQ.data && roomsQ.data.length === 0 ? <p className={styles.muted}>{t("dcim.rooms.empty")}</p> : null}
       {roomsQ.data && roomsQ.data.length > 0 ? (
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Site ID</th>
-              <th>Navn</th>
+              <th>{t("dcim.common.id")}</th>
+              <th>{t("dcim.rooms.tableSite")}</th>
+              <th>{t("dcim.common.name")}</th>
             </tr>
           </thead>
           <tbody>

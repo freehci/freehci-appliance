@@ -1,0 +1,206 @@
+.planner {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .planner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.palette {
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+}
+
+.paletteTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.paletteHint {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.paletteList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+
+.paletteItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-accent);
+  background: var(--color-bg-surface);
+  cursor: grab;
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  touch-action: none;
+}
+
+.paletteItem:active {
+  cursor: grabbing;
+}
+
+.uBadge {
+  flex-shrink: 0;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+
+.rackColumn {
+  min-width: 0;
+}
+
+.rackHeader {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.rackFrame {
+  position: relative;
+  border: 2px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgba(89, 98, 128, 0.12), rgba(26, 35, 58, 0.35));
+  overflow: hidden;
+  max-height: min(72vh, 640px);
+  display: flex;
+  flex-direction: column;
+}
+
+.rackSlots {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column-reverse;
+  min-height: 280px;
+}
+
+.slot {
+  flex: 1;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-2);
+  border-top: 1px solid rgba(188, 208, 247, 0.12);
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  transition: background-color 0.12s ease;
+}
+
+.slot.droppable {
+  cursor: copy;
+}
+
+.slot.droppable:hover {
+  background: rgba(188, 208, 247, 0.08);
+}
+
+.slot.dragOver {
+  background: rgba(188, 208, 247, 0.18);
+}
+
+.slot.blocked {
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.overlays {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.deviceBlock {
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-accent);
+  background: rgba(89, 98, 128, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  pointer-events: auto;
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+.deviceName {
+  font-weight: 600;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.deviceMeta {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+}
+
+.removeBtn {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(127, 29, 29, 0.85);
+  color: #fecaca;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.removeBtn:hover {
+  background: #991b1b;
+}
+
+.selectRow {
+  margin-bottom: var(--space-3);
+}
+
+.selectRow select {
+  width: 100%;
+  max-width: 28rem;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}

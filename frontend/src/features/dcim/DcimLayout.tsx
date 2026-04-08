@@ -1,20 +1,23 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useI18n } from "@/i18n/I18nProvider";
 import layoutStyles from "./DcimLayout.module.css";
 
-type DcimSubNav = { to: string; label: string; end?: boolean };
-
-const links: DcimSubNav[] = [
-  { to: "/dcim", label: "Oversikt", end: true },
-  { to: "/dcim/sites", label: "Sites" },
-  { to: "/dcim/rooms", label: "Rom" },
-  { to: "/dcim/racks", label: "Racks" },
-  { to: "/dcim/equipment", label: "Utstyr" },
-];
+type SubNav = { to: string; label: string; end?: boolean };
 
 export function DcimLayout() {
+  const { t } = useI18n();
+
+  const links: SubNav[] = [
+    { to: "/dcim", label: t("nav.dcimOverview"), end: true },
+    { to: "/dcim/sites", label: t("nav.dcimSites") },
+    { to: "/dcim/rooms", label: t("nav.dcimRooms") },
+    { to: "/dcim/racks", label: t("nav.dcimRacks") },
+    { to: "/dcim/equipment", label: t("nav.dcimEquipment") },
+  ];
+
   return (
     <div>
-      <nav className={layoutStyles.subnav} aria-label="DCIM">
+      <nav className={layoutStyles.subnav} aria-label={t("nav.dcimSection")}>
         {links.map(({ to, label, end }) => (
           <NavLink
             key={to}

@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
+import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
+import { RackPlanner } from "./RackPlanner";
 
 export function DcimRacksPage() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [roomFilter, setRoomFilter] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
@@ -39,89 +42,97 @@ export function DcimRacksPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const racks = racksQ.data ?? [];
+
   return (
-    <Panel title="Racks">
-      {err ? <p className={styles.err}>{err}</p> : null}
-      <div className={styles.formRow}>
-        <label>
-          Filtrer på rom-ID
-          <input
-            type="number"
-            min={1}
-            value={roomFilter}
-            onChange={(e) => setRoomFilter(e.target.value)}
-            placeholder="alle"
-          />
-        </label>
-      </div>
-      <form
-        className={styles.formRow}
-        onSubmit={(e) => {
-          e.preventDefault();
-          setErr(null);
-          if (!roomId) {
-            setErr("Velg rom");
-            return;
-          }
-          m.mutate();
-        }}
-      >
-        <label>
-          Rom
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)} required>
-            <option value="">— velg —</option>
-            {(roomsQ.data ?? []).map((r) => (
-              <option key={r.id} value={String(r.id)}>
-                #{r.id} — {r.name} (site {r.site_id})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Rack-navn
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label>
-          U-høyde
-          <input
-            type="number"
-            min={1}
-            max={64}
-            value={uHeight}
-            onChange={(e) => setUHeight(e.target.value)}
-          />
-        </label>
-        <button type="submit" className={styles.btn} disabled={m.isPending || roomsQ.isLoading}>
-          {m.isPending ? "Oppretter…" : "Opprett rack"}
-        </button>
-      </form>
-      {racksQ.isError ? (
-        <p className={styles.err}>Kunne ikke hente racks: {(racksQ.error as Error).message}</p>
-      ) : null}
-      {racksQ.isLoading ? <p className={styles.muted}>Laster…</p> : null}
-      {racksQ.data && racksQ.data.length === 0 ? <p className={styles.muted}>Ingen racks.</p> : null}
-      {racksQ.data && racksQ.data.length > 0 ? (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Rom ID</th>
-              <th>Navn</th>
-              <th>U</th>
-            </tr>
-          </thead>
-          <tbody>
-            {racksQ.data.map((k) => (
-              <tr key={k.id}>
-                <td>{k.id}</td>
-                <td>{k.room_id}</td>
-                <td>{k.name}</td>
-                <td>{k.u_height}</td>
+    <>
+      <Panel title={t("dcim.racks.title")}>
+        {err ? <p className={styles.err}>{err}</p> : null}
+        <div className={styles.formRow}>
+          <label>
+            {t("dcim.racks.filterRoom")}
+            <input
+              type="number"
+              min={1}
+              value={roomFilter}
+              onChange={(e) => setRoomFilter(e.target.value)}
+              placeholder={t("dcim.common.all")}
+            />
+          </label>
+        </div>
+        <form
+          className={styles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            if (!roomId) {
+              setErr(t("dcim.racks.chooseRoom"));
+              return;
+            }
+            m.mutate();
+          }}
+        >
+          <label>
+            {t("dcim.common.room")}
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} required>
+              <option value="">{t("dcim.common.choose")}</option>
+              {(roomsQ.data ?? []).map((r) => (
+                <option key={r.id} value={String(r.id)}>
+                  #{r.id} — {r.name} (site {r.site_id})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("dcim.racks.rackName")}
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <label>
+            {t("dcim.racks.uHeight")}
+            <input
+              type="number"
+              min={1}
+              max={64}
+              value={uHeight}
+              onChange={(e) => setUHeight(e.target.value)}
+            />
+          </label>
+          <button type="submit" className={styles.btn} disabled={m.isPending || roomsQ.isLoading}>
+            {m.isPending ? t("dcim.common.creating") : t("dcim.racks.create")}
+          </button>
+        </form>
+        {racksQ.isError ? (
+          <p className={styles.err}>
+            {t("dcim.racks.loadError")} {(racksQ.error as Error).message}
+          </p>
+        ) : null}
+        {racksQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+        {racksQ.data && racksQ.data.length === 0 ? <p className={styles.muted}>{t("dcim.racks.empty")}</p> : null}
+        {racksQ.data && racksQ.data.length > 0 ? (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>{t("dcim.common.id")}</th>
+                <th>{t("dcim.racks.tableRoom")}</th>
+                <th>{t("dcim.common.name")}</th>
+                <th>{t("dcim.racks.uHeight")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-    </Panel>
+            </thead>
+            <tbody>
+              {racksQ.data.map((k) => (
+                <tr key={k.id}>
+                  <td>{k.id}</td>
+                  <td>{k.room_id}</td>
+                  <td>{k.name}</td>
+                  <td>{k.u_height}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </Panel>
+
+      <RackPlanner racks={racks} />
+    </>
   );
 }

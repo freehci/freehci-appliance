@@ -1,17 +1,22 @@
 import { NavLink } from "react-router-dom";
+import { useI18n } from "@/i18n/I18nProvider";
 import styles from "./SidebarNav.module.css";
 
-const mainNav = [
-  { to: "/", label: "Dashboard", end: true },
-  { to: "/ipam", label: "IPAM" },
-  { to: "/jobs", label: "Jobs" },
-  { to: "/integrations", label: "Integrasjoner" },
-  { to: "/service-catalog", label: "Servicekatalog" },
-];
+type MainNavItem = { to: string; label: string; end?: boolean };
 
 export function SidebarNav() {
+  const { t } = useI18n();
+
+  const mainNav: MainNavItem[] = [
+    { to: "/", label: t("nav.dashboard"), end: true },
+    { to: "/ipam", label: t("nav.ipam") },
+    { to: "/jobs", label: t("nav.jobs") },
+    { to: "/integrations", label: t("nav.integrations") },
+    { to: "/service-catalog", label: t("nav.serviceCatalog") },
+  ];
+
   return (
-    <nav className={styles.wrap} aria-label="Hovedmeny">
+    <nav className={styles.wrap} aria-label={t("nav.mainAria")}>
       <ul className={styles.list}>
         {mainNav.map(({ to, label, end }) => (
           <li key={to} className={styles.item}>
@@ -27,7 +32,7 @@ export function SidebarNav() {
           </li>
         ))}
         <li className={styles.item}>
-          <div className={styles.section}>DCIM</div>
+          <div className={styles.section}>{t("nav.dcimSection")}</div>
           <ul className={styles.sub}>
             <li>
               <NavLink
@@ -37,7 +42,7 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                Oversikt
+                {t("nav.dcimOverview")}
               </NavLink>
             </li>
             <li>
@@ -47,7 +52,7 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                Sites
+                {t("nav.dcimSites")}
               </NavLink>
             </li>
             <li>
@@ -57,7 +62,7 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                Rom
+                {t("nav.dcimRooms")}
               </NavLink>
             </li>
             <li>
@@ -67,7 +72,7 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                Racks
+                {t("nav.dcimRacks")}
               </NavLink>
             </li>
             <li>
@@ -77,13 +82,13 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                Utstyr
+                {t("nav.dcimEquipment")}
               </NavLink>
             </li>
           </ul>
         </li>
         <li className={styles.item}>
-          <div className={styles.section}>Plugins</div>
+          <div className={styles.section}>{t("nav.pluginsSection")}</div>
           <ul className={styles.sub}>
             <li>
               <NavLink
@@ -92,7 +97,7 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                Eksempel-plugin
+                {t("nav.pluginsExample")}
               </NavLink>
             </li>
           </ul>

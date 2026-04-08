@@ -51,6 +51,41 @@
   gap: var(--space-2);
 }
 
+.lang {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.langBtn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.langBtn:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-text);
+}
+
+.langBtnActive {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.langBtnActive:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-text-on-accent);
+}
+
 .iconBtn {
   display: inline-flex;
   align-items: center;

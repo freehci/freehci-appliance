@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Panel } from "@/components/ui/Panel";
+import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
 
 export function DcimSitesPage() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -24,7 +26,7 @@ export function DcimSitesPage() {
   });
 
   return (
-    <Panel title="Sites">
+    <Panel title={t("dcim.sites.title")}>
       {err ? <p className={styles.err}>{err}</p> : null}
       <form
         className={styles.formRow}
@@ -35,36 +37,38 @@ export function DcimSitesPage() {
         }}
       >
         <label>
-          Navn
+          {t("dcim.common.name")}
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label>
-          Slug
+          {t("dcim.common.slug")}
           <input
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
-            placeholder="f.eks. oslo-dc"
+            placeholder={t("dcim.sites.slugPh")}
             required
             pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-            title="lowercase, tall og bindestrek"
+            title={t("dcim.sites.slugPatternTitle")}
           />
         </label>
         <button type="submit" className={styles.btn} disabled={m.isPending}>
-          {m.isPending ? "Oppretter…" : "Opprett"}
+          {m.isPending ? t("dcim.common.creating") : t("dcim.common.create")}
         </button>
       </form>
       {q.isError ? (
-        <p className={styles.err}>Kunne ikke hente sites: {(q.error as Error).message}</p>
+        <p className={styles.err}>
+          {t("dcim.sites.loadError")} {(q.error as Error).message}
+        </p>
       ) : null}
-      {q.isLoading ? <p className={styles.muted}>Laster…</p> : null}
-      {q.data && q.data.length === 0 ? <p className={styles.muted}>Ingen sites ennå.</p> : null}
+      {q.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+      {q.data && q.data.length === 0 ? <p className={styles.muted}>{t("dcim.sites.empty")}</p> : null}
       {q.data && q.data.length > 0 ? (
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Navn</th>
-              <th>Slug</th>
+              <th>{t("dcim.common.id")}</th>
+              <th>{t("dcim.common.name")}</th>
+              <th>{t("dcim.common.slug")}</th>
             </tr>
           </thead>
           <tbody>

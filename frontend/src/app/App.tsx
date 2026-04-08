@@ -28,26 +28,23 @@ export function App() {
           path="/ipam"
           element={
             <PlaceholderPage
-              title="IPAM"
-              description="VRF, VLAN, prefiks og tildelinger – redesignes i fase 3."
+              titleKey="placeholders.ipam.title"
+              descriptionKey="placeholders.ipam.desc"
             />
           }
         />
         <Route
           path="/jobs"
           element={
-            <PlaceholderPage
-              title="Jobs"
-              description="Celery-arbeidere, discovery og synk – fase 4."
-            />
+            <PlaceholderPage titleKey="placeholders.jobs.title" descriptionKey="placeholders.jobs.desc" />
           }
         />
         <Route
           path="/integrations"
           element={
             <PlaceholderPage
-              title="Integrasjoner"
-              description="Provider-rammeverk og katalog – fase 5."
+              titleKey="placeholders.integrations.title"
+              descriptionKey="placeholders.integrations.desc"
             />
           }
         />
@@ -55,8 +52,8 @@ export function App() {
           path="/service-catalog"
           element={
             <PlaceholderPage
-              title="Servicekatalog"
-              description="Maler for deployment og tjenester – fase 6."
+              titleKey="placeholders.serviceCatalog.title"
+              descriptionKey="placeholders.serviceCatalog.desc"
             />
           }
         />

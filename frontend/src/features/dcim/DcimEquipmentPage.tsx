@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Panel } from "@/components/ui/Panel";
+import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
 
 export function DcimEquipmentPage() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
 
@@ -109,15 +111,14 @@ export function DcimEquipmentPage() {
 
   return (
     <>
-      <Panel title="Utstyr">
+      <Panel title={t("dcim.equip.introTitle")}>
         {err ? <p className={styles.err}>{err}</p> : null}
         <p className={styles.muted} style={{ marginTop: 0 }}>
-          Produsenter, modeller, enheter og rack-plassering. Dobbelt plassering av samme enhet i samme rack avvises av
-          API-et.
+          {t("dcim.equip.introBody")}
         </p>
       </Panel>
 
-      <Panel title="Produsenter">
+      <Panel title={t("dcim.equip.mfr.title")}>
         <form
           className={styles.formRow}
           onSubmit={(e) => {
@@ -127,20 +128,20 @@ export function DcimEquipmentPage() {
           }}
         >
           <label>
-            Navn
+            {t("dcim.common.name")}
             <input value={mfrName} onChange={(e) => setMfrName(e.target.value)} required />
           </label>
           <button type="submit" className={styles.btn} disabled={createMfr.isPending}>
-            {createMfr.isPending ? "…" : "Legg til"}
+            {createMfr.isPending ? "…" : t("dcim.common.add")}
           </button>
         </form>
-        {manufacturersQ.isLoading ? <p className={styles.muted}>Laster…</p> : null}
+        {manufacturersQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
         {manufacturersQ.data && manufacturersQ.data.length > 0 ? (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Navn</th>
+                <th>{t("dcim.common.id")}</th>
+                <th>{t("dcim.common.name")}</th>
                 <th />
               </tr>
             </thead>
@@ -156,7 +157,7 @@ export function DcimEquipmentPage() {
                       onClick={() => delMfr.mutate(x.id)}
                       disabled={delMfr.isPending}
                     >
-                      Slett
+                      {t("dcim.common.delete")}
                     </button>
                   </td>
                 </tr>
@@ -164,11 +165,11 @@ export function DcimEquipmentPage() {
             </tbody>
           </table>
         ) : (
-          !manufacturersQ.isLoading && <p className={styles.muted}>Ingen produsenter.</p>
+          !manufacturersQ.isLoading && <p className={styles.muted}>{t("dcim.equip.mfr.empty")}</p>
         )}
       </Panel>
 
-      <Panel title="Enhetsmodeller">
+      <Panel title={t("dcim.equip.dm.title")}>
         <form
           className={styles.formRow}
           onSubmit={(e) => {
@@ -178,9 +179,9 @@ export function DcimEquipmentPage() {
           }}
         >
           <label>
-            Produsent
+            {t("dcim.equip.dm.mfr")}
             <select value={dmMfr} onChange={(e) => setDmMfr(e.target.value)}>
-              <option value="">— ingen —</option>
+              <option value="">{t("dcim.common.none")}</option>
               {(manufacturersQ.data ?? []).map((m) => (
                 <option key={m.id} value={String(m.id)}>
                   {m.name}
@@ -189,26 +190,26 @@ export function DcimEquipmentPage() {
             </select>
           </label>
           <label>
-            Modellnavn
+            {t("dcim.equip.dm.modelName")}
             <input value={dmName} onChange={(e) => setDmName(e.target.value)} required />
           </label>
           <label>
-            U-høyde
+            {t("dcim.equip.dm.u")}
             <input type="number" min={1} max={64} value={dmU} onChange={(e) => setDmU(e.target.value)} />
           </label>
           <button type="submit" className={styles.btn} disabled={createDm.isPending}>
-            {createDm.isPending ? "…" : "Opprett modell"}
+            {createDm.isPending ? "…" : t("dcim.equip.dm.create")}
           </button>
         </form>
-        {modelsQ.isLoading ? <p className={styles.muted}>Laster…</p> : null}
+        {modelsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
         {modelsQ.data && modelsQ.data.length > 0 ? (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Prod.</th>
-                <th>Navn</th>
-                <th>U</th>
+                <th>{t("dcim.common.id")}</th>
+                <th>{t("dcim.equip.dm.mfrCol")}</th>
+                <th>{t("dcim.common.name")}</th>
+                <th>{t("dcim.equip.dm.u")}</th>
               </tr>
             </thead>
             <tbody>
@@ -223,11 +224,11 @@ export function DcimEquipmentPage() {
             </tbody>
           </table>
         ) : (
-          !modelsQ.isLoading && <p className={styles.muted}>Ingen modeller.</p>
+          !modelsQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dm.empty")}</p>
         )}
       </Panel>
 
-      <Panel title="Enheter">
+      <Panel title={t("dcim.equip.dev.title")}>
         <form
           className={styles.formRow}
           onSubmit={(e) => {
@@ -237,9 +238,9 @@ export function DcimEquipmentPage() {
           }}
         >
           <label>
-            Modell
+            {t("dcim.equip.dev.model")}
             <select value={devModel} onChange={(e) => setDevModel(e.target.value)}>
-              <option value="">— ingen —</option>
+              <option value="">{t("dcim.common.none")}</option>
               {(modelsQ.data ?? []).map((x) => (
                 <option key={x.id} value={String(x.id)}>
                   {x.name}
@@ -248,21 +249,21 @@ export function DcimEquipmentPage() {
             </select>
           </label>
           <label>
-            Navn / hostname
+            {t("dcim.equip.dev.hostname")}
             <input value={devName} onChange={(e) => setDevName(e.target.value)} required />
           </label>
           <button type="submit" className={styles.btn} disabled={createDev.isPending}>
-            {createDev.isPending ? "…" : "Opprett enhet"}
+            {createDev.isPending ? "…" : t("dcim.equip.dev.create")}
           </button>
         </form>
-        {devicesQ.isLoading ? <p className={styles.muted}>Laster…</p> : null}
+        {devicesQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
         {devicesQ.data && devicesQ.data.length > 0 ? (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Modell ID</th>
-                <th>Navn</th>
+                <th>{t("dcim.common.id")}</th>
+                <th>{t("dcim.equip.dev.modelCol")}</th>
+                <th>{t("dcim.common.name")}</th>
               </tr>
             </thead>
             <tbody>
@@ -276,20 +277,20 @@ export function DcimEquipmentPage() {
             </tbody>
           </table>
         ) : (
-          !devicesQ.isLoading && <p className={styles.muted}>Ingen enheter.</p>
+          !devicesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dev.empty")}</p>
         )}
       </Panel>
 
-      <Panel title="Plasseringer i rack">
+      <Panel title={t("dcim.equip.pl.title")}>
         <div className={styles.formRow}>
           <label>
-            Filtrer på rack-ID
+            {t("dcim.equip.pl.filterRack")}
             <input
               type="number"
               min={1}
               value={rackFilter}
               onChange={(e) => setRackFilter(e.target.value)}
-              placeholder="alle"
+              placeholder={t("dcim.common.all")}
             />
           </label>
         </div>
@@ -299,27 +300,27 @@ export function DcimEquipmentPage() {
             e.preventDefault();
             setErr(null);
             if (!plRack || !plDev) {
-              setErr("Velg rack og enhet");
+              setErr(t("dcim.equip.pl.chooseRackDev"));
               return;
             }
             createPl.mutate();
           }}
         >
           <label>
-            Rack
+            {t("dcim.common.rack")}
             <select value={plRack} onChange={(e) => setPlRack(e.target.value)} required>
-              <option value="">— velg —</option>
+              <option value="">{t("dcim.common.choose")}</option>
               {(racksQ.data ?? []).map((k) => (
                 <option key={k.id} value={String(k.id)}>
-                  #{k.id} {k.name} (rom {k.room_id})
+                  #{k.id} {k.name} ({t("dcim.common.room")} {k.room_id})
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Enhet
+            {t("dcim.equip.pl.device")}
             <select value={plDev} onChange={(e) => setPlDev(e.target.value)} required>
-              <option value="">— velg —</option>
+              <option value="">{t("dcim.common.choose")}</option>
               {(devicesQ.data ?? []).map((d) => (
                 <option key={d.id} value={String(d.id)}>
                   #{d.id} {d.name}
@@ -328,30 +329,30 @@ export function DcimEquipmentPage() {
             </select>
           </label>
           <label>
-            U-pos
+            {t("dcim.equip.pl.uPos")}
             <input type="number" min={1} value={plU} onChange={(e) => setPlU(e.target.value)} />
           </label>
           <label>
-            Mount
+            {t("dcim.equip.pl.mount")}
             <select value={plMount} onChange={(e) => setPlMount(e.target.value)}>
-              <option value="front">front</option>
-              <option value="rear">rear</option>
+              <option value="front">{t("dcim.equip.mountFront")}</option>
+              <option value="rear">{t("dcim.equip.mountRear")}</option>
             </select>
           </label>
           <button type="submit" className={styles.btn} disabled={createPl.isPending}>
-            {createPl.isPending ? "…" : "Plasser"}
+            {createPl.isPending ? "…" : t("dcim.equip.pl.place")}
           </button>
         </form>
-        {placementsQ.isLoading ? <p className={styles.muted}>Laster…</p> : null}
+        {placementsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
         {placementsQ.data && placementsQ.data.length > 0 ? (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Rack</th>
-                <th>Enhet</th>
-                <th>U</th>
-                <th>Mount</th>
+                <th>{t("dcim.common.id")}</th>
+                <th>{t("dcim.common.rack")}</th>
+                <th>{t("dcim.equip.pl.device")}</th>
+                <th>{t("dcim.equip.pl.uPos")}</th>
+                <th>{t("dcim.equip.pl.mount")}</th>
                 <th />
               </tr>
             </thead>
@@ -370,7 +371,7 @@ export function DcimEquipmentPage() {
                       onClick={() => delPl.mutate(p.id)}
                       disabled={delPl.isPending}
                     >
-                      Fjern
+                      {t("dcim.common.remove")}
                     </button>
                   </td>
                 </tr>
@@ -378,7 +379,7 @@ export function DcimEquipmentPage() {
             </tbody>
           </table>
         ) : (
-          !placementsQ.isLoading && <p className={styles.muted}>Ingen plasseringer.</p>
+          !placementsQ.isLoading && <p className={styles.muted}>{t("dcim.equip.pl.empty")}</p>
         )}
       </Panel>
     </>
