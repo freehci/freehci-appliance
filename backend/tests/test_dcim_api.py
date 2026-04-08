@@ -63,12 +63,25 @@ def test_dcim_site_room_rack_device_flow() -> None:
         assert lg.status_code == 200
         assert lg.content == tiny_png
 
+        dtp = client.post(
+            "/api/v1/dcim/device-types",
+            json={"name": "Server", "slug": "server", "description": "Compute"},
+        )
+        assert dtp.status_code == 200, dtp.text
+        type_id = dtp.json()["id"]
+
         dm = client.post(
             "/api/v1/dcim/device-models",
-            json={"manufacturer_id": mid, "name": "R740", "u_height": 2},
+            json={
+                "manufacturer_id": mid,
+                "device_type_id": type_id,
+                "name": "R740",
+                "u_height": 2,
+            },
         )
         assert dm.status_code == 200
         dmod_id = dm.json()["id"]
+        assert dm.json()["device_type_id"] == type_id
         assert dm.json()["has_image_front_file"] is False
 
         dm_img = client.post(
@@ -83,10 +96,16 @@ def test_dcim_site_room_rack_device_flow() -> None:
 
         d = client.post(
             "/api/v1/dcim/devices",
-            json={"device_model_id": dmod_id, "name": "srv-01"},
+            json={
+                "device_model_id": dmod_id,
+                "name": "srv-01",
+                "attributes": {"os": "Linux"},
+            },
         )
         assert d.status_code == 200
         dev_id = d.json()["id"]
+        assert d.json()["effective_device_type_id"] == type_id
+        assert d.json()["attributes"] == {"os": "Linux"}
 
         p = client.post(
             "/api/v1/dcim/placements",

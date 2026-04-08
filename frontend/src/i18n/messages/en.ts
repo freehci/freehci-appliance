@@ -125,7 +125,7 @@ export const en = {
 
   "dcim.equip.introTitle": "Equipment",
   "dcim.equip.introBody":
-    "Manufacturers (with profile, website and logo), models, devices and rack placements. The API rejects a second placement for the same device. Click a manufacturer name for details.",
+    "Manufacturers (with profile, website and logo), device types (switch, server, …), models, devices and rack placements. Device models can reference a type; devices inherit that type unless overridden. Flexible JSON attributes on devices hold early metadata (e.g. os, port_count) until dedicated tables and IPAM exist. The API rejects a second placement for the same device. Click a manufacturer name for details.",
   "dcim.equip.mfr.title": "Manufacturers",
   "dcim.equip.mfr.empty": "No manufacturers.",
   "dcim.equip.mfr.description": "Description",
@@ -147,9 +147,16 @@ export const en = {
   "dcim.equip.mfr.dangerZone": "Danger zone",
   "dcim.equip.mfr.deleteConfirm":
     "Delete this manufacturer? Device models will remain but their manufacturer link will be cleared.",
+  "dcim.equip.dt.title": "Device types",
+  "dcim.equip.dt.hint":
+    "Logical classes (e.g. switch, server). Use stable slugs; plugins can declare which types they apply to.",
+  "dcim.equip.dt.slug": "Slug",
+  "dcim.equip.dt.empty": "No device types yet.",
   "dcim.equip.dm.title": "Device models",
   "dcim.equip.dm.mfr": "Manufacturer",
   "dcim.equip.dm.mfrCol": "Mfr.",
+  "dcim.equip.dm.dt": "Device type",
+  "dcim.equip.dm.typeCol": "Type",
   "dcim.equip.dm.modelName": "Model name",
   "dcim.equip.dm.u": "U height",
   "dcim.equip.dm.imageFront": "Front image URL (optional)",
@@ -163,6 +170,11 @@ export const en = {
   "dcim.equip.dm.empty": "No models.",
   "dcim.equip.dev.title": "Devices",
   "dcim.equip.dev.model": "Model",
+  "dcim.equip.dev.dtOverride": "Type override",
+  "dcim.equip.dev.dtInherit": "— inherit from model —",
+  "dcim.equip.dev.attributesJson": "Attributes (JSON object, optional)",
+  "dcim.equip.dev.attributesInvalid": "Attributes must be a JSON object, e.g. {\"os\":\"Linux\"}.",
+  "dcim.equip.dev.effectiveTypeCol": "Type",
   "dcim.equip.dev.hostname": "Name / hostname",
   "dcim.equip.dev.create": "Create device",
   "dcim.equip.dev.modelCol": "Model ID",

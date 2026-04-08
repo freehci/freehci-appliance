@@ -20,6 +20,7 @@ from app.core.media_storage import (
 from app.models.dcim import (
     DeviceInstance,
     DeviceModel,
+    DeviceType,
     Manufacturer,
     Rack,
     RackPlacement,
@@ -28,11 +29,14 @@ from app.models.dcim import (
 )
 from app.schemas.dcim import (
     DeviceInstanceCreate,
+    DeviceInstanceRead,
     DeviceInstanceUpdate,
     DeviceModelCreate,
     DeviceModelUpdate,
     DeviceModelBrief,
     DeviceModelRead,
+    DeviceTypeCreate,
+    DeviceTypeUpdate,
     ManufacturerCreate,
     ManufacturerDetailRead,
     ManufacturerRead,
@@ -343,6 +347,47 @@ def delete_manufacturer(db: Session, m: Manufacturer) -> None:
     db.commit()
 
 
+# --- Device types ---
+
+
+def list_device_types(db: Session) -> list[DeviceType]:
+    return list(db.execute(select(DeviceType).order_by(DeviceType.name)).scalars().all())
+
+
+def get_device_type(db: Session, tid: int) -> DeviceType | None:
+    return db.get(DeviceType, tid)
+
+
+def create_device_type(db: Session, data: DeviceTypeCreate) -> DeviceType:
+    row = DeviceType(name=data.name.strip(), slug=data.slug, description=data.description)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_device_type(db: Session, row: DeviceType, data: DeviceTypeUpdate) -> DeviceType:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "name" in patch:
+        nm = patch["name"]
+        if not nm or not str(nm).strip():
+            raise HTTPException(status_code=400, detail="navn kan ikke være tomt")
+        row.name = str(nm).strip()
+    if "description" in patch:
+        v = patch["description"]
+        row.description = None if v is None else (str(v).strip() or None)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_device_type(db: Session, row: DeviceType) -> None:
+    db.delete(row)
+    db.commit()
+
+
 # --- Device models ---
 
 
@@ -350,6 +395,7 @@ def device_model_read(dm: DeviceModel) -> DeviceModelRead:
     return DeviceModelRead(
         id=dm.id,
         manufacturer_id=dm.manufacturer_id,
+        device_type_id=dm.device_type_id,
         name=dm.name,
         u_height=dm.u_height,
         form_factor=dm.form_factor,
@@ -368,8 +414,11 @@ def list_device_models(db: Session) -> list[DeviceModelRead]:
 def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModelRead:
     if data.manufacturer_id is not None and get_manufacturer(db, data.manufacturer_id) is None:
         raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    if data.device_type_id is not None and get_device_type(db, data.device_type_id) is None:
+        raise HTTPException(status_code=404, detail="device_type ikke funnet")
     row = DeviceModel(
         manufacturer_id=data.manufacturer_id,
+        device_type_id=data.device_type_id,
         name=data.name.strip(),
         u_height=data.u_height,
         form_factor=data.form_factor,
@@ -432,6 +481,11 @@ def update_device_model(db: Session, row: DeviceModel, data: DeviceModelUpdate) 
         if mid is not None and get_manufacturer(db, mid) is None:
             raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
         row.manufacturer_id = mid
+    if "device_type_id" in patch:
+        tid = patch["device_type_id"]
+        if tid is not None and get_device_type(db, tid) is None:
+            raise HTTPException(status_code=404, detail="device_type ikke funnet")
+        row.device_type_id = tid
     if "name" in patch:
         nm = patch["name"]
         if not nm or not str(nm).strip():
@@ -462,47 +516,86 @@ def delete_device_model(db: Session, row: DeviceModel) -> None:
 
 # --- Device instances ---
 
-def list_devices(db: Session) -> list[DeviceInstance]:
-    return list(db.execute(select(DeviceInstance).order_by(DeviceInstance.name)).scalars().all())
+
+def _effective_device_type_id(db: Session, dev: DeviceInstance) -> int | None:
+    if dev.device_type_id is not None:
+        return dev.device_type_id
+    if dev.device_model_id is None:
+        return None
+    m = db.get(DeviceModel, dev.device_model_id)
+    return None if m is None else m.device_type_id
 
 
-def create_device(db: Session, data: DeviceInstanceCreate) -> DeviceInstance:
-    from fastapi import HTTPException
+def device_instance_read(db: Session, dev: DeviceInstance) -> DeviceInstanceRead:
+    raw = dev.attributes
+    attrs: dict = dict(raw) if isinstance(raw, dict) else {}
+    return DeviceInstanceRead(
+        id=dev.id,
+        device_model_id=dev.device_model_id,
+        device_type_id=dev.device_type_id,
+        effective_device_type_id=_effective_device_type_id(db, dev),
+        name=dev.name,
+        serial_number=dev.serial_number,
+        asset_tag=dev.asset_tag,
+        attributes=attrs,
+    )
 
+
+def list_devices(db: Session) -> list[DeviceInstanceRead]:
+    rows = list(db.execute(select(DeviceInstance).order_by(DeviceInstance.name)).scalars().all())
+    return [device_instance_read(db, r) for r in rows]
+
+
+def create_device(db: Session, data: DeviceInstanceCreate) -> DeviceInstanceRead:
     if data.device_model_id is not None and get_device_model(db, data.device_model_id) is None:
         raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    if data.device_type_id is not None and get_device_type(db, data.device_type_id) is None:
+        raise HTTPException(status_code=404, detail="device_type ikke funnet")
+    attrs = data.attributes
     row = DeviceInstance(
         device_model_id=data.device_model_id,
+        device_type_id=data.device_type_id,
         name=data.name.strip(),
         serial_number=data.serial_number,
         asset_tag=data.asset_tag,
+        attributes=dict(attrs) if attrs is not None else None,
     )
     db.add(row)
     db.commit()
     db.refresh(row)
-    return row
+    return device_instance_read(db, row)
 
 
 def get_device(db: Session, did: int) -> DeviceInstance | None:
     return db.get(DeviceInstance, did)
 
 
-def update_device(db: Session, row: DeviceInstance, data: DeviceInstanceUpdate) -> DeviceInstance:
-    from fastapi import HTTPException
-
-    if data.device_model_id is not None and get_device_model(db, data.device_model_id) is None:
-        raise HTTPException(status_code=404, detail="device_model ikke funnet")
-    if data.device_model_id is not None:
-        row.device_model_id = data.device_model_id
-    if data.name is not None:
-        row.name = data.name.strip()
-    if data.serial_number is not None:
-        row.serial_number = data.serial_number
-    if data.asset_tag is not None:
-        row.asset_tag = data.asset_tag
+def update_device(db: Session, row: DeviceInstance, data: DeviceInstanceUpdate) -> DeviceInstanceRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "device_model_id" in patch:
+        mid = patch["device_model_id"]
+        if mid is not None and get_device_model(db, mid) is None:
+            raise HTTPException(status_code=404, detail="device_model ikke funnet")
+        row.device_model_id = mid
+    if "device_type_id" in patch:
+        tid = patch["device_type_id"]
+        if tid is not None and get_device_type(db, tid) is None:
+            raise HTTPException(status_code=404, detail="device_type ikke funnet")
+        row.device_type_id = tid
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "serial_number" in patch:
+        row.serial_number = patch["serial_number"]
+    if "asset_tag" in patch:
+        row.asset_tag = patch["asset_tag"]
+    if "attributes" in patch:
+        a = patch["attributes"]
+        row.attributes = None if a is None else dict(a)
     db.commit()
     db.refresh(row)
-    return row
+    return device_instance_read(db, row)
 
 
 def delete_device(db: Session, row: DeviceInstance) -> None:

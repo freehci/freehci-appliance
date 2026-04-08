@@ -14,6 +14,9 @@ from app.schemas.dcim import (
     DeviceModelCreate,
     DeviceModelRead,
     DeviceModelUpdate,
+    DeviceTypeCreate,
+    DeviceTypeRead,
+    DeviceTypeUpdate,
     ManufacturerCreate,
     ManufacturerDetailRead,
     ManufacturerRead,
@@ -224,6 +227,43 @@ def delete_manufacturer(mid: int, db: Session = Depends(get_db)) -> None:
     dcim_svc.delete_manufacturer(db, row)
 
 
+# --- Device types ---
+
+
+@router.get("/device-types", response_model=list[DeviceTypeRead])
+def list_device_types(db: Session = Depends(get_db)) -> list[DeviceTypeRead]:
+    return dcim_svc.list_device_types(db)
+
+
+@router.post("/device-types", response_model=DeviceTypeRead)
+def create_device_type(data: DeviceTypeCreate, db: Session = Depends(get_db)) -> DeviceTypeRead:
+    return dcim_svc.create_device_type(db, data)
+
+
+@router.get("/device-types/{tid}", response_model=DeviceTypeRead)
+def get_device_type(tid: int, db: Session = Depends(get_db)) -> DeviceTypeRead:
+    row = dcim_svc.get_device_type(db, tid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_type ikke funnet")
+    return row
+
+
+@router.patch("/device-types/{tid}", response_model=DeviceTypeRead)
+def patch_device_type(tid: int, data: DeviceTypeUpdate, db: Session = Depends(get_db)) -> DeviceTypeRead:
+    row = dcim_svc.get_device_type(db, tid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_type ikke funnet")
+    return dcim_svc.update_device_type(db, row, data)
+
+
+@router.delete("/device-types/{tid}", status_code=204)
+def delete_device_type(tid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_type(db, tid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_type ikke funnet")
+    dcim_svc.delete_device_type(db, row)
+
+
 # --- Device models ---
 
 
@@ -353,7 +393,7 @@ def get_device(did: int, db: Session = Depends(get_db)) -> DeviceInstanceRead:
     row = dcim_svc.get_device(db, did)
     if row is None:
         raise HTTPException(status_code=404, detail="device ikke funnet")
-    return row
+    return dcim_svc.device_instance_read(db, row)
 
 
 @router.patch("/devices/{did}", response_model=DeviceInstanceRead)

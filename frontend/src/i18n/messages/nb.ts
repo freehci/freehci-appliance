@@ -130,7 +130,7 @@ export const nb = {
 
   "dcim.equip.introTitle": "Utstyr",
   "dcim.equip.introBody":
-    "Produsenter (profil, nettsted og logo), modeller, enheter og rack-plassering. Dobbelt plassering av samme enhet avvises av API-et. Klikk produsentnavn for detaljer.",
+    "Produsenter (profil, nettsted og logo), enhetstyper (switch, server, …), modeller, enheter og rack-plassering. Modeller kan peke på en type; enheter arver typen fra modellen med mindre du overstyrer. JSON-attributter på enheter brukes foreløpig til metadata (f.eks. os, port_count) inntil egne tabeller og IPAM kommer. Dobbelt plassering av samme enhet avvises av API-et. Klikk produsentnavn for detaljer.",
   "dcim.equip.mfr.title": "Produsenter",
   "dcim.equip.mfr.empty": "Ingen produsenter.",
   "dcim.equip.mfr.description": "Beskrivelse",
@@ -152,9 +152,16 @@ export const nb = {
   "dcim.equip.mfr.dangerZone": "Faresone",
   "dcim.equip.mfr.deleteConfirm":
     "Slette denne produsenten? Modeller beholdes, men produsent-koblingen fjernes.",
+  "dcim.equip.dt.title": "Enhetstyper",
+  "dcim.equip.dt.hint":
+    "Logiske klasser (f.eks. switch, server). Bruk stabile slug-verdier; plugins kan angi hvilke typer de gjelder for.",
+  "dcim.equip.dt.slug": "Slug",
+  "dcim.equip.dt.empty": "Ingen enhetstyper ennå.",
   "dcim.equip.dm.title": "Enhetsmodeller",
   "dcim.equip.dm.mfr": "Produsent",
   "dcim.equip.dm.mfrCol": "Prod.",
+  "dcim.equip.dm.dt": "Enhetstype",
+  "dcim.equip.dm.typeCol": "Type",
   "dcim.equip.dm.modelName": "Modellnavn",
   "dcim.equip.dm.u": "U-høyde",
   "dcim.equip.dm.imageFront": "Front-bilde URL (valgfritt)",
@@ -168,6 +175,11 @@ export const nb = {
   "dcim.equip.dm.empty": "Ingen modeller.",
   "dcim.equip.dev.title": "Enheter",
   "dcim.equip.dev.model": "Modell",
+  "dcim.equip.dev.dtOverride": "Overstyr type",
+  "dcim.equip.dev.dtInherit": "— arv fra modell —",
+  "dcim.equip.dev.attributesJson": "Attributter (JSON-objekt, valgfritt)",
+  "dcim.equip.dev.attributesInvalid": "Attributter må være et JSON-objekt, f.eks. {\"os\":\"Linux\"}.",
+  "dcim.equip.dev.effectiveTypeCol": "Type",
   "dcim.equip.dev.hostname": "Navn / hostname",
   "dcim.equip.dev.create": "Opprett enhet",
   "dcim.equip.dev.modelCol": "Modell-ID",

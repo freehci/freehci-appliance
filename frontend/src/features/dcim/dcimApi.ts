@@ -2,6 +2,7 @@ import { apiDelete, apiDeleteJson, apiGet, apiPatch, apiPost, apiPostMultipart, 
 import type {
   DeviceInstance,
   DeviceModel,
+  DeviceType,
   Manufacturer,
   ManufacturerDetail,
   Rack,
@@ -85,12 +86,29 @@ export function deleteManufacturer(id: number): Promise<void> {
   return apiDelete(`${P}/manufacturers/${id}`);
 }
 
+export function listDeviceTypes(): Promise<DeviceType[]> {
+  return apiGet(`${P}/device-types`);
+}
+
+export function createDeviceType(body: {
+  name: string;
+  slug: string;
+  description?: string | null;
+}): Promise<DeviceType> {
+  return apiPost(`${P}/device-types`, body);
+}
+
+export function deleteDeviceType(id: number): Promise<void> {
+  return apiDelete(`${P}/device-types/${id}`);
+}
+
 export function listDeviceModels(): Promise<DeviceModel[]> {
   return apiGet(`${P}/device-models`);
 }
 
 export function createDeviceModel(body: {
   manufacturer_id?: number | null;
+  device_type_id?: number | null;
   name: string;
   u_height?: number;
   form_factor?: string | null;
@@ -126,9 +144,11 @@ export function listDevices(): Promise<DeviceInstance[]> {
 
 export function createDevice(body: {
   device_model_id?: number | null;
+  device_type_id?: number | null;
   name: string;
   serial_number?: string | null;
   asset_tag?: string | null;
+  attributes?: Record<string, unknown> | null;
 }): Promise<DeviceInstance> {
   return apiPost(`${P}/devices`, body);
 }

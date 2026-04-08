@@ -14,6 +14,7 @@ def manifest_to_response(m: PluginManifest, api_route_prefix: str | None = None)
         capabilities=caps,
         frontend_module_url=m.frontend_module_url,
         frontend_route_prefix=m.frontend_route_prefix,
+        device_type_slugs=list(m.device_type_slugs),
         api_route_prefix=api_route_prefix,
     )
 

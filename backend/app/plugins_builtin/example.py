@@ -16,6 +16,7 @@ class ExamplePlugin(BackendPlugin):
             capabilities=("demo.ping",),
             frontend_module_url=None,
             frontend_route_prefix="/plugins/freehci.example",
+            device_type_slugs=("server",),
         )
 
     def get_router(self) -> APIRouter:

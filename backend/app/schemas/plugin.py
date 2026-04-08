@@ -22,6 +22,8 @@ class PluginManifestResponse(BaseModel):
     frontend_module_url: str | None = None
     # React-router sti-prefix som kjerne eller plugin eier
     frontend_route_prefix: str | None = None
+    # DCIM device_type.slug denne pluginen kan knyttes mot (tom = alle / ikke filtrert)
+    device_type_slugs: list[str] = Field(default_factory=list)
     # FastAPI-prefix for denne pluginens API
     api_route_prefix: str | None = None
 

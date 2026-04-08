@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -65,12 +65,27 @@ class Manufacturer(Base):
     logo_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
 
+class DeviceType(Base):
+    """Logisk klasse utstyr (switch, server, router, …) — grunnlag for attributter og plugin-kobling."""
+
+    __tablename__ = "dcim_device_types"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class DeviceModel(Base):
     __tablename__ = "dcim_device_models"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     manufacturer_id: Mapped[int | None] = mapped_column(
         ForeignKey("dcim_manufacturers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    device_type_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_types.id", ondelete="SET NULL"),
         nullable=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -92,9 +107,15 @@ class DeviceInstance(Base):
         ForeignKey("dcim_device_models.id", ondelete="SET NULL"),
         nullable=True,
     )
+    device_type_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_types.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     serial_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
     asset_tag: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Fleksible nøkkel/verdi (f.eks. os, port_count); porter/IPAM kommer som egne tabeller senere.
+    attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     placement: Mapped["RackPlacement | None"] = relationship(
         back_populates="device",

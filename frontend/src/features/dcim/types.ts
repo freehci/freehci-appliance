@@ -31,10 +31,18 @@ export type Manufacturer = {
   has_logo: boolean;
 };
 
+export type DeviceType = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+};
+
 export type DeviceModelBrief = {
   id: number;
   name: string;
   u_height: number;
+  device_type_id: number | null;
 };
 
 export type ManufacturerDetail = Manufacturer & {
@@ -44,6 +52,7 @@ export type ManufacturerDetail = Manufacturer & {
 export type DeviceModel = {
   id: number;
   manufacturer_id: number | null;
+  device_type_id: number | null;
   name: string;
   u_height: number;
   form_factor: string | null;
@@ -56,9 +65,12 @@ export type DeviceModel = {
 export type DeviceInstance = {
   id: number;
   device_model_id: number | null;
+  device_type_id: number | null;
+  effective_device_type_id: number | null;
   name: string;
   serial_number: string | null;
   asset_tag: string | null;
+  attributes: Record<string, unknown>;
 };
 
 export type RackPlacement = {

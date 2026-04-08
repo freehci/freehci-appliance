@@ -26,6 +26,8 @@ class PluginManifest:
     # Hvis satt: last inn frontend via import() / ESM fra denne URL-en i React-shell
     frontend_module_url: str | None = None
     frontend_route_prefix: str | None = None
+    # device_type.slug som denne pluginen er relevant for (UI/filter; f.eks. ("server",) for OS-integrasjon)
+    device_type_slugs: tuple[str, ...] = ()
 
 
 class BackendPlugin(ABC):

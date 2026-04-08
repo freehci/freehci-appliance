@@ -22,12 +22,18 @@ export function DcimEquipmentPage() {
   const [mfrDesc, setMfrDesc] = useState("");
   const [mfrUrl, setMfrUrl] = useState("");
   const [dmMfr, setDmMfr] = useState<string>("");
+  const [dmDt, setDmDt] = useState<string>("");
   const [dmName, setDmName] = useState("");
   const [dmU, setDmU] = useState("1");
   const [dmImgFront, setDmImgFront] = useState("");
   const [dmImgBack, setDmImgBack] = useState("");
+  const [dtName, setDtName] = useState("");
+  const [dtSlug, setDtSlug] = useState("");
+  const [dtDesc, setDtDesc] = useState("");
   const [devModel, setDevModel] = useState<string>("");
+  const [devDt, setDevDt] = useState<string>("");
   const [devName, setDevName] = useState("");
+  const [devAttrsJson, setDevAttrsJson] = useState("{}");
   const [plRack, setPlRack] = useState<string>("");
   const [plDev, setPlDev] = useState<string>("");
   const [plU, setPlU] = useState("1");
@@ -37,6 +43,10 @@ export function DcimEquipmentPage() {
   const manufacturersQ = useQuery({
     queryKey: ["dcim", "manufacturers"],
     queryFn: api.listManufacturers,
+  });
+  const deviceTypesQ = useQuery({
+    queryKey: ["dcim", "device-types"],
+    queryFn: api.listDeviceTypes,
   });
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: api.listDevices });
@@ -70,6 +80,12 @@ export function DcimEquipmentPage() {
     for (const x of manufacturersQ.data ?? []) m.set(x.id, x.name);
     return m;
   }, [manufacturersQ.data]);
+
+  const deviceTypesById = useMemo(() => {
+    const m = new Map<number, { name: string; slug: string }>();
+    for (const x of deviceTypesQ.data ?? []) m.set(x.id, { name: x.name, slug: x.slug });
+    return m;
+  }, [deviceTypesQ.data]);
 
   useEffect(() => {
     const raw = searchParams.get("prefillManufacturer");
@@ -108,12 +124,41 @@ export function DcimEquipmentPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const createDt = useMutation({
+    mutationFn: () =>
+      api.createDeviceType({
+        name: dtName.trim(),
+        slug: dtSlug.trim().toLowerCase(),
+        description: dtDesc.trim() === "" ? null : dtDesc.trim(),
+      }),
+    onSuccess: () => {
+      setDtName("");
+      setDtSlug("");
+      setDtDesc("");
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-types"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delDt = useMutation({
+    mutationFn: (id: number) => api.deleteDeviceType(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-types"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const createDm = useMutation({
     mutationFn: () =>
       api.createDeviceModel({
         name: dmName.trim(),
         u_height: Number(dmU) || 1,
         manufacturer_id: dmMfr === "" ? null : Number(dmMfr),
+        device_type_id: dmDt === "" ? null : Number(dmDt),
         image_front_url: dmImgFront.trim() === "" ? null : dmImgFront.trim(),
         image_back_url: dmImgBack.trim() === "" ? null : dmImgBack.trim(),
       }),
@@ -138,13 +183,31 @@ export function DcimEquipmentPage() {
   });
 
   const createDev = useMutation({
-    mutationFn: () =>
-      api.createDevice({
+    mutationFn: () => {
+      let attrs: Record<string, unknown> | null = null;
+      const raw = devAttrsJson.trim();
+      if (raw !== "") {
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error(t("dcim.equip.dev.attributesInvalid"));
+          }
+          attrs = parsed as Record<string, unknown>;
+        } catch {
+          throw new Error(t("dcim.equip.dev.attributesInvalid"));
+        }
+      }
+      return api.createDevice({
         name: devName.trim(),
         device_model_id: devModel === "" ? null : Number(devModel),
-      }),
+        device_type_id: devDt === "" ? null : Number(devDt),
+        attributes: attrs,
+      });
+    },
     onSuccess: () => {
       setDevName("");
+      setDevDt("");
+      setDevAttrsJson("{}");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
     },
@@ -274,6 +337,79 @@ export function DcimEquipmentPage() {
         )}
       </Panel>
 
+      <Panel title={t("dcim.equip.dt.title")}>
+        <p className={styles.muted} style={{ marginTop: 0 }}>
+          {t("dcim.equip.dt.hint")}
+        </p>
+        <form
+          className={styles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            createDt.mutate();
+          }}
+        >
+          <label>
+            {t("dcim.common.name")}
+            <input value={dtName} onChange={(e) => setDtName(e.target.value)} required />
+          </label>
+          <label>
+            {t("dcim.equip.dt.slug")}
+            <input
+              value={dtSlug}
+              onChange={(e) => setDtSlug(e.target.value)}
+              placeholder="switch"
+              required
+              pattern="[a-z0-9]+(-[a-z0-9]+)*"
+              title={t("dcim.sites.slugPatternTitle")}
+            />
+          </label>
+          <label>
+            {t("dcim.equip.mfr.description")}
+            <input value={dtDesc} onChange={(e) => setDtDesc(e.target.value)} />
+          </label>
+          <button type="submit" className={styles.btn} disabled={createDt.isPending}>
+            {createDt.isPending ? "…" : t("dcim.common.add")}
+          </button>
+        </form>
+        {deviceTypesQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+        {deviceTypesQ.data && deviceTypesQ.data.length > 0 ? (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>{t("dcim.common.id")}</th>
+                <th>{t("dcim.common.name")}</th>
+                <th>{t("dcim.equip.dt.slug")}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {deviceTypesQ.data.map((x) => (
+                <tr key={x.id}>
+                  <td>{x.id}</td>
+                  <td>{x.name}</td>
+                  <td>
+                    <code>{x.slug}</code>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className={styles.btnDanger}
+                      onClick={() => delDt.mutate(x.id)}
+                      disabled={delDt.isPending}
+                    >
+                      {t("dcim.common.delete")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          !deviceTypesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dt.empty")}</p>
+        )}
+      </Panel>
+
       <div ref={dmPanelRef}>
         <Panel title={t("dcim.equip.dm.title")}>
           <p className={styles.muted} style={{ marginTop: 0 }}>
@@ -294,6 +430,17 @@ export function DcimEquipmentPage() {
               {(manufacturersQ.data ?? []).map((m) => (
                 <option key={m.id} value={String(m.id)}>
                   {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("dcim.equip.dm.dt")}
+            <select value={dmDt} onChange={(e) => setDmDt(e.target.value)}>
+              <option value="">{t("dcim.common.none")}</option>
+              {(deviceTypesQ.data ?? []).map((d) => (
+                <option key={d.id} value={String(d.id)}>
+                  {d.name} ({d.slug})
                 </option>
               ))}
             </select>
@@ -352,6 +499,7 @@ export function DcimEquipmentPage() {
                 <th>{t("dcim.equip.dm.thumbCol")}</th>
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.equip.dm.mfrCol")}</th>
+                <th>{t("dcim.equip.dm.typeCol")}</th>
                 <th>{t("dcim.common.name")}</th>
                 <th>{t("dcim.equip.dm.u")}</th>
               </tr>
@@ -377,6 +525,15 @@ export function DcimEquipmentPage() {
                         >
                           {manufacturersById.get(x.manufacturer_id) ?? `#${x.manufacturer_id}`}
                         </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td>
+                      {x.device_type_id != null ? (
+                        <span title={deviceTypesById.get(x.device_type_id)?.slug}>
+                          {deviceTypesById.get(x.device_type_id)?.name ?? `#${x.device_type_id}`}
+                        </span>
                       ) : (
                         "—"
                       )}
@@ -415,8 +572,30 @@ export function DcimEquipmentPage() {
             </select>
           </label>
           <label>
+            {t("dcim.equip.dev.dtOverride")}
+            <select value={devDt} onChange={(e) => setDevDt(e.target.value)}>
+              <option value="">{t("dcim.equip.dev.dtInherit")}</option>
+              {(deviceTypesQ.data ?? []).map((d) => (
+                <option key={d.id} value={String(d.id)}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             {t("dcim.equip.dev.hostname")}
             <input value={devName} onChange={(e) => setDevName(e.target.value)} required />
+          </label>
+          <label style={{ minWidth: "12rem", flex: "1 1 280px" }}>
+            {t("dcim.equip.dev.attributesJson")}
+            <textarea
+              value={devAttrsJson}
+              onChange={(e) => setDevAttrsJson(e.target.value)}
+              rows={3}
+              className={styles.mfrTextarea}
+              placeholder='{"os":"Linux"}'
+              spellCheck={false}
+            />
           </label>
           <button type="submit" className={styles.btn} disabled={createDev.isPending}>
             {createDev.isPending ? "…" : t("dcim.equip.dev.create")}
@@ -429,6 +608,7 @@ export function DcimEquipmentPage() {
               <tr>
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.equip.dev.modelCol")}</th>
+                <th>{t("dcim.equip.dev.effectiveTypeCol")}</th>
                 <th>{t("dcim.common.name")}</th>
                 <th>{t("dcim.equip.dev.placementCol")}</th>
               </tr>
@@ -438,10 +618,20 @@ export function DcimEquipmentPage() {
                 const pl = placementByDeviceId.get(x.id);
                 const r = pl ? racksById.get(pl.rack_id) : undefined;
                 const roomId = r?.room_id ?? "";
+                const eff = x.effective_device_type_id;
                 return (
                   <tr key={x.id}>
                     <td>{x.id}</td>
                     <td>{x.device_model_id ?? "—"}</td>
+                    <td>
+                      {eff != null ? (
+                        <span title={deviceTypesById.get(eff)?.slug}>
+                          {deviceTypesById.get(eff)?.name ?? `#${eff}`}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td>{x.name}</td>
                     <td>
                       {pl ? (
