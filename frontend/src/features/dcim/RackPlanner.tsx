@@ -5,7 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import baseStyles from "./dcim.module.css";
-import { RackElevation } from "./RackElevation";
+import { RackElevation, type DragPayload } from "./RackElevation";
 import styles from "./RackPlanner.module.css";
 import { deviceUHeight } from "./rackUtils";
 import type { DeviceInstance, DeviceModel, Rack } from "./types";
