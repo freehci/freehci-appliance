@@ -168,6 +168,8 @@ Etter `docker compose up` er dette normalt eller forventet i utvikling:
 |--------|---------|------------|
 | **API** | Alembic `Running upgrade -> 20260408_0001` | Første migrasjon kjørt; OK. |
 | **Frontend (nginx)** | `default.conf differs from the packaged version` | Vi bytter ut standard nginx-konfig; **ingen feil**. |
+| **Frontend → API** | `404` på `/api/v1/...` via proxy etter oppgradering | Tidligere brukte vi variabel i `proxy_pass` **med** `/api/`-suffiks; da ble ikke stien omskrevet riktig. Nå brukes **`$request_uri`**. Kjør **`docker compose build frontend && docker compose up -d`**. |
+| **Frontend → API** | `502` / «connection refused» rett etter `up` | API kjører Alembic før Uvicorn lytter. Compose venter nå på **`api` healthcheck** før frontend startes; ved manuell rekkefølge: vent til `GET /api/v1/health/live` svarer. |
 | **PostgreSQL (Alpine)** | `locale: not found` / `no usable system locales` | Vanlig i slanke images; databasen bruker likevel UTF-8. Kan ignoreres for dev. |
 | **PostgreSQL** | `trust` authentication for local | Typisk ved første `initdb` i container; **ikke** bruk slik i produksjon uten ekte `pg_hba`-sikkerhet. |
 | **Redis** | `Memory overcommit must be enabled` | **Verten** (Linux): kjør én gang `sysctl vm.overcommit_memory=1` eller legg i `/etc/sysctl.d/` og last på nytt. |
