@@ -3,7 +3,6 @@ import styles from "./SidebarNav.module.css";
 
 const mainNav = [
   { to: "/", label: "Dashboard", end: true },
-  { to: "/dcim", label: "DCIM" },
   { to: "/ipam", label: "IPAM" },
   { to: "/jobs", label: "Jobs" },
   { to: "/integrations", label: "Integrasjoner" },
@@ -27,6 +26,62 @@ export function SidebarNav() {
             </NavLink>
           </li>
         ))}
+        <li className={styles.item}>
+          <div className={styles.section}>DCIM</div>
+          <ul className={styles.sub}>
+            <li>
+              <NavLink
+                to="/dcim"
+                end
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                Oversikt
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/dcim/sites"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                Sites
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/dcim/rooms"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                Rom
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/dcim/racks"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                Racks
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/dcim/equipment"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                Utstyr
+              </NavLink>
+            </li>
+          </ul>
+        </li>
         <li className={styles.item}>
           <div className={styles.section}>Plugins</div>
           <ul className={styles.sub}>

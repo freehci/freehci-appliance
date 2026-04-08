@@ -1,5 +1,11 @@
 import { Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { DcimEquipmentPage } from "@/features/dcim/DcimEquipmentPage";
+import { DcimLayout } from "@/features/dcim/DcimLayout";
+import { DcimOverviewPage } from "@/features/dcim/DcimOverviewPage";
+import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
+import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
+import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -11,15 +17,13 @@ export function App() {
     <AppShell>
       <Routes>
         <Route path="/" element={<DashboardPage />} />
-        <Route
-          path="/dcim"
-          element={
-            <PlaceholderPage
-              title="DCIM"
-              description="Sites, rom, rekker, racks og utstyr – kommer i fase 2."
-            />
-          }
-        />
+        <Route path="/dcim" element={<DcimLayout />}>
+          <Route index element={<DcimOverviewPage />} />
+          <Route path="sites" element={<DcimSitesPage />} />
+          <Route path="rooms" element={<DcimRoomsPage />} />
+          <Route path="racks" element={<DcimRacksPage />} />
+          <Route path="equipment" element={<DcimEquipmentPage />} />
+        </Route>
         <Route
           path="/ipam"
           element={

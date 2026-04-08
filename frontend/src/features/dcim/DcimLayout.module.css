@@ -1,0 +1,31 @@
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--shell-border);
+}
+
+.subLink {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.subLink:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-text);
+}
+
+.subLinkActive {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.subLinkActive:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-text-on-accent);
+}

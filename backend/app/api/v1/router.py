@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 
-from app.api.v1.routers import health, plugins
+from app.api.v1.routers import dcim, health, plugins
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(plugins.router)
+api_router.include_router(dcim.router)
