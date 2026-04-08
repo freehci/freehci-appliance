@@ -1,0 +1,74 @@
+/**
+ * Design tokens – matcher legacy dark.css (FreeHCI Appliance).
+ * Lys modus er avledet for lesbarhet; mørk er primær identitet.
+ */
+:root {
+  /* Typografi */
+  --font-sans: Arial, Helvetica, system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.825rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1rem;
+
+  /* Avstand */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.35);
+
+  /* Overgang */
+  --transition-color: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Mørk (standard) */
+[data-theme="dark"] {
+  --color-bg-body: #1a233a;
+  --color-bg-overlay: rgba(0, 0, 0, 0.75);
+  --color-bg-surface: #1a233a;
+  --color-bg-elevated: #272e48;
+  --color-border: #596280;
+  --color-text: #bcd0f7;
+  --color-text-muted: #8fa8d4;
+  --color-text-on-accent: #1a233a;
+  --color-accent: #596280;
+  --color-accent-hover: #6d7a99;
+  --color-input-bg: #1a233a;
+  --color-input-focus-bg: #272e48;
+  --color-row-alt: #272e48;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --color-status-up: #3de010;
+  --color-status-down: #ff3333;
+  --color-status-unknown: #ffcc00;
+  --color-progress: #4caf50;
+  --shell-border: #596280;
+}
+
+/* Lys */
+[data-theme="light"] {
+  --color-bg-body: #e8ecf4;
+  --color-bg-overlay: rgba(255, 255, 255, 0.85);
+  --color-bg-surface: #f5f7fb;
+  --color-bg-elevated: #ffffff;
+  --color-border: #596280;
+  --color-text: #1a233a;
+  --color-text-muted: #3d4a63;
+  --color-text-on-accent: #ffffff;
+  --color-accent: #596280;
+  --color-accent-hover: #4a546e;
+  --color-input-bg: #ffffff;
+  --color-input-focus-bg: #ffffff;
+  --color-row-alt: #e8ecf4;
+  --color-sidebar-hover: rgba(26, 35, 58, 0.06);
+  --color-status-up: #2e7d1f;
+  --color-status-down: #c62828;
+  --color-status-unknown: #b8860b;
+  --color-progress: #2e7d32;
+  --shell-border: #596280;
+}

@@ -8,47 +8,48 @@
           <div class="unit-number">{{ unit }}</div>
           <div class="unit-content">
             <img src="static/images/rack_rail.png" alt="Rack hole" class="rack-hole rack-hole-l" />
-            <div
-              class="equipment"
-              v-for="equipment in getEquipment(unit, rack.id)"
-              :class="['u-' + equipment.size]"
-              @click="logClick(equipment)"
-              :style="`background-image: url('${equipment.picture}');`"
-            >
-                <div class="equipment-name" >
-                {{ equipment.name }} - ({{ equipment.equipmentid }})
-                </div>
-
-                <!-- Hardware Error Status -->
-                <div class="equipment-errorstatus dropdown" v-if="equipment.hasError" id="logDropdown" aria-haspopup="true" aria-expanded="false">
-                    <i class="fa-solid fa-triangle-exclamation fa-beat-fade" style="color: #f40122;"></i>
-                    <!-- The following code is just a POC -->
-                    <ul class="dropdown-menu dropdown-menu-custom" aria-labelledby="logDropdown">
-                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-triangle-exclamation" style="color: #f50505;"></i>Jan 24, 2022 02:00:24 - Unable to perform the operation on the device because connection with the device is lost. </a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fa-regular fa-flag" style="color: #f7f1b0;"></i>Jan 04, 2022 13:20:38 - Device health has improved. </a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fa-regular fa-circle-check" style="color: #78e60a;"></i>Jan 04, 2022 13:19:57 - Device is online. </a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-triangle-exclamation" style="color: #f50505;"></i>Jan 01, 2022 10:05:50 - Device health has deteriorated. </a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fa-regular fa-circle-check" style="color: #78e60a;"></i>Jan 01, 2022 08:12:08 - Device is online. </a></li>
-
-                        <!-- Add more lines of log as needed -->
-                    </ul>
-                </div>
                 
-                <!-- Hardware Power Status -->
-                <!-- <PowerDropdown :equipment="equipment" /> -->
+                <div
+                class="equipment"
+                v-for="equipment in getEquipment(unit, rack.id)"
+                :class="['u-' + equipment.size]"
+                @click="logClick(equipment)"
+                :style="`background-image: url('${equipment.picture}');`"
+                >
+                    <div class="equipment-name" >
+                    {{ equipment.name }} - ({{ equipment.equipmentid }})
+                    </div>
 
-                <div class="equipment-powerstatus dropdown" id="powerDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    <i class="fa-solid fa-power-off" :style="{ color: powerStatusColor(equipment.powerstatus) }"></i>
-                    <ul class="dropdown-menu dropdown-menu-custom" aria-labelledby="powerDropdown">
-                        <li><a class="dropdown-item" @click="powerOn(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #00ff00;"></i> Power On</a></li>
-                        <li><a class="dropdown-item" @click="powerOff(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Power Off</a></li>
-                        <li><a class="dropdown-item" @click="powerReset(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Reset</a></li>
-                        <li><a class="dropdown-item" @click="powerRestart(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Restart</a></li>
-                        <li><a class="dropdown-item" @click="powerShutdown(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Shutdown</a></li>
-                    </ul>
+                    <!-- Hardware Error Status -->
+                    <div class="equipment-errorstatus dropdown" v-if="equipment.hasError" id="logDropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fa-solid fa-triangle-exclamation fa-beat-fade" style="color: #f40122;"></i>
+                        <!-- The following code is just a POC -->
+                        <ul class="dropdown-menu dropdown-menu-custom" aria-labelledby="logDropdown">
+                            <li><a class="dropdown-item" href="#"><i class="fa-solid fa-triangle-exclamation" style="color: #f50505;"></i>Jan 24, 2022 02:00:24 - Unable to perform the operation on the device because connection with the device is lost. </a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fa-regular fa-flag" style="color: #f7f1b0;"></i>Jan 04, 2022 13:20:38 - Device health has improved. </a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fa-regular fa-circle-check" style="color: #78e60a;"></i>Jan 04, 2022 13:19:57 - Device is online. </a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fa-solid fa-triangle-exclamation" style="color: #f50505;"></i>Jan 01, 2022 10:05:50 - Device health has deteriorated. </a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fa-regular fa-circle-check" style="color: #78e60a;"></i>Jan 01, 2022 08:12:08 - Device is online. </a></li>
+
+                            <!-- Add more lines of log as needed -->
+                        </ul>
+                    </div>
+                    
+                    <!-- Hardware Power Status -->
+                    <!-- <PowerDropdown :equipment="equipment" /> -->
+
+                    <div class="equipment-powerstatus dropdown" id="powerDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fa-solid fa-power-off" :style="{ color: powerStatusColor(equipment.powerstatus) }"></i>
+                        <ul class="dropdown-menu dropdown-menu-custom" aria-labelledby="powerDropdown">
+                            <li><a class="dropdown-item" @click="powerOn(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #00ff00;"></i> Power On</a></li>
+                            <li><a class="dropdown-item" @click="powerOff(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Power Off</a></li>
+                            <li><a class="dropdown-item" @click="powerReset(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Reset</a></li>
+                            <li><a class="dropdown-item" @click="powerRestart(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Restart</a></li>
+                            <li><a class="dropdown-item" @click="powerShutdown(equipment)" href="#"><i class="fa-solid fa-power-off" style="color: #f4f401;"></i> Shutdown</a></li>
+                        </ul>
+                    </div>
+                    
                 </div>
-                
-            </div>
             <img src="static/images/rack_rail.png" alt="Rack hole" class="rack-hole rack-hole-r" />
           </div>
         </div>
@@ -58,20 +59,20 @@
         </div>
       </div>
 
-      
     </div>
     
     <EquipmentModal ref="equipmentModal" :initial-selected-equipment="selectedEquipment" @close="closeModal" />
-
-
 </template>
   
 <script>
+  // Scripts added via CDN must be enabled in the app.js file under moduleCache 
   import EquipmentModal from "./EquipmentModal.vue";
+  import draggable from 'vuedraggable'; // Added via CDN
 
   export default {
     components: {
         EquipmentModal,
+        draggable
     },
     data() {
       return {

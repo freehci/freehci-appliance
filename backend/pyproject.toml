@@ -1,0 +1,9 @@
+[project]
+name = "freehci-backend"
+version = "0.1.0"
+description = "FreeHCI API"
+requires-python = ">=3.11"
+readme = "README.md"
+
+# Third-party plugins: registrer setuptools entry points i gruppen
+# `freehci.backend_plugins` som peker på et BackendPlugin-objekt eller fabrikk.

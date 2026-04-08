@@ -1,33 +1,131 @@
-# freehci-appliance
+# FreeHCI Appliance
 
-## Prerequisites
+Modern **FastAPI** backend and **React (TypeScript)** frontend with Docker Compose, plugin hooks, and a visual language aligned with the original FreeHCI dark UI.
 
-- Python 3.8 or later (may work with other versions as well)
-- pip (Python package manager)
+## Requirements
 
-## Getting Started
+For the full stack (recommended):
 
-1. Clone the repository:
-`git clone https://github.com/freehci/freehci-appliance.git`
+- **Docker** with **Compose v2** (`docker compose`)
+- **Git**
 
-2. Install `uvicorn` using `pip`:
-`pip install uvicorn`
+For local development without Docker:
 
-3. Install the requirements:
-`pip install -r requirements.txt`
+- Python **3.11+**
+- Node.js **20+** (22 recommended for builds)
+- Redis (if you run the Celery worker locally)
 
-4. Configure the Vue.js frontend to work with the FreeHCI API.
-Edit `html/ui/static/js/config.js` to point to your API endpoint:
+---
 
-```javascript
-window.apiBaseUrl = "http://localhost:8000/";
+## Quick start: clone and build with Docker
+
+Public repository:
+
+```text
+https://github.com/freehci/freehci-appliance.git
 ```
 
-5. Run the project using `uvicorn`:
-`uvicorn main:app --reload`
+Clone and start all services (PostgreSQL, Redis, API, worker, frontend):
 
-Options:
-  --host TEXT                     Bind socket to this host.  [default: 127.0.0.1]
-  --port INTEGER                  Bind socket to this port.  [default: 8000]
+```bash
+git clone https://github.com/freehci/freehci-appliance.git
+cd freehci-appliance
+docker compose up --build
+```
 
-For more options, please visit [uvicorn documentation](https://www.uvicorn.org/)
+Detached mode (background):
+
+```bash
+docker compose up --build -d
+```
+
+Then open:
+
+- **Web UI:** [http://localhost:8080](http://localhost:8080) (nginx proxies `/api/` to the API)
+- **OpenAPI:** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Optional environment file: copy [`.env.example`](.env.example) and adjust values; override variables in `docker-compose.yml` or via a Compose `env_file` if you extend the setup.
+
+---
+
+## Automated install on Debian 13
+
+The helper script installs Git, Docker Engine from Debian, the **docker-compose-v2** plugin, clones the repo (or updates an existing clone), and runs `docker compose up --build`.
+
+Run as a user with `sudo` (recommended), or as root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh -o install-freehci.sh
+chmod +x install-freehci.sh
+sudo ./install-freehci.sh
+```
+
+Or, from an already-cloned tree:
+
+```bash
+sudo bash scripts/install-debian13.sh
+```
+
+Optional environment variables:
+
+| Variable        | Default                                           | Purpose                          |
+|----------------|---------------------------------------------------|----------------------------------|
+| `REPO_URL`     | `https://github.com/freehci/freehci-appliance.git` | Git remote to clone              |
+| `INSTALL_DIR`  | `$HOME/freehci-appliance`                         | Clone / install directory        |
+| `GIT_BRANCH`   | `main`                                            | Branch to checkout               |
+| `COMPOSE_DETACH` | `1`                                            | `1` = `docker compose up -d`, `0` = foreground |
+
+After install, add your user to the `docker` group if you want to run `docker` without `sudo`:
+
+```bash
+sudo usermod -aG docker "$USER"
+# log out and back in
+```
+
+---
+
+## Local development (without Docker)
+
+**Backend** (from `backend/`):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+mkdir -p data
+export DATABASE_URL="${DATABASE_URL:-sqlite:///./data/freehci.db}"
+alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Frontend** (from `frontend/`):
+
+```bash
+npm install
+npm run dev
+```
+
+The Vite dev server proxies `/api` to `http://127.0.0.1:8000`. Set `CORS_ORIGINS` on the API if you use another origin or port.
+
+**Frontend production build** (from `frontend/`):
+
+```bash
+npm ci
+npm run build
+```
+
+Output is written to `frontend/dist/`.
+
+---
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Design / theme tokens](docs/DESIGN.md)
+- [Plugin framework](docs/PLUGINS.md)

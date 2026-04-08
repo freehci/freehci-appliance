@@ -1,0 +1,53 @@
+@import "../theme/tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  background-color: var(--color-bg-body);
+  background-image:
+    linear-gradient(var(--color-bg-overlay), var(--color-bg-overlay)),
+    radial-gradient(ellipse 120% 80% at 50% 0%, #2a3a62 0%, transparent 55%),
+    linear-gradient(180deg, #0f1524 0%, var(--color-bg-body) 45%);
+  background-attachment: fixed;
+  background-size: cover, cover, cover;
+}
+
+html[data-theme="light"] body {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)),
+    radial-gradient(ellipse 100% 60% at 50% 0%, #c5d0e8 0%, transparent 50%),
+    linear-gradient(180deg, #dfe6f2 0%, var(--color-bg-body) 50%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-accent);
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

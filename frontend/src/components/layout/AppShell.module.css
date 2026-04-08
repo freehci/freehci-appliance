@@ -1,0 +1,16 @@
+.shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.main {
+  min-width: 0;
+}

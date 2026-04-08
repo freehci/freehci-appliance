@@ -1,0 +1,1 @@
+"""FreeHCI FastAPI-applikasjon."""

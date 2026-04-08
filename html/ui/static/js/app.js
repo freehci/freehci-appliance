@@ -1,6 +1,8 @@
+// File: html/ui/static/js/app.js
 const options = {
     moduleCache: {
-      vue: Vue
+      vue: Vue,
+      'vuedraggable': window['vuedraggable']
     },
     async getFile(url) {
       const res = await fetch(url);

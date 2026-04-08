@@ -7,3 +7,11 @@ api/__pycache__
 routers/__pycache__/user.cpython-39.pyc
 cli/npyscreen.log
 models/test.db
+
+# Ny stack (backend/frontend)
+backend/data/
+backend/.pytest_cache/
+backend/**/__pycache__/
+frontend/node_modules/
+frontend/dist/
+.env
