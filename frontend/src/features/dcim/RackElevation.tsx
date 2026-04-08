@@ -1,4 +1,5 @@
 import type { DragEvent, ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import type { MessageKey } from "@/i18n/messages/en";
 import type { DeviceInstance, DeviceModel, Rack, RackPlacement } from "./types";
 import {
@@ -30,8 +31,11 @@ type Props = {
   onDropDevice: (rackId: number, deviceId: number, uPosition: number) => void;
   onDropModel: (rackId: number, modelId: number, uPosition: number) => void;
   onMovePlacement: (placementId: number, rackId: number, uPosition: number) => void;
+  onEditPlacement: (placement: RackPlacement) => void;
+  onPlacementMountingChange: (placementId: number, mounting: string) => void;
   onRemovePlacement: (placementId: number) => void;
   removePending: boolean;
+  highlightPlacementId?: number;
 };
 
 export function RackElevation({
@@ -47,10 +51,23 @@ export function RackElevation({
   onDropDevice,
   onDropModel,
   onMovePlacement,
+  onEditPlacement,
+  onPlacementMountingChange,
   onRemovePlacement,
   removePending,
+  highlightPlacementId,
 }: Props) {
   const n = rack.u_height;
+  const stageRef = useRef<HTMLDivElement | null>(null);
+
+  const rackPlacements = allPlacements.filter((p) => p.rack_id === rack.id);
+  const isHighlightedRack =
+    highlightPlacementId != null && rackPlacements.some((p) => p.id === highlightPlacementId);
+
+  useEffect(() => {
+    if (!isHighlightedRack) return;
+    stageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [isHighlightedRack, highlightPlacementId, rack.id]);
 
   const excludePlacementId =
     dragging?.kind === "placement" && dragging.sourceRackId === rack.id
@@ -64,8 +81,6 @@ export function RackElevation({
     modelsById,
     excludePlacementId,
   );
-
-  const rackPlacements = allPlacements.filter((p) => p.rack_id === rack.id);
 
   const dragDeviceU = (): number | null => {
     if (!dragging) return null;
@@ -171,6 +186,7 @@ export function RackElevation({
           dragging?.kind === "placement" && dragging.placementId === p.id
             ? styles.deviceBlockDragging
             : "",
+          highlightPlacementId === p.id ? styles.deviceBlockHighlight : "",
         ]
           .join(" ")
           .trim()}
@@ -178,7 +194,7 @@ export function RackElevation({
         draggable
         onDragStart={(e) => {
           const el = e.target as HTMLElement;
-          if (el.closest("button")) {
+          if (el.closest("button, select, [data-rack-no-drag]")) {
             e.preventDefault();
             return;
           }
@@ -200,35 +216,68 @@ export function RackElevation({
           />
         ) : null}
         <div className={styles.deviceBlockInner}>
-          <div>
+          <div className={styles.deviceBlockText}>
             <div className={styles.deviceName}>{dev.name}</div>
             <div className={styles.deviceMeta}>
-              U{bottom}–{top} · {h}U
+              U{bottom}–{top} · {h}U · {p.mounting}
             </div>
+            <label className={styles.deviceMountLabel}>
+              <span className={styles.srOnly}>{t("dcim.racks.editorMount")}</span>
+              <select
+                value={p.mounting === "rear" ? "rear" : "front"}
+                onChange={(e) => onPlacementMountingChange(p.id, e.target.value)}
+                className={styles.deviceMountSelect}
+                data-rack-no-drag=""
+                aria-label={t("dcim.racks.editorMount")}
+              >
+                <option value="front">{t("dcim.equip.mountFront")}</option>
+                <option value="rear">{t("dcim.equip.mountRear")}</option>
+              </select>
+            </label>
           </div>
-          <button
-            type="button"
-            className={styles.removeBtn}
-            title={t("dcim.racks.removePlacementAria")}
-            aria-label={t("dcim.racks.removePlacementAria")}
-            disabled={removePending}
-            draggable={false}
-            onClick={() => onRemovePlacement(p.id)}
-          >
-            ×
-          </button>
+          <div className={styles.deviceActions} data-rack-no-drag="">
+            <button
+              type="button"
+              className={styles.adjustBtn}
+              title={t("dcim.racks.adjustPlacementAria")}
+              aria-label={t("dcim.racks.adjustPlacementAria")}
+              draggable={false}
+              onClick={() => onEditPlacement(p)}
+            >
+              {t("dcim.racks.adjustPlacement")}
+            </button>
+            <button
+              type="button"
+              className={styles.removeBtn}
+              title={t("dcim.racks.removePlacementAria")}
+              aria-label={t("dcim.racks.removePlacementAria")}
+              disabled={removePending}
+              draggable={false}
+              onClick={() => onRemovePlacement(p.id)}
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
     );
   });
 
   return (
-    <div className={styles.rackStage}>
+    <div
+      ref={stageRef}
+      className={[styles.rackStage, isHighlightedRack ? styles.rackStageHighlight : ""].join(" ").trim()}
+    >
       <div className={styles.rackStageTitle}>
         {rack.name} ({n}U)
       </div>
       <div className={styles.rackAspect}>
-        <div className={styles.rackGrid} style={{ gridTemplateRows: `repeat(${n}, minmax(0, 1fr))` }}>
+        <div
+          className={styles.rackGrid}
+          style={{ gridTemplateRows: `repeat(${n}, minmax(0, 1fr))` }}
+          role="group"
+          aria-label={`${rack.name}, ${n}U`}
+        >
           {slots}
           {overlays}
         </div>

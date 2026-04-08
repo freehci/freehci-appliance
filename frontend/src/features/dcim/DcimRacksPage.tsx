@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
@@ -9,7 +10,46 @@ import { RackPlanner } from "./RackPlanner";
 export function DcimRacksPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
-  const [roomFilter, setRoomFilter] = useState<string>("");
+  const [searchParams] = useSearchParams();
+  const [roomFilter, setRoomFilter] = useState<string>(() => searchParams.get("room") ?? "");
+
+  const highlightPlacementId = useMemo(() => {
+    const raw = searchParams.get("highlightPlacement");
+    if (raw == null || raw === "") return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  }, [searchParams]);
+
+  useEffect(() => {
+    const r = searchParams.get("room");
+    if (r != null && r !== "") setRoomFilter(r);
+  }, [searchParams]);
+
+  const placementsForHighlight = useQuery({
+    queryKey: ["dcim", "placements", "all"],
+    queryFn: () => api.listPlacements(),
+    enabled: highlightPlacementId != null && (searchParams.get("room") == null || searchParams.get("room") === ""),
+  });
+
+  const allRacksForHighlight = useQuery({
+    queryKey: ["dcim", "racks", "all-for-highlight"],
+    queryFn: () => api.listRacks(),
+    enabled: highlightPlacementId != null && (searchParams.get("room") == null || searchParams.get("room") === ""),
+  });
+
+  useEffect(() => {
+    if (highlightPlacementId == null) return;
+    if (searchParams.get("room")) return;
+    const p = placementsForHighlight.data?.find((x) => x.id === highlightPlacementId);
+    if (!p || !allRacksForHighlight.data) return;
+    const rk = allRacksForHighlight.data.find((r) => r.id === p.rack_id);
+    if (rk) setRoomFilter(String(rk.room_id));
+  }, [
+    highlightPlacementId,
+    placementsForHighlight.data,
+    allRacksForHighlight.data,
+    searchParams,
+  ]);
   const [roomId, setRoomId] = useState<string>("");
   const [name, setName] = useState("");
   const [uHeight, setUHeight] = useState("42");
@@ -45,7 +85,7 @@ export function DcimRacksPage() {
 
   return (
     <>
-      <RackPlanner racks={racks} />
+      <RackPlanner racks={racks} highlightPlacementId={highlightPlacementId} />
 
       <details className={styles.adminDetails}>
         <summary>{t("dcim.racks.adminSummary")}</summary>

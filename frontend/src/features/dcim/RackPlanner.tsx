@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import baseStyles from "./dcim.module.css";
 import { RackElevation, type DragPayload } from "./RackElevation";
 import styles from "./RackPlanner.module.css";
-import { deviceUHeight } from "./rackUtils";
+import { canPlaceDeviceAt, deviceUHeight, existingRangesForRack } from "./rackUtils";
 import type { DeviceInstance, DeviceModel, Rack, RackPlacement } from "./types";
 
 /** Unik kort suffiks uten `crypto.randomUUID` (krever ofte sikker kontekst / HTTPS). */
@@ -25,10 +26,146 @@ function shortInstanceSuffix(): string {
 
 type PaletteTab = "devices" | "models";
 
-export function RackPlanner({ racks }: { racks: Rack[] }) {
+type PatchVars = {
+  pid: number;
+  rack_id?: number;
+  u_position?: number;
+  mounting?: string;
+};
+
+function PlacementEditorDialog({
+  placement,
+  racks,
+  allPlacements,
+  devicesById,
+  modelsById,
+  t,
+  saving,
+  onClose,
+  onApply,
+}: {
+  placement: RackPlacement;
+  racks: Rack[];
+  allPlacements: RackPlacement[];
+  devicesById: Map<number, DeviceInstance>;
+  modelsById: Map<number, DeviceModel>;
+  t: (key: MessageKey) => string;
+  saving: boolean;
+  onClose: () => void;
+  onApply: (rack_id: number, u_position: number, mounting: string) => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [rackId, setRackId] = useState(String(placement.rack_id));
+  const [uStr, setUStr] = useState(String(placement.u_position));
+  const [mount, setMount] = useState(placement.mounting);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    d.showModal();
+    return () => d.close();
+  }, []);
+
+  const dev = devicesById.get(placement.device_id);
+  const h = dev ? deviceUHeight(dev, modelsById) : 1;
+  const rackNum = Number(rackId);
+  const selectedRack = racks.find((r) => r.id === rackNum);
+
+  const clientErr = useMemo(() => {
+    if (!selectedRack) return t("dcim.racks.editorInvalidU");
+    const u = Number(uStr);
+    if (!Number.isFinite(u) || u < 1) return t("dcim.racks.editorInvalidU");
+    const ranges = existingRangesForRack(
+      allPlacements,
+      rackNum,
+      devicesById,
+      modelsById,
+      placement.id,
+    );
+    if (!canPlaceDeviceAt(u, h, selectedRack.u_height, ranges)) return t("dcim.racks.editorNoFit");
+    return null;
+  }, [uStr, rackNum, h, selectedRack, allPlacements, devicesById, modelsById, placement.id, t]);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (clientErr || !selectedRack) return;
+    onApply(rackNum, Number(uStr), mount);
+  };
+
+  return (
+    <dialog
+      ref={ref}
+      className={styles.placementDialog}
+      aria-labelledby="placement-editor-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      <form className={styles.placementDialogForm} onSubmit={submit}>
+        <h2 id="placement-editor-title" className={styles.placementDialogTitle}>
+          {t("dcim.racks.editorTitle")}
+        </h2>
+        <div className={styles.placementDialogFields}>
+          <label className={styles.placementDialogLabel}>
+            {t("dcim.racks.editorRack")}
+            <select
+              value={rackId}
+              onChange={(e) => setRackId(e.target.value)}
+              data-rack-no-drag=""
+            >
+              {racks.map((r) => (
+                <option key={r.id} value={String(r.id)}>
+                  #{r.id} {r.name} ({r.u_height}U)
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.placementDialogLabel}>
+            {t("dcim.racks.editorU")}
+            <input
+              type="number"
+              min={1}
+              max={selectedRack?.u_height ?? 64}
+              value={uStr}
+              onChange={(e) => setUStr(e.target.value)}
+              aria-invalid={clientErr != null}
+            />
+          </label>
+          <label className={styles.placementDialogLabel}>
+            {t("dcim.racks.editorMount")}
+            <select value={mount} onChange={(e) => setMount(e.target.value)} data-rack-no-drag="">
+              <option value="front">{t("dcim.equip.mountFront")}</option>
+              <option value="rear">{t("dcim.equip.mountRear")}</option>
+            </select>
+          </label>
+        </div>
+        {clientErr ? <p className={styles.placementDialogErr}>{clientErr}</p> : null}
+        <div className={styles.placementDialogActions}>
+          <button type="button" className={baseStyles.btn} onClick={onClose}>
+            {t("dcim.racks.editorCancel")}
+          </button>
+          <button type="submit" className={baseStyles.btn} disabled={clientErr != null || saving}>
+            {t("dcim.racks.editorApply")}
+          </button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+export function RackPlanner({
+  racks,
+  highlightPlacementId,
+}: {
+  racks: Rack[];
+  highlightPlacementId?: number;
+}) {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("devices");
+  const [paletteMount, setPaletteMount] = useState<"front" | "rear">("front");
+  const [editorPlacement, setEditorPlacement] = useState<RackPlacement | null>(null);
   const [dragging, setDragging] = useState<DragPayload>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [dropErr, setDropErr] = useState<string | null>(null);
@@ -65,7 +202,7 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
 
   const placeDeviceMu = useMutation({
     mutationFn: (body: { rack_id: number; device_id: number; u_position: number }) =>
-      api.createPlacement({ ...body, mounting: "front" }),
+      api.createPlacement({ ...body, mounting: paletteMount }),
     onSuccess: () => {
       setDropErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "placements"] });
@@ -85,7 +222,7 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
         rack_id: vars.rackId,
         device_id: dev.id,
         u_position: vars.u,
-        mounting: "front",
+        mounting: paletteMount,
       });
     },
     onSuccess: () => {
@@ -96,9 +233,14 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
     onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
   });
 
-  const movePlacementMu = useMutation({
-    mutationFn: (vars: { pid: number; rackId: number; u: number }) =>
-      api.updatePlacement(vars.pid, { rack_id: vars.rackId, u_position: vars.u }),
+  const patchPlacementMu = useMutation({
+    mutationFn: (vars: PatchVars) => {
+      const body: { rack_id?: number; u_position?: number; mounting?: string } = {};
+      if (vars.rack_id !== undefined) body.rack_id = vars.rack_id;
+      if (vars.u_position !== undefined) body.u_position = vars.u_position;
+      if (vars.mounting !== undefined) body.mounting = vars.mounting;
+      return api.updatePlacement(vars.pid, body);
+    },
     onMutate: async (vars) => {
       setDropErr(null);
       await qc.cancelQueries({ queryKey: ["dcim", "placements", "all"] });
@@ -106,7 +248,14 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
       qc.setQueryData<RackPlacement[]>(["dcim", "placements", "all"], (old) => {
         if (!old) return old;
         return old.map((p) =>
-          p.id === vars.pid ? { ...p, rack_id: vars.rackId, u_position: vars.u } : p,
+          p.id === vars.pid
+            ? {
+                ...p,
+                ...(vars.rack_id !== undefined ? { rack_id: vars.rack_id } : {}),
+                ...(vars.u_position !== undefined ? { u_position: vars.u_position } : {}),
+                ...(vars.mounting !== undefined ? { mounting: vars.mounting } : {}),
+              }
+            : p,
         );
       });
       return { previous };
@@ -174,6 +323,17 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
               {t("dcim.racks.paletteTabModels")}
             </button>
           </div>
+          <label className={styles.paletteMountRow}>
+            <span className={styles.paletteMountHint}>{t("dcim.racks.paletteMountHint")}</span>
+            <select
+              value={paletteMount}
+              onChange={(e) => setPaletteMount(e.target.value as "front" | "rear")}
+              aria-label={t("dcim.racks.paletteMountHint")}
+            >
+              <option value="front">{t("dcim.equip.mountFront")}</option>
+              <option value="rear">{t("dcim.equip.mountRear")}</option>
+            </select>
+          </label>
           <p className={styles.paletteHint}>
             {paletteTab === "devices" ? t("dcim.racks.paletteHint") : t("dcim.racks.paletteModelsHint")}
           </p>
@@ -264,6 +424,7 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
               setDragging={setDragging}
               dragOverKey={dragOverKey}
               setDragOverKey={setDragOverKey}
+              highlightPlacementId={highlightPlacementId}
               onDropDevice={(rackId, deviceId, u) => {
                 placeDeviceMu.mutate({ rack_id: rackId, device_id: deviceId, u_position: u });
               }}
@@ -271,7 +432,11 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
                 placeFromModelMu.mutate({ rackId, modelId, u });
               }}
               onMovePlacement={(pid, rackId, u) => {
-                movePlacementMu.mutate({ pid, rackId, u });
+                patchPlacementMu.mutate({ pid, rack_id: rackId, u_position: u });
+              }}
+              onEditPlacement={setEditorPlacement}
+              onPlacementMountingChange={(pid, mounting) => {
+                patchPlacementMu.mutate({ pid, mounting });
               }}
               onRemovePlacement={(id) => removeMu.mutate(id)}
               removePending={removeMu.isPending}
@@ -279,6 +444,26 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
           ))}
         </div>
       </div>
+
+      {editorPlacement ? (
+        <PlacementEditorDialog
+          key={editorPlacement.id}
+          placement={editorPlacement}
+          racks={racks}
+          allPlacements={allPlacements}
+          devicesById={devicesById}
+          modelsById={modelsById}
+          t={t}
+          saving={patchPlacementMu.isPending}
+          onClose={() => setEditorPlacement(null)}
+          onApply={(rack_id, u_position, mounting) => {
+            patchPlacementMu.mutate(
+              { pid: editorPlacement.id, rack_id, u_position, mounting },
+              { onSuccess: () => setEditorPlacement(null) },
+            );
+          }}
+        />
+      ) : null}
     </Panel>
   );
 }

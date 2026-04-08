@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
+import type { Rack, RackPlacement } from "./types";
 
 export function DcimEquipmentPage() {
   const { t } = useI18n();
@@ -38,6 +40,23 @@ export function DcimEquipmentPage() {
     queryKey: ["dcim", "placements", rackIdFilter ?? "all"],
     queryFn: () => api.listPlacements(rackIdFilter),
   });
+
+  const allPlacementsLinkQ = useQuery({
+    queryKey: ["dcim", "placements", "all"],
+    queryFn: () => api.listPlacements(),
+  });
+
+  const racksById = useMemo(() => {
+    const m = new Map<number, Rack>();
+    for (const r of racksQ.data ?? []) m.set(r.id, r);
+    return m;
+  }, [racksQ.data]);
+
+  const placementByDeviceId = useMemo(() => {
+    const m = new Map<number, RackPlacement>();
+    for (const p of allPlacementsLinkQ.data ?? []) m.set(p.device_id, p);
+    return m;
+  }, [allPlacementsLinkQ.data]);
 
   const createMfr = useMutation({
     mutationFn: () => api.createManufacturer({ name: mfrName.trim() }),
@@ -288,16 +307,39 @@ export function DcimEquipmentPage() {
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.equip.dev.modelCol")}</th>
                 <th>{t("dcim.common.name")}</th>
+                <th>{t("dcim.equip.dev.placementCol")}</th>
               </tr>
             </thead>
             <tbody>
-              {devicesQ.data.map((x) => (
-                <tr key={x.id}>
-                  <td>{x.id}</td>
-                  <td>{x.device_model_id ?? "—"}</td>
-                  <td>{x.name}</td>
-                </tr>
-              ))}
+              {devicesQ.data.map((x) => {
+                const pl = placementByDeviceId.get(x.id);
+                const r = pl ? racksById.get(pl.rack_id) : undefined;
+                const roomId = r?.room_id ?? "";
+                return (
+                  <tr key={x.id}>
+                    <td>{x.id}</td>
+                    <td>{x.device_model_id ?? "—"}</td>
+                    <td>{x.name}</td>
+                    <td>
+                      {pl ? (
+                        <>
+                          <span className={styles.muted}>
+                            #{pl.rack_id} U{pl.u_position} ({pl.mounting})
+                          </span>{" "}
+                          <Link
+                            to={`/dcim/racks?room=${roomId}&highlightPlacement=${pl.id}`}
+                            className={styles.tableLink}
+                          >
+                            {t("dcim.equip.dev.openInRack")}
+                          </Link>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (
@@ -377,6 +419,7 @@ export function DcimEquipmentPage() {
                 <th>{t("dcim.equip.pl.device")}</th>
                 <th>{t("dcim.equip.pl.uPos")}</th>
                 <th>{t("dcim.equip.pl.mount")}</th>
+                <th>{t("dcim.equip.pl.openInRack")}</th>
                 <th />
               </tr>
             </thead>
@@ -388,6 +431,14 @@ export function DcimEquipmentPage() {
                   <td>{p.device_id}</td>
                   <td>{p.u_position}</td>
                   <td>{p.mounting}</td>
+                  <td>
+                    <Link
+                      to={`/dcim/racks?room=${racksById.get(p.rack_id)?.room_id ?? ""}&highlightPlacement=${p.id}`}
+                      className={styles.tableLink}
+                    >
+                      {t("dcim.equip.pl.openInRack")}
+                    </Link>
+                  </td>
                   <td>
                     <button
                       type="button"

@@ -16,6 +16,16 @@
   font-weight: 600;
 }
 
+.tableLink {
+  color: var(--color-accent);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.tableLink:hover {
+  opacity: 0.92;
+}
+
 .formRow {
   display: flex;
   flex-wrap: wrap;

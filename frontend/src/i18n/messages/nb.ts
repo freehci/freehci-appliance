@@ -100,7 +100,7 @@ export const nb = {
   "dcim.racks.plannerTitle": "Rack-fremtak (dra og slipp)",
   "dcim.racks.adminSummary": "Registrer og list racks (admin)",
   "dcim.racks.matrixHint":
-    "Racks fra admin-lista vises her. Dra enheter eller modeller fra paletten, eller dra plassert utstyr til annen U-posisjon eller rack. U1 er nederst.",
+    "Racks fra admin-lista vises her. Dra enheter eller modeller fra paletten, eller dra plassert utstyr til annen U-posisjon eller rack. Velg for/bak for nye plasseringer på paletten. Bruk «Justér» for tastaturvennlig redigering. U1 er nederst.",
   "dcim.racks.paletteTitle": "Palett",
   "dcim.racks.paletteTabDevices": "Enheter",
   "dcim.racks.paletteTabModels": "Modeller",
@@ -116,6 +116,17 @@ export const nb = {
   "dcim.racks.dropError": "Kunne ikke fullføre operasjonen:",
   "dcim.racks.slotBlocked": "Opptatt",
   "dcim.racks.removePlacementAria": "Fjern fra rack",
+  "dcim.racks.paletteMountHint": "Side for nye plasseringer (palett)",
+  "dcim.racks.adjustPlacement": "Justér",
+  "dcim.racks.adjustPlacementAria": "Justér rack-posisjon og montering (tastaturvennlig)",
+  "dcim.racks.editorTitle": "Juster plassering",
+  "dcim.racks.editorRack": "Rack",
+  "dcim.racks.editorU": "U-posisjon (nederste RU)",
+  "dcim.racks.editorMount": "Montering",
+  "dcim.racks.editorApply": "Bruk",
+  "dcim.racks.editorCancel": "Avbryt",
+  "dcim.racks.editorInvalidU": "Oppgi en gyldig U-posisjon.",
+  "dcim.racks.editorNoFit": "Plasseringen passer ikke eller kolliderer med annet utstyr.",
 
   "dcim.equip.introTitle": "Utstyr",
   "dcim.equip.introBody":
@@ -136,6 +147,8 @@ export const nb = {
   "dcim.equip.dev.hostname": "Navn / hostname",
   "dcim.equip.dev.create": "Opprett enhet",
   "dcim.equip.dev.modelCol": "Modell-ID",
+  "dcim.equip.dev.placementCol": "Plassering",
+  "dcim.equip.dev.openInRack": "Racks",
   "dcim.equip.dev.empty": "Ingen enheter.",
   "dcim.equip.pl.title": "Plasseringer i rack",
   "dcim.equip.pl.filterRack": "Filtrer på rack-ID",
@@ -145,6 +158,7 @@ export const nb = {
   "dcim.equip.pl.place": "Plasser",
   "dcim.equip.pl.empty": "Ingen plasseringer.",
   "dcim.equip.pl.chooseRackDev": "Velg rack og enhet",
+  "dcim.equip.pl.openInRack": "Åpne i rack-fremtak",
   "dcim.equip.mountFront": "front",
   "dcim.equip.mountRear": "rear",
 } satisfies Record<MessageKey, string>;

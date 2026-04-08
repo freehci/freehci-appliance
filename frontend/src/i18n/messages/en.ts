@@ -96,7 +96,7 @@ export const en = {
   "dcim.racks.plannerTitle": "Rack elevation (drag & drop)",
   "dcim.racks.adminSummary": "Register and list racks (admin)",
   "dcim.racks.matrixHint":
-    "Racks from the admin list appear here. Drag devices or models from the palette, or drag placed gear to another U position or rack. U1 is at the bottom.",
+    "Racks from the admin list appear here. Drag devices or models from the palette, or drag placed gear to another U position or rack. Choose front/rear for new placements in the palette. Use Adjust for keyboard-friendly edits. U1 is at the bottom.",
   "dcim.racks.paletteTitle": "Palette",
   "dcim.racks.paletteTabDevices": "Devices",
   "dcim.racks.paletteTabModels": "Models",
@@ -111,6 +111,17 @@ export const en = {
   "dcim.racks.dropError": "Could not complete the operation:",
   "dcim.racks.slotBlocked": "Occupied",
   "dcim.racks.removePlacementAria": "Remove from rack",
+  "dcim.racks.paletteMountHint": "Side for new placements (palette)",
+  "dcim.racks.adjustPlacement": "Adjust",
+  "dcim.racks.adjustPlacementAria": "Adjust rack position and mounting (keyboard friendly)",
+  "dcim.racks.editorTitle": "Adjust placement",
+  "dcim.racks.editorRack": "Rack",
+  "dcim.racks.editorU": "U position (bottom RU)",
+  "dcim.racks.editorMount": "Mounting",
+  "dcim.racks.editorApply": "Apply",
+  "dcim.racks.editorCancel": "Cancel",
+  "dcim.racks.editorInvalidU": "Enter a valid U position.",
+  "dcim.racks.editorNoFit": "That position does not fit or collides with other gear.",
 
   "dcim.equip.introTitle": "Equipment",
   "dcim.equip.introBody":
@@ -131,6 +142,8 @@ export const en = {
   "dcim.equip.dev.hostname": "Name / hostname",
   "dcim.equip.dev.create": "Create device",
   "dcim.equip.dev.modelCol": "Model ID",
+  "dcim.equip.dev.placementCol": "Placement",
+  "dcim.equip.dev.openInRack": "Racks",
   "dcim.equip.dev.empty": "No devices.",
   "dcim.equip.pl.title": "Rack placements",
   "dcim.equip.pl.filterRack": "Filter by rack ID",
@@ -140,6 +153,7 @@ export const en = {
   "dcim.equip.pl.place": "Place",
   "dcim.equip.pl.empty": "No placements.",
   "dcim.equip.pl.chooseRackDev": "Choose rack and device",
+  "dcim.equip.pl.openInRack": "Open in rack planner",
   "dcim.equip.mountFront": "front",
   "dcim.equip.mountRear": "rear",
 } as const;
