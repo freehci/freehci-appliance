@@ -178,11 +178,13 @@ export function RackElevation({
     const rowStart = gridRowStartForPlacement(n, p.u_position, h);
     const { bottom, top } = occupiesRange(p.u_position, h);
     const mod = dev.device_model_id != null ? modelsById.get(dev.device_model_id) : undefined;
+    const isRear = p.mounting === "rear";
     return (
       <div
         key={p.id}
         className={[
           styles.deviceBlockGrid,
+          isRear ? styles.deviceBlockRear : styles.deviceBlockFront,
           dragging?.kind === "placement" && dragging.placementId === p.id
             ? styles.deviceBlockDragging
             : "",
@@ -207,11 +209,18 @@ export function RackElevation({
           setDragOverKey(null);
         }}
       >
+        <span
+          className={isRear ? styles.mountBadgeRear : styles.mountBadgeFront}
+          title={isRear ? t("dcim.equip.mountRear") : t("dcim.equip.mountFront")}
+          aria-hidden
+        >
+          {isRear ? "R" : "F"}
+        </span>
         {mod?.image_front_url ? (
           <img
             src={mod.image_front_url}
             alt=""
-            className={styles.deviceThumb}
+            className={[styles.deviceThumb, isRear ? styles.deviceThumbRear : ""].join(" ").trim()}
             draggable={false}
           />
         ) : null}

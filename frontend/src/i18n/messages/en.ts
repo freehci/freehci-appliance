@@ -96,7 +96,7 @@ export const en = {
   "dcim.racks.plannerTitle": "Rack elevation (drag & drop)",
   "dcim.racks.adminSummary": "Register and list racks (admin)",
   "dcim.racks.matrixHint":
-    "Racks from the admin list appear here. Drag devices or models from the palette, or drag placed gear to another U position or rack. Choose front/rear for new placements in the palette. Use Adjust for keyboard-friendly edits. U1 is at the bottom.",
+    "Racks from the admin list appear here. Drag devices or models from the palette, or drag placed gear to another U position or rack. Choose front/rear for new placements in the palette. Use Adjust for keyboard-friendly edits. Solid blue frame = front; dashed gold = rear. U1 is at the bottom.",
   "dcim.racks.paletteTitle": "Palette",
   "dcim.racks.paletteTabDevices": "Devices",
   "dcim.racks.paletteTabModels": "Models",

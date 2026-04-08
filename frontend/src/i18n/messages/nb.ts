@@ -100,7 +100,7 @@ export const nb = {
   "dcim.racks.plannerTitle": "Rack-fremtak (dra og slipp)",
   "dcim.racks.adminSummary": "Registrer og list racks (admin)",
   "dcim.racks.matrixHint":
-    "Racks fra admin-lista vises her. Dra enheter eller modeller fra paletten, eller dra plassert utstyr til annen U-posisjon eller rack. Velg for/bak for nye plasseringer på paletten. Bruk «Justér» for tastaturvennlig redigering. U1 er nederst.",
+    "Racks fra admin-lista vises her. Dra enheter eller modeller fra paletten, eller dra plassert utstyr til annen U-posisjon eller rack. Velg for/bak for nye plasseringer på paletten. Bruk «Justér» for tastaturvennlig redigering. Hel blå ramme = forside; stiplet gull = bakside. U1 er nederst.",
   "dcim.racks.paletteTitle": "Palett",
   "dcim.racks.paletteTabDevices": "Enheter",
   "dcim.racks.paletteTabModels": "Modeller",
