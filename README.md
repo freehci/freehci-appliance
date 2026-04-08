@@ -150,7 +150,7 @@ Etter `docker compose up` er dette normalt eller forventet i utvikling:
 | **PostgreSQL (Alpine)** | `locale: not found` / `no usable system locales` | Vanlig i slanke images; databasen bruker likevel UTF-8. Kan ignoreres for dev. |
 | **PostgreSQL** | `trust` authentication for local | Typisk ved første `initdb` i container; **ikke** bruk slik i produksjon uten ekte `pg_hba`-sikkerhet. |
 | **Redis** | `Memory overcommit must be enabled` | **Verten** (Linux): kjør én gang `sysctl vm.overcommit_memory=1` eller legg i `/etc/sysctl.d/` og last på nytt. |
-| **Celery worker** | `running the worker with superuser privileges` | Skal **ikke** vises etter nyeste image: prosessene kjører som ikke-root (`freehci`, uid 10001). Bygg på nytt med `docker compose build --no-cache api worker`. |
+| **Celery worker** | `running the worker with superuser privileges` | Kjør **`git pull`** og **`docker compose build --no-cache api worker && docker compose up -d`**. `docker-compose.yml` tvinger også **`user: 10001:10001`** på api/worker. |
 
 ---
 
