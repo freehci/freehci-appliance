@@ -4,7 +4,7 @@ export function getApiBase(): string {
   return v != null && v !== "" ? v.replace(/\/$/, "") : "";
 }
 
-function apiUrl(path: string): string {
+export function apiUrl(path: string): string {
   const base = getApiBase();
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -78,4 +78,27 @@ export async function apiDelete(path: string): Promise<void> {
     const msg = await failMessage(res, `${res.status} ${res.statusText}`);
     throw new ApiError(res.status, msg);
   }
+}
+
+/** Multipart POST (f.eks. filopplasting); ikke sett Content-Type — nettleseren setter boundary. */
+export async function apiPostMultipart<T>(path: string, formData: FormData): Promise<T> {
+  const res = await fetch(apiUrl(path), {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+  if (!res.ok) {
+    const msg = await failMessage(res, `${res.status} ${res.statusText}`);
+    throw new ApiError(res.status, msg);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function apiDeleteJson<T>(path: string): Promise<T> {
+  const res = await fetch(apiUrl(path), { method: "DELETE", credentials: "include" });
+  if (!res.ok) {
+    const msg = await failMessage(res, `${res.status} ${res.statusText}`);
+    throw new ApiError(res.status, msg);
+  }
+  return res.json() as Promise<T>;
 }

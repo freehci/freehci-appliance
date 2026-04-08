@@ -31,10 +31,37 @@ def test_dcim_site_room_rack_device_flow() -> None:
 
         m = client.post(
             "/api/v1/dcim/manufacturers",
-            json={"name": "Dell"},
+            json={
+                "name": "Dell",
+                "description": "Test vendor",
+                "website_url": "https://example.com/dell",
+            },
         )
-        assert m.status_code == 200
+        assert m.status_code == 200, m.text
         mid = m.json()["id"]
+        assert m.json()["has_logo"] is False
+        assert m.json()["description"] == "Test vendor"
+
+        d0 = client.get(f"/api/v1/dcim/manufacturers/{mid}")
+        assert d0.status_code == 200
+        assert d0.json()["name"] == "Dell"
+        assert d0.json()["device_models"] == []
+
+        tiny_png = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n\x2db\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        up = client.post(
+            f"/api/v1/dcim/manufacturers/{mid}/logo",
+            files={"file": ("x.png", tiny_png, "image/png")},
+        )
+        assert up.status_code == 200, up.text
+        assert up.json()["has_logo"] is True
+
+        lg = client.get(f"/api/v1/dcim/manufacturers/{mid}/logo")
+        assert lg.status_code == 200
+        assert lg.content == tiny_png
 
         dm = client.post(
             "/api/v1/dcim/device-models",

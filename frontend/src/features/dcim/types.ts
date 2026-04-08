@@ -26,6 +26,19 @@ export type Rack = {
 export type Manufacturer = {
   id: number;
   name: string;
+  description: string | null;
+  website_url: string | null;
+  has_logo: boolean;
+};
+
+export type DeviceModelBrief = {
+  id: number;
+  name: string;
+  u_height: number;
+};
+
+export type ManufacturerDetail = Manufacturer & {
+  device_models: DeviceModelBrief[];
 };
 
 export type DeviceModel = {

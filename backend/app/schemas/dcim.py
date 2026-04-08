@@ -84,6 +84,14 @@ class RackRead(BaseModel):
 
 class ManufacturerCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    website_url: str | None = Field(None, max_length=1024)
+
+
+class ManufacturerUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    website_url: str | None = Field(None, max_length=1024)
 
 
 class ManufacturerRead(BaseModel):
@@ -91,6 +99,26 @@ class ManufacturerRead(BaseModel):
 
     id: int
     name: str
+    description: str | None
+    website_url: str | None
+    has_logo: bool
+
+
+class DeviceModelBrief(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    u_height: int
+
+
+class ManufacturerDetailRead(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    website_url: str | None
+    has_logo: bool
+    device_models: list[DeviceModelBrief]
 
 
 class DeviceModelCreate(BaseModel):

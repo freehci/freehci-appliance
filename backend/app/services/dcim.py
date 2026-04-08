@@ -5,6 +5,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException
+
 from app.models.dcim import (
     DeviceInstance,
     DeviceModel,
@@ -19,7 +21,11 @@ from app.schemas.dcim import (
     DeviceInstanceUpdate,
     DeviceModelCreate,
     DeviceModelUpdate,
+    DeviceModelBrief,
     ManufacturerCreate,
+    ManufacturerDetailRead,
+    ManufacturerRead,
+    ManufacturerUpdate,
     RackCreate,
     RackPlacementCreate,
     RackPlacementUpdate,
@@ -220,20 +226,98 @@ def delete_rack(db: Session, rack: Rack) -> None:
 
 # --- Manufacturers ---
 
-def list_manufacturers(db: Session) -> list[Manufacturer]:
-    return list(db.execute(select(Manufacturer).order_by(Manufacturer.name)).scalars().all())
+LOGO_MAX_BYTES = 512 * 1024
+ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
 
 
-def create_manufacturer(db: Session, data: ManufacturerCreate) -> Manufacturer:
-    row = Manufacturer(name=data.name.strip())
+def manufacturer_read(m: Manufacturer) -> ManufacturerRead:
+    return ManufacturerRead(
+        id=m.id,
+        name=m.name,
+        description=m.description,
+        website_url=m.website_url,
+        has_logo=m.logo_mime_type is not None,
+    )
+
+
+def list_manufacturers(db: Session) -> list[ManufacturerRead]:
+    rows = list(db.execute(select(Manufacturer).order_by(Manufacturer.name)).scalars().all())
+    return [manufacturer_read(r) for r in rows]
+
+
+def create_manufacturer(db: Session, data: ManufacturerCreate) -> ManufacturerRead:
+    desc = data.description.strip() if data.description else None
+    web = data.website_url.strip() if data.website_url else None
+    row = Manufacturer(
+        name=data.name.strip(),
+        description=desc or None,
+        website_url=web or None,
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
-    return row
+    return manufacturer_read(row)
+
+
+def update_manufacturer(db: Session, m: Manufacturer, data: ManufacturerUpdate) -> ManufacturerRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "name" in patch:
+        nm = patch["name"]
+        if not nm or not str(nm).strip():
+            raise HTTPException(status_code=400, detail="navn kan ikke være tomt")
+        m.name = str(nm).strip()
+    if "description" in patch:
+        v = patch["description"]
+        m.description = None if v is None else (str(v).strip() or None)
+    if "website_url" in patch:
+        v = patch["website_url"]
+        m.website_url = None if v is None else (str(v).strip() or None)
+    db.commit()
+    db.refresh(m)
+    return manufacturer_read(m)
 
 
 def get_manufacturer(db: Session, mid: int) -> Manufacturer | None:
     return db.get(Manufacturer, mid)
+
+
+def get_manufacturer_detail(db: Session, mid: int) -> ManufacturerDetailRead | None:
+    m = get_manufacturer(db, mid)
+    if m is None:
+        return None
+    q = select(DeviceModel).where(DeviceModel.manufacturer_id == mid).order_by(DeviceModel.name)
+    models = list(db.execute(q).scalars().all())
+    return ManufacturerDetailRead(
+        id=m.id,
+        name=m.name,
+        description=m.description,
+        website_url=m.website_url,
+        has_logo=m.logo_mime_type is not None,
+        device_models=[DeviceModelBrief.model_validate(x) for x in models],
+    )
+
+
+def set_manufacturer_logo(db: Session, m: Manufacturer, content: bytes, mime: str) -> None:
+    if len(content) > LOGO_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="logo for stor (maks 512 KiB)")
+    if mime not in ALLOWED_LOGO_MIME:
+        raise HTTPException(
+            status_code=400,
+            detail="logo må være PNG, JPEG, WebP eller SVG",
+        )
+    m.logo_data = content
+    m.logo_mime_type = mime
+    db.commit()
+    db.refresh(m)
+
+
+def clear_manufacturer_logo(db: Session, m: Manufacturer) -> None:
+    m.logo_data = None
+    m.logo_mime_type = None
+    db.commit()
+    db.refresh(m)
 
 
 def delete_manufacturer(db: Session, m: Manufacturer) -> None:

@@ -1,6 +1,7 @@
 """DCIM REST API (fase 2 – kjerne)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -12,7 +13,9 @@ from app.schemas.dcim import (
     DeviceModelRead,
     DeviceModelUpdate,
     ManufacturerCreate,
+    ManufacturerDetailRead,
     ManufacturerRead,
+    ManufacturerUpdate,
     RackCreate,
     RackPlacementCreate,
     RackPlacementRead,
@@ -158,6 +161,54 @@ def list_manufacturers(db: Session = Depends(get_db)) -> list[ManufacturerRead]:
 @router.post("/manufacturers", response_model=ManufacturerRead)
 def create_manufacturer(data: ManufacturerCreate, db: Session = Depends(get_db)) -> ManufacturerRead:
     return dcim_svc.create_manufacturer(db, data)
+
+
+@router.get("/manufacturers/{mid}/logo")
+def get_manufacturer_logo(mid: int, db: Session = Depends(get_db)) -> Response:
+    row = dcim_svc.get_manufacturer(db, mid)
+    if row is None or row.logo_mime_type is None or row.logo_data is None:
+        raise HTTPException(status_code=404, detail="logo finnes ikke")
+    return Response(content=bytes(row.logo_data), media_type=row.logo_mime_type)
+
+
+@router.post("/manufacturers/{mid}/logo", response_model=ManufacturerRead)
+async def upload_manufacturer_logo(
+    mid: int,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+) -> ManufacturerRead:
+    row = dcim_svc.get_manufacturer(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    content = await file.read()
+    mime = file.content_type or "application/octet-stream"
+    dcim_svc.set_manufacturer_logo(db, row, content, mime)
+    return dcim_svc.manufacturer_read(row)
+
+
+@router.delete("/manufacturers/{mid}/logo", response_model=ManufacturerRead)
+def remove_manufacturer_logo(mid: int, db: Session = Depends(get_db)) -> ManufacturerRead:
+    row = dcim_svc.get_manufacturer(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    dcim_svc.clear_manufacturer_logo(db, row)
+    return dcim_svc.manufacturer_read(row)
+
+
+@router.get("/manufacturers/{mid}", response_model=ManufacturerDetailRead)
+def get_manufacturer_detail(mid: int, db: Session = Depends(get_db)) -> ManufacturerDetailRead:
+    detail = dcim_svc.get_manufacturer_detail(db, mid)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    return detail
+
+
+@router.patch("/manufacturers/{mid}", response_model=ManufacturerRead)
+def patch_manufacturer(mid: int, data: ManufacturerUpdate, db: Session = Depends(get_db)) -> ManufacturerRead:
+    row = dcim_svc.get_manufacturer(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    return dcim_svc.update_manufacturer(db, row, data)
 
 
 @router.delete("/manufacturers/{mid}", status_code=204)

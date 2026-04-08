@@ -14,6 +14,8 @@ export function DcimEquipmentPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [mfrName, setMfrName] = useState("");
+  const [mfrDesc, setMfrDesc] = useState("");
+  const [mfrUrl, setMfrUrl] = useState("");
   const [dmMfr, setDmMfr] = useState<string>("");
   const [dmName, setDmName] = useState("");
   const [dmU, setDmU] = useState("1");
@@ -59,9 +61,16 @@ export function DcimEquipmentPage() {
   }, [allPlacementsLinkQ.data]);
 
   const createMfr = useMutation({
-    mutationFn: () => api.createManufacturer({ name: mfrName.trim() }),
+    mutationFn: () =>
+      api.createManufacturer({
+        name: mfrName.trim(),
+        description: mfrDesc.trim() === "" ? null : mfrDesc.trim(),
+        website_url: mfrUrl.trim() === "" ? null : mfrUrl.trim(),
+      }),
     onSuccess: () => {
       setMfrName("");
+      setMfrDesc("");
+      setMfrUrl("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "manufacturers"] });
     },
@@ -156,6 +165,19 @@ export function DcimEquipmentPage() {
             {t("dcim.common.name")}
             <input value={mfrName} onChange={(e) => setMfrName(e.target.value)} required />
           </label>
+          <label>
+            {t("dcim.equip.mfr.description")}
+            <input value={mfrDesc} onChange={(e) => setMfrDesc(e.target.value)} />
+          </label>
+          <label>
+            {t("dcim.equip.mfr.website")}
+            <input
+              type="url"
+              value={mfrUrl}
+              onChange={(e) => setMfrUrl(e.target.value)}
+              placeholder="https://"
+            />
+          </label>
           <button type="submit" className={styles.btn} disabled={createMfr.isPending}>
             {createMfr.isPending ? "…" : t("dcim.common.add")}
           </button>
@@ -165,16 +187,42 @@ export function DcimEquipmentPage() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>{t("dcim.equip.mfr.logoCol")}</th>
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.common.name")}</th>
+                <th>{t("dcim.equip.mfr.website")}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {manufacturersQ.data.map((x) => (
                 <tr key={x.id}>
+                  <td className={styles.mfrLogoCell}>
+                    {x.has_logo ? (
+                      <img
+                        src={api.manufacturerLogoUrl(x.id)}
+                        alt=""
+                        className={styles.mfrLogoThumb}
+                      />
+                    ) : (
+                      <span className={styles.muted}>—</span>
+                    )}
+                  </td>
                   <td>{x.id}</td>
-                  <td>{x.name}</td>
+                  <td>
+                    <Link to={`/dcim/equipment/manufacturers/${x.id}`} className={styles.tableLink}>
+                      {x.name}
+                    </Link>
+                  </td>
+                  <td>
+                    {x.website_url ? (
+                      <a href={x.website_url} target="_blank" rel="noreferrer" className={styles.tableLink}>
+                        {x.website_url}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>
                     <button
                       type="button"

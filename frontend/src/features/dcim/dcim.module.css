@@ -26,6 +26,80 @@
   opacity: 0.92;
 }
 
+.mfrLogoCell {
+  width: 3rem;
+  vertical-align: middle;
+}
+
+.mfrLogoThumb {
+  display: block;
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.mfrDetailBack {
+  margin: 0 0 var(--space-2);
+}
+
+.mfrDetailGrid {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+@media (min-width: 720px) {
+  .mfrDetailGrid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.mfrDetailSection {
+  margin-bottom: var(--space-4);
+}
+
+.mfrDetailSectionTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.mfrLogoPreview {
+  margin-bottom: var(--space-2);
+}
+
+.mfrLogoLarge {
+  max-width: 12rem;
+  max-height: 8rem;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--shell-border);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.mfrLogoActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.mfrTextarea {
+  min-height: 5rem;
+  width: 100%;
+  max-width: 40rem;
+  padding: var(--space-2);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  resize: vertical;
+}
+
 .formRow {
   display: flex;
   flex-wrap: wrap;

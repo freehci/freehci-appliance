@@ -1,8 +1,9 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiDelete, apiDeleteJson, apiGet, apiPatch, apiPost, apiPostMultipart, apiUrl } from "@/lib/api";
 import type {
   DeviceInstance,
   DeviceModel,
   Manufacturer,
+  ManufacturerDetail,
   Rack,
   RackPlacement,
   Room,
@@ -46,8 +47,38 @@ export function listManufacturers(): Promise<Manufacturer[]> {
   return apiGet(`${P}/manufacturers`);
 }
 
-export function createManufacturer(body: { name: string }): Promise<Manufacturer> {
+export function getManufacturer(id: number): Promise<ManufacturerDetail> {
+  return apiGet(`${P}/manufacturers/${id}`);
+}
+
+export function createManufacturer(body: {
+  name: string;
+  description?: string | null;
+  website_url?: string | null;
+}): Promise<Manufacturer> {
   return apiPost(`${P}/manufacturers`, body);
+}
+
+export function updateManufacturer(
+  id: number,
+  body: { name?: string; description?: string | null; website_url?: string | null },
+): Promise<Manufacturer> {
+  return apiPatch(`${P}/manufacturers/${id}`, body);
+}
+
+export function manufacturerLogoUrl(id: number, version?: string): string {
+  const q = version != null && version !== "" ? `?v=${encodeURIComponent(version)}` : "";
+  return apiUrl(`${P}/manufacturers/${id}/logo${q}`);
+}
+
+export function uploadManufacturerLogo(id: number, file: File): Promise<Manufacturer> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/manufacturers/${id}/logo`, fd);
+}
+
+export function deleteManufacturerLogo(id: number): Promise<Manufacturer> {
+  return apiDeleteJson(`${P}/manufacturers/${id}/logo`);
 }
 
 export function deleteManufacturer(id: number): Promise<void> {
