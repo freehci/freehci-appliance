@@ -78,6 +78,10 @@ class DeviceModel(Base):
     form_factor: Mapped[str | None] = mapped_column(String(64), nullable=True)
     image_front_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     image_back_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    image_front_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    image_front_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_back_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    image_back_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class DeviceInstance(Base):

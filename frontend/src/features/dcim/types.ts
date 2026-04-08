@@ -49,6 +49,8 @@ export type DeviceModel = {
   form_factor: string | null;
   image_front_url: string | null;
   image_back_url: string | null;
+  has_image_front_file: boolean;
+  has_image_back_file: boolean;
 };
 
 export type DeviceInstance = {

@@ -1,16 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
+import { deviceModelFrontSrc } from "./modelImages";
 import type { Rack, RackPlacement } from "./types";
 
 export function DcimEquipmentPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const dmPanelRef = useRef<HTMLDivElement | null>(null);
+  const dmFileFrontRef = useRef<HTMLInputElement | null>(null);
+  const dmFileBackRef = useRef<HTMLInputElement | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const [mfrName, setMfrName] = useState("");
@@ -60,6 +65,23 @@ export function DcimEquipmentPage() {
     return m;
   }, [allPlacementsLinkQ.data]);
 
+  const manufacturersById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const x of manufacturersQ.data ?? []) m.set(x.id, x.name);
+    return m;
+  }, [manufacturersQ.data]);
+
+  useEffect(() => {
+    const raw = searchParams.get("prefillManufacturer");
+    if (raw == null || raw === "") return;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 1) return;
+    setDmMfr(String(n));
+    requestAnimationFrame(() =>
+      dmPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }, [searchParams]);
+
   const createMfr = useMutation({
     mutationFn: () =>
       api.createManufacturer({
@@ -95,11 +117,21 @@ export function DcimEquipmentPage() {
         image_front_url: dmImgFront.trim() === "" ? null : dmImgFront.trim(),
         image_back_url: dmImgBack.trim() === "" ? null : dmImgBack.trim(),
       }),
-    onSuccess: () => {
+    onSuccess: async (created) => {
+      const ff = dmFileFrontRef.current?.files?.[0];
+      const fb = dmFileBackRef.current?.files?.[0];
+      try {
+        if (ff) await api.uploadDeviceModelImageFront(created.id, ff);
+        if (fb) await api.uploadDeviceModelImageBack(created.id, fb);
+        setErr(null);
+      } catch (e) {
+        setErr(e instanceof ApiError ? e.message : (e as Error).message);
+      }
       setDmName("");
       setDmImgFront("");
       setDmImgBack("");
-      setErr(null);
+      if (dmFileFrontRef.current) dmFileFrontRef.current.value = "";
+      if (dmFileBackRef.current) dmFileBackRef.current.value = "";
       void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -242,7 +274,11 @@ export function DcimEquipmentPage() {
         )}
       </Panel>
 
-      <Panel title={t("dcim.equip.dm.title")}>
+      <div ref={dmPanelRef}>
+        <Panel title={t("dcim.equip.dm.title")}>
+          <p className={styles.muted} style={{ marginTop: 0 }}>
+            {t("dcim.equip.dm.uploadHint")}
+          </p>
         <form
           className={styles.formRow}
           onSubmit={(e) => {
@@ -288,6 +324,22 @@ export function DcimEquipmentPage() {
               placeholder="https://"
             />
           </label>
+          <label>
+            {t("dcim.equip.dm.imageFrontFile")}
+            <input
+              ref={dmFileFrontRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            />
+          </label>
+          <label>
+            {t("dcim.equip.dm.imageBackFile")}
+            <input
+              ref={dmFileBackRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            />
+          </label>
           <button type="submit" className={styles.btn} disabled={createDm.isPending}>
             {createDm.isPending ? "…" : t("dcim.equip.dm.create")}
           </button>
@@ -297,6 +349,7 @@ export function DcimEquipmentPage() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>{t("dcim.equip.dm.thumbCol")}</th>
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.equip.dm.mfrCol")}</th>
                 <th>{t("dcim.common.name")}</th>
@@ -304,20 +357,42 @@ export function DcimEquipmentPage() {
               </tr>
             </thead>
             <tbody>
-              {modelsQ.data.map((x) => (
-                <tr key={x.id}>
-                  <td>{x.id}</td>
-                  <td>{x.manufacturer_id ?? "—"}</td>
-                  <td>{x.name}</td>
-                  <td>{x.u_height}</td>
-                </tr>
-              ))}
+              {modelsQ.data.map((x) => {
+                const src = deviceModelFrontSrc(x);
+                return (
+                  <tr key={x.id}>
+                    <td className={styles.mfrLogoCell}>
+                      {src ? (
+                        <img src={src} alt="" className={styles.mfrLogoThumb} />
+                      ) : (
+                        <span className={styles.muted}>—</span>
+                      )}
+                    </td>
+                    <td>{x.id}</td>
+                    <td>
+                      {x.manufacturer_id != null ? (
+                        <Link
+                          to={`/dcim/equipment/manufacturers/${x.manufacturer_id}`}
+                          className={styles.tableLink}
+                        >
+                          {manufacturersById.get(x.manufacturer_id) ?? `#${x.manufacturer_id}`}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td>{x.name}</td>
+                    <td>{x.u_height}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (
           !modelsQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dm.empty")}</p>
         )}
-      </Panel>
+        </Panel>
+      </div>
 
       <Panel title={t("dcim.equip.dev.title")}>
         <form

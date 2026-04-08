@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import baseStyles from "./dcim.module.css";
 import { RackElevation, type DragPayload } from "./RackElevation";
+import { deviceModelFrontSrc } from "./modelImages";
 import styles from "./RackPlanner.module.css";
 import { canPlaceDeviceAt, deviceUHeight, existingRangesForRack } from "./rackUtils";
 import type { DeviceInstance, DeviceModel, Rack, RackPlacement } from "./types";
@@ -363,9 +364,9 @@ export function RackPlanner({
                         {d.device_model_id != null
                           ? (() => {
                               const m = modelsById.get(d.device_model_id);
-                              return m?.image_front_url ? (
+                              return m && deviceModelFrontSrc(m) ? (
                                 <img
-                                  src={m.image_front_url}
+                                  src={deviceModelFrontSrc(m)!}
                                   alt=""
                                   className={styles.modelThumb}
                                   draggable={false}
@@ -399,8 +400,13 @@ export function RackPlanner({
                   }}
                 >
                   <span className={styles.paletteItemRow}>
-                    {m.image_front_url ? (
-                      <img src={m.image_front_url} alt="" className={styles.modelThumb} draggable={false} />
+                    {deviceModelFrontSrc(m) ? (
+                      <img
+                        src={deviceModelFrontSrc(m)!}
+                        alt=""
+                        className={styles.modelThumb}
+                        draggable={false}
+                      />
                     ) : null}
                     <span>{m.name}</span>
                   </span>

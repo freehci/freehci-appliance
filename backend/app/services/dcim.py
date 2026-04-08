@@ -11,7 +11,10 @@ from fastapi import HTTPException
 
 from app.core.config import get_settings
 from app.core.media_storage import (
+    delete_device_model_all_images,
+    delete_device_model_image_slot,
     delete_manufacturer_logo_files,
+    write_device_model_image_file,
     write_manufacturer_logo_file,
 )
 from app.models.dcim import (
@@ -29,6 +32,7 @@ from app.schemas.dcim import (
     DeviceModelCreate,
     DeviceModelUpdate,
     DeviceModelBrief,
+    DeviceModelRead,
     ManufacturerCreate,
     ManufacturerDetailRead,
     ManufacturerRead,
@@ -234,6 +238,7 @@ def delete_rack(db: Session, rack: Rack) -> None:
 # --- Manufacturers ---
 
 LOGO_MAX_BYTES = 512 * 1024
+DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
 ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
 
 
@@ -340,13 +345,27 @@ def delete_manufacturer(db: Session, m: Manufacturer) -> None:
 
 # --- Device models ---
 
-def list_device_models(db: Session) -> list[DeviceModel]:
-    return list(db.execute(select(DeviceModel).order_by(DeviceModel.name)).scalars().all())
+
+def device_model_read(dm: DeviceModel) -> DeviceModelRead:
+    return DeviceModelRead(
+        id=dm.id,
+        manufacturer_id=dm.manufacturer_id,
+        name=dm.name,
+        u_height=dm.u_height,
+        form_factor=dm.form_factor,
+        image_front_url=dm.image_front_url,
+        image_back_url=dm.image_back_url,
+        has_image_front_file=dm.image_front_relpath is not None,
+        has_image_back_file=dm.image_back_relpath is not None,
+    )
 
 
-def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModel:
-    from fastapi import HTTPException
+def list_device_models(db: Session) -> list[DeviceModelRead]:
+    rows = list(db.execute(select(DeviceModel).order_by(DeviceModel.name)).scalars().all())
+    return [device_model_read(r) for r in rows]
 
+
+def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModelRead:
     if data.manufacturer_id is not None and get_manufacturer(db, data.manufacturer_id) is None:
         raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
     row = DeviceModel(
@@ -360,36 +379,83 @@ def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModel:
     db.add(row)
     db.commit()
     db.refresh(row)
-    return row
+    return device_model_read(row)
 
 
 def get_device_model(db: Session, mid: int) -> DeviceModel | None:
     return db.get(DeviceModel, mid)
 
 
-def update_device_model(db: Session, row: DeviceModel, data: DeviceModelUpdate) -> DeviceModel:
-    from fastapi import HTTPException
-
-    if data.manufacturer_id is not None and get_manufacturer(db, data.manufacturer_id) is None:
-        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
-    if data.manufacturer_id is not None:
-        row.manufacturer_id = data.manufacturer_id
-    if data.name is not None:
-        row.name = data.name.strip()
-    if data.u_height is not None:
-        row.u_height = data.u_height
-    if data.form_factor is not None:
-        row.form_factor = data.form_factor
-    if data.image_front_url is not None:
-        row.image_front_url = data.image_front_url
-    if data.image_back_url is not None:
-        row.image_back_url = data.image_back_url
+def set_device_model_image(db: Session, row: DeviceModel, slot: str, content: bytes, mime: str) -> None:
+    if slot not in ("front", "back"):
+        raise HTTPException(status_code=400, detail="slot må være front eller back")
+    if len(content) > DM_IMAGE_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="bilde for stort (maks 2 MiB)")
+    if mime not in ALLOWED_LOGO_MIME:
+        raise HTTPException(
+            status_code=400,
+            detail="bilde må være PNG, JPEG, WebP eller SVG",
+        )
+    root: Path = get_settings().upload_root_path
+    relpath = write_device_model_image_file(root, row.id, slot, content, mime)
+    if slot == "front":
+        row.image_front_relpath = relpath
+        row.image_front_mime_type = mime
+    else:
+        row.image_back_relpath = relpath
+        row.image_back_mime_type = mime
     db.commit()
     db.refresh(row)
-    return row
+
+
+def clear_device_model_image(db: Session, row: DeviceModel, slot: str) -> None:
+    if slot not in ("front", "back"):
+        raise HTTPException(status_code=400, detail="slot må være front eller back")
+    root: Path = get_settings().upload_root_path
+    delete_device_model_image_slot(root, row.id, slot)
+    if slot == "front":
+        row.image_front_relpath = None
+        row.image_front_mime_type = None
+    else:
+        row.image_back_relpath = None
+        row.image_back_mime_type = None
+    db.commit()
+    db.refresh(row)
+
+
+def update_device_model(db: Session, row: DeviceModel, data: DeviceModelUpdate) -> DeviceModelRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "manufacturer_id" in patch:
+        mid = patch["manufacturer_id"]
+        if mid is not None and get_manufacturer(db, mid) is None:
+            raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+        row.manufacturer_id = mid
+    if "name" in patch:
+        nm = patch["name"]
+        if not nm or not str(nm).strip():
+            raise HTTPException(status_code=400, detail="navn kan ikke være tomt")
+        row.name = str(nm).strip()
+    if "u_height" in patch:
+        row.u_height = patch["u_height"]
+    if "form_factor" in patch:
+        v = patch["form_factor"]
+        row.form_factor = None if v is None else (str(v).strip() or None)
+    if "image_front_url" in patch:
+        v = patch["image_front_url"]
+        row.image_front_url = None if v is None else (str(v).strip() or None)
+    if "image_back_url" in patch:
+        v = patch["image_back_url"]
+        row.image_back_url = None if v is None else (str(v).strip() or None)
+    db.commit()
+    db.refresh(row)
+    return device_model_read(row)
 
 
 def delete_device_model(db: Session, row: DeviceModel) -> None:
+    root: Path = get_settings().upload_root_path
+    delete_device_model_all_images(root, row.id)
     db.delete(row)
     db.commit()
 

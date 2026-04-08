@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.config import get_settings
-from app.core.media_storage import resolve_manufacturer_logo_path
+from app.core.media_storage import resolve_device_model_image_path, resolve_manufacturer_logo_path
 from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
@@ -237,12 +237,82 @@ def create_device_model(data: DeviceModelCreate, db: Session = Depends(get_db)) 
     return dcim_svc.create_device_model(db, data)
 
 
+@router.get("/device-models/{mid}/image-front")
+def get_device_model_image_front(mid: int, db: Session = Depends(get_db)) -> FileResponse:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None or not row.image_front_relpath or not row.image_front_mime_type:
+        raise HTTPException(status_code=404, detail="front-bilde finnes ikke")
+    path = resolve_device_model_image_path(get_settings().upload_root_path, row.image_front_relpath)
+    if path is None:
+        raise HTTPException(status_code=404, detail="front-bilde finnes ikke")
+    return FileResponse(path, media_type=row.image_front_mime_type)
+
+
+@router.get("/device-models/{mid}/image-back")
+def get_device_model_image_back(mid: int, db: Session = Depends(get_db)) -> FileResponse:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None or not row.image_back_relpath or not row.image_back_mime_type:
+        raise HTTPException(status_code=404, detail="back-bilde finnes ikke")
+    path = resolve_device_model_image_path(get_settings().upload_root_path, row.image_back_relpath)
+    if path is None:
+        raise HTTPException(status_code=404, detail="back-bilde finnes ikke")
+    return FileResponse(path, media_type=row.image_back_mime_type)
+
+
+@router.post("/device-models/{mid}/image-front", response_model=DeviceModelRead)
+async def upload_device_model_image_front(
+    mid: int,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+) -> DeviceModelRead:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    content = await file.read()
+    mime = file.content_type or "application/octet-stream"
+    dcim_svc.set_device_model_image(db, row, "front", content, mime)
+    return dcim_svc.device_model_read(row)
+
+
+@router.post("/device-models/{mid}/image-back", response_model=DeviceModelRead)
+async def upload_device_model_image_back(
+    mid: int,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+) -> DeviceModelRead:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    content = await file.read()
+    mime = file.content_type or "application/octet-stream"
+    dcim_svc.set_device_model_image(db, row, "back", content, mime)
+    return dcim_svc.device_model_read(row)
+
+
+@router.delete("/device-models/{mid}/image-front", response_model=DeviceModelRead)
+def remove_device_model_image_front(mid: int, db: Session = Depends(get_db)) -> DeviceModelRead:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    dcim_svc.clear_device_model_image(db, row, "front")
+    return dcim_svc.device_model_read(row)
+
+
+@router.delete("/device-models/{mid}/image-back", response_model=DeviceModelRead)
+def remove_device_model_image_back(mid: int, db: Session = Depends(get_db)) -> DeviceModelRead:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    dcim_svc.clear_device_model_image(db, row, "back")
+    return dcim_svc.device_model_read(row)
+
+
 @router.get("/device-models/{mid}", response_model=DeviceModelRead)
 def get_device_model(mid: int, db: Session = Depends(get_db)) -> DeviceModelRead:
     row = dcim_svc.get_device_model(db, mid)
     if row is None:
         raise HTTPException(status_code=404, detail="device_model ikke funnet")
-    return row
+    return dcim_svc.device_model_read(row)
 
 
 @router.patch("/device-models/{mid}", response_model=DeviceModelRead)

@@ -143,6 +143,7 @@ export const en = {
   "dcim.equip.mfr.removeLogo": "Remove logo",
   "dcim.equip.mfr.logoHint": "PNG, JPEG, WebP or SVG. Maximum size 512 KiB.",
   "dcim.equip.mfr.noModels": "No device models use this manufacturer.",
+  "dcim.equip.mfr.addModel": "Add device model",
   "dcim.equip.mfr.dangerZone": "Danger zone",
   "dcim.equip.mfr.deleteConfirm":
     "Delete this manufacturer? Device models will remain but their manufacturer link will be cleared.",
@@ -153,6 +154,11 @@ export const en = {
   "dcim.equip.dm.u": "U height",
   "dcim.equip.dm.imageFront": "Front image URL (optional)",
   "dcim.equip.dm.imageBack": "Back image URL (optional)",
+  "dcim.equip.dm.uploadHint":
+    "You can upload front/back images as files (stored on the server) or use image URLs. If both are set, the uploaded file is shown.",
+  "dcim.equip.dm.imageFrontFile": "Front image file (optional)",
+  "dcim.equip.dm.imageBackFile": "Back image file (optional)",
+  "dcim.equip.dm.thumbCol": "Thumb",
   "dcim.equip.dm.create": "Create model",
   "dcim.equip.dm.empty": "No models.",
   "dcim.equip.dev.title": "Devices",

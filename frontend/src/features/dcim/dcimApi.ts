@@ -100,6 +100,26 @@ export function createDeviceModel(body: {
   return apiPost(`${P}/device-models`, body);
 }
 
+export function uploadDeviceModelImageFront(id: number, file: File): Promise<DeviceModel> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/device-models/${id}/image-front`, fd);
+}
+
+export function uploadDeviceModelImageBack(id: number, file: File): Promise<DeviceModel> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/device-models/${id}/image-back`, fd);
+}
+
+export function deleteDeviceModelImageFront(id: number): Promise<DeviceModel> {
+  return apiDeleteJson(`${P}/device-models/${id}/image-front`);
+}
+
+export function deleteDeviceModelImageBack(id: number): Promise<DeviceModel> {
+  return apiDeleteJson(`${P}/device-models/${id}/image-back`);
+}
+
 export function listDevices(): Promise<DeviceInstance[]> {
   return apiGet(`${P}/devices`);
 }

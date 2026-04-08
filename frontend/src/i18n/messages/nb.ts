@@ -148,6 +148,7 @@ export const nb = {
   "dcim.equip.mfr.removeLogo": "Fjern logo",
   "dcim.equip.mfr.logoHint": "PNG, JPEG, WebP eller SVG. Maks 512 KiB.",
   "dcim.equip.mfr.noModels": "Ingen enhetsmodeller er knyttet til denne produsenten.",
+  "dcim.equip.mfr.addModel": "Legg til modell",
   "dcim.equip.mfr.dangerZone": "Faresone",
   "dcim.equip.mfr.deleteConfirm":
     "Slette denne produsenten? Modeller beholdes, men produsent-koblingen fjernes.",
@@ -158,6 +159,11 @@ export const nb = {
   "dcim.equip.dm.u": "U-høyde",
   "dcim.equip.dm.imageFront": "Front-bilde URL (valgfritt)",
   "dcim.equip.dm.imageBack": "Bak-bilde URL (valgfritt)",
+  "dcim.equip.dm.uploadHint":
+    "Du kan laste opp for-/bak-bilder som filer (lagres på server) eller bruke bilde-URL-er. Hvis begge er satt, vises den opplastede fila.",
+  "dcim.equip.dm.imageFrontFile": "Front-bilde (fil, valgfritt)",
+  "dcim.equip.dm.imageBackFile": "Bak-bilde (fil, valgfritt)",
+  "dcim.equip.dm.thumbCol": "Miniatyr",
   "dcim.equip.dm.create": "Opprett modell",
   "dcim.equip.dm.empty": "Ingen modeller.",
   "dcim.equip.dev.title": "Enheter",

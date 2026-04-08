@@ -34,6 +34,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
       UPLOAD_ROOT: /app/data/uploads
+    volumes:
+      - dcim_uploads:/app/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,3 +75,4 @@ services:
 
 volumes:
   postgres_data:
+  dcim_uploads:

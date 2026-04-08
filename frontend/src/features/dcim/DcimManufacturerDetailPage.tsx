@@ -127,6 +127,10 @@ export function DcimManufacturerDetailPage() {
         <Link to="/dcim/equipment" className={styles.tableLink}>
           ← {t("dcim.equip.mfr.backToList")}
         </Link>
+        {" · "}
+        <Link to={`/dcim/equipment?prefillManufacturer=${id}`} className={styles.tableLink}>
+          {t("dcim.equip.mfr.addModel")}
+        </Link>
       </p>
 
       <Panel title={d.name}>

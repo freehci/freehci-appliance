@@ -140,7 +140,7 @@ class DeviceModelUpdate(BaseModel):
 
 
 class DeviceModelRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """Bygges eksplisitt i tjenesten (inkl. has_image_* fra relpath)."""
 
     id: int
     manufacturer_id: int | None
@@ -149,6 +149,8 @@ class DeviceModelRead(BaseModel):
     form_factor: str | None
     image_front_url: str | None
     image_back_url: str | None
+    has_image_front_file: bool
+    has_image_back_file: bool
 
 
 class DeviceInstanceCreate(BaseModel):
