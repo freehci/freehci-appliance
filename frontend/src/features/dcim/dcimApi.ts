@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
   DeviceInstance,
   DeviceModel,
@@ -94,6 +94,13 @@ export function createPlacement(body: {
   mounting?: string;
 }): Promise<RackPlacement> {
   return apiPost(`${P}/placements`, body);
+}
+
+export function updatePlacement(
+  id: number,
+  body: { rack_id?: number; u_position?: number; mounting?: string },
+): Promise<RackPlacement> {
+  return apiPatch(`${P}/placements/${id}`, body);
 }
 
 export function deletePlacement(id: number): Promise<void> {

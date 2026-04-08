@@ -170,3 +170,19 @@ class RackPlacementRead(BaseModel):
     device_id: int
     u_position: int
     mounting: str
+
+
+class RackPlacementUpdate(BaseModel):
+    rack_id: int | None = None
+    u_position: int | None = Field(None, ge=1)
+    mounting: str | None = Field(None, max_length=16)
+
+    @field_validator("mounting")
+    @classmethod
+    def mounting_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        x = v.lower().strip()
+        if x not in ("front", "rear"):
+            raise ValueError("mounting må være front eller rear")
+        return x

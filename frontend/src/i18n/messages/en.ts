@@ -96,7 +96,7 @@ export const en = {
   "dcim.racks.plannerTitle": "Rack elevation (drag & drop)",
   "dcim.racks.adminSummary": "Register and list racks (admin)",
   "dcim.racks.matrixHint":
-    "All racks in the table below are shown side by side. Drag from the palette to any rack. U1 is at the bottom.",
+    "Racks from the admin list appear here. Drag devices or models from the palette, or drag placed gear to another U position or rack. U1 is at the bottom.",
   "dcim.racks.paletteTitle": "Palette",
   "dcim.racks.paletteTabDevices": "Devices",
   "dcim.racks.paletteTabModels": "Models",

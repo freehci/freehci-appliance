@@ -16,6 +16,7 @@ from app.schemas.dcim import (
     RackCreate,
     RackPlacementCreate,
     RackPlacementRead,
+    RackPlacementUpdate,
     RackRead,
     RackUpdate,
     RoomCreate,
@@ -262,6 +263,18 @@ def create_placement(
     db: Session = Depends(get_db),
 ) -> RackPlacementRead:
     return dcim_svc.create_placement(db, data)
+
+
+@router.patch("/placements/{pid}", response_model=RackPlacementRead)
+def update_placement(
+    pid: int,
+    data: RackPlacementUpdate,
+    db: Session = Depends(get_db),
+) -> RackPlacementRead:
+    row = dcim_svc.get_placement(db, pid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="plassering ikke funnet")
+    return dcim_svc.update_placement(db, row, data)
 
 
 @router.delete("/placements/{pid}", status_code=204)

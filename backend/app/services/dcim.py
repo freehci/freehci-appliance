@@ -22,6 +22,7 @@ from app.schemas.dcim import (
     ManufacturerCreate,
     RackCreate,
     RackPlacementCreate,
+    RackPlacementUpdate,
     RackUpdate,
     RoomCreate,
     RoomUpdate,
@@ -377,6 +378,40 @@ def create_placement(db: Session, data: RackPlacementCreate) -> RackPlacement:
         mounting=data.mounting,
     )
     db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_placement(db: Session, row: RackPlacement, data: RackPlacementUpdate) -> RackPlacement:
+    from fastapi import HTTPException
+
+    if data.rack_id is None and data.u_position is None and data.mounting is None:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+
+    target_rack_id = data.rack_id if data.rack_id is not None else row.rack_id
+    rack = get_rack(db, target_rack_id)
+    if rack is None:
+        raise HTTPException(status_code=404, detail="rack ikke funnet")
+
+    device = get_device(db, row.device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="device ikke funnet")
+
+    new_u = data.u_position if data.u_position is not None else row.u_position
+    new_mounting = data.mounting if data.mounting is not None else row.mounting
+
+    assert_placement_fits_rack(
+        db,
+        rack=rack,
+        u_position=new_u,
+        device=device,
+        exclude_placement_id=row.id,
+    )
+
+    row.rack_id = target_rack_id
+    row.u_position = new_u
+    row.mounting = new_mounting
     db.commit()
     db.refresh(row)
     return row

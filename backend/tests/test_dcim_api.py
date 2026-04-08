@@ -72,3 +72,11 @@ def test_dcim_site_room_rack_device_flow() -> None:
             },
         )
         assert p2.status_code == 400
+
+        pid = p.json()["id"]
+        mv = client.patch(
+            f"/api/v1/dcim/placements/{pid}",
+            json={"u_position": 25},
+        )
+        assert mv.status_code == 200, mv.text
+        assert mv.json()["u_position"] == 25

@@ -96,6 +96,16 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
     onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const movePlacementMu = useMutation({
+    mutationFn: (vars: { pid: number; rackId: number; u: number }) =>
+      api.updatePlacement(vars.pid, { rack_id: vars.rackId, u_position: vars.u }),
+    onSuccess: () => {
+      setDropErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "placements"] });
+    },
+    onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const removeMu = useMutation({
     mutationFn: (id: number) => api.deletePlacement(id),
     onSuccess: () => {
@@ -243,6 +253,9 @@ export function RackPlanner({ racks }: { racks: Rack[] }) {
               }}
               onDropModel={(rackId, modelId, u) => {
                 placeFromModelMu.mutate({ rackId, modelId, u });
+              }}
+              onMovePlacement={(pid, rackId, u) => {
+                movePlacementMu.mutate({ pid, rackId, u });
               }}
               onRemovePlacement={(id) => removeMu.mutate(id)}
               removePending={removeMu.isPending}

@@ -14,6 +14,7 @@ import styles from "./RackPlanner.module.css";
 export type DragPayload =
   | { kind: "device"; id: number }
   | { kind: "model"; id: number }
+  | { kind: "placement"; placementId: number; sourceRackId: number }
   | null;
 
 type Props = {
@@ -28,6 +29,7 @@ type Props = {
   setDragOverKey: (k: string | null) => void;
   onDropDevice: (rackId: number, deviceId: number, uPosition: number) => void;
   onDropModel: (rackId: number, modelId: number, uPosition: number) => void;
+  onMovePlacement: (placementId: number, rackId: number, uPosition: number) => void;
   onRemovePlacement: (placementId: number) => void;
   removePending: boolean;
 };
@@ -44,22 +46,35 @@ export function RackElevation({
   setDragOverKey,
   onDropDevice,
   onDropModel,
+  onMovePlacement,
   onRemovePlacement,
   removePending,
 }: Props) {
   const n = rack.u_height;
+
+  const excludePlacementId =
+    dragging?.kind === "placement" && dragging.sourceRackId === rack.id
+      ? dragging.placementId
+      : undefined;
 
   const existingRanges = existingRangesForRack(
     allPlacements,
     rack.id,
     devicesById,
     modelsById,
+    excludePlacementId,
   );
 
   const rackPlacements = allPlacements.filter((p) => p.rack_id === rack.id);
 
   const dragDeviceU = (): number | null => {
     if (!dragging) return null;
+    if (dragging.kind === "placement") {
+      const pl = allPlacements.find((x) => x.id === dragging.placementId);
+      if (!pl) return null;
+      const d = devicesById.get(pl.device_id);
+      return d ? deviceUHeight(d, modelsById) : null;
+    }
     if (dragging.kind === "device") {
       const d = devicesById.get(dragging.id);
       return d ? deviceUHeight(d, modelsById) : null;
@@ -82,7 +97,7 @@ export function RackElevation({
     if (!dragging) return;
     if (slotAllowsDrop(u)) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
+      e.dataTransfer.dropEffect = dragging.kind === "placement" ? "move" : "copy";
       setDragOverKey(keyFor(u));
     } else {
       e.dataTransfer.dropEffect = "none";
@@ -99,8 +114,10 @@ export function RackElevation({
     }
     if (dragging.kind === "device") {
       onDropDevice(rack.id, dragging.id, u);
-    } else {
+    } else if (dragging.kind === "model") {
       onDropModel(rack.id, dragging.id, u);
+    } else {
+      onMovePlacement(dragging.placementId, rack.id, u);
     }
     setDragging(null);
   };
@@ -148,6 +165,21 @@ export function RackElevation({
         key={p.id}
         className={styles.deviceBlockGrid}
         style={{ gridRow: `${rowStart} / span ${h}`, gridColumn: 1 }}
+        draggable
+        onDragStart={(e) => {
+          const el = e.target as HTMLElement;
+          if (el.closest("button")) {
+            e.preventDefault();
+            return;
+          }
+          setDragging({ kind: "placement", placementId: p.id, sourceRackId: rack.id });
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", `placement:${p.id}`);
+        }}
+        onDragEnd={() => {
+          setDragging(null);
+          setDragOverKey(null);
+        }}
       >
         {mod?.image_front_url ? (
           <img
@@ -170,6 +202,7 @@ export function RackElevation({
             title={t("dcim.racks.removePlacementAria")}
             aria-label={t("dcim.racks.removePlacementAria")}
             disabled={removePending}
+            draggable={false}
             onClick={() => onRemovePlacement(p.id)}
           >
             ×

@@ -216,6 +216,11 @@
   min-height: 0;
   overflow: hidden;
   pointer-events: auto;
+  cursor: grab;
+}
+
+.deviceBlockGrid:active {
+  cursor: grabbing;
 }
 
 .deviceThumb {
