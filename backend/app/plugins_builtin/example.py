@@ -13,7 +13,12 @@ class ExamplePlugin(BackendPlugin):
             name="Eksempel-plugin",
             version="0.1.0",
             description="Demonstrerer plugin-API og samspill med React.",
-            capabilities=("demo.ping",),
+            capabilities=(
+                "demo.ping",
+                # Reserverte kontrakter for DCIM-enhetsdetalj (UI kobles senere)
+                "dcim.device.hardware_view",
+                "dcim.device.os_view",
+            ),
             frontend_module_url=None,
             frontend_route_prefix="/plugins/freehci.example",
             device_type_slugs=("server",),

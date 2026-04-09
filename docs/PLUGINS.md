@@ -26,6 +26,17 @@ Eksempel: `freehci.example` → `/api/v1/plugins/freehci/example/hello`.
 
 `GET /api/v1/plugins` returnerer manifest for kjørende plugins slik at frontend (eller andre klienter) kan bygge meny og ruter dynamisk.
 
+### DCIM-enhetsdetalj (reserverte capabilities)
+
+Stabile strenger i `manifest.capabilities` som kjernen kan bruke til å vite hva en plugin tilbyr:
+
+| Capability-ID | Betydning |
+|---------------|-----------|
+| `dcim.device.hardware_view` | Kan levere maskinvare/BMC-data for en enhet (f.eks. iDRAC/iLO). |
+| `dcim.device.os_view` | Kan levere OS-info for en enhet. |
+
+Bruk `device_type_slugs` på manifestet for å begrense hvilke DCIM `device_type.slug` pluginen gjelder for (tom liste = ikke begrenset i frontend-filtreringen i dag).
+
 ## Frontend
 
 - **`builtinRegistry.tsx`** mapper `PluginManifest.id` til `React.lazy`-komponenter som ships med appen (for ting som ikke lastes som ekstern ESM ennå).

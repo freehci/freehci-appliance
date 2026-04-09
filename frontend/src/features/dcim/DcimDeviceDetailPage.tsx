@@ -6,6 +6,9 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
+import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
+import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
+import { usePlugins } from "@/plugins/PluginContext";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 
@@ -15,6 +18,7 @@ type DeviceDetailTab = "overview" | "network" | "hardware" | "os";
 export function DcimDeviceDetailPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const plugins = usePlugins();
   const { deviceId } = useParams<{ deviceId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const id = Number(deviceId);
@@ -109,6 +113,22 @@ export function DcimDeviceDetailPage() {
     const row = (sitesQ.data ?? []).find((x) => x.id === sid);
     return row ? `${row.name} (#${sid})` : `#${sid}`;
   }, [deviceQ.data?.effective_site_id, sitesQ.data]);
+
+  const deviceTypeSlug = useMemo(() => {
+    const tid = deviceQ.data?.effective_device_type_id;
+    if (tid == null) return null;
+    return (typesQ.data ?? []).find((x) => x.id === tid)?.slug ?? null;
+  }, [deviceQ.data?.effective_device_type_id, typesQ.data]);
+
+  const hwPlugins = useMemo(
+    () => pluginsWithCapability(plugins, CAP_DCIM_DEVICE_HARDWARE_VIEW, deviceTypeSlug),
+    [plugins, deviceTypeSlug],
+  );
+
+  const osPlugins = useMemo(
+    () => pluginsWithCapability(plugins, CAP_DCIM_DEVICE_OS_VIEW, deviceTypeSlug),
+    [plugins, deviceTypeSlug],
+  );
 
   useEffect(() => {
     const rows = interfacesQ.data;
@@ -339,7 +359,17 @@ export function DcimDeviceDetailPage() {
 
         {detailTab === "hardware" ? (
           <section className={styles.mfrDetailSection}>
-            <p className={styles.muted} style={{ marginTop: 0 }}>
+            {hwPlugins.length > 0 ? (
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.dev.pluginHardwareIntegrationsPrefix")}{" "}
+                <strong>{hwPlugins.map((p) => p.name).join(", ")}</strong>.{" "}
+                {t("dcim.equip.dev.pluginHardwareIntegrationsSuffix")}
+              </p>
+            ) : null}
+            <p
+              className={styles.muted}
+              style={{ marginTop: hwPlugins.length > 0 ? "var(--space-3)" : 0 }}
+            >
               {t("dcim.equip.dev.pluginPlaceholderHardware")}
             </p>
           </section>
@@ -347,7 +377,17 @@ export function DcimDeviceDetailPage() {
 
         {detailTab === "os" ? (
           <section className={styles.mfrDetailSection}>
-            <p className={styles.muted} style={{ marginTop: 0 }}>
+            {osPlugins.length > 0 ? (
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.dev.pluginOsIntegrationsPrefix")}{" "}
+                <strong>{osPlugins.map((p) => p.name).join(", ")}</strong>.{" "}
+                {t("dcim.equip.dev.pluginOsIntegrationsSuffix")}
+              </p>
+            ) : null}
+            <p
+              className={styles.muted}
+              style={{ marginTop: osPlugins.length > 0 ? "var(--space-3)" : 0 }}
+            >
               {t("dcim.equip.dev.pluginPlaceholderOs")}
             </p>
           </section>

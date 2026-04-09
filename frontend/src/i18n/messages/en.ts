@@ -198,6 +198,12 @@ export const en = {
     "Hardware details from BMC tools (e.g. iDRAC, iLO, OpenManage) will appear here when a matching plugin is installed.",
   "dcim.equip.dev.pluginPlaceholderOs":
     "Installed operating system information will appear here when a matching plugin is installed.",
+  "dcim.equip.dev.pluginHardwareIntegrationsPrefix": "Integrations registered for hardware on this device type:",
+  "dcim.equip.dev.pluginHardwareIntegrationsSuffix":
+    "The device panel is not wired to these plugins yet; APIs are under each plugin path from GET /api/v1/plugins.",
+  "dcim.equip.dev.pluginOsIntegrationsPrefix": "Integrations registered for OS info on this device type:",
+  "dcim.equip.dev.pluginOsIntegrationsSuffix":
+    "The device panel is not wired to these plugins yet; APIs are under each plugin path from GET /api/v1/plugins.",
   "dcim.equip.if.title": "Interfaces / ports",
   "dcim.equip.if.hint":
     "Named interfaces on this device (e.g. eth0, GigabitEthernet1/0/1). IPAM links can attach here later.",
