@@ -105,3 +105,76 @@ class SubnetScanRead(BaseModel):
 
 class SubnetScanDetailRead(SubnetScanRead):
     hosts: list[SubnetScanHostRead]
+
+
+class UserCreate(BaseModel):
+    username: str = Field(..., min_length=1, max_length=128)
+    display_name: str | None = Field(None, max_length=255)
+
+    @field_validator("username")
+    @classmethod
+    def username_strip(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("username kan ikke være tom")
+        return s
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    display_name: str | None
+    created_at: dt.datetime
+
+
+class Ipv4AddressRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    ipv4_prefix_id: int | None
+    address: str
+    status: str
+    owner_user_id: int | None
+    note: str | None
+    mac_address: str | None
+    last_seen_at: dt.datetime | None
+    device_type_id: int | None
+    device_model_id: int | None
+    device_id: int | None
+    interface_id: int | None
+    interface_ip_assignment_id: int | None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class Ipv4AddressPatch(BaseModel):
+    status: str | None = Field(None, max_length=32)
+    owner_user_id: int | None = Field(None, ge=1)
+    note: str | None = None
+    mac_address: str | None = Field(None, max_length=32)
+    device_type_id: int | None = Field(None, ge=1)
+    device_model_id: int | None = Field(None, ge=1)
+    device_id: int | None = Field(None, ge=1)
+    interface_id: int | None = Field(None, ge=1)
+
+
+class Ipv4AddressRequest(BaseModel):
+    ipv4_prefix_id: int = Field(..., ge=1)
+    mode: str = Field(..., description="reserve | assign")
+    interface_id: int | None = Field(None, ge=1)
+    owner_user_id: int | None = Field(None, ge=1)
+    note: str | None = None
+    device_type_id: int | None = Field(None, ge=1)
+    device_model_id: int | None = Field(None, ge=1)
+    device_id: int | None = Field(None, ge=1)
+
+    @field_validator("mode")
+    @classmethod
+    def mode_valid(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in ("reserve", "assign"):
+            raise ValueError("mode må være reserve eller assign")
+        return s

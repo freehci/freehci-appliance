@@ -83,3 +83,60 @@ class IpamScanHost(Base):
     ping_responded: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     scan: Mapped["IpamSubnetScan"] = relationship(back_populates="hosts")
+
+
+class IpamIpv4Address(Base):
+    """Varig inventory av IPv4-adresser per site (oppdaget/reservert/tildelt)."""
+
+    __tablename__ = "ipam_ipv4_addresses"
+    __table_args__ = (UniqueConstraint("site_id", "address", name="uq_ipam_ipv4_addr_site_address"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    ipv4_prefix_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_ipv4_prefixes.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    address: Mapped[str] = mapped_column(String(45), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="discovered")
+
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mac_address: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    device_type_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_types.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    device_model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_models.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    interface_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    interface_ip_assignment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_interface_ip_assignments.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
+
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

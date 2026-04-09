@@ -24,6 +24,10 @@ export function IpamPage() {
   const [editCidr, setEditCidr] = useState("");
   const [exploreStack, setExploreStack] = useState<ExploreCrumb[]>([]);
   const [activeScanId, setActiveScanId] = useState<number | null>(null);
+  const [reqMode, setReqMode] = useState<"reserve" | "assign">("reserve");
+  const [reqIfaceId, setReqIfaceId] = useState("");
+  const [reqOwnerUserId, setReqOwnerUserId] = useState("");
+  const [reqNote, setReqNote] = useState("");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
@@ -59,6 +63,10 @@ export function IpamPage() {
 
   useEffect(() => {
     setActiveScanId(null);
+    setReqIfaceId("");
+    setReqOwnerUserId("");
+    setReqNote("");
+    setReqMode("reserve");
   }, [exploreId]);
 
   useEffect(() => {
@@ -151,6 +159,30 @@ export function IpamPage() {
               : null;
     return key ? t(key) : status;
   };
+
+  const addrQ = useQuery({
+    queryKey: ["ipam", "ipv4-addresses", exploreId],
+    queryFn: () => ipamApi.listIpv4Addresses({ ipv4_prefix_id: exploreId!, limit: 500 }),
+    enabled: exploreId != null && exploreId > 0,
+  });
+
+  const requestAddr = useMutation({
+    mutationFn: () =>
+      ipamApi.requestIpv4Address({
+        ipv4_prefix_id: exploreId!,
+        mode: reqMode,
+        interface_id: reqMode === "assign" && reqIfaceId.trim() !== "" ? Number(reqIfaceId) : null,
+        owner_user_id: reqOwnerUserId.trim() !== "" ? Number(reqOwnerUserId) : null,
+        note: reqNote.trim() !== "" ? reqNote.trim() : null,
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setReqNote("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-addresses"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
 
   return (
     <Panel title={t("ipam.ipv4.title")}>
@@ -412,6 +444,84 @@ export function IpamPage() {
                 </>
               ) : null}
             </>
+          ) : null}
+
+          <h4 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.addr.title")}</h4>
+
+          <h5 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-2)" }}>
+            {t("ipam.addr.requestTitle")}
+          </h5>
+          <form
+            className={dcimStyles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              if (reqMode === "assign" && reqIfaceId.trim() === "") {
+                setErr(t("dcim.equip.ip.chooseIface"));
+                return;
+              }
+              requestAddr.mutate();
+            }}
+          >
+            <label>
+              {t("ipam.addr.mode")}
+              <select value={reqMode} onChange={(e) => setReqMode(e.target.value as "reserve" | "assign")}>
+                <option value="reserve">{t("ipam.addr.mode.reserve")}</option>
+                <option value="assign">{t("ipam.addr.mode.assign")}</option>
+              </select>
+            </label>
+            <label>
+              {t("ipam.addr.interfaceId")}
+              <input
+                value={reqIfaceId}
+                onChange={(e) => setReqIfaceId(e.target.value)}
+                disabled={reqMode !== "assign"}
+                placeholder="123"
+              />
+            </label>
+            <label>
+              {t("ipam.addr.ownerUserId")}
+              <input value={reqOwnerUserId} onChange={(e) => setReqOwnerUserId(e.target.value)} placeholder="1" />
+            </label>
+            <label>
+              {t("ipam.addr.note")}
+              <input value={reqNote} onChange={(e) => setReqNote(e.target.value)} />
+            </label>
+            <button type="submit" className={dcimStyles.btn} disabled={requestAddr.isPending}>
+              {requestAddr.isPending ? "…" : t("ipam.addr.requestBtn")}
+            </button>
+          </form>
+
+          {addrQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
+          {addrQ.data && addrQ.data.length > 0 ? (
+            <table className={dcimStyles.table}>
+              <thead>
+                <tr>
+                  <th>{t("ipam.addr.colAddress")}</th>
+                  <th>{t("ipam.addr.colStatus")}</th>
+                  <th>{t("ipam.addr.colOwner")}</th>
+                  <th>{t("ipam.addr.colNote")}</th>
+                  <th>{t("ipam.addr.colDevice")}</th>
+                  <th>{t("ipam.addr.colInterface")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {addrQ.data.map((a) => (
+                  <tr key={a.id}>
+                    <td>
+                      <code>{a.address}</code>
+                    </td>
+                    <td>{a.status}</td>
+                    <td className={dcimStyles.muted}>{a.owner_user_id ?? "—"}</td>
+                    <td>{a.note ?? "—"}</td>
+                    <td className={dcimStyles.muted}>{a.device_id ?? "—"}</td>
+                    <td className={dcimStyles.muted}>{a.interface_id ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : addrQ.data && addrQ.data.length === 0 ? (
+            <p className={dcimStyles.muted}>{t("ipam.addr.empty")}</p>
           ) : null}
         </section>
       ) : null}

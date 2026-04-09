@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.db import SessionLocal
-from app.models.ipam import IpamIpv4Prefix, IpamScanHost, IpamSubnetScan
+from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamScanHost, IpamSubnetScan
 from app.schemas.ipam import SubnetScanDetailRead, SubnetScanHostRead, SubnetScanRead
 
 logger = logging.getLogger(__name__)
@@ -308,6 +308,35 @@ def run_scan_background(
 
         time.sleep(0.75)
         arp = load_macs()
+
+        # Upsert responderende IP-er til varig inventory.
+        now = datetime.now(timezone.utc)
+        for ip_s in responded:
+            existing = db.execute(
+                select(IpamIpv4Address).where(
+                    IpamIpv4Address.site_id == row.site_id,
+                    IpamIpv4Address.address == ip_s,
+                ),
+            ).scalar_one_or_none()
+            if existing is None:
+                db.add(
+                    IpamIpv4Address(
+                        site_id=row.site_id,
+                        ipv4_prefix_id=row.ipv4_prefix_id,
+                        address=ip_s,
+                        status="discovered",
+                        mac_address=arp.get(ip_s),
+                        last_seen_at=now,
+                    ),
+                )
+            else:
+                # Ikke overstyr reserverte/tildelte adresser; oppdater bare observasjonsfelt.
+                existing.last_seen_at = now
+                if existing.ipv4_prefix_id is None and row.ipv4_prefix_id is not None:
+                    existing.ipv4_prefix_id = row.ipv4_prefix_id
+                if existing.status == "discovered" and (existing.mac_address is None):
+                    existing.mac_address = arp.get(ip_s) or existing.mac_address
+        db.commit()
 
         for ip_s in sorted(responded, key=ipaddress.ip_address):
             mac = arp.get(ip_s)

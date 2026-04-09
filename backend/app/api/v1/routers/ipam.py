@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.schemas.ipam import (
+    Ipv4AddressPatch,
+    Ipv4AddressRead,
+    Ipv4AddressRequest,
     Ipv4PrefixCreate,
     Ipv4PrefixExploreRead,
     Ipv4PrefixRead,
@@ -12,8 +15,11 @@ from app.schemas.ipam import (
     SubnetScanCreate,
     SubnetScanDetailRead,
     SubnetScanRead,
+    UserCreate,
+    UserRead,
 )
 from app.services import ipam as ipam_svc
+from app.services import ipam_address as addr_svc
 from app.services import ipam_subnet_scan as scan_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
@@ -93,3 +99,37 @@ def get_subnet_scan(scan_id: int, db: Session = Depends(get_db)) -> SubnetScanDe
     if row is None:
         raise HTTPException(status_code=404, detail="skann ikke funnet")
     return scan_svc.scan_to_detail_read(row)
+
+
+@router.get("/users", response_model=list[UserRead])
+def list_users(limit: int = Query(200, ge=1, le=500), db: Session = Depends(get_db)) -> list[UserRead]:
+    return addr_svc.list_users(db, limit=limit)
+
+
+@router.post("/users", response_model=UserRead)
+def create_user(data: UserCreate, db: Session = Depends(get_db)) -> UserRead:
+    return addr_svc.create_user(db, data)
+
+
+@router.get("/ipv4-addresses", response_model=list[Ipv4AddressRead])
+def list_ipv4_addresses(
+    site_id: int | None = Query(None),
+    ipv4_prefix_id: int | None = Query(None),
+    status: str | None = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[Ipv4AddressRead]:
+    return addr_svc.list_ipv4_addresses(db, site_id=site_id, ipv4_prefix_id=ipv4_prefix_id, status=status, limit=limit)
+
+
+@router.patch("/ipv4-addresses/{addr_id}", response_model=Ipv4AddressRead)
+def patch_ipv4_address(addr_id: int, data: Ipv4AddressPatch, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+    row = addr_svc.get_ipv4_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
+    return addr_svc.patch_ipv4_address(db, row, data)
+
+
+@router.post("/ipv4-addresses/request", response_model=Ipv4AddressRead)
+def request_ipv4_address(data: Ipv4AddressRequest, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+    return addr_svc.request_ipv4_address(db, data)

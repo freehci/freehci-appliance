@@ -48,6 +48,10 @@ def test_ipam_subnet_scan_creates_and_lists(monkeypatch) -> None:
         assert li.status_code == 200
         assert any(x["id"] == scan_id for x in li.json())
 
+        inv = client.get(f"/api/v1/ipam/ipv4-addresses?ipv4_prefix_id={pid}")
+        assert inv.status_code == 200, inv.text
+        assert any(x["address"] == "10.0.1.1" and x["status"] == "discovered" for x in inv.json())
+
 
 def test_ipam_subnet_scan_unknown_prefix() -> None:
     app = create_app()
