@@ -189,6 +189,15 @@ export const en = {
   "dcim.equip.dev.placementCol": "Placement",
   "dcim.equip.dev.openInRack": "Racks",
   "dcim.equip.dev.empty": "No devices.",
+  "dcim.equip.dev.detailTabsAria": "Device sections",
+  "dcim.equip.dev.tabOverview": "Overview",
+  "dcim.equip.dev.tabNetwork": "Network",
+  "dcim.equip.dev.tabHardware": "Hardware",
+  "dcim.equip.dev.tabOs": "OS info",
+  "dcim.equip.dev.pluginPlaceholderHardware":
+    "Hardware details from BMC tools (e.g. iDRAC, iLO, OpenManage) will appear here when a matching plugin is installed.",
+  "dcim.equip.dev.pluginPlaceholderOs":
+    "Installed operating system information will appear here when a matching plugin is installed.",
   "dcim.equip.if.title": "Interfaces / ports",
   "dcim.equip.if.hint":
     "Named interfaces on this device (e.g. eth0, GigabitEthernet1/0/1). IPAM links can attach here later.",

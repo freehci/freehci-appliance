@@ -11,7 +11,10 @@ export type DcimInnerTabIcon =
   | "deviceTypes"
   | "deviceModels"
   | "devices"
-  | "placements";
+  | "placements"
+  | "deviceNetwork"
+  | "deviceHardware"
+  | "deviceOs";
 
 function Svg({ children }: { children: ReactNode }) {
   return (
@@ -117,6 +120,36 @@ export function DcimTabIcon({ name }: { name: DcimInnerTabIcon }) {
           <rect x="14" y="3" width="7" height="7" rx="1" />
           <rect x="3" y="14" width="7" height="7" rx="1" />
           <rect x="14" y="14" width="7" height="7" rx="1" />
+        </Svg>
+      );
+    case "deviceNetwork":
+      return (
+        <Svg>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+          <path d="M8 12h8" />
+        </Svg>
+      );
+    case "deviceHardware":
+      return (
+        <Svg>
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <rect x="9" y="9" width="6" height="6" />
+          <line x1="9" y1="2" x2="9" y2="4" />
+          <line x1="15" y1="2" x2="15" y2="4" />
+          <line x1="9" y1="20" x2="9" y2="22" />
+          <line x1="15" y1="20" x2="15" y2="22" />
+          <line x1="2" y1="9" x2="4" y2="9" />
+          <line x1="2" y1="15" x2="4" y2="15" />
+          <line x1="20" y1="9" x2="22" y2="9" />
+          <line x1="20" y1="15" x2="22" y2="15" />
+        </Svg>
+      );
+    case "deviceOs":
+      return (
+        <Svg>
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
         </Svg>
       );
   }

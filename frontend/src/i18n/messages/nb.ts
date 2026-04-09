@@ -194,6 +194,15 @@ export const nb = {
   "dcim.equip.dev.placementCol": "Plassering",
   "dcim.equip.dev.openInRack": "Racks",
   "dcim.equip.dev.empty": "Ingen enheter.",
+  "dcim.equip.dev.detailTabsAria": "Enhetsseksjoner",
+  "dcim.equip.dev.tabOverview": "Oversikt",
+  "dcim.equip.dev.tabNetwork": "Nettverk",
+  "dcim.equip.dev.tabHardware": "Maskinvare",
+  "dcim.equip.dev.tabOs": "OS-info",
+  "dcim.equip.dev.pluginPlaceholderHardware":
+    "Maskinvaredetaljer fra BMC-verktøy (f.eks. iDRAC, iLO, OpenManage) vises her når en passende plugin er installert.",
+  "dcim.equip.dev.pluginPlaceholderOs":
+    "Informasjon om installert operativsystem vises her når en passende plugin er installert.",
   "dcim.equip.if.title": "Grensesnitt / porter",
   "dcim.equip.if.hint":
     "Navngitte grensesnitt på enheten (f.eks. eth0, GigabitEthernet1/0/1). IPAM-koblinger kan kobles hit senere.",

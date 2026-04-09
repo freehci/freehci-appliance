@@ -1,18 +1,40 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
+import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
+
+const DEVICE_DETAIL_TABS = new Set(["overview", "network", "hardware", "os"]);
+type DeviceDetailTab = "overview" | "network" | "hardware" | "os";
 
 export function DcimDeviceDetailPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const { deviceId } = useParams<{ deviceId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const id = Number(deviceId);
+
+  const tabParam = searchParams.get("tab");
+  const detailTab: DeviceDetailTab =
+    tabParam != null && DEVICE_DETAIL_TABS.has(tabParam) ? (tabParam as DeviceDetailTab) : "overview";
+
+  const setDetailTab = (next: string) => {
+    if (!DEVICE_DETAIL_TABS.has(next)) return;
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (next === "overview") n.delete("tab");
+        else n.set("tab", next);
+        return n;
+      },
+      { replace: true },
+    );
+  };
 
   const [err, setErr] = useState<string | null>(null);
   const [ifName, setIfName] = useState("");
@@ -282,28 +304,61 @@ export function DcimDeviceDetailPage() {
 
       <Panel title={dev.name}>
         {err ? <p className={styles.err}>{err}</p> : null}
-        <dl className={styles.dlInline}>
-          <dt>{t("dcim.common.id")}</dt>
-          <dd>{dev.id}</dd>
-          <dt>{t("dcim.equip.dev.modelCol")}</dt>
-          <dd>{modelLabel ?? "—"}</dd>
-          <dt>{t("dcim.equip.dev.effectiveTypeCol")}</dt>
-          <dd>{typeLabel ?? "—"}</dd>
-          <dt>{t("dcim.equip.dev.siteCol")}</dt>
-          <dd>{siteLabel ?? "—"}</dd>
-        </dl>
-        {hasAttrs ? (
+        <DcimInnerTabs
+          tabs={[
+            { id: "overview", label: t("dcim.equip.dev.tabOverview"), icon: "overview" },
+            { id: "network", label: t("dcim.equip.dev.tabNetwork"), icon: "deviceNetwork" },
+            { id: "hardware", label: t("dcim.equip.dev.tabHardware"), icon: "deviceHardware" },
+            { id: "os", label: t("dcim.equip.dev.tabOs"), icon: "deviceOs" },
+          ]}
+          activeId={detailTab}
+          onChange={setDetailTab}
+          ariaLabel={t("dcim.equip.dev.detailTabsAria")}
+        />
+
+        {detailTab === "overview" ? (
+          <>
+            <dl className={styles.dlInline}>
+              <dt>{t("dcim.common.id")}</dt>
+              <dd>{dev.id}</dd>
+              <dt>{t("dcim.equip.dev.modelCol")}</dt>
+              <dd>{modelLabel ?? "—"}</dd>
+              <dt>{t("dcim.equip.dev.effectiveTypeCol")}</dt>
+              <dd>{typeLabel ?? "—"}</dd>
+              <dt>{t("dcim.equip.dev.siteCol")}</dt>
+              <dd>{siteLabel ?? "—"}</dd>
+            </dl>
+            {hasAttrs ? (
+              <section className={styles.mfrDetailSection}>
+                <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.attributesBlock")}</h3>
+                <pre className={styles.codeBlock}>{JSON.stringify(attrs, null, 2)}</pre>
+              </section>
+            ) : null}
+          </>
+        ) : null}
+
+        {detailTab === "hardware" ? (
           <section className={styles.mfrDetailSection}>
-            <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.attributesBlock")}</h3>
-            <pre className={styles.codeBlock}>{JSON.stringify(attrs, null, 2)}</pre>
+            <p className={styles.muted} style={{ marginTop: 0 }}>
+              {t("dcim.equip.dev.pluginPlaceholderHardware")}
+            </p>
           </section>
         ) : null}
-      </Panel>
 
-      <Panel title={t("dcim.equip.if.title")}>
-        <p className={styles.muted} style={{ marginTop: 0 }}>
-          {t("dcim.equip.if.hint")}
-        </p>
+        {detailTab === "os" ? (
+          <section className={styles.mfrDetailSection}>
+            <p className={styles.muted} style={{ marginTop: 0 }}>
+              {t("dcim.equip.dev.pluginPlaceholderOs")}
+            </p>
+          </section>
+        ) : null}
+
+        {detailTab === "network" ? (
+          <>
+            <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.if.title")}</h3>
+            <p className={styles.muted} style={{ marginTop: 0 }}>
+              {t("dcim.equip.if.hint")}
+            </p>
         <form
           className={styles.formRow}
           onSubmit={(e) => {
@@ -606,6 +661,8 @@ export function DcimDeviceDetailPage() {
         ) : (
           !interfacesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.if.empty")}</p>
         )}
+          </>
+        ) : null}
       </Panel>
     </>
   );
