@@ -311,7 +311,7 @@ export const en = {
   "ipam.addr.colInterface": "Interface",
   "ipam.addr.empty": "No addresses registered yet.",
   "ipam.addr.filterText": "Filter list",
-  "ipam.addr.filterTextPlaceholder": "Address, status, note, device, interface …",
+  "ipam.addr.filterTextPlaceholder": "Address, status, note, owner, device, interface …",
   "ipam.addr.filterStatus": "Status",
   "ipam.addr.filterStatusAll": "All statuses",
   "ipam.addr.filterNoResults": "No rows match the filter.",

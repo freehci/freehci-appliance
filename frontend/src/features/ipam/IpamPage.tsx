@@ -184,6 +184,12 @@ export function IpamPage() {
     return m;
   }, [devicesQ.data]);
 
+  const userLabelById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const u of usersQ.data ?? []) m.set(u.id, u.display_name ?? u.username);
+    return m;
+  }, [usersQ.data]);
+
   const filteredAddrList = useMemo(() => {
     const rows = addrQ.data ?? [];
     const q = addrFilterText.trim().toLowerCase();
@@ -194,15 +200,20 @@ export function IpamPage() {
         a.device_id != null ? (deviceNameById.get(a.device_id) ?? "").toLowerCase() : "";
       const ifStr = `${a.interface_id ?? ""} ${a.interface_name ?? ""}`.toLowerCase();
       const note = (a.note ?? "").toLowerCase();
+      const ownerStr =
+        a.owner_user_id != null
+          ? `${a.owner_user_id} ${userLabelById.get(a.owner_user_id) ?? ""}`.toLowerCase()
+          : "";
       return (
         a.address.toLowerCase().includes(q) ||
         a.status.toLowerCase().includes(q) ||
         note.includes(q) ||
         devName.includes(q) ||
-        ifStr.includes(q)
+        ifStr.includes(q) ||
+        ownerStr.includes(q)
       );
     });
-  }, [addrQ.data, addrFilterText, addrFilterStatus, deviceNameById]);
+  }, [addrQ.data, addrFilterText, addrFilterStatus, deviceNameById, userLabelById]);
 
   const deviceIdNum = reqDeviceId === "" ? null : Number(reqDeviceId);
   const interfacesQ = useQuery({
