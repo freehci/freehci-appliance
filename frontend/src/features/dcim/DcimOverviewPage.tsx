@@ -10,7 +10,7 @@ export function DcimOverviewPage() {
   return (
     <Panel title={t("nav.dcimOverview")}>
       <DcimInnerTabs
-        tabs={[{ id: "main", label: t("nav.dcimOverview") }]}
+        tabs={[{ id: "main", label: t("nav.dcimOverview"), icon: "overview" }]}
         activeId={tab}
         onChange={setTab}
         ariaLabel={t("dcim.innerNavAria")}

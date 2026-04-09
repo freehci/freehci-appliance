@@ -1,6 +1,10 @@
+import type { DcimInnerTabIcon } from "./DcimTabIcon";
+import { DcimTabIcon } from "./DcimTabIcon";
 import styles from "./DcimInnerTabs.module.css";
 
-export type DcimInnerTabDef = { id: string; label: string };
+export type DcimInnerTabDef = { id: string; label: string; icon?: DcimInnerTabIcon };
+
+export type { DcimInnerTabIcon };
 
 export function DcimInnerTabs({
   tabs,
@@ -25,7 +29,12 @@ export function DcimInnerTabs({
             className={`${styles.tab} ${activeId === tab.id ? styles.tabActive : ""}`.trim()}
             onClick={() => onChange(tab.id)}
           >
-            {tab.label}
+            {tab.icon ? (
+              <span className={styles.iconWrap}>
+                <DcimTabIcon name={tab.icon} />
+              </span>
+            ) : null}
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>

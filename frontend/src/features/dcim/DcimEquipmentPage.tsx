@@ -251,11 +251,11 @@ export function DcimEquipmentPage() {
       </p>
       <DcimInnerTabs
         tabs={[
-          { id: "mfr", label: t("dcim.equip.mfr.title") },
-          { id: "dt", label: t("dcim.equip.dt.title") },
-          { id: "dm", label: t("dcim.equip.dm.title") },
-          { id: "dev", label: t("dcim.equip.dev.title") },
-          { id: "pl", label: t("dcim.equip.pl.title") },
+          { id: "mfr", label: t("dcim.equip.mfr.title"), icon: "manufacturers" },
+          { id: "dt", label: t("dcim.equip.dt.title"), icon: "deviceTypes" },
+          { id: "dm", label: t("dcim.equip.dm.title"), icon: "deviceModels" },
+          { id: "dev", label: t("dcim.equip.dev.title"), icon: "devices" },
+          { id: "pl", label: t("dcim.equip.pl.title"), icon: "placements" },
         ]}
         activeId={equipTab}
         onChange={(id) => setEquipTab(id as EquipTab)}

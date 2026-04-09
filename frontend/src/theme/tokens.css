@@ -48,6 +48,11 @@
   --color-status-unknown: #ffcc00;
   --color-progress: #4caf50;
   --shell-border: #596280;
+  /* DCIM innfane (pill med ramme / aktiv lavendel) */
+  --dcim-inner-tab-border: rgba(148, 163, 184, 0.45);
+  --dcim-inner-tab-border-hover: rgba(186, 198, 220, 0.55);
+  --dcim-inner-tab-active-bg: #5a5e8c;
+  --dcim-inner-tab-active-fg: #0f172a;
 }
 
 /* Lys */
@@ -71,4 +76,8 @@
   --color-status-unknown: #b8860b;
   --color-progress: #2e7d32;
   --shell-border: #596280;
+  --dcim-inner-tab-border: #cbd5e1;
+  --dcim-inner-tab-border-hover: #94a3b8;
+  --dcim-inner-tab-active-bg: #5a5e8c;
+  --dcim-inner-tab-active-fg: #0f172a;
 }

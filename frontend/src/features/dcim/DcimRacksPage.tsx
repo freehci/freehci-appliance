@@ -95,8 +95,8 @@ export function DcimRacksPage() {
     <Panel title={t("nav.dcimRacks")}>
       <DcimInnerTabs
         tabs={[
-          { id: "elevation", label: t("dcim.racks.tabElevation") },
-          { id: "admin", label: t("dcim.racks.tabAdmin") },
+          { id: "elevation", label: t("dcim.racks.tabElevation"), icon: "rackElevation" },
+          { id: "admin", label: t("dcim.racks.tabAdmin"), icon: "rackAdmin" },
         ]}
         activeId={rackTab}
         onChange={(id) => setRackTab(id as "elevation" | "admin")}
