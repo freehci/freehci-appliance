@@ -32,6 +32,8 @@ export function IpamPage() {
   const [reqNote, setReqNote] = useState("");
   const [reqDeviceId, setReqDeviceId] = useState("");
   const [reqInterfaceId, setReqInterfaceId] = useState("");
+  const [addrFilterText, setAddrFilterText] = useState("");
+  const [addrFilterStatus, setAddrFilterStatus] = useState("");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
@@ -181,6 +183,27 @@ export function IpamPage() {
     for (const d of devicesQ.data ?? []) m.set(d.id, d.name);
     return m;
   }, [devicesQ.data]);
+
+  const filteredAddrList = useMemo(() => {
+    const rows = addrQ.data ?? [];
+    const q = addrFilterText.trim().toLowerCase();
+    return rows.filter((a) => {
+      if (addrFilterStatus !== "" && a.status !== addrFilterStatus) return false;
+      if (q === "") return true;
+      const devName =
+        a.device_id != null ? (deviceNameById.get(a.device_id) ?? "").toLowerCase() : "";
+      const ifStr = `${a.interface_id ?? ""} ${a.interface_name ?? ""}`.toLowerCase();
+      const note = (a.note ?? "").toLowerCase();
+      return (
+        a.address.toLowerCase().includes(q) ||
+        a.status.toLowerCase().includes(q) ||
+        note.includes(q) ||
+        devName.includes(q) ||
+        ifStr.includes(q)
+      );
+    });
+  }, [addrQ.data, addrFilterText, addrFilterStatus, deviceNameById]);
+
   const deviceIdNum = reqDeviceId === "" ? null : Number(reqDeviceId);
   const interfacesQ = useQuery({
     queryKey: ["dcim", "devices", deviceIdNum, "interfaces"],
@@ -237,6 +260,7 @@ export function IpamPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-addresses"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -596,8 +620,31 @@ export function IpamPage() {
             </button>
           </form>
 
+          <div className={dcimStyles.formRow} style={{ marginTop: "var(--space-2)" }}>
+            <label>
+              {t("ipam.addr.filterText")}
+              <input
+                value={addrFilterText}
+                onChange={(e) => setAddrFilterText(e.target.value)}
+                placeholder={t("ipam.addr.filterTextPlaceholder")}
+              />
+            </label>
+            <label>
+              {t("ipam.addr.filterStatus")}
+              <select value={addrFilterStatus} onChange={(e) => setAddrFilterStatus(e.target.value)}>
+                <option value="">{t("ipam.addr.filterStatusAll")}</option>
+                <option value="discovered">discovered</option>
+                <option value="reserved">reserved</option>
+                <option value="assigned">assigned</option>
+              </select>
+            </label>
+          </div>
+
           {addrQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
-          {addrQ.data && addrQ.data.length > 0 ? (
+          {addrQ.data && addrQ.data.length > 0 && filteredAddrList.length === 0 ? (
+            <p className={dcimStyles.muted}>{t("ipam.addr.filterNoResults")}</p>
+          ) : null}
+          {filteredAddrList.length > 0 ? (
             <table className={dcimStyles.table}>
               <thead>
                 <tr>
@@ -611,7 +658,7 @@ export function IpamPage() {
                 </tr>
               </thead>
               <tbody>
-                {addrQ.data.map((a) => (
+                {filteredAddrList.map((a) => (
                   <tr key={a.id}>
                     <td>
                       <code>{a.address}</code>
@@ -682,7 +729,7 @@ export function IpamPage() {
                 ))}
               </tbody>
             </table>
-          ) : addrQ.data && addrQ.data.length === 0 ? (
+          ) : addrQ.data && addrQ.data.length === 0 && !addrQ.isLoading ? (
             <p className={dcimStyles.muted}>{t("ipam.addr.empty")}</p>
           ) : null}
         </section>
