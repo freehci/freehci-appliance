@@ -80,6 +80,67 @@ def test_ipam_request_ipv4_assign_to_interface() -> None:
         assert any(a["address"] == "10.0.2.1" for a in iface["ip_assignments"])
 
 
+def test_ipam_request_assign_rejects_wrong_device_id() -> None:
+    u = uuid.uuid4().hex[:10]
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "S", "slug": f"s-mis-{u}"}).json()["id"]
+        ra = client.post("/api/v1/dcim/rooms", json={"site_id": sa, "name": "R"}).json()["id"]
+        rk = client.post("/api/v1/dcim/racks", json={"room_id": ra, "name": "K"}).json()["id"]
+        mid = client.post("/api/v1/dcim/manufacturers", json={"name": f"M-mis-{u}"}).json()["id"]
+        tid = client.post(
+            "/api/v1/dcim/device-types",
+            json={"name": f"T-mis-{u}", "slug": f"t-mis-{u}"},
+        ).json()["id"]
+        dmod = client.post(
+            "/api/v1/dcim/device-models",
+            json={"manufacturer_id": mid, "device_type_id": tid, "name": "X", "u_height": 1},
+        ).json()["id"]
+        dev_a = client.post("/api/v1/dcim/devices", json={"device_model_id": dmod, "name": f"a-{u}"}).json()["id"]
+        dev_b = client.post("/api/v1/dcim/devices", json={"device_model_id": dmod, "name": f"b-{u}"}).json()["id"]
+        if_a = client.post(f"/api/v1/dcim/devices/{dev_a}/interfaces", json={"name": "eth0"}).json()["id"]
+        assert (
+            client.post(
+                "/api/v1/dcim/placements",
+                json={"rack_id": rk, "device_id": dev_a, "u_position": 1, "mounting": "front"},
+            ).status_code
+            == 200
+        )
+        assert (
+            client.post(
+                "/api/v1/dcim/placements",
+                json={"rack_id": rk, "device_id": dev_b, "u_position": 2, "mounting": "front"},
+            ).status_code
+            == 200
+        )
+        pfx = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "LAN", "cidr": "10.0.88.0/30"},
+        )
+        assert pfx.status_code == 200
+        pid = pfx.json()["id"]
+        bad = client.post(
+            "/api/v1/ipam/ipv4-addresses/request",
+            json={
+                "ipv4_prefix_id": pid,
+                "mode": "assign",
+                "interface_id": if_a,
+                "device_id": dev_b,
+            },
+        )
+        assert bad.status_code == 400
+        ok = client.post(
+            "/api/v1/ipam/ipv4-addresses/request",
+            json={
+                "ipv4_prefix_id": pid,
+                "mode": "assign",
+                "interface_id": if_a,
+                "device_id": dev_a,
+            },
+        )
+        assert ok.status_code == 200, ok.text
+
+
 def test_ipam_ipv4_address_patch_note_and_owner() -> None:
     app = create_app()
     with TestClient(app) as client:

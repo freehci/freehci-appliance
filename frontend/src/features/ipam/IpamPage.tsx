@@ -242,6 +242,7 @@ export function IpamPage() {
         ipv4_prefix_id: exploreId!,
         mode: reqMode,
         interface_id: reqMode === "assign" && reqInterfaceId.trim() !== "" ? Number(reqInterfaceId) : null,
+        device_id: reqMode === "assign" && reqDeviceId.trim() !== "" ? Number(reqDeviceId) : null,
         owner_user_id: reqOwnerUserId.trim() !== "" ? Number(reqOwnerUserId) : null,
         note: reqNote.trim() !== "" ? reqNote.trim() : null,
       }),
@@ -250,6 +251,7 @@ export function IpamPage() {
       setReqNote("");
       void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-addresses"] });
       void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -551,6 +553,10 @@ export function IpamPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setErr(null);
+              if (reqMode === "assign" && reqDeviceId.trim() === "") {
+                setErr(t("ipam.addr.assignNeedsDevice"));
+                return;
+              }
               if (reqMode === "assign" && reqInterfaceId.trim() === "") {
                 setErr(t("dcim.equip.ip.chooseIface"));
                 return;

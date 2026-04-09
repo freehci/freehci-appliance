@@ -302,6 +302,7 @@ export const nb = {
   "ipam.addr.mode.assign": "Tildel til interface",
   "ipam.addr.interfaceId": "Interface-ID (for tildeling)",
   "ipam.addr.device": "Device (for tildeling)",
+  "ipam.addr.assignNeedsDevice": "Velg enhet før tildeling til grensesnitt.",
   "ipam.addr.ownerUserId": "Owner user-id",
   "ipam.addr.ownerNew": "Ny owner (username)",
   "ipam.addr.ownerNewDisplay": "Ny owner (visningsnavn)",

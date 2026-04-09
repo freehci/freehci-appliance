@@ -149,6 +149,11 @@ def request_ipv4_address(db: Session, data: Ipv4AddressRequest) -> Ipv4AddressRe
         iface = db.get(DeviceInterface, data.interface_id)
         if iface is None:
             raise HTTPException(status_code=404, detail="interface ikke funnet")
+        if data.device_id is not None and data.device_id != iface.device_id:
+            raise HTTPException(
+                status_code=400,
+                detail="device_id stemmer ikke med grensesnittets enhet",
+            )
         dev_site = dcim_svc.device_effective_site_id(db, iface.device_id)
         if dev_site is None:
             raise HTTPException(status_code=400, detail="enhet uten rack-plassering kan ikke allokeres IP på site-prefiks")

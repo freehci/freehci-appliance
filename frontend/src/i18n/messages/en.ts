@@ -296,6 +296,7 @@ export const en = {
   "ipam.addr.mode.assign": "Assign to interface",
   "ipam.addr.interfaceId": "Interface ID (for assign)",
   "ipam.addr.device": "Device (for assign)",
+  "ipam.addr.assignNeedsDevice": "Choose a device before assigning to an interface.",
   "ipam.addr.ownerUserId": "Owner user id",
   "ipam.addr.ownerNew": "New owner (username)",
   "ipam.addr.ownerNewDisplay": "New owner (display name)",
