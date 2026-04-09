@@ -37,6 +37,8 @@ Stabile strenger i `manifest.capabilities` som kjernen kan bruke til å vite hva
 
 Bruk `device_type_slugs` på manifestet for å begrense hvilke DCIM `device_type.slug` pluginen gjelder for (tom liste = ikke begrenset i frontend-filtreringen i dag).
 
+**Modellering:** `device_type` er en *logisk* klasse (f.eks. `server`, `switch`). Produsent og produktserie (PowerEdge, ProLiant, …) hører til **modell** / **produsent**. Ulike styringsplaner (iDRAC, iLO, OME, OneView) er **plugins** som senere kan skille på `manufacturer_id`, modellnavn, `attributes` eller egne slug-er — ikke nødvendigvis én `device_type` per leverandør.
+
 Eksempel-plugin (`freehci.example`) eksponerer stubber:
 
 - `GET /api/v1/plugins/freehci/example/devices/{device_id}/hardware`

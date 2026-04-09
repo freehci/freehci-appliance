@@ -175,6 +175,11 @@ export const en = {
   "dcim.equip.dev.model": "Model",
   "dcim.equip.dev.dtOverride": "Type override",
   "dcim.equip.dev.dtInherit": "— inherit from model —",
+  "dcim.equip.dev.typeOverrideLabel": "Device type override",
+  "dcim.equip.dev.typeInheritModel": "— inherit from device model —",
+  "dcim.equip.dev.typeSave": "Save device type",
+  "dcim.equip.dev.classificationNote":
+    "Device type is a logical class (e.g. server, switch) for filtering and plugins. Product lines such as PowerEdge or ProLiant belong in the model and manufacturer. Out-of-band tools (iDRAC, iLO, OpenManage Enterprise, OneView, …) are separate plugins and can match on type slug, model, or attributes.",
   "dcim.equip.dev.attributesJson": "Attributes (JSON object, optional)",
   "dcim.equip.dev.attributesInvalid": "Attributes must be a JSON object, e.g. {\"os\":\"Linux\"}.",
   "dcim.equip.dev.effectiveTypeCol": "Type",

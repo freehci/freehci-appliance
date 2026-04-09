@@ -180,6 +180,11 @@ export const nb = {
   "dcim.equip.dev.model": "Modell",
   "dcim.equip.dev.dtOverride": "Overstyr type",
   "dcim.equip.dev.dtInherit": "— arv fra modell —",
+  "dcim.equip.dev.typeOverrideLabel": "Overstyr enhetstype",
+  "dcim.equip.dev.typeInheritModel": "— arv fra enhetsmodell —",
+  "dcim.equip.dev.typeSave": "Lagre enhetstype",
+  "dcim.equip.dev.classificationNote":
+    "Enhetstype er en logisk klasse (f.eks. server, switch) for filtrering og plugins. Produktfamilier som PowerEdge eller ProLiant hører til modell og produsent. Out-of-band-verktøy (iDRAC, iLO, OpenManage Enterprise, OneView, …) er egne plugins og kan matche på type-slug, modell eller attributter.",
   "dcim.equip.dev.attributesJson": "Attributter (JSON-objekt, valgfritt)",
   "dcim.equip.dev.attributesInvalid": "Attributter må være et JSON-objekt, f.eks. {\"os\":\"Linux\"}.",
   "dcim.equip.dev.effectiveTypeCol": "Type",

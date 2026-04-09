@@ -225,6 +225,20 @@ export function createDevice(body: {
   return apiPost(`${P}/devices`, body);
 }
 
+export function updateDevice(
+  id: number,
+  body: {
+    device_model_id?: number | null;
+    device_type_id?: number | null;
+    name?: string;
+    serial_number?: string | null;
+    asset_tag?: string | null;
+    attributes?: Record<string, unknown> | null;
+  },
+): Promise<DeviceInstance> {
+  return apiPatch(`${P}/devices/${id}`, body);
+}
+
 export function listPlacements(rackId?: number): Promise<RackPlacement[]> {
   const q = rackId != null ? `?rack_id=${encodeURIComponent(String(rackId))}` : "";
   return apiGet(`${P}/placements${q}`);

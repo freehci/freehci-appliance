@@ -54,6 +54,7 @@ export function DcimDeviceDetailPage() {
   const [ipPrimary, setIpPrimary] = useState(false);
   const [ipPrefix, setIpPrefix] = useState("");
   const [ipPrefixDraft, setIpPrefixDraft] = useState<Record<number, string>>({});
+  const [typeEdit, setTypeEdit] = useState("");
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -156,6 +157,29 @@ export function DcimDeviceDetailPage() {
     queryKey: ["plugin", "device-os", primaryOsPlugin?.id, id],
     queryFn: () => apiGet<unknown>(pluginOsPath!),
     enabled: detailTab === "os" && pluginOsPath != null && Number.isFinite(id) && id > 0,
+  });
+
+  useEffect(() => {
+    const d = deviceQ.data;
+    if (!d) return;
+    setTypeEdit(d.device_type_id != null ? String(d.device_type_id) : "");
+  }, [deviceQ.data?.id, deviceQ.data?.device_type_id]);
+
+  const typeDirty = useMemo(() => {
+    const d = deviceQ.data;
+    if (!d) return false;
+    const next = typeEdit === "" ? null : Number(typeEdit);
+    return d.device_type_id !== next;
+  }, [deviceQ.data, typeEdit]);
+
+  const patchDeviceType = useMutation({
+    mutationFn: (device_type_id: number | null) => api.updateDevice(id, { device_type_id }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
   useEffect(() => {
@@ -366,6 +390,9 @@ export function DcimDeviceDetailPage() {
 
         {detailTab === "overview" ? (
           <>
+            <p className={styles.muted} style={{ marginTop: 0 }}>
+              {t("dcim.equip.dev.classificationNote")}
+            </p>
             <dl className={styles.dlInline}>
               <dt>{t("dcim.common.id")}</dt>
               <dd>{dev.id}</dd>
@@ -376,6 +403,34 @@ export function DcimDeviceDetailPage() {
               <dt>{t("dcim.equip.dev.siteCol")}</dt>
               <dd>{siteLabel ?? "—"}</dd>
             </dl>
+            <section className={styles.mfrDetailSection}>
+              <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.typeOverrideLabel")}</h3>
+              <div className={styles.formRow}>
+                <label>
+                  {t("dcim.equip.dev.effectiveTypeCol")}
+                  <select value={typeEdit} onChange={(e) => setTypeEdit(e.target.value)}>
+                    <option value="">{t("dcim.equip.dev.typeInheritModel")}</option>
+                    {(typesQ.data ?? []).map((x) => (
+                      <option key={x.id} value={String(x.id)}>
+                        {x.name} ({x.slug})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={!typeDirty || patchDeviceType.isPending || typesQ.isLoading}
+                  onClick={() => {
+                    setErr(null);
+                    const next = typeEdit === "" ? null : Number(typeEdit);
+                    patchDeviceType.mutate(next);
+                  }}
+                >
+                  {patchDeviceType.isPending ? "…" : t("dcim.equip.dev.typeSave")}
+                </button>
+              </div>
+            </section>
             {hasAttrs ? (
               <section className={styles.mfrDetailSection}>
                 <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.attributesBlock")}</h3>

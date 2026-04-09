@@ -310,3 +310,55 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
         gpx2 = client.get(f"/api/v1/ipam/ipv4-prefixes/{pfx_aid}")
         # Utnyttelse følger adresse i CIDR, ikke bare FK: fjernet prefiks-lenke, IP ligger fortsatt i /16
         assert gpx2.json()["used_count"] == 1
+
+
+def test_patch_device_device_type_override_and_clear() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        s = client.post("/api/v1/dcim/sites", json={"name": "S", "slug": "s"})
+        assert s.status_code == 200
+        site_id = s.json()["id"]
+        r = client.post("/api/v1/dcim/rooms", json={"site_id": site_id, "name": "R"})
+        assert r.status_code == 200
+        room_id = r.json()["id"]
+        client.post("/api/v1/dcim/racks", json={"room_id": room_id, "name": "K", "u_height": 42})
+
+        m = client.post(
+            "/api/v1/dcim/manufacturers",
+            json={"name": "M", "description": None, "website_url": None},
+        )
+        assert m.status_code == 200
+        mid = m.json()["id"]
+
+        t1 = client.post("/api/v1/dcim/device-types", json={"name": "Server", "slug": "server"})
+        assert t1.status_code == 200
+        tid1 = t1.json()["id"]
+        t2 = client.post("/api/v1/dcim/device-types", json={"name": "Switch", "slug": "switch"})
+        assert t2.status_code == 200
+        tid2 = t2.json()["id"]
+
+        dm = client.post(
+            "/api/v1/dcim/device-models",
+            json={"manufacturer_id": mid, "device_type_id": tid1, "name": "X", "u_height": 1},
+        )
+        assert dm.status_code == 200
+        dmod_id = dm.json()["id"]
+
+        d = client.post(
+            "/api/v1/dcim/devices",
+            json={"device_model_id": dmod_id, "name": "dev1"},
+        )
+        assert d.status_code == 200
+        did = d.json()["id"]
+        assert d.json()["device_type_id"] is None
+        assert d.json()["effective_device_type_id"] == tid1
+
+        p = client.patch(f"/api/v1/dcim/devices/{did}", json={"device_type_id": tid2})
+        assert p.status_code == 200, p.text
+        assert p.json()["device_type_id"] == tid2
+        assert p.json()["effective_device_type_id"] == tid2
+
+        c = client.patch(f"/api/v1/dcim/devices/{did}", json={"device_type_id": None})
+        assert c.status_code == 200, c.text
+        assert c.json()["device_type_id"] is None
+        assert c.json()["effective_device_type_id"] == tid1
