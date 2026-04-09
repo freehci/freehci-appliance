@@ -133,3 +133,11 @@ def patch_ipv4_address(addr_id: int, data: Ipv4AddressPatch, db: Session = Depen
 @router.post("/ipv4-addresses/request", response_model=Ipv4AddressRead)
 def request_ipv4_address(data: Ipv4AddressRequest, db: Session = Depends(get_db)) -> Ipv4AddressRead:
     return addr_svc.request_ipv4_address(db, data)
+
+
+@router.post("/ipv4-addresses/{addr_id}/release", response_model=Ipv4AddressRead)
+def release_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+    row = addr_svc.get_ipv4_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
+    return addr_svc.release_ipv4_address(db, row)

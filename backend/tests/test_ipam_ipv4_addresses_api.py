@@ -91,3 +91,61 @@ def test_ipam_ipv4_address_patch_note_and_owner() -> None:
         assert up.status_code == 200, up.text
         assert up.json()["owner_user_id"] == u
         assert up.json()["note"] == "x"
+
+
+def test_ipam_ipv4_address_release_reserved() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "S1", "slug": "rel1"}).json()["id"]
+        pfx = client.post("/api/v1/ipam/ipv4-prefixes", json={"site_id": sa, "name": "LAN", "cidr": "10.0.4.0/30"})
+        pid = pfx.json()["id"]
+        r = client.post("/api/v1/ipam/ipv4-addresses/request", json={"ipv4_prefix_id": pid, "mode": "reserve"})
+        addr_id = r.json()["id"]
+        assert r.json()["status"] == "reserved"
+
+        rel = client.post(f"/api/v1/ipam/ipv4-addresses/{addr_id}/release")
+        assert rel.status_code == 200, rel.text
+        assert rel.json()["status"] == "discovered"
+        assert rel.json()["interface_ip_assignment_id"] is None
+
+
+def test_ipam_ipv4_address_release_assigned_deletes_dcim_assignment() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "S1", "slug": "rel2"}).json()["id"]
+        ra = client.post("/api/v1/dcim/rooms", json={"site_id": sa, "name": "R1"}).json()["id"]
+        rk = client.post("/api/v1/dcim/racks", json={"room_id": ra, "name": "K1"}).json()["id"]
+
+        mid = client.post("/api/v1/dcim/manufacturers", json={"name": "M-Rel"}).json()["id"]
+        tid = client.post("/api/v1/dcim/device-types", json={"name": "SrvRel", "slug": "srv-rel"}).json()["id"]
+        dmod = client.post(
+            "/api/v1/dcim/device-models",
+            json={"manufacturer_id": mid, "device_type_id": tid, "name": "X1", "u_height": 1},
+        ).json()["id"]
+        dev_id = client.post("/api/v1/dcim/devices", json={"device_model_id": dmod, "name": "host-a"}).json()["id"]
+        if_id = client.post(f"/api/v1/dcim/devices/{dev_id}/interfaces", json={"name": "eth0"}).json()["id"]
+        pl = client.post(
+            "/api/v1/dcim/placements",
+            json={"rack_id": rk, "device_id": dev_id, "u_position": 1, "mounting": "front"},
+        )
+        assert pl.status_code == 200
+
+        pfx = client.post("/api/v1/ipam/ipv4-prefixes", json={"site_id": sa, "name": "LAN", "cidr": "10.0.5.0/30"})
+        pid = pfx.json()["id"]
+        r = client.post(
+            "/api/v1/ipam/ipv4-addresses/request",
+            json={"ipv4_prefix_id": pid, "mode": "assign", "interface_id": if_id},
+        )
+        assert r.status_code == 200, r.text
+        addr_id = r.json()["id"]
+        aid = r.json()["interface_ip_assignment_id"]
+        assert aid is not None
+
+        rel = client.post(f"/api/v1/ipam/ipv4-addresses/{addr_id}/release")
+        assert rel.status_code == 200, rel.text
+        assert rel.json()["status"] == "discovered"
+        assert rel.json()["interface_ip_assignment_id"] is None
+
+        ifs = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
+        iface = next(x for x in ifs.json() if x["id"] == if_id)
+        assert all(a["id"] != aid for a in iface["ip_assignments"])

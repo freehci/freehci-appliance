@@ -25,9 +25,12 @@ export function IpamPage() {
   const [exploreStack, setExploreStack] = useState<ExploreCrumb[]>([]);
   const [activeScanId, setActiveScanId] = useState<number | null>(null);
   const [reqMode, setReqMode] = useState<"reserve" | "assign">("reserve");
-  const [reqIfaceId, setReqIfaceId] = useState("");
   const [reqOwnerUserId, setReqOwnerUserId] = useState("");
+  const [reqOwnerNewUsername, setReqOwnerNewUsername] = useState("");
+  const [reqOwnerNewDisplay, setReqOwnerNewDisplay] = useState("");
   const [reqNote, setReqNote] = useState("");
+  const [reqDeviceId, setReqDeviceId] = useState("");
+  const [reqInterfaceId, setReqInterfaceId] = useState("");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
@@ -63,9 +66,12 @@ export function IpamPage() {
 
   useEffect(() => {
     setActiveScanId(null);
-    setReqIfaceId("");
     setReqOwnerUserId("");
+    setReqOwnerNewUsername("");
+    setReqOwnerNewDisplay("");
     setReqNote("");
+    setReqDeviceId("");
+    setReqInterfaceId("");
     setReqMode("reserve");
   }, [exploreId]);
 
@@ -166,12 +172,42 @@ export function IpamPage() {
     enabled: exploreId != null && exploreId > 0,
   });
 
+  const usersQ = useQuery({ queryKey: ["ipam", "users"], queryFn: () => ipamApi.listUsers(500) });
+
+  const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: dcimApi.listDevices });
+  const deviceIdNum = reqDeviceId === "" ? null : Number(reqDeviceId);
+  const interfacesQ = useQuery({
+    queryKey: ["dcim", "devices", deviceIdNum, "interfaces"],
+    queryFn: () => dcimApi.listDeviceInterfaces(deviceIdNum!),
+    enabled: deviceIdNum != null && deviceIdNum > 0,
+  });
+
+  useEffect(() => {
+    setReqInterfaceId("");
+  }, [reqDeviceId]);
+
+  const createOwner = useMutation({
+    mutationFn: () =>
+      ipamApi.createUser({
+        username: reqOwnerNewUsername.trim(),
+        display_name: reqOwnerNewDisplay.trim() !== "" ? reqOwnerNewDisplay.trim() : null,
+      }),
+    onSuccess: (u) => {
+      setReqOwnerUserId(String(u.id));
+      setReqOwnerNewUsername("");
+      setReqOwnerNewDisplay("");
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "users"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const requestAddr = useMutation({
     mutationFn: () =>
       ipamApi.requestIpv4Address({
         ipv4_prefix_id: exploreId!,
         mode: reqMode,
-        interface_id: reqMode === "assign" && reqIfaceId.trim() !== "" ? Number(reqIfaceId) : null,
+        interface_id: reqMode === "assign" && reqInterfaceId.trim() !== "" ? Number(reqInterfaceId) : null,
         owner_user_id: reqOwnerUserId.trim() !== "" ? Number(reqOwnerUserId) : null,
         note: reqNote.trim() !== "" ? reqNote.trim() : null,
       }),
@@ -180,6 +216,16 @@ export function IpamPage() {
       setReqNote("");
       void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-addresses"] });
       void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchAddr = useMutation({
+    mutationFn: (args: { id: number; body: { owner_user_id?: number | null; note?: string | null; status?: string } }) =>
+      ipamApi.patchIpv4Address(args.id, args.body),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-addresses"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -456,7 +502,7 @@ export function IpamPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setErr(null);
-              if (reqMode === "assign" && reqIfaceId.trim() === "") {
+              if (reqMode === "assign" && reqInterfaceId.trim() === "") {
                 setErr(t("dcim.equip.ip.chooseIface"));
                 return;
               }
@@ -472,17 +518,61 @@ export function IpamPage() {
             </label>
             <label>
               {t("ipam.addr.interfaceId")}
-              <input
-                value={reqIfaceId}
-                onChange={(e) => setReqIfaceId(e.target.value)}
+              <select
+                value={reqInterfaceId}
+                onChange={(e) => setReqInterfaceId(e.target.value)}
                 disabled={reqMode !== "assign"}
-                placeholder="123"
-              />
+              >
+                <option value="">{t("dcim.common.choose")}</option>
+                {(interfacesQ.data ?? []).map((x) => (
+                  <option key={x.id} value={String(x.id)}>
+                    #{x.id} · {x.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.addr.device")}
+              <select value={reqDeviceId} onChange={(e) => setReqDeviceId(e.target.value)} disabled={reqMode !== "assign"}>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(devicesQ.data ?? []).map((d) => (
+                  <option key={d.id} value={String(d.id)}>
+                    #{d.id} · {d.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               {t("ipam.addr.ownerUserId")}
-              <input value={reqOwnerUserId} onChange={(e) => setReqOwnerUserId(e.target.value)} placeholder="1" />
+              <select value={reqOwnerUserId} onChange={(e) => setReqOwnerUserId(e.target.value)}>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(usersQ.data ?? []).map((u) => (
+                  <option key={u.id} value={String(u.id)}>
+                    #{u.id} · {u.display_name ?? u.username}
+                  </option>
+                ))}
+              </select>
             </label>
+            <label>
+              {t("ipam.addr.ownerNew")}
+              <input
+                value={reqOwnerNewUsername}
+                onChange={(e) => setReqOwnerNewUsername(e.target.value)}
+                placeholder="username"
+              />
+            </label>
+            <label>
+              {t("ipam.addr.ownerNewDisplay")}
+              <input value={reqOwnerNewDisplay} onChange={(e) => setReqOwnerNewDisplay(e.target.value)} />
+            </label>
+            <button
+              type="button"
+              className={dcimStyles.btn}
+              disabled={createOwner.isPending || reqOwnerNewUsername.trim() === ""}
+              onClick={() => createOwner.mutate()}
+            >
+              {createOwner.isPending ? "…" : t("ipam.addr.ownerNewBtn")}
+            </button>
             <label>
               {t("ipam.addr.note")}
               <input value={reqNote} onChange={(e) => setReqNote(e.target.value)} />
@@ -503,6 +593,7 @@ export function IpamPage() {
                   <th>{t("ipam.addr.colNote")}</th>
                   <th>{t("ipam.addr.colDevice")}</th>
                   <th>{t("ipam.addr.colInterface")}</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -512,10 +603,45 @@ export function IpamPage() {
                       <code>{a.address}</code>
                     </td>
                     <td>{a.status}</td>
-                    <td className={dcimStyles.muted}>{a.owner_user_id ?? "—"}</td>
-                    <td>{a.note ?? "—"}</td>
+                    <td>
+                      <select
+                        value={a.owner_user_id ?? ""}
+                        onChange={(e) =>
+                          patchAddr.mutate({
+                            id: a.id,
+                            body: { owner_user_id: e.target.value === "" ? null : Number(e.target.value) },
+                          })
+                        }
+                      >
+                        <option value="">{t("dcim.common.choose")}</option>
+                        {(usersQ.data ?? []).map((u) => (
+                          <option key={u.id} value={String(u.id)}>
+                            #{u.id} · {u.display_name ?? u.username}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        defaultValue={a.note ?? ""}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if ((a.note ?? "") !== v) patchAddr.mutate({ id: a.id, body: { note: v === "" ? null : v } });
+                        }}
+                      />
+                    </td>
                     <td className={dcimStyles.muted}>{a.device_id ?? "—"}</td>
                     <td className={dcimStyles.muted}>{a.interface_id ?? "—"}</td>
+                    <td>
+                      <select
+                        value={a.status}
+                        onChange={(e) => patchAddr.mutate({ id: a.id, body: { status: e.target.value } })}
+                      >
+                        <option value="discovered">discovered</option>
+                        <option value="reserved">reserved</option>
+                        <option value="assigned">assigned</option>
+                      </select>
+                    </td>
                   </tr>
                 ))}
               </tbody>

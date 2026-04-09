@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ipaddress
-from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import Select, select
@@ -216,3 +215,25 @@ def request_ipv4_address(db: Session, data: Ipv4AddressRequest) -> Ipv4AddressRe
         return Ipv4AddressRead.model_validate(row)
 
     raise HTTPException(status_code=409, detail="ingen ledig adresse i prefikset")
+
+
+def release_ipv4_address(db: Session, row: IpamIpv4Address) -> Ipv4AddressRead:
+    """Frigi reservasjon/tildeling.
+
+    - Hvis raden peker på `dcim_interface_ip_assignments`, slettes den tildelingen.
+    - Inventory-raden beholdes, men settes til status=discovered og koblinger nulles.
+    """
+    if row.interface_ip_assignment_id is not None:
+        assign = db.get(InterfaceIpAssignment, row.interface_ip_assignment_id)
+        if assign is not None:
+            db.delete(assign)
+
+    row.status = "discovered"
+    row.interface_ip_assignment_id = None
+    row.interface_id = None
+    row.device_id = None
+    row.device_model_id = None
+    row.device_type_id = None
+    db.commit()
+    db.refresh(row)
+    return Ipv4AddressRead.model_validate(row)
