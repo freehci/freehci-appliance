@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { RackPlanner } from "./RackPlanner";
 
@@ -50,10 +52,16 @@ export function DcimRacksPage() {
     allRacksForHighlight.data,
     searchParams,
   ]);
+
+  useEffect(() => {
+    if (highlightPlacementId != null) setRackTab("elevation");
+  }, [highlightPlacementId]);
+
   const [roomId, setRoomId] = useState<string>("");
   const [name, setName] = useState("");
   const [uHeight, setUHeight] = useState("42");
   const [err, setErr] = useState<string | null>(null);
+  const [rackTab, setRackTab] = useState<"elevation" | "admin">("elevation");
 
   const roomsQ = useQuery({ queryKey: ["dcim", "rooms", "all"], queryFn: () => api.listRooms() });
   const filterNum = useMemo(() => {
@@ -84,13 +92,21 @@ export function DcimRacksPage() {
   const racks = racksQ.data ?? [];
 
   return (
-    <>
-      <RackPlanner racks={racks} highlightPlacementId={highlightPlacementId} />
-
-      <details className={styles.adminDetails}>
-        <summary>{t("dcim.racks.adminSummary")}</summary>
+    <Panel title={t("nav.dcimRacks")}>
+      <DcimInnerTabs
+        tabs={[
+          { id: "elevation", label: t("dcim.racks.tabElevation") },
+          { id: "admin", label: t("dcim.racks.tabAdmin") },
+        ]}
+        activeId={rackTab}
+        onChange={(id) => setRackTab(id as "elevation" | "admin")}
+        ariaLabel={t("dcim.innerNavAria")}
+      />
+      {rackTab === "elevation" ? (
+        <RackPlanner racks={racks} highlightPlacementId={highlightPlacementId} embed />
+      ) : (
         <div className={styles.adminBody}>
-          <h2 className={styles.srOnly}>{t("dcim.racks.title")}</h2>
+          <h2 className={styles.srOnly}>{t("dcim.racks.adminSummary")}</h2>
           {err ? <p className={styles.err}>{err}</p> : null}
           <div className={styles.formRow}>
             <label>
@@ -175,7 +191,7 @@ export function DcimRacksPage() {
             </table>
           ) : null}
         </div>
-      </details>
-    </>
+      )}
+    </Panel>
   );
 }

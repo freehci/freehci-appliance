@@ -4,6 +4,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 
 export function DcimSitesPage() {
@@ -12,6 +13,7 @@ export function DcimSitesPage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [tab, setTab] = useState("main");
 
   const q = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
   const m = useMutation({
@@ -26,7 +28,15 @@ export function DcimSitesPage() {
   });
 
   return (
-    <Panel title={t("dcim.sites.title")}>
+    <Panel title={t("nav.dcimSites")}>
+      <DcimInnerTabs
+        tabs={[{ id: "main", label: t("nav.dcimSites") }]}
+        activeId={tab}
+        onChange={setTab}
+        ariaLabel={t("dcim.innerNavAria")}
+      />
+      {tab === "main" ? (
+        <>
       {err ? <p className={styles.err}>{err}</p> : null}
       <form
         className={styles.formRow}
@@ -81,6 +91,8 @@ export function DcimSitesPage() {
             ))}
           </tbody>
         </table>
+      ) : null}
+        </>
       ) : null}
     </Panel>
   );

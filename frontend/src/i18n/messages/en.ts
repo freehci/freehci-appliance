@@ -46,6 +46,7 @@ export const en = {
   "plugin.example.loading": "Loading API response…",
   "plugin.example.errorPrefix": "Could not fetch API:",
 
+  "dcim.innerNavAria": "Subsections",
   "dcim.overview.title": "DCIM",
   "dcim.overview.p1":
     "Manage data centres: sites, rooms, racks, device models and RU placements. Data is stored via",
@@ -95,6 +96,8 @@ export const en = {
   "dcim.racks.tableRoom": "Room ID",
 
   "dcim.racks.plannerTitle": "Rack elevation (drag & drop)",
+  "dcim.racks.tabElevation": "Rack elevation",
+  "dcim.racks.tabAdmin": "Register & list",
   "dcim.racks.adminSummary": "Register and list racks (admin)",
   "dcim.racks.matrixHint":
     "Racks from the admin list appear here. Drag devices or models from the palette, or drag placed gear to another U position or rack. Choose front/rear for new placements in the palette. Use Adjust for keyboard-friendly edits. Solid blue frame = front; dashed gold = rear. U1 is at the bottom.",
@@ -124,7 +127,6 @@ export const en = {
   "dcim.racks.editorInvalidU": "Enter a valid U position.",
   "dcim.racks.editorNoFit": "That position does not fit or collides with other gear.",
 
-  "dcim.equip.introTitle": "Equipment",
   "dcim.equip.introBody":
     "Manufacturers (with profile, website and logo), device types (switch, server, …), models, devices and rack placements. Device models can reference a type; devices inherit that type unless overridden. Flexible JSON attributes on devices hold early metadata (e.g. os, port_count) until dedicated tables and IPAM exist. The API rejects a second placement for the same device. Click a manufacturer name for details.",
   "dcim.equip.mfr.title": "Manufacturers",

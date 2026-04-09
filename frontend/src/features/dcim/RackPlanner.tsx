@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
@@ -158,9 +158,12 @@ function PlacementEditorDialog({
 export function RackPlanner({
   racks,
   highlightPlacementId,
+  embed,
 }: {
   racks: Rack[];
   highlightPlacementId?: number;
+  /** When true, omit outer Panel (parent provides section chrome). */
+  embed?: boolean;
 }) {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -283,16 +286,15 @@ export function RackPlanner({
 
   const allPlacements = allPlacementsQ.data ?? [];
 
+  const wrap = (body: ReactNode) =>
+    embed ? body : <Panel title={t("dcim.racks.plannerTitle")}>{body}</Panel>;
+
   if (racks.length === 0) {
-    return (
-      <Panel title={t("dcim.racks.plannerTitle")}>
-        <p className={baseStyles.muted}>{t("dcim.racks.empty")}</p>
-      </Panel>
-    );
+    return wrap(<p className={baseStyles.muted}>{t("dcim.racks.empty")}</p>);
   }
 
-  return (
-    <Panel title={t("dcim.racks.plannerTitle")}>
+  return wrap(
+    <>
       {dropErr ? (
         <p className={baseStyles.err}>
           {t("dcim.racks.dropError")} {dropErr}
@@ -470,6 +472,6 @@ export function RackPlanner({
           }}
         />
       ) : null}
-    </Panel>
+    </>,
   );
 }

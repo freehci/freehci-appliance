@@ -5,9 +5,12 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { deviceModelFrontSrc } from "./modelImages";
 import type { Rack, RackPlacement } from "./types";
+
+type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl";
 
 export function DcimEquipmentPage() {
   const { t } = useI18n();
@@ -39,6 +42,7 @@ export function DcimEquipmentPage() {
   const [plU, setPlU] = useState("1");
   const [plMount, setPlMount] = useState("front");
   const [rackFilter, setRackFilter] = useState<string>("");
+  const [equipTab, setEquipTab] = useState<EquipTab>("mfr");
 
   const manufacturersQ = useQuery({
     queryKey: ["dcim", "manufacturers"],
@@ -93,6 +97,7 @@ export function DcimEquipmentPage() {
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 1) return;
     setDmMfr(String(n));
+    setEquipTab("dm");
     requestAnimationFrame(() =>
       dmPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
     );
@@ -239,15 +244,25 @@ export function DcimEquipmentPage() {
   });
 
   return (
-    <>
-      <Panel title={t("dcim.equip.introTitle")}>
-        {err ? <p className={styles.err}>{err}</p> : null}
-        <p className={styles.muted} style={{ marginTop: 0 }}>
-          {t("dcim.equip.introBody")}
-        </p>
-      </Panel>
-
-      <Panel title={t("dcim.equip.mfr.title")}>
+    <Panel title={t("nav.dcimEquipment")}>
+      {err ? <p className={styles.err}>{err}</p> : null}
+      <p className={styles.muted} style={{ marginTop: 0 }}>
+        {t("dcim.equip.introBody")}
+      </p>
+      <DcimInnerTabs
+        tabs={[
+          { id: "mfr", label: t("dcim.equip.mfr.title") },
+          { id: "dt", label: t("dcim.equip.dt.title") },
+          { id: "dm", label: t("dcim.equip.dm.title") },
+          { id: "dev", label: t("dcim.equip.dev.title") },
+          { id: "pl", label: t("dcim.equip.pl.title") },
+        ]}
+        activeId={equipTab}
+        onChange={(id) => setEquipTab(id as EquipTab)}
+        ariaLabel={t("dcim.innerNavAria")}
+      />
+      {equipTab === "mfr" ? (
+        <>
         <form
           className={styles.formRow}
           onSubmit={(e) => {
@@ -335,9 +350,10 @@ export function DcimEquipmentPage() {
         ) : (
           !manufacturersQ.isLoading && <p className={styles.muted}>{t("dcim.equip.mfr.empty")}</p>
         )}
-      </Panel>
-
-      <Panel title={t("dcim.equip.dt.title")}>
+        </>
+      ) : null}
+      {equipTab === "dt" ? (
+        <>
         <p className={styles.muted} style={{ marginTop: 0 }}>
           {t("dcim.equip.dt.hint")}
         </p>
@@ -408,10 +424,10 @@ export function DcimEquipmentPage() {
         ) : (
           !deviceTypesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dt.empty")}</p>
         )}
-      </Panel>
-
-      <div ref={dmPanelRef}>
-        <Panel title={t("dcim.equip.dm.title")}>
+        </>
+      ) : null}
+      {equipTab === "dm" ? (
+        <div ref={dmPanelRef}>
           <p className={styles.muted} style={{ marginTop: 0 }}>
             {t("dcim.equip.dm.uploadHint")}
           </p>
@@ -548,10 +564,10 @@ export function DcimEquipmentPage() {
         ) : (
           !modelsQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dm.empty")}</p>
         )}
-        </Panel>
-      </div>
-
-      <Panel title={t("dcim.equip.dev.title")}>
+        </div>
+      ) : null}
+      {equipTab === "dev" ? (
+        <>
         <form
           className={styles.formRow}
           onSubmit={(e) => {
@@ -662,9 +678,10 @@ export function DcimEquipmentPage() {
         ) : (
           !devicesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dev.empty")}</p>
         )}
-      </Panel>
-
-      <Panel title={t("dcim.equip.pl.title")}>
+        </>
+      ) : null}
+      {equipTab === "pl" ? (
+        <>
         <div className={styles.formRow}>
           <label>
             {t("dcim.equip.pl.filterRack")}
@@ -773,7 +790,8 @@ export function DcimEquipmentPage() {
         ) : (
           !placementsQ.isLoading && <p className={styles.muted}>{t("dcim.equip.pl.empty")}</p>
         )}
-      </Panel>
-    </>
+        </>
+      ) : null}
+    </Panel>
   );
 }

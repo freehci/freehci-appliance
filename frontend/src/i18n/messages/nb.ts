@@ -50,6 +50,7 @@ export const nb = {
   "plugin.example.loading": "Laster svar fra API …",
   "plugin.example.errorPrefix": "Klarte ikke hente API:",
 
+  "dcim.innerNavAria": "Underseksjoner",
   "dcim.overview.title": "DCIM",
   "dcim.overview.p1":
     "Håndter datasentre: sites, rom, racks, enhetsmodeller og plassering i U-posisjoner. Data lagres via",
@@ -99,6 +100,8 @@ export const nb = {
   "dcim.racks.tableRoom": "Rom-ID",
 
   "dcim.racks.plannerTitle": "Rack-fremtak (dra og slipp)",
+  "dcim.racks.tabElevation": "Rack-fremtak",
+  "dcim.racks.tabAdmin": "Registrer og list",
   "dcim.racks.adminSummary": "Registrer og list racks (admin)",
   "dcim.racks.matrixHint":
     "Racks fra admin-lista vises her. Dra enheter eller modeller fra paletten, eller dra plassert utstyr til annen U-posisjon eller rack. Velg for/bak for nye plasseringer på paletten. Bruk «Justér» for tastaturvennlig redigering. Hel blå ramme = forside; stiplet gull = bakside. U1 er nederst.",
@@ -129,7 +132,6 @@ export const nb = {
   "dcim.racks.editorInvalidU": "Oppgi en gyldig U-posisjon.",
   "dcim.racks.editorNoFit": "Plasseringen passer ikke eller kolliderer med annet utstyr.",
 
-  "dcim.equip.introTitle": "Utstyr",
   "dcim.equip.introBody":
     "Produsenter (profil, nettsted og logo), enhetstyper (switch, server, …), modeller, enheter og rack-plassering. Modeller kan peke på en type; enheter arver typen fra modellen med mindre du overstyrer. JSON-attributter på enheter brukes foreløpig til metadata (f.eks. os, port_count) inntil egne tabeller og IPAM kommer. Dobbelt plassering av samme enhet avvises av API-et. Klikk produsentnavn for detaljer.",
   "dcim.equip.mfr.title": "Produsenter",
