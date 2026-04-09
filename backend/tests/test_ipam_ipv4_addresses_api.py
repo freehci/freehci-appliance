@@ -1,5 +1,7 @@
 """API-tester for IPAM IPv4-adresse-inventory og request."""
 
+import uuid
+
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -69,6 +71,7 @@ def test_ipam_request_ipv4_assign_to_interface() -> None:
         assert r.status_code == 200, r.text
         assert r.json()["status"] == "assigned"
         assert r.json()["interface_id"] == if_id
+        assert r.json()["interface_name"] == "eth0"
         assert r.json()["interface_ip_assignment_id"] is not None
 
         ifs = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
@@ -149,3 +152,53 @@ def test_ipam_ipv4_address_release_assigned_deletes_dcim_assignment() -> None:
         ifs = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
         iface = next(x for x in ifs.json() if x["id"] == if_id)
         assert all(a["id"] != aid for a in iface["ip_assignments"])
+
+
+def test_ipam_ipv4_address_interface_name_for_subinterface() -> None:
+    u = uuid.uuid4().hex[:10]
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "S", "slug": f"s-ifn-{u}"}).json()["id"]
+        ra = client.post("/api/v1/dcim/rooms", json={"site_id": sa, "name": "R1"}).json()["id"]
+        rk = client.post("/api/v1/dcim/racks", json={"room_id": ra, "name": "K1"}).json()["id"]
+
+        mid = client.post("/api/v1/dcim/manufacturers", json={"name": f"M-ifn-{u}"}).json()["id"]
+        tid = client.post(
+            "/api/v1/dcim/device-types",
+            json={"name": f"Srv-ifn-{u}", "slug": f"srv-ifn-{u}"},
+        ).json()["id"]
+        dmod = client.post(
+            "/api/v1/dcim/device-models",
+            json={"manufacturer_id": mid, "device_type_id": tid, "name": "X1", "u_height": 1},
+        ).json()["id"]
+        dev_id = client.post("/api/v1/dcim/devices", json={"device_model_id": dmod, "name": f"sw-{u}"}).json()["id"]
+        me0 = client.post(f"/api/v1/dcim/devices/{dev_id}/interfaces", json={"name": "me0"}).json()["id"]
+        me00 = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={"name": "me0.0", "parent_interface_id": me0},
+        ).json()["id"]
+
+        pl = client.post(
+            "/api/v1/dcim/placements",
+            json={"rack_id": rk, "device_id": dev_id, "u_position": 1, "mounting": "front"},
+        )
+        assert pl.status_code == 200
+
+        pfx = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "LAN", "cidr": "10.0.9.0/30"},
+        )
+        assert pfx.status_code == 200
+        pid = pfx.json()["id"]
+
+        r = client.post(
+            "/api/v1/ipam/ipv4-addresses/request",
+            json={"ipv4_prefix_id": pid, "mode": "assign", "interface_id": me00},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["interface_name"] == "me0.0"
+
+        li = client.get(f"/api/v1/ipam/ipv4-addresses?ipv4_prefix_id={pid}")
+        assert li.status_code == 200
+        row = next(x for x in li.json() if x["address"] == "10.0.9.1")
+        assert row["interface_name"] == "me0.0"

@@ -145,6 +145,8 @@ class Ipv4AddressRead(BaseModel):
     device_model_id: int | None
     device_id: int | None
     interface_id: int | None
+    # Navn fra DCIM (dcim_device_interfaces.name), f.eks. me0.0 — ikke DB-kolonne.
+    interface_name: str | None = None
     interface_ip_assignment_id: int | None
     created_at: dt.datetime
     updated_at: dt.datetime

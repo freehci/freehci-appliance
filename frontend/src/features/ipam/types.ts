@@ -71,6 +71,7 @@ export type Ipv4Address = {
   device_model_id: number | null;
   device_id: number | null;
   interface_id: number | null;
+  interface_name: string | null;
   interface_ip_assignment_id: number | null;
   created_at: string;
   updated_at: string;

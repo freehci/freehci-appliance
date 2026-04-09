@@ -16,6 +16,23 @@ from app.schemas.ipam import Ipv4AddressPatch, Ipv4AddressRead, Ipv4AddressReque
 from app.services import dcim as dcim_svc
 
 
+def _ipv4_address_read(
+    db: Session,
+    row: IpamIpv4Address,
+    *,
+    interface_names: dict[int, str] | None = None,
+) -> Ipv4AddressRead:
+    base = Ipv4AddressRead.model_validate(row)
+    if row.interface_id is None:
+        return base.model_copy(update={"interface_name": None})
+    if interface_names is not None:
+        iname = interface_names.get(row.interface_id)
+    else:
+        iface = db.get(DeviceInterface, row.interface_id)
+        iname = iface.name if iface is not None else None
+    return base.model_copy(update={"interface_name": iname})
+
+
 def list_users(db: Session, *, limit: int = 200) -> list[UserRead]:
     q = select(User).order_by(User.username).limit(limit)
     return [UserRead.model_validate(x) for x in db.execute(q).scalars().all()]
@@ -48,7 +65,13 @@ def list_ipv4_addresses(
         q = q.where(IpamIpv4Address.ipv4_prefix_id == ipv4_prefix_id)
     if status is not None:
         q = q.where(IpamIpv4Address.status == status)
-    return [Ipv4AddressRead.model_validate(x) for x in db.execute(q).scalars().all()]
+    rows = list(db.execute(q).scalars().all())
+    if_ids = {r.interface_id for r in rows if r.interface_id is not None}
+    names: dict[int, str] = {}
+    if if_ids:
+        qi = select(DeviceInterface.id, DeviceInterface.name).where(DeviceInterface.id.in_(if_ids))
+        names = dict(db.execute(qi).all())
+    return [_ipv4_address_read(db, r, interface_names=names) for r in rows]
 
 
 def get_ipv4_address(db: Session, addr_id: int) -> IpamIpv4Address | None:
@@ -65,7 +88,7 @@ def patch_ipv4_address(db: Session, row: IpamIpv4Address, data: Ipv4AddressPatch
 
     db.commit()
     db.refresh(row)
-    return Ipv4AddressRead.model_validate(row)
+    return _ipv4_address_read(db, row)
 
 
 def _iter_candidate_ipv4_addresses(prefix: IpamIpv4Prefix) -> list[ipaddress.IPv4Address]:
@@ -162,7 +185,7 @@ def request_ipv4_address(db: Session, data: Ipv4AddressRequest) -> Ipv4AddressRe
                 used_ipam.add(ip_s)
                 continue
             db.refresh(row)
-            return Ipv4AddressRead.model_validate(row)
+            return _ipv4_address_read(db, row)
 
         # mode == assign
         assert iface is not None
@@ -212,7 +235,7 @@ def request_ipv4_address(db: Session, data: Ipv4AddressRequest) -> Ipv4AddressRe
             continue
 
         db.refresh(row)
-        return Ipv4AddressRead.model_validate(row)
+        return _ipv4_address_read(db, row)
 
     raise HTTPException(status_code=409, detail="ingen ledig adresse i prefikset")
 
@@ -236,4 +259,4 @@ def release_ipv4_address(db: Session, row: IpamIpv4Address) -> Ipv4AddressRead:
     row.device_type_id = None
     db.commit()
     db.refresh(row)
-    return Ipv4AddressRead.model_validate(row)
+    return _ipv4_address_read(db, row)

@@ -650,7 +650,18 @@ export function IpamPage() {
                         <span className={dcimStyles.muted}>—</span>
                       )}
                     </td>
-                    <td className={dcimStyles.muted}>{a.interface_id ?? "—"}</td>
+                    <td className={dcimStyles.muted}>
+                      {a.interface_id != null ? (
+                        <>
+                          {a.interface_name ?? `#${a.interface_id}`}
+                          {a.interface_name != null && a.interface_name !== "" ? (
+                            <span> · #{a.interface_id}</span>
+                          ) : null}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td>
                       <select
                         value={a.status}
