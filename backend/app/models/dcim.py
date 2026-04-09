@@ -154,8 +154,23 @@ class DeviceInterface(Base):
     vlan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Logisk underegrensesnitt (f.eks. Juniper me0.0 under fysisk me0); MAC ofte på forelder, VLAN/IP på barn.
+    parent_interface_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_interfaces.id", ondelete="CASCADE"),
+        nullable=True,
+    )
 
     device: Mapped["DeviceInstance"] = relationship(back_populates="interfaces")
+    parent: Mapped["DeviceInterface | None"] = relationship(
+        "DeviceInterface",
+        remote_side=[id],
+        back_populates="subinterfaces",
+    )
+    subinterfaces: Mapped[list["DeviceInterface"]] = relationship(
+        "DeviceInterface",
+        back_populates="parent",
+    )
     ip_assignments: Mapped[list["InterfaceIpAssignment"]] = relationship(
         back_populates="interface",
         cascade="all, delete-orphan",

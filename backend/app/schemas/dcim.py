@@ -228,6 +228,7 @@ class DeviceInterfaceCreate(BaseModel):
     vlan_id: int | None = Field(None, ge=1, le=4094)
     enabled: bool = True
     sort_order: int = 0
+    parent_interface_id: int | None = Field(None, ge=1)
 
 
 class DeviceInterfaceUpdate(BaseModel):
@@ -239,6 +240,7 @@ class DeviceInterfaceUpdate(BaseModel):
     vlan_id: int | None = Field(None, ge=1, le=4094)
     enabled: bool | None = None
     sort_order: int | None = None
+    parent_interface_id: int | None = Field(None, ge=1)
 
 
 class IpAssignmentRead(BaseModel):
@@ -257,6 +259,7 @@ class DeviceInterfaceRead(BaseModel):
 
     id: int
     device_id: int
+    parent_interface_id: int | None
     name: str
     description: str | None
     mac_address: str | None

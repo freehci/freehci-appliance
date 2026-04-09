@@ -212,7 +212,7 @@ export const en = {
   "dcim.equip.dev.pluginPanelDataTitle": "Plugin data",
   "dcim.equip.if.title": "Interfaces / ports",
   "dcim.equip.if.hint":
-    "Named interfaces on this device (e.g. eth0, GigabitEthernet1/0/1). IPAM links can attach here later.",
+    "Named interfaces (e.g. eth0, Juniper me0 / me0.0). Physical ports often carry the MAC; logical subinterfaces often carry VLAN and IP. Attach IPAM to the correct unit.",
   "dcim.equip.if.name": "Name",
   "dcim.equip.if.mac": "MAC",
   "dcim.equip.if.speed": "Speed (Mb/s)",
@@ -227,6 +227,9 @@ export const en = {
   "dcim.equip.if.vlan": "VLAN (802.1Q)",
   "dcim.equip.if.vlanHint": "Optional. Empty clears VLAN.",
   "dcim.equip.if.badVlan": "VLAN ID must be between 1 and 4094, or empty.",
+  "dcim.equip.if.parent": "Parent (subinterface)",
+  "dcim.equip.if.parentRoot": "— top level (no parent) —",
+  "dcim.equip.if.parentCol": "Parent",
   "dcim.equip.ip.addTitle": "IP addresses (per interface)",
   "dcim.equip.ip.address": "IP address",
   "dcim.equip.ip.primary": "Primary for this address family",

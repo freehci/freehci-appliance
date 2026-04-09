@@ -163,6 +163,7 @@ export function createDeviceInterface(
     vlan_id?: number | null;
     enabled?: boolean;
     sort_order?: number;
+    parent_interface_id?: number | null;
   },
 ): Promise<DeviceInterface> {
   return apiPost(`${P}/devices/${deviceId}/interfaces`, body);
@@ -180,6 +181,7 @@ export function updateDeviceInterface(
     vlan_id?: number | null;
     enabled?: boolean;
     sort_order?: number;
+    parent_interface_id?: number | null;
   },
 ): Promise<DeviceInterface> {
   return apiPatch(`${P}/devices/${deviceId}/interfaces/${interfaceId}`, body);

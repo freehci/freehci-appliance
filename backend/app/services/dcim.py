@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+from collections import defaultdict
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -709,6 +710,81 @@ def _iface_commit(db: Session) -> None:
         ) from None
 
 
+def _iface_tree_sort_rows(rows: list[DeviceInterface]) -> list[DeviceInterface]:
+    """Rot først, deretter barn sortert på sort_order, name (rekursivt)."""
+    by_parent: dict[int | None, list[DeviceInterface]] = defaultdict(list)
+    row_ids = {r.id for r in rows}
+    for r in rows:
+        pid = r.parent_interface_id
+        if pid is not None and pid not in row_ids:
+            pid = None
+        by_parent[pid].append(r)
+    for lst in by_parent.values():
+        lst.sort(key=lambda x: (x.sort_order, x.name))
+    out: list[DeviceInterface] = []
+
+    def walk(parent_id: int | None) -> None:
+        for r in by_parent.get(parent_id, []):
+            out.append(r)
+            walk(r.id)
+
+    walk(None)
+    if len(out) != len(rows):
+        seen = {r.id for r in out}
+        rest = [r for r in rows if r.id not in seen]
+        rest.sort(key=lambda x: (x.sort_order, x.name))
+        out.extend(rest)
+    return out
+
+
+def _validate_iface_parent(
+    db: Session,
+    device_id: int,
+    parent_interface_id: int | None,
+    *,
+    exclude_interface_id: int | None,
+) -> None:
+    if parent_interface_id is None:
+        return
+    if exclude_interface_id is not None and parent_interface_id == exclude_interface_id:
+        raise HTTPException(status_code=400, detail="grensesnitt kan ikke være sin egen forelder")
+    parent = db.get(DeviceInterface, parent_interface_id)
+    if parent is None or parent.device_id != device_id:
+        raise HTTPException(status_code=400, detail="foreldregrensesnitt finnes ikke på denne enheten")
+
+
+def _iface_parent_would_cycle(db: Session, interface_id: int, new_parent_id: int | None) -> bool:
+    if new_parent_id is None:
+        return False
+    cur: int | None = new_parent_id
+    seen: set[int] = set()
+    while cur is not None:
+        if cur == interface_id:
+            return True
+        if cur in seen:
+            return True
+        seen.add(cur)
+        row = db.get(DeviceInterface, cur)
+        if row is None:
+            break
+        cur = row.parent_interface_id
+    return False
+
+
+def _iface_descendant_ids_post_order(db: Session, root_id: int) -> list[int]:
+    q = (
+        select(DeviceInterface.id)
+        .where(DeviceInterface.parent_interface_id == root_id)
+        .order_by(DeviceInterface.sort_order, DeviceInterface.name)
+    )
+    child_ids = list(db.execute(q).scalars().all())
+    out: list[int] = []
+    for cid in child_ids:
+        out.extend(_iface_descendant_ids_post_order(db, cid))
+        out.append(cid)
+    return out
+
+
 def _normalize_ip(addr: str) -> tuple[str, str]:
     try:
         p = ipaddress.ip_address(addr.strip())
@@ -727,6 +803,7 @@ def device_interface_read(row: DeviceInterface) -> DeviceInterfaceRead:
     return DeviceInterfaceRead(
         id=row.id,
         device_id=row.device_id,
+        parent_interface_id=row.parent_interface_id,
         name=row.name,
         description=row.description,
         mac_address=row.mac_address,
@@ -748,6 +825,7 @@ def list_device_interfaces(db: Session, device_id: int) -> list[DeviceInterfaceR
         .order_by(DeviceInterface.sort_order, DeviceInterface.name)
     )
     rows = list(db.execute(q).scalars().all())
+    rows = _iface_tree_sort_rows(rows)
     return [device_interface_read(r) for r in rows]
 
 
@@ -760,10 +838,12 @@ def get_device_interface(db: Session, device_id: int, interface_id: int) -> Devi
 
 def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCreate) -> DeviceInterfaceRead:
     _require_device(db, device_id)
+    _validate_iface_parent(db, device_id, data.parent_interface_id, exclude_interface_id=None)
     mac = data.mac_address
     mac = None if mac is None or str(mac).strip() == "" else str(mac).strip()
     row = DeviceInterface(
         device_id=device_id,
+        parent_interface_id=data.parent_interface_id,
         name=data.name.strip(),
         description=data.description,
         mac_address=mac,
@@ -809,12 +889,25 @@ def update_device_interface(
         row.enabled = bool(patch["enabled"])
     if "sort_order" in patch and patch["sort_order"] is not None:
         row.sort_order = int(patch["sort_order"])
+    if "parent_interface_id" in patch:
+        new_pid = patch["parent_interface_id"]
+        if new_pid is None:
+            row.parent_interface_id = None
+        else:
+            _validate_iface_parent(db, device_id, int(new_pid), exclude_interface_id=row.id)
+            if _iface_parent_would_cycle(db, row.id, int(new_pid)):
+                raise HTTPException(status_code=400, detail="ugyldig forelder (sirkel)")
+            row.parent_interface_id = int(new_pid)
     _iface_commit(db)
     db.refresh(row)
     return device_interface_read(row)
 
 
 def delete_device_interface(db: Session, row: DeviceInterface) -> None:
+    for cid in _iface_descendant_ids_post_order(db, row.id):
+        child = db.get(DeviceInterface, cid)
+        if child is not None:
+            db.delete(child)
     db.delete(row)
     db.commit()
 

@@ -1,5 +1,7 @@
 """API-tester for DCIM (enkel flyt)."""
 
+import uuid
+
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -313,9 +315,10 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
 
 
 def test_patch_device_device_type_override_and_clear() -> None:
+    u = uuid.uuid4().hex[:10]
     app = create_app()
     with TestClient(app) as client:
-        s = client.post("/api/v1/dcim/sites", json={"name": "S", "slug": "s"})
+        s = client.post("/api/v1/dcim/sites", json={"name": "S", "slug": f"s-dt-{u}"})
         assert s.status_code == 200
         site_id = s.json()["id"]
         r = client.post("/api/v1/dcim/rooms", json={"site_id": site_id, "name": "R"})
@@ -325,15 +328,21 @@ def test_patch_device_device_type_override_and_clear() -> None:
 
         m = client.post(
             "/api/v1/dcim/manufacturers",
-            json={"name": "M", "description": None, "website_url": None},
+            json={"name": f"M-{u}", "description": None, "website_url": None},
         )
         assert m.status_code == 200
         mid = m.json()["id"]
 
-        t1 = client.post("/api/v1/dcim/device-types", json={"name": "Server", "slug": "server"})
+        t1 = client.post(
+            "/api/v1/dcim/device-types",
+            json={"name": f"Server-{u}", "slug": f"server-{u}"},
+        )
         assert t1.status_code == 200
         tid1 = t1.json()["id"]
-        t2 = client.post("/api/v1/dcim/device-types", json={"name": "Switch", "slug": "switch"})
+        t2 = client.post(
+            "/api/v1/dcim/device-types",
+            json={"name": f"Switch-{u}", "slug": f"switch-{u}"},
+        )
         assert t2.status_code == 200
         tid2 = t2.json()["id"]
 
@@ -362,3 +371,89 @@ def test_patch_device_device_type_override_and_clear() -> None:
         assert c.status_code == 200, c.text
         assert c.json()["device_type_id"] is None
         assert c.json()["effective_device_type_id"] == tid1
+
+
+def test_device_interface_subinterface_parent() -> None:
+    """Fysisk grensesnitt + logisk underegrensesnitt (f.eks. Juniper me0 / me0.0)."""
+    u = uuid.uuid4().hex[:10]
+    app = create_app()
+    with TestClient(app) as client:
+        s = client.post("/api/v1/dcim/sites", json={"name": "S", "slug": f"s-{u}"})
+        assert s.status_code == 200
+        m = client.post(
+            "/api/v1/dcim/manufacturers",
+            json={"name": f"M{u}", "description": None, "website_url": None},
+        )
+        assert m.status_code == 200
+        mid = m.json()["id"]
+        t = client.post("/api/v1/dcim/device-types", json={"name": "Switch", "slug": f"sw-{u}"})
+        assert t.status_code == 200
+        tid = t.json()["id"]
+        dm = client.post(
+            "/api/v1/dcim/device-models",
+            json={"manufacturer_id": mid, "device_type_id": tid, "name": "SRX", "u_height": 1},
+        )
+        assert dm.status_code == 200
+        dmod_id = dm.json()["id"]
+        d = client.post("/api/v1/dcim/devices", json={"device_model_id": dmod_id, "name": f"gw-{u}"})
+        assert d.status_code == 200
+        dev_id = d.json()["id"]
+
+        me0 = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={"name": "me0", "mac_address": "2c:21:31:1d:b3:ff", "speed_mbps": 1000},
+        )
+        assert me0.status_code == 200, me0.text
+        assert me0.json()["parent_interface_id"] is None
+        me0_id = me0.json()["id"]
+
+        me00 = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={
+                "name": "me0.0",
+                "parent_interface_id": me0_id,
+                "vlan_id": 41,
+                "mtu": 1500,
+            },
+        )
+        assert me00.status_code == 200, me00.text
+        me00_id = me00.json()["id"]
+        assert me00.json()["parent_interface_id"] == me0_id
+
+        li = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
+        assert li.status_code == 200
+        assert [x["name"] for x in li.json()] == ["me0", "me0.0"]
+
+        bad_parent = client.post(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces",
+            json={"name": "x", "parent_interface_id": 9_999_999},
+        )
+        assert bad_parent.status_code == 400
+
+        selfp = client.patch(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{me0_id}",
+            json={"parent_interface_id": me0_id},
+        )
+        assert selfp.status_code == 400
+
+        cyc = client.patch(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{me0_id}",
+            json={"parent_interface_id": me00_id},
+        )
+        assert cyc.status_code == 400
+
+        clr = client.patch(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{me00_id}",
+            json={"parent_interface_id": None},
+        )
+        assert clr.status_code == 200
+        assert clr.json()["parent_interface_id"] is None
+
+        client.patch(
+            f"/api/v1/dcim/devices/{dev_id}/interfaces/{me00_id}",
+            json={"parent_interface_id": me0_id},
+        )
+        del_me0 = client.delete(f"/api/v1/dcim/devices/{dev_id}/interfaces/{me0_id}")
+        assert del_me0.status_code == 204
+        li2 = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
+        assert li2.json() == []

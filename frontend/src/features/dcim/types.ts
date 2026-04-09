@@ -89,6 +89,8 @@ export type IpAssignment = {
 export type DeviceInterface = {
   id: number;
   device_id: number;
+  /** Fysisk/logisk hierarki (f.eks. Juniper me0 → me0.0). */
+  parent_interface_id: number | null;
   name: string;
   description: string | null;
   mac_address: string | null;

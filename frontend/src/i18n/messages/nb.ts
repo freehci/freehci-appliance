@@ -217,7 +217,7 @@ export const nb = {
   "dcim.equip.dev.pluginPanelDataTitle": "Data fra plugin",
   "dcim.equip.if.title": "Grensesnitt / porter",
   "dcim.equip.if.hint":
-    "Navngitte grensesnitt på enheten (f.eks. eth0, GigabitEthernet1/0/1). IPAM-koblinger kan kobles hit senere.",
+    "Navngitte grensesnitt (f.eks. eth0, Juniper me0 / me0.0). Fysisk port kan ha MAC; logisk underegrensesnitt ofte VLAN og IP. IPAM kobles til riktig enhet.",
   "dcim.equip.if.name": "Navn",
   "dcim.equip.if.mac": "MAC",
   "dcim.equip.if.speed": "Hastighet (Mb/s)",
@@ -232,6 +232,9 @@ export const nb = {
   "dcim.equip.if.vlan": "VLAN (802.1Q)",
   "dcim.equip.if.vlanHint": "Valgfritt. Tomt fjerner VLAN.",
   "dcim.equip.if.badVlan": "VLAN-ID må være mellom 1 og 4094, eller tom.",
+  "dcim.equip.if.parent": "Forelder (underegrensesnitt)",
+  "dcim.equip.if.parentRoot": "— toppnivå (ingen forelder) —",
+  "dcim.equip.if.parentCol": "Forelder",
   "dcim.equip.ip.addTitle": "IP-adresser (per grensesnitt)",
   "dcim.equip.ip.address": "IP-adresse",
   "dcim.equip.ip.primary": "Primær for denne adressefamilien",

@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError, apiGet } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
+import type { DeviceInterface } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
 import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
 import { usePlugins } from "@/plugins/PluginContext";
@@ -48,7 +49,9 @@ export function DcimDeviceDetailPage() {
   const [ifDesc, setIfDesc] = useState("");
   const [ifSort, setIfSort] = useState("0");
   const [ifVlan, setIfVlan] = useState("");
+  const [ifParent, setIfParent] = useState("");
   const [vlanDraft, setVlanDraft] = useState<Record<number, string>>({});
+  const [parentDraft, setParentDraft] = useState<Record<number, string>>({});
   const [ipIface, setIpIface] = useState("");
   const [ipAddr, setIpAddr] = useState("");
   const [ipPrimary, setIpPrimary] = useState(false);
@@ -93,6 +96,46 @@ export function DcimDeviceDetailPage() {
     for (const p of prefixesQ.data ?? []) m.set(p.id, p.cidr);
     return m;
   }, [prefixesQ.data]);
+
+  const ifaceDepthById = useMemo(() => {
+    const rows = interfacesQ.data ?? [];
+    const m = new Map<number, number>();
+    for (const r of rows) {
+      const p = r.parent_interface_id;
+      const depth = p == null ? 0 : (m.get(p) ?? 0) + 1;
+      m.set(r.id, depth);
+    }
+    return m;
+  }, [interfacesQ.data]);
+
+  const ifaceDescendantIds = useMemo(() => {
+    const rows = interfacesQ.data ?? [];
+    const byParent = new Map<number | null, number[]>();
+    for (const r of rows) {
+      const p = r.parent_interface_id ?? null;
+      const arr = byParent.get(p) ?? [];
+      arr.push(r.id);
+      byParent.set(p, arr);
+    }
+    const desc = new Map<number, Set<number>>();
+    function collect(root: number): Set<number> {
+      const s = new Set<number>();
+      for (const c of byParent.get(root) ?? []) {
+        s.add(c);
+        for (const x of collect(c)) s.add(x);
+      }
+      return s;
+    }
+    for (const r of rows) {
+      desc.set(r.id, collect(r.id));
+    }
+    return desc;
+  }, [interfacesQ.data]);
+
+  const ifaceIndentedLabel = (x: DeviceInterface) => {
+    const d = ifaceDepthById.get(x.id) ?? 0;
+    return `${"\u00A0\u00A0".repeat(d)}${x.name}`;
+  };
 
   const typeLabel = useMemo(() => {
     const tid = deviceQ.data?.effective_device_type_id;
@@ -221,6 +264,7 @@ export function DcimDeviceDetailPage() {
         vlan_id,
         description: ifDesc.trim() === "" ? null : ifDesc.trim(),
         sort_order: Number(ifSort) || 0,
+        parent_interface_id: ifParent === "" ? null : Number(ifParent),
       });
     },
     onSuccess: () => {
@@ -231,6 +275,7 @@ export function DcimDeviceDetailPage() {
       setIfDesc("");
       setIfSort("0");
       setIfVlan("");
+      setIfParent("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
     },
@@ -243,6 +288,21 @@ export function DcimDeviceDetailPage() {
     onSuccess: (_data, vars) => {
       setErr(null);
       setVlanDraft((prev) => {
+        const next = { ...prev };
+        delete next[vars.iid];
+        return next;
+      });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchParent = useMutation({
+    mutationFn: ({ iid, parent_interface_id }: { iid: number; parent_interface_id: number | null }) =>
+      api.updateDeviceInterface(id, iid, { parent_interface_id }),
+    onSuccess: (_data, vars) => {
+      setErr(null);
+      setParentDraft((prev) => {
         const next = { ...prev };
         delete next[vars.iid];
         return next;
@@ -529,6 +589,17 @@ export function DcimDeviceDetailPage() {
             <input value={ifName} onChange={(e) => setIfName(e.target.value)} required />
           </label>
           <label>
+            {t("dcim.equip.if.parent")}
+            <select value={ifParent} onChange={(e) => setIfParent(e.target.value)}>
+              <option value="">{t("dcim.equip.if.parentRoot")}</option>
+              {(interfacesQ.data ?? []).map((x) => (
+                <option key={x.id} value={String(x.id)}>
+                  {ifaceIndentedLabel(x)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             {t("dcim.equip.if.mac")}
             <input value={ifMac} onChange={(e) => setIfMac(e.target.value)} placeholder="aa:bb:cc:dd:ee:ff" />
           </label>
@@ -595,7 +666,7 @@ export function DcimDeviceDetailPage() {
                   <option value="">{t("dcim.common.choose")}</option>
                   {interfacesQ.data.map((x) => (
                     <option key={x.id} value={String(x.id)}>
-                      {x.name}
+                      {ifaceIndentedLabel(x)}
                     </option>
                   ))}
                 </select>
@@ -644,6 +715,7 @@ export function DcimDeviceDetailPage() {
               <tr>
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.equip.if.name")}</th>
+                <th>{t("dcim.equip.if.parentCol")}</th>
                 <th>{t("dcim.equip.if.mac")}</th>
                 <th>{t("dcim.equip.if.speed")}</th>
                 <th>{t("dcim.equip.if.mtu")}</th>
@@ -655,10 +727,60 @@ export function DcimDeviceDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {interfacesQ.data.map((x) => (
+              {interfacesQ.data.map((x) => {
+                const selfAndDesc = new Set(ifaceDescendantIds.get(x.id) ?? []);
+                selfAndDesc.add(x.id);
+                return (
                 <tr key={x.id}>
                   <td>{x.id}</td>
-                  <td>{x.name}</td>
+                  <td
+                    style={{
+                      paddingLeft: `calc(var(--space-2) + ${(ifaceDepthById.get(x.id) ?? 0) * 0.75}rem)`,
+                    }}
+                  >
+                    {x.name}
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                      <select
+                        style={{ maxWidth: "12rem", fontSize: "var(--text-xs)" }}
+                        value={
+                          parentDraft[x.id] ??
+                          (x.parent_interface_id != null ? String(x.parent_interface_id) : "")
+                        }
+                        onChange={(e) =>
+                          setParentDraft((prev) => ({ ...prev, [x.id]: e.target.value }))
+                        }
+                        title={t("dcim.equip.if.parent")}
+                      >
+                        <option value="">{t("dcim.equip.if.parentRoot")}</option>
+                        {(interfacesQ.data ?? [])
+                          .filter((c) => !selfAndDesc.has(c.id))
+                          .map((c) => (
+                            <option key={c.id} value={String(c.id)}>
+                              {ifaceIndentedLabel(c)}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        disabled={patchParent.isPending}
+                        onClick={() => {
+                          setErr(null);
+                          const raw = (
+                            parentDraft[x.id] ??
+                            (x.parent_interface_id != null ? String(x.parent_interface_id) : "")
+                          ).trim();
+                          const parent_interface_id = raw === "" ? null : Number(raw);
+                          if (parent_interface_id != null && !Number.isFinite(parent_interface_id)) return;
+                          patchParent.mutate({ iid: x.id, parent_interface_id });
+                        }}
+                      >
+                        {patchParent.isPending ? "…" : t("dcim.common.save")}
+                      </button>
+                    </div>
+                  </td>
                   <td>{x.mac_address ?? "—"}</td>
                   <td>{x.speed_mbps ?? "—"}</td>
                   <td>{x.mtu ?? "—"}</td>
@@ -812,7 +934,8 @@ export function DcimDeviceDetailPage() {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         ) : (
