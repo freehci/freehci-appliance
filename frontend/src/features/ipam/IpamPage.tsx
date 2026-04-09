@@ -175,6 +175,11 @@ export function IpamPage() {
   const usersQ = useQuery({ queryKey: ["ipam", "users"], queryFn: () => ipamApi.listUsers(500) });
 
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: dcimApi.listDevices });
+  const deviceNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const d of devicesQ.data ?? []) m.set(d.id, d.name);
+    return m;
+  }, [devicesQ.data]);
   const deviceIdNum = reqDeviceId === "" ? null : Number(reqDeviceId);
   const interfacesQ = useQuery({
     queryKey: ["dcim", "devices", deviceIdNum, "interfaces"],
@@ -368,7 +373,10 @@ export function IpamPage() {
                           <code>{a.address}</code>
                         </td>
                         <td>
-                          <Link to={`/dcim/equipment/devices/${a.device_id}`} className={dcimStyles.tableLink}>
+                          <Link
+                            to={`/dcim/equipment/devices/${a.device_id}?tab=network`}
+                            className={dcimStyles.tableLink}
+                          >
                             {a.device_name}
                           </Link>
                         </td>
@@ -630,7 +638,18 @@ export function IpamPage() {
                         }}
                       />
                     </td>
-                    <td className={dcimStyles.muted}>{a.device_id ?? "—"}</td>
+                    <td>
+                      {a.device_id != null ? (
+                        <Link
+                          to={`/dcim/equipment/devices/${a.device_id}?tab=network`}
+                          className={dcimStyles.tableLink}
+                        >
+                          {deviceNameById.get(a.device_id) ?? `#${a.device_id}`}
+                        </Link>
+                      ) : (
+                        <span className={dcimStyles.muted}>—</span>
+                      )}
+                    </td>
                     <td className={dcimStyles.muted}>{a.interface_id ?? "—"}</td>
                     <td>
                       <select
