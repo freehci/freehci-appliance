@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError, apiGet } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
+import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
 import type { DeviceInterface } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
 import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
@@ -97,16 +98,10 @@ export function DcimDeviceDetailPage() {
     return m;
   }, [prefixesQ.data]);
 
-  const ifaceDepthById = useMemo(() => {
-    const rows = interfacesQ.data ?? [];
-    const m = new Map<number, number>();
-    for (const r of rows) {
-      const p = r.parent_interface_id;
-      const depth = p == null ? 0 : (m.get(p) ?? 0) + 1;
-      m.set(r.id, depth);
-    }
-    return m;
-  }, [interfacesQ.data]);
+  const ifaceDepthById = useMemo(
+    () => interfaceDepthByInterfaceList(interfacesQ.data ?? []),
+    [interfacesQ.data],
+  );
 
   const ifaceDescendantIds = useMemo(() => {
     const rows = interfacesQ.data ?? [];
@@ -132,10 +127,7 @@ export function DcimDeviceDetailPage() {
     return desc;
   }, [interfacesQ.data]);
 
-  const ifaceIndentedLabel = (x: DeviceInterface) => {
-    const d = ifaceDepthById.get(x.id) ?? 0;
-    return `${"\u00A0\u00A0".repeat(d)}${x.name}`;
-  };
+  const ifaceIndentedLabel = (x: DeviceInterface) => interfaceIndentedName(x, ifaceDepthById);
 
   const typeLabel = useMemo(() => {
     const tid = deviceQ.data?.effective_device_type_id;

@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
+import { interfaceDepthByInterfaceList, interfaceIndentedName } from "@/features/dcim/interfaceTreeLabels";
 import type { Ipv4Prefix } from "./types";
 import * as ipamApi from "./ipamApi";
 
@@ -186,6 +187,11 @@ export function IpamPage() {
     queryFn: () => dcimApi.listDeviceInterfaces(deviceIdNum!),
     enabled: deviceIdNum != null && deviceIdNum > 0,
   });
+
+  const reqIfaceDepthById = useMemo(
+    () => interfaceDepthByInterfaceList(interfacesQ.data ?? []),
+    [interfacesQ.data],
+  );
 
   useEffect(() => {
     setReqInterfaceId("");
@@ -534,7 +540,7 @@ export function IpamPage() {
                 <option value="">{t("dcim.common.choose")}</option>
                 {(interfacesQ.data ?? []).map((x) => (
                   <option key={x.id} value={String(x.id)}>
-                    #{x.id} · {x.name}
+                    #{x.id} · {interfaceIndentedName(x, reqIfaceDepthById)}
                   </option>
                 ))}
               </select>
