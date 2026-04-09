@@ -265,6 +265,17 @@ export function IpamPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const releaseAddr = useMutation({
+    mutationFn: (id: number) => ipamApi.releaseIpv4Address(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-addresses"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   return (
     <Panel title={t("ipam.ipv4.title")}>
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
@@ -654,7 +665,7 @@ export function IpamPage() {
                   <th>{t("ipam.addr.colNote")}</th>
                   <th>{t("ipam.addr.colDevice")}</th>
                   <th>{t("ipam.addr.colInterface")}</th>
-                  <th />
+                  <th>{t("ipam.addr.colActions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -663,7 +674,16 @@ export function IpamPage() {
                     <td>
                       <code>{a.address}</code>
                     </td>
-                    <td>{a.status}</td>
+                    <td>
+                      <select
+                        value={a.status}
+                        onChange={(e) => patchAddr.mutate({ id: a.id, body: { status: e.target.value } })}
+                      >
+                        <option value="discovered">discovered</option>
+                        <option value="reserved">reserved</option>
+                        <option value="assigned">assigned</option>
+                      </select>
+                    </td>
                     <td>
                       <select
                         value={a.owner_user_id ?? ""}
@@ -716,14 +736,22 @@ export function IpamPage() {
                       )}
                     </td>
                     <td>
-                      <select
-                        value={a.status}
-                        onChange={(e) => patchAddr.mutate({ id: a.id, body: { status: e.target.value } })}
-                      >
-                        <option value="discovered">discovered</option>
-                        <option value="reserved">reserved</option>
-                        <option value="assigned">assigned</option>
-                      </select>
+                      {a.status === "reserved" || a.status === "assigned" ? (
+                        <button
+                          type="button"
+                          className={dcimStyles.btnDanger}
+                          style={{ fontSize: "var(--text-xs)", padding: "0.15rem 0.45rem" }}
+                          disabled={releaseAddr.isPending}
+                          onClick={() => {
+                            if (!window.confirm(t("ipam.addr.releaseConfirm"))) return;
+                            releaseAddr.mutate(a.id);
+                          }}
+                        >
+                          {t("ipam.addr.release")}
+                        </button>
+                      ) : (
+                        <span className={dcimStyles.muted}>—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

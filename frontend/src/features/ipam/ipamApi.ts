@@ -92,6 +92,10 @@ export function patchIpv4Address(
   return apiPatch(`${P}/ipv4-addresses/${id}`, body);
 }
 
+export function releaseIpv4Address(id: number): Promise<Ipv4Address> {
+  return apiPost(`${P}/ipv4-addresses/${id}/release`, {});
+}
+
 export function requestIpv4Address(body: {
   ipv4_prefix_id: number;
   mode: "reserve" | "assign";

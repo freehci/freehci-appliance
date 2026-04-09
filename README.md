@@ -177,6 +177,17 @@ Etter `docker compose up` er dette normalt eller forventet i utvikling:
 
 ---
 
+## DCIM & IPAM integration
+
+- **Interface hierarchy:** DCIM device interfaces may set optional **`parent_interface_id`** (e.g. Juniper physical `me0` as parent, logical `me0.0` as child). The MAC often belongs on the parent; VLAN and IP assignments often belong on the child.
+- **IPv4 inventory** responses include read-only **`interface_name`** when an address is tied to a DCIM interface, so lists can show `me0.0` instead of only a numeric id.
+- **Assign** (IPAM request with `mode=assign`) creates both an **IPAM address row** and a **DCIM `InterfaceIpAssignment`**. **Release** on that address removes the assignment and clears the inventory link fields in a consistent way.
+- In the UI, device names in IPAM link to **DCIM device detail → Network** (`?tab=network`).
+
+For optional hardware/OS panels on devices, see [Plugin framework](docs/PLUGINS.md).
+
+---
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)

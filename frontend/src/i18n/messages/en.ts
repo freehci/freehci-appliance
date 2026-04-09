@@ -314,6 +314,10 @@ export const en = {
   "ipam.addr.filterStatus": "Status",
   "ipam.addr.filterStatusAll": "All statuses",
   "ipam.addr.filterNoResults": "No rows match the filter.",
+  "ipam.addr.colActions": "Actions",
+  "ipam.addr.release": "Release",
+  "ipam.addr.releaseConfirm":
+    "Release this address? Reservation/assignment is cleared; DCIM IP assignment is removed when assigned.",
   "dcim.equip.pl.title": "Rack placements",
   "dcim.equip.pl.filterRack": "Filter by rack ID",
   "dcim.equip.pl.device": "Device",

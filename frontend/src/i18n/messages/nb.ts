@@ -320,6 +320,10 @@ export const nb = {
   "ipam.addr.filterStatus": "Status",
   "ipam.addr.filterStatusAll": "Alle statuser",
   "ipam.addr.filterNoResults": "Ingen rader matcher filteret.",
+  "ipam.addr.colActions": "Handling",
+  "ipam.addr.release": "Frigi",
+  "ipam.addr.releaseConfirm":
+    "Frigi denne adressen? Reservasjon/tildeling fjernes; DCIM IP-tildeling slettes ved assign.",
   "dcim.equip.pl.title": "Plasseringer i rack",
   "dcim.equip.pl.filterRack": "Filtrer på rack-ID",
   "dcim.equip.pl.device": "Enhet",
