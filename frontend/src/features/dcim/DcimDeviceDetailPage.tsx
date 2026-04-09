@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
-import { ApiError } from "@/lib/api";
+import { ApiError, apiGet } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
@@ -129,6 +129,34 @@ export function DcimDeviceDetailPage() {
     () => pluginsWithCapability(plugins, CAP_DCIM_DEVICE_OS_VIEW, deviceTypeSlug),
     [plugins, deviceTypeSlug],
   );
+
+  const primaryHwPlugin = hwPlugins[0];
+  const primaryOsPlugin = osPlugins[0];
+
+  const pluginHwPath =
+    primaryHwPlugin?.api_route_prefix != null
+      ? `${primaryHwPlugin.api_route_prefix}/devices/${id}/hardware`
+      : null;
+  const pluginOsPath =
+    primaryOsPlugin?.api_route_prefix != null
+      ? `${primaryOsPlugin.api_route_prefix}/devices/${id}/os`
+      : null;
+
+  const pluginHardwareQ = useQuery({
+    queryKey: ["plugin", "device-hardware", primaryHwPlugin?.id, id],
+    queryFn: () => apiGet<unknown>(pluginHwPath!),
+    enabled:
+      detailTab === "hardware" &&
+      pluginHwPath != null &&
+      Number.isFinite(id) &&
+      id > 0,
+  });
+
+  const pluginOsQ = useQuery({
+    queryKey: ["plugin", "device-os", primaryOsPlugin?.id, id],
+    queryFn: () => apiGet<unknown>(pluginOsPath!),
+    enabled: detailTab === "os" && pluginOsPath != null && Number.isFinite(id) && id > 0,
+  });
 
   useEffect(() => {
     const rows = interfacesQ.data;
@@ -372,6 +400,24 @@ export function DcimDeviceDetailPage() {
             >
               {t("dcim.equip.dev.pluginPlaceholderHardware")}
             </p>
+            {pluginHwPath != null ? (
+              <>
+                <h4 className={styles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-4)" }}>
+                  {primaryHwPlugin?.name ?? t("dcim.equip.dev.pluginPanelDataTitle")}
+                </h4>
+                {pluginHardwareQ.isLoading ? (
+                  <p className={styles.muted}>{t("dcim.common.loading")}</p>
+                ) : null}
+                {pluginHardwareQ.isError ? (
+                  <p className={styles.err}>{(pluginHardwareQ.error as Error).message}</p>
+                ) : null}
+                {pluginHardwareQ.data != null ? (
+                  <pre className={styles.codeBlock}>
+                    {JSON.stringify(pluginHardwareQ.data, null, 2)}
+                  </pre>
+                ) : null}
+              </>
+            ) : null}
           </section>
         ) : null}
 
@@ -390,6 +436,22 @@ export function DcimDeviceDetailPage() {
             >
               {t("dcim.equip.dev.pluginPlaceholderOs")}
             </p>
+            {pluginOsPath != null ? (
+              <>
+                <h4 className={styles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-4)" }}>
+                  {primaryOsPlugin?.name ?? t("dcim.equip.dev.pluginPanelDataTitle")}
+                </h4>
+                {pluginOsQ.isLoading ? (
+                  <p className={styles.muted}>{t("dcim.common.loading")}</p>
+                ) : null}
+                {pluginOsQ.isError ? (
+                  <p className={styles.err}>{(pluginOsQ.error as Error).message}</p>
+                ) : null}
+                {pluginOsQ.data != null ? (
+                  <pre className={styles.codeBlock}>{JSON.stringify(pluginOsQ.data, null, 2)}</pre>
+                ) : null}
+              </>
+            ) : null}
           </section>
         ) : null}
 

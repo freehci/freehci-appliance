@@ -200,10 +200,11 @@ export const en = {
     "Installed operating system information will appear here when a matching plugin is installed.",
   "dcim.equip.dev.pluginHardwareIntegrationsPrefix": "Integrations registered for hardware on this device type:",
   "dcim.equip.dev.pluginHardwareIntegrationsSuffix":
-    "The device panel is not wired to these plugins yet; APIs are under each plugin path from GET /api/v1/plugins.",
+    "JSON from the first matching plugin is loaded below (stub until a real BMC integration is implemented).",
   "dcim.equip.dev.pluginOsIntegrationsPrefix": "Integrations registered for OS info on this device type:",
   "dcim.equip.dev.pluginOsIntegrationsSuffix":
-    "The device panel is not wired to these plugins yet; APIs are under each plugin path from GET /api/v1/plugins.",
+    "JSON from the first matching plugin is loaded below (stub until a real OS inventory integration is implemented).",
+  "dcim.equip.dev.pluginPanelDataTitle": "Plugin data",
   "dcim.equip.if.title": "Interfaces / ports",
   "dcim.equip.if.hint":
     "Named interfaces on this device (e.g. eth0, GigabitEthernet1/0/1). IPAM links can attach here later.",

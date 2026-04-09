@@ -37,6 +37,13 @@ Stabile strenger i `manifest.capabilities` som kjernen kan bruke til å vite hva
 
 Bruk `device_type_slugs` på manifestet for å begrense hvilke DCIM `device_type.slug` pluginen gjelder for (tom liste = ikke begrenset i frontend-filtreringen i dag).
 
+Eksempel-plugin (`freehci.example`) eksponerer stubber:
+
+- `GET /api/v1/plugins/freehci/example/devices/{device_id}/hardware`
+- `GET /api/v1/plugins/freehci/example/devices/{device_id}/os`
+
+Enhetsdetalj i UI henter fra **første** plugin som matcher capability + enhetstype og har `api_route_prefix` i manifest-responsen.
+
 ## Frontend
 
 - **`builtinRegistry.tsx`** mapper `PluginManifest.id` til `React.lazy`-komponenter som ships med appen (for ting som ikke lastes som ekstern ESM ennå).

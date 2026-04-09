@@ -205,10 +205,11 @@ export const nb = {
     "Informasjon om installert operativsystem vises her når en passende plugin er installert.",
   "dcim.equip.dev.pluginHardwareIntegrationsPrefix": "Integrasjoner registrert for maskinvare for denne enhetstypen:",
   "dcim.equip.dev.pluginHardwareIntegrationsSuffix":
-    "Enhetspanelet er ikke koblet til disse pluginene ennå; API-er ligger under hvert plugin-prefix fra GET /api/v1/plugins.",
+    "JSON fra første matchende plugin lastes under (stub inntil ekte BMC-integrasjon er på plass).",
   "dcim.equip.dev.pluginOsIntegrationsPrefix": "Integrasjoner registrert for OS-info for denne enhetstypen:",
   "dcim.equip.dev.pluginOsIntegrationsSuffix":
-    "Enhetspanelet er ikke koblet til disse pluginene ennå; API-er ligger under hvert plugin-prefix fra GET /api/v1/plugins.",
+    "JSON fra første matchende plugin lastes under (stub inntil ekte OS-inventar er på plass).",
+  "dcim.equip.dev.pluginPanelDataTitle": "Data fra plugin",
   "dcim.equip.if.title": "Grensesnitt / porter",
   "dcim.equip.if.hint":
     "Navngitte grensesnitt på enheten (f.eks. eth0, GigabitEthernet1/0/1). IPAM-koblinger kan kobles hit senere.",
