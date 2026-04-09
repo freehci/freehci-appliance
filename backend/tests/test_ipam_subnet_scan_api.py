@@ -95,3 +95,26 @@ def test_ipam_subnet_scan_get_unknown() -> None:
     with TestClient(app) as client:
         r = client.get("/api/v1/ipam/subnet-scans/999999")
         assert r.status_code == 404
+
+
+def test_ipam_subnet_scan_fails_when_ping_binary_missing(monkeypatch) -> None:
+    monkeypatch.setattr("app.services.ipam_subnet_scan.shutil.which", lambda _cmd: None)
+
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "NoPing", "slug": "no-ping"}).json()["id"]
+        p = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "Tiny", "cidr": "192.168.99.0/30"},
+        )
+        assert p.status_code == 200
+        pid = p.json()["id"]
+
+        r = client.post("/api/v1/ipam/subnet-scans", json={"ipv4_prefix_id": pid})
+        assert r.status_code == 200
+        scan_id = r.json()["id"]
+
+        d = client.get(f"/api/v1/ipam/subnet-scans/{scan_id}")
+        assert d.status_code == 200
+        assert d.json()["status"] == "failed"
+        assert "ping" in (d.json().get("error_message") or "").lower()

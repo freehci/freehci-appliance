@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -188,6 +189,18 @@ def run_scan_background(
             return
         if row.status not in ("pending",):
             return
+
+        if ping_fn is None and not shutil.which("ping"):
+            row.status = "failed"
+            row.error_message = (
+                "Fant ikke kommandoen «ping». I Docker må API-imaget inneholde iputils-ping "
+                "(standard i vårt Dockerfile). Lokalt: installer ping-verktøyet for OS-et ditt."
+            )
+            row.completed_at = datetime.now(timezone.utc)
+            db.commit()
+            logger.error("subnet scan %s: ping binary missing", scan_id)
+            return
+
         row.status = "running"
         db.commit()
 
@@ -207,8 +220,11 @@ def run_scan_background(
             db.commit()
             return
 
-        row.hosts_scanned = len(targets)
+        n_targets = len(targets)
+        row.hosts_scanned = n_targets
         db.commit()
+
+        logger.info("subnet scan %s: pinger %s (%d adresser)", scan_id, row.cidr, n_targets)
 
         responded: list[str] = []
         with ThreadPoolExecutor(max_workers=PING_WORKERS) as ex:
