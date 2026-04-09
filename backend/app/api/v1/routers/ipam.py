@@ -1,11 +1,20 @@
 """IPAM REST API (IPv4 prefiks per site)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.schemas.ipam import Ipv4PrefixCreate, Ipv4PrefixExploreRead, Ipv4PrefixRead, Ipv4PrefixUpdate
+from app.schemas.ipam import (
+    Ipv4PrefixCreate,
+    Ipv4PrefixExploreRead,
+    Ipv4PrefixRead,
+    Ipv4PrefixUpdate,
+    SubnetScanCreate,
+    SubnetScanDetailRead,
+    SubnetScanRead,
+)
 from app.services import ipam as ipam_svc
+from app.services import ipam_subnet_scan as scan_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
 
@@ -54,3 +63,33 @@ def delete_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="prefiks ikke funnet")
     ipam_svc.delete_ipv4_prefix(db, row)
+
+
+@router.post("/subnet-scans", response_model=SubnetScanRead)
+def create_subnet_scan(
+    data: SubnetScanCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> SubnetScanRead:
+    row = scan_svc.create_pending_scan(db, ipv4_prefix_id=data.ipv4_prefix_id)
+    background_tasks.add_task(scan_svc.run_scan_background, row.id)
+    return scan_svc.scan_to_read(row)
+
+
+@router.get("/subnet-scans", response_model=list[SubnetScanRead])
+def list_subnet_scans(
+    site_id: int | None = Query(None),
+    ipv4_prefix_id: int | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[SubnetScanRead]:
+    rows = scan_svc.list_scans(db, site_id=site_id, ipv4_prefix_id=ipv4_prefix_id, limit=limit)
+    return [scan_svc.scan_to_read(r) for r in rows]
+
+
+@router.get("/subnet-scans/{scan_id}", response_model=SubnetScanDetailRead)
+def get_subnet_scan(scan_id: int, db: Session = Depends(get_db)) -> SubnetScanDetailRead:
+    row = scan_svc.get_scan_with_hosts(db, scan_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="skann ikke funnet")
+    return scan_svc.scan_to_detail_read(row)

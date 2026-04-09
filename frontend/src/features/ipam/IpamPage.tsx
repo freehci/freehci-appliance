@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -23,6 +23,7 @@ export function IpamPage() {
   const [editName, setEditName] = useState("");
   const [editCidr, setEditCidr] = useState("");
   const [exploreStack, setExploreStack] = useState<ExploreCrumb[]>([]);
+  const [activeScanId, setActiveScanId] = useState<number | null>(null);
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
@@ -39,6 +40,33 @@ export function IpamPage() {
     queryFn: () => ipamApi.getIpv4PrefixExplore(exploreId!),
     enabled: exploreId != null && exploreId > 0,
   });
+
+  const scansQ = useQuery({
+    queryKey: ["ipam", "subnet-scans", exploreId],
+    queryFn: () => ipamApi.listSubnetScans({ ipv4_prefix_id: exploreId!, limit: 25 }),
+    enabled: exploreId != null && exploreId > 0,
+  });
+
+  const scanDetailQ = useQuery({
+    queryKey: ["ipam", "subnet-scan", activeScanId],
+    queryFn: () => ipamApi.getSubnetScan(activeScanId!),
+    enabled: activeScanId != null,
+    refetchInterval: (query) => {
+      const st = query.state.data?.status;
+      return st === "pending" || st === "running" ? 1500 : false;
+    },
+  });
+
+  useEffect(() => {
+    setActiveScanId(null);
+  }, [exploreId]);
+
+  useEffect(() => {
+    const st = scanDetailQ.data?.status;
+    if (st === "completed" || st === "failed") {
+      void qc.invalidateQueries({ queryKey: ["ipam", "subnet-scans"] });
+    }
+  }, [scanDetailQ.data?.status, qc]);
 
   const siteNameById = useMemo(() => {
     const m = new Map<number, string>();
@@ -99,6 +127,30 @@ export function IpamPage() {
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
+
+  const startScan = useMutation({
+    mutationFn: (prefixId: number) => ipamApi.createSubnetScan(prefixId),
+    onSuccess: (scan) => {
+      setActiveScanId(scan.id);
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "subnet-scans", exploreId] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const scanStatusLabel = (status: string) => {
+    const key =
+      status === "pending"
+        ? "ipam.scan.status.pending"
+        : status === "running"
+          ? "ipam.scan.status.running"
+          : status === "completed"
+            ? "ipam.scan.status.completed"
+            : status === "failed"
+              ? "ipam.scan.status.failed"
+              : null;
+    return key ? t(key) : status;
+  };
 
   return (
     <Panel title={t("ipam.ipv4.title")}>
@@ -253,6 +305,112 @@ export function IpamPage() {
               ) : (
                 <p className={dcimStyles.muted}>{t("ipam.ipv4.noAssignmentsInPrefix")}</p>
               )}
+
+              <h4 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.scan.title")}</h4>
+              <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+                {t("ipam.scan.intro")}
+              </p>
+              <div style={{ marginBottom: "var(--space-2)" }}>
+                <button
+                  type="button"
+                  className={dcimStyles.btn}
+                  disabled={startScan.isPending}
+                  onClick={() => startScan.mutate(exploreQ.data.prefix.id)}
+                >
+                  {startScan.isPending ? t("ipam.scan.running") : t("ipam.scan.start")}
+                </button>
+              </div>
+
+              <h5 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
+                {t("ipam.scan.history")}
+              </h5>
+              {scansQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
+              {scansQ.data && scansQ.data.length > 0 ? (
+                <table className={dcimStyles.table}>
+                  <thead>
+                    <tr>
+                      <th>{t("ipam.scan.colId")}</th>
+                      <th>{t("ipam.scan.colStatus")}</th>
+                      <th>{t("ipam.scan.colHosts")}</th>
+                      <th>{t("ipam.scan.colStarted")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scansQ.data.map((s) => (
+                      <tr
+                        key={s.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setActiveScanId(s.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setActiveScanId(s.id);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
+                      >
+                        <td>{s.id}</td>
+                        <td>{scanStatusLabel(s.status)}</td>
+                        <td>
+                          {s.hosts_responding} / {s.hosts_scanned}
+                        </td>
+                        <td className={dcimStyles.muted}>{new Date(s.started_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : scansQ.data && scansQ.data.length === 0 ? (
+                <p className={dcimStyles.muted}>{t("ipam.scan.noScans")}</p>
+              ) : null}
+
+              {activeScanId != null ? (
+                <>
+                  <h5 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
+                    {t("ipam.scan.detailTitle")}{" "}
+                    <span className={dcimStyles.muted}>#{activeScanId}</span>
+                  </h5>
+                  {scanDetailQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
+                  {scanDetailQ.isError ? (
+                    <p className={dcimStyles.err}>{(scanDetailQ.error as Error).message}</p>
+                  ) : null}
+                  {scanDetailQ.data ? (
+                    <>
+                      <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+                        {scanStatusLabel(scanDetailQ.data.status)} · {scanDetailQ.data.hosts_responding} /{" "}
+                        {scanDetailQ.data.hosts_scanned}
+                      </p>
+                      {scanDetailQ.data.status === "failed" && scanDetailQ.data.error_message ? (
+                        <p className={dcimStyles.err}>
+                          {t("ipam.scan.error")}: {scanDetailQ.data.error_message}
+                        </p>
+                      ) : null}
+                      {scanDetailQ.data.hosts.length > 0 ? (
+                        <table className={dcimStyles.table}>
+                          <thead>
+                            <tr>
+                              <th>{t("ipam.ipv4.colAddress")}</th>
+                              <th>{t("ipam.scan.colMac")}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {scanDetailQ.data.hosts.map((h) => (
+                              <tr key={h.id}>
+                                <td>
+                                  <code>{h.address}</code>
+                                </td>
+                                <td>{h.mac_address ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : scanDetailQ.data.status === "completed" ? (
+                        <p className={dcimStyles.muted}>—</p>
+                      ) : null}
+                    </>
+                  ) : null}
+                </>
+              ) : null}
             </>
           ) : null}
         </section>

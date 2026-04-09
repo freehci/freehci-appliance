@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Ipv4PrefixCreate(BaseModel):
@@ -72,3 +72,36 @@ class Ipv4PrefixExploreRead(BaseModel):
     prefix: Ipv4PrefixRead
     child_prefixes: list[Ipv4PrefixRead]
     assignments: list[Ipv4AssignmentInPrefixRead]
+
+
+class SubnetScanCreate(BaseModel):
+    ipv4_prefix_id: int = Field(..., ge=1)
+
+
+class SubnetScanHostRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    address: str
+    mac_address: str | None
+    ping_responded: bool
+
+
+class SubnetScanRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    ipv4_prefix_id: int | None
+    cidr: str
+    method: str
+    status: str
+    hosts_scanned: int
+    hosts_responding: int
+    error_message: str | None
+    started_at: dt.datetime
+    completed_at: dt.datetime | None
+
+
+class SubnetScanDetailRead(SubnetScanRead):
+    hosts: list[SubnetScanHostRead]

@@ -24,3 +24,28 @@ export type Ipv4PrefixExplore = {
   child_prefixes: Ipv4Prefix[];
   assignments: Ipv4AssignmentInPrefix[];
 };
+
+export type SubnetScanHost = {
+  id: number;
+  address: string;
+  mac_address: string | null;
+  ping_responded: boolean;
+};
+
+export type SubnetScan = {
+  id: number;
+  site_id: number;
+  ipv4_prefix_id: number | null;
+  cidr: string;
+  method: string;
+  status: string;
+  hosts_scanned: number;
+  hosts_responding: number;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+};
+
+export type SubnetScanDetail = SubnetScan & {
+  hosts: SubnetScanHost[];
+};
