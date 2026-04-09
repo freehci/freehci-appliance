@@ -253,7 +253,7 @@ export const nb = {
   "ipam.ipv4.openExplore": "Utforsk",
   "ipam.scan.title": "Ping-skanning av prefiks",
   "ipam.scan.intro":
-    "Starter ICMP mot alle brukbare adresser i CIDR (begrenset av server). MAC vises bare når operativsystemet på appliance har verten i ARP/nabo-tabell (typisk samme L2). I Docker kan ekstra nettverksrettigheter være nødvendig.",
+    "Pinger hver IPv4-adresse i hele prefikset (f.eks. alle 256 adresser i et /24, inkl. nettverk og broadcast). Verter som svarer lagres. MAC vises bare når OS på appliance har verten i ARP/nabo-tabell (typisk samme L2). Antall adresser er begrenset av server. I Docker kan ekstra nettverksrettigheter være nødvendig.",
   "ipam.scan.start": "Start ping-skanning",
   "ipam.scan.running": "Kjører …",
   "ipam.scan.history": "Tidligere skann for dette prefikset",

@@ -37,7 +37,7 @@ def test_ipam_subnet_scan_creates_and_lists(monkeypatch) -> None:
         assert d.status_code == 200, d.text
         body = d.json()
         assert body["status"] == "completed"
-        assert body["hosts_scanned"] == 254
+        assert body["hosts_scanned"] == 256
         assert body["hosts_responding"] == 1
         assert len(body["hosts"]) == 1
         assert body["hosts"][0]["address"] == "10.0.1.1"

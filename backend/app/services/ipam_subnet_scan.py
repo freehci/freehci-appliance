@@ -106,12 +106,11 @@ def load_mac_by_ip() -> dict[str, str]:
 
 
 def iter_target_ipv4_addresses(cidr: str) -> list[ipaddress.IPv4Address]:
+    """Alle IPv4-adresser i CIDR-et (inkl. nettverks- og broadcast-adresse der de finnes)."""
     net = ipaddress.ip_network(cidr.strip(), strict=False)
     if net.version != 4:
         raise ValueError("kun IPv4")
-    if net.prefixlen >= 31:
-        return [ipaddress.ip_address(ip) for ip in net]
-    return list(net.hosts())
+    return list(net)
 
 
 def create_pending_scan(db: Session, *, ipv4_prefix_id: int) -> IpamSubnetScan:
