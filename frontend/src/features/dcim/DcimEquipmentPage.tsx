@@ -42,6 +42,7 @@ export function DcimEquipmentPage() {
   const [plU, setPlU] = useState("1");
   const [plMount, setPlMount] = useState("front");
   const [rackFilter, setRackFilter] = useState<string>("");
+  const [devListFilter, setDevListFilter] = useState("");
   const [equipTab, setEquipTab] = useState<EquipTab>("mfr");
 
   const manufacturersQ = useQuery({
@@ -90,6 +91,48 @@ export function DcimEquipmentPage() {
     for (const x of deviceTypesQ.data ?? []) m.set(x.id, { name: x.name, slug: x.slug });
     return m;
   }, [deviceTypesQ.data]);
+
+  const modelNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const mo of modelsQ.data ?? []) m.set(mo.id, mo.name);
+    return m;
+  }, [modelsQ.data]);
+
+  const filteredDevices = useMemo(() => {
+    const rows = devicesQ.data ?? [];
+    const q = devListFilter.trim().toLowerCase();
+    if (q === "") return rows;
+    return rows.filter((x) => {
+      const pl = placementByDeviceId.get(x.id);
+      const r = pl ? racksById.get(pl.rack_id) : undefined;
+      const placementStr = pl
+        ? `${pl.rack_id} ${pl.u_position} ${pl.mounting} ${r?.name ?? ""}`.toLowerCase()
+        : "";
+      const modelName =
+        x.device_model_id != null ? (modelNameById.get(x.device_model_id) ?? "").toLowerCase() : "";
+      const eff = x.effective_device_type_id;
+      const dt = eff != null ? deviceTypesById.get(eff) : undefined;
+      const typeStr = dt != null ? `${dt.name} ${dt.slug}`.toLowerCase() : "";
+      const blob = [
+        String(x.id),
+        x.name.toLowerCase(),
+        (x.serial_number ?? "").toLowerCase(),
+        (x.asset_tag ?? "").toLowerCase(),
+        x.device_model_id != null ? String(x.device_model_id) : "",
+        modelName,
+        typeStr,
+        placementStr,
+      ].join(" ");
+      return blob.includes(q);
+    });
+  }, [
+    devicesQ.data,
+    devListFilter,
+    placementByDeviceId,
+    racksById,
+    modelNameById,
+    deviceTypesById,
+  ]);
 
   useEffect(() => {
     const raw = searchParams.get("prefillManufacturer");
@@ -617,8 +660,21 @@ export function DcimEquipmentPage() {
             {createDev.isPending ? "…" : t("dcim.equip.dev.create")}
           </button>
         </form>
+        <div className={styles.formRow} style={{ marginTop: "var(--space-2)" }}>
+          <label style={{ flex: "1 1 16rem" }}>
+            {t("dcim.equip.dev.filterList")}
+            <input
+              value={devListFilter}
+              onChange={(e) => setDevListFilter(e.target.value)}
+              placeholder={t("dcim.equip.dev.filterPlaceholder")}
+            />
+          </label>
+        </div>
         {devicesQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
-        {devicesQ.data && devicesQ.data.length > 0 ? (
+        {devicesQ.data && devicesQ.data.length > 0 && filteredDevices.length === 0 ? (
+          <p className={styles.muted}>{t("dcim.equip.dev.filterNoResults")}</p>
+        ) : null}
+        {filteredDevices.length > 0 ? (
           <table className={styles.table}>
             <thead>
               <tr>
@@ -630,7 +686,7 @@ export function DcimEquipmentPage() {
               </tr>
             </thead>
             <tbody>
-              {devicesQ.data.map((x) => {
+              {filteredDevices.map((x) => {
                 const pl = placementByDeviceId.get(x.id);
                 const r = pl ? racksById.get(pl.rack_id) : undefined;
                 const roomId = r?.room_id ?? "";
@@ -675,9 +731,9 @@ export function DcimEquipmentPage() {
               })}
             </tbody>
           </table>
-        ) : (
-          !devicesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.dev.empty")}</p>
-        )}
+        ) : !devicesQ.isLoading && (!devicesQ.data || devicesQ.data.length === 0) ? (
+          <p className={styles.muted}>{t("dcim.equip.dev.empty")}</p>
+        ) : null}
         </>
       ) : null}
       {equipTab === "pl" ? (
