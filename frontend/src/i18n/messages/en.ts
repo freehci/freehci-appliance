@@ -247,7 +247,7 @@ export const en = {
   "ipam.ipv4.openExplore": "Explore",
   "ipam.scan.title": "Ping scan of prefix",
   "ipam.scan.intro":
-    "Pings every IPv4 address in the prefix (e.g. all 256 addresses in a /24, including network and broadcast). Responding hosts are stored. MAC appears only when the appliance OS has the host in ARP/neighbor cache (typically same L2). Address count is capped by the server. Docker may need extra network privileges.",
+    "Pings every IPv4 address in the prefix (e.g. all 256 addresses in a /24, including network and broadcast). Responding hosts are stored. MAC comes from the OS ARP/neighbor table; in Docker it is often empty for LAN hosts behind the host’s IP because the container is not on the same L2 — use host networking or macvlan on the API if you need MACs. Address count is capped by the server.",
   "ipam.scan.start": "Start ping scan",
   "ipam.scan.running": "Running…",
   "ipam.scan.history": "Previous scans for this prefix",

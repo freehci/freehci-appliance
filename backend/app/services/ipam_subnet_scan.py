@@ -40,6 +40,70 @@ def _normalize_mac(raw: str) -> str:
     return s
 
 
+def _is_all_zero_mac(hwaddr: str) -> bool:
+    hx = re.sub(r"[^0-9a-fA-F]", "", hwaddr)
+    return len(hx) == 12 and int(hx, 16) == 0
+
+
+def _parse_proc_net_arp(content: str) -> dict[str, str]:
+    """Leser innhold fra /proc/net/arp (Linux)."""
+    out: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("IP address"):
+            continue
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        ip_s, hwaddr = parts[0], parts[3]
+        if not re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}", ip_s):
+            continue
+        if _is_all_zero_mac(hwaddr):
+            continue
+        if re.fullmatch(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", hwaddr):
+            out[ip_s] = _normalize_mac(hwaddr)
+    return out
+
+
+def _parse_ip_neigh_output(content: str) -> dict[str, str]:
+    """Parser `ip neigh show` / `ip -4 neigh show` (Linux, iproute2)."""
+    out: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # IPv4 først på linjen: 192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+        m = re.match(
+            r"^(\d{1,3}(?:\.\d{1,3}){3})\s+.*?\blladdr\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b",
+            line,
+            re.I,
+        )
+        if m:
+            out[m.group(1)] = _normalize_mac(m.group(2))
+    return out
+
+
+def _parse_linux_arp_a(content: str) -> dict[str, str]:
+    """Parser Linux/BusyBox `arp -a`: «? (192.168.1.1) at aa:bb:cc:dd:ee:ff [ether] on eth0»."""
+    out: dict[str, str] = {}
+    for line in content.splitlines():
+        m = re.search(
+            r"\((\d{1,3}(?:\.\d{1,3}){3})\)\s+at\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b",
+            line,
+        )
+        if m:
+            out[m.group(1)] = _normalize_mac(m.group(2))
+            continue
+        m2 = re.search(
+            r"(\d{1,3}(?:\.\d{1,3}){3})\s+ether\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b",
+            line,
+            re.I,
+        )
+        if m2:
+            out[m2.group(1)] = _normalize_mac(m2.group(2))
+    return out
+
+
 def ping_one_ip(ip: str) -> bool:
     """Én ICMP echo mot én vert (avhengig av OS og rettigheter)."""
     if sys.platform == "win32":
@@ -59,7 +123,13 @@ def ping_one_ip(ip: str) -> bool:
 
 
 def load_mac_by_ip() -> dict[str, str]:
-    """IP-str -> MAC kanonisk (kun verter OS-et har i ARP/neighbor-tabell)."""
+    """IP-str -> MAC kanonisk (kun verter OS-et har i ARP/neighbor-tabell).
+
+    På Linux slås sammen /proc/net/arp, 'ip -4 neigh show' og 'arp -a'.
+    Standard arp -a-format «(IP) at MAC [ether]» ble tidligere ikke parsert.
+    I Docker bak NAT mot et annet L3-nett finnes ofte ingen MAC for eksterne IP-er
+    i containern — da må API kjøre med host-nettverk eller SNMP senere.
+    """
     mapping: dict[str, str] = {}
     if sys.platform == "win32":
         try:
@@ -78,31 +148,30 @@ def load_mac_by_ip() -> dict[str, str]:
                 mapping[m.group(1)] = _normalize_mac(m.group(2))
         return mapping
 
-    for cmd in (["ip", "neigh", "show"], ["arp", "-a"]):
+    try:
+        with open("/proc/net/arp", encoding="ascii", errors="replace") as f:
+            mapping.update(_parse_proc_net_arp(f.read()))
+    except OSError:
+        pass
+
+    for cmd in (["ip", "-4", "neigh", "show"], ["ip", "neigh", "show"]):
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=20, errors="replace")
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             continue
         if r.returncode != 0:
             continue
-        for line in r.stdout.splitlines():
-            m = re.match(
-                r"^(\d{1,3}(?:\.\d{1,3}){3})\s+.*\blladdr\s+([0-9a-f:]{17})\b",
-                line.strip(),
-                re.I,
-            )
-            if m:
-                mapping[m.group(1)] = _normalize_mac(m.group(2))
-                continue
-            m2 = re.search(
-                r"(\d{1,3}(?:\.\d{1,3}){3})\s+ether\s+([0-9a-f:]{17})",
-                line,
-                re.I,
-            )
-            if m2:
-                mapping[m2.group(1)] = _normalize_mac(m2.group(2))
-        if mapping:
-            break
+        mapping.update(_parse_ip_neigh_output(r.stdout))
+        break
+
+    try:
+        r = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=20, errors="replace")
+        if r.returncode == 0:
+            mapping.update(_parse_linux_arp_a(r.stdout))
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
+    logger.debug("load_mac_by_ip: %d IPv4->MAC oppføringer", len(mapping))
     return mapping
 
 
@@ -237,7 +306,7 @@ def run_scan_background(
                 except Exception as e:  # noqa: BLE001
                     logger.debug("ping future %s: %s", ip_s, e)
 
-        time.sleep(0.3)
+        time.sleep(0.75)
         arp = load_macs()
 
         for ip_s in sorted(responded, key=ipaddress.ip_address):
