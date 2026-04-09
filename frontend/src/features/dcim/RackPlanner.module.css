@@ -32,30 +32,40 @@
 
 .paletteTabs {
   display: flex;
-  gap: var(--space-1);
+  gap: 0;
   margin-bottom: var(--space-2);
+  border: 1px solid var(--color-tab-bar-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-tab-bar-bg);
 }
 
 .paletteTab {
   flex: 1;
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-xs);
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-surface);
-  color: var(--color-text-muted);
+  font-weight: 500;
+  border: none;
+  border-right: 1px solid var(--color-tab-separator);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-tab-inactive-text);
   cursor: pointer;
+  transition: var(--transition-color);
+}
+
+.paletteTab:last-child {
+  border-right: none;
 }
 
 .paletteTab:hover {
   color: var(--color-text);
-  background: var(--color-sidebar-hover);
+  background: var(--color-tab-hover-bg);
 }
 
 .paletteTabActive {
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
-  border-color: var(--color-accent);
+  background: var(--color-tab-active-bg);
+  color: var(--color-tab-active-text);
 }
 
 .paletteHint {

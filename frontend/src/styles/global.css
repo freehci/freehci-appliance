@@ -20,8 +20,8 @@ body {
   background-color: var(--color-bg-body);
   background-image:
     linear-gradient(var(--color-bg-overlay), var(--color-bg-overlay)),
-    radial-gradient(ellipse 120% 80% at 50% 0%, #2a3a62 0%, transparent 55%),
-    linear-gradient(180deg, #0f1524 0%, var(--color-bg-body) 45%);
+    radial-gradient(ellipse 120% 80% at 50% 0%, #243056 0%, transparent 55%),
+    linear-gradient(180deg, #0c101f 0%, var(--color-bg-body) 48%);
   background-attachment: fixed;
   background-size: cover, cover, cover;
 }
