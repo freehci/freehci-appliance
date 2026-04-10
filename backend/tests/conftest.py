@@ -8,6 +8,7 @@ from pathlib import Path
 _tmp_db_dir = Path(tempfile.mkdtemp(prefix="freehci-pytest-"))
 _tmp_db = _tmp_db_dir / "test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp_db.as_posix()}"
+os.environ["FREEHCI_SKIP_AUTH"] = "1"
 _upload_root = Path(tempfile.mkdtemp(prefix="freehci-uploads-"))
 os.environ["UPLOAD_ROOT"] = str(_upload_root)
 
@@ -17,6 +18,7 @@ get_settings.cache_clear()
 
 import pytest
 
+import app.models.admin_account  # noqa: F401
 import app.models.dcim  # noqa: F401
 import app.models.ipam  # noqa: F401 — tabeller for IPAM + FK fra DCIM
 from app.core.db import engine

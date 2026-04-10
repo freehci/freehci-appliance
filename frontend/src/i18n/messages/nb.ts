@@ -26,6 +26,24 @@ export const nb = {
   "header.langNb": "Norsk",
   "header.langEn": "Engelsk",
   "header.langSwitch": "Språk",
+  "header.changePassword": "Bytt passord",
+  "header.logout": "Logg ut",
+
+  "auth.loginTitle": "Logg inn",
+  "auth.username": "Brukernavn",
+  "auth.password": "Passord",
+  "auth.submit": "Logg inn",
+  "auth.error": "Innlogging mislyktes",
+  "auth.defaultCredsHint":
+    "Standard er admin / admin — bytt passord etter første innlogging.",
+  "auth.changePasswordTitle": "Bytt passord",
+  "auth.currentPassword": "Nåværende passord",
+  "auth.newPassword": "Nytt passord",
+  "auth.newPasswordConfirm": "Gjenta nytt passord",
+  "auth.changePasswordSubmit": "Oppdater passord",
+  "auth.changePasswordSuccess": "Passordet er oppdatert.",
+  "auth.mismatch": "De nye passordene er ikke like.",
+  "auth.minLength": "Minst 8 tegn.",
 
   "dashboard.title": "Dashboard",
   "dashboard.welcome":

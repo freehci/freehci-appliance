@@ -44,6 +44,8 @@ Then open:
 - **Web UI:** [http://localhost:8080](http://localhost:8080) (nginx proxies `/api/` to the API)
 - **OpenAPI:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
+On a fresh database the API creates a local admin user **admin** / **admin** at startup. Sign in through the UI, then change the password (key icon in the header). For production, set a strong **`JWT_SECRET`** (see [`.env.example`](.env.example) and `docker-compose.yml`).
+
 Stop the stack:
 
 ```bash

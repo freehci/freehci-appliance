@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     # Hemmelighet for enkel API-nøkkel senere; brukes ikke i fase 1 utover struktur
     internal_api_secret: SecretStr | None = Field(default=None)
 
+    jwt_secret: SecretStr = Field(
+        default=SecretStr("dev-only-change-JWT_SECRET-in-production"),
+        description="Hemmelighet for JWT (sett JWT_SECRET i miljø i produksjon)",
+    )
+    jwt_expire_minutes: int = Field(default=10080, ge=5, le=525600)  # 7 dager som standard
+
+    freehci_skip_auth: bool = Field(
+        default=False,
+        description="FREEHCI_SKIP_AUTH=1 deaktiverer API-auth (kun automatiske tester)",
+    )
+
     upload_root: str = Field(
         default="data/uploads",
         description="Rotkatalog for opplastede filer (logoer m.m.), relativ til arbeidskatalog eller absolutt sti",

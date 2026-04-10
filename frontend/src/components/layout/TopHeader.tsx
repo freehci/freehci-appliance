@@ -1,5 +1,7 @@
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { useAuth } from "@/features/auth/AuthContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/theme/ThemeProvider";
 import styles from "./TopHeader.module.css";
@@ -7,6 +9,8 @@ import styles from "./TopHeader.module.css";
 export function TopHeader() {
   const { theme, toggleTheme } = useTheme();
   const { locale, setLocale, t } = useI18n();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className={styles.bar}>
@@ -59,8 +63,25 @@ export function TopHeader() {
         >
           <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"}`} />
         </button>
-        <button type="button" className={styles.iconBtn} title={t("header.user")}>
-          <i className="fas fa-user" />
+        <Link
+          to="/account/password"
+          className={styles.iconBtn}
+          title={t("header.changePassword")}
+          aria-label={t("header.changePassword")}
+        >
+          <i className="fas fa-key" aria-hidden />
+        </Link>
+        <button
+          type="button"
+          className={styles.iconBtn}
+          title={t("header.logout")}
+          aria-label={t("header.logout")}
+          onClick={() => {
+            logout();
+            navigate("/login", { replace: true });
+          }}
+        >
+          <i className="fas fa-right-from-bracket" aria-hidden />
         </button>
       </div>
     </header>

@@ -1,0 +1,32 @@
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: var(--space-4);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 22rem;
+}
+
+.hint {
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-danger, #e85d5d);
+}
+
+.success {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
