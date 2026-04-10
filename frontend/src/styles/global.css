@@ -47,6 +47,27 @@ button {
   font-size: inherit;
 }
 
+/* Tabellceller med redigerbare felt (f.eks. IPAM) — ligger utenfor .formRow */
+main table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+main table select {
+  font-family: inherit;
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--shell-border);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+main table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+main table select:focus {
+  background: var(--color-input-focus-bg);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-button-bg);
+}
+
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
