@@ -1,6 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { fetchMe } from "@/features/auth/authApi";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -9,8 +11,14 @@ import styles from "./TopHeader.module.css";
 export function TopHeader() {
   const { theme, toggleTheme } = useTheme();
   const { locale, setLocale, t } = useI18n();
-  const { logout } = useAuth();
+  const { token, logout } = useAuth();
   const navigate = useNavigate();
+  const { data: me } = useQuery({
+    queryKey: ["auth", "me", token],
+    queryFn: () => fetchMe(),
+    enabled: Boolean(token),
+    staleTime: 60_000,
+  });
 
   return (
     <header className={styles.bar}>
@@ -63,6 +71,11 @@ export function TopHeader() {
         >
           <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"}`} />
         </button>
+        {me?.username ? (
+          <span className={styles.userName} title={me.username}>
+            {me.username}
+          </span>
+        ) : null}
         <Link
           to="/account/password"
           className={styles.iconBtn}

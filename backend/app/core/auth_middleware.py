@@ -1,4 +1,4 @@
-"""Krever Bearer-JWT for alle /api/v1-kall unntatt health og innlogging."""
+"""Krever Bearer-JWT for /api/v1 unntatt helse, innlogging og offentlige DCIM-bilder (GET)."""
 
 from __future__ import annotations
 

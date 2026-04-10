@@ -46,6 +46,8 @@ Then open:
 
 On a fresh database the API creates a local admin user **admin** / **admin** at startup. Sign in through the UI, then change the password (key icon in the header). For production, set a strong **`JWT_SECRET`** (see [`.env.example`](.env.example) and `docker-compose.yml`).
 
+**DCIM images in the UI:** `GET` requests for manufacturer logos and device-model front/back files are allowed **without** a JWT, because browsers do not send `Authorization` on `<img src="…">`. Uploading or deleting those files still requires a logged-in admin.
+
 Stop the stack:
 
 ```bash
