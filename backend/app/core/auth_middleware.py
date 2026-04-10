@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -9,6 +11,16 @@ from starlette.responses import JSONResponse, Response
 
 from app.core.config import Settings
 from app.services.auth_admin import decode_token_payload
+
+
+def _is_public_dcim_media_get(path: str, api_v1_prefix: str) -> bool:
+    """GET av logo/bilder brukes i <img src>; nettleseren sender ikke Authorization."""
+    api = api_v1_prefix.rstrip("/")
+    return bool(
+        re.fullmatch(rf"{re.escape(api)}/dcim/manufacturers/\d+/logo", path)
+        or re.fullmatch(rf"{re.escape(api)}/dcim/device-models/\d+/image-front", path)
+        or re.fullmatch(rf"{re.escape(api)}/dcim/device-models/\d+/image-back", path)
+    )
 
 
 class ApiAuthMiddleware(BaseHTTPMiddleware):
@@ -30,6 +42,8 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
         if path.startswith(f"{api}/health"):
             return await call_next(request)
         if path == f"{api}/auth/login":
+            return await call_next(request)
+        if request.method == "GET" and _is_public_dcim_media_get(path, self.settings.api_v1_prefix):
             return await call_next(request)
 
         authz = request.headers.get("Authorization")
