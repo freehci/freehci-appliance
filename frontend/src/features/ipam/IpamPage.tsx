@@ -1011,7 +1011,23 @@ export function IpamPage() {
                         return (
                           <tr key={row.address}>
                             <td>
-                              <code>{row.address}</code>
+                              {devId != null ? (
+                                <Link
+                                  to={`/dcim/equipment/devices/${devId}?tab=network&snmpHost=${encodeURIComponent(row.address)}`}
+                                  className={dcimStyles.tableLink}
+                                  title={t("ipam.grid.addressOpenDeviceSnmp")}
+                                >
+                                  <code>{row.address}</code>
+                                </Link>
+                              ) : (
+                                <Link
+                                  to={`/snmp?host=${encodeURIComponent(row.address)}`}
+                                  className={dcimStyles.tableLink}
+                                  title={t("ipam.grid.addressOpenSnmpDiscovery")}
+                                >
+                                  <code>{row.address}</code>
+                                </Link>
+                              )}
                             </td>
                             <td>{reach}</td>
                             <td className={dcimStyles.muted} title={lastSeenLabel || undefined}>

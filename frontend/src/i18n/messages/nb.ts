@@ -291,6 +291,10 @@ export const nb = {
   "dcim.equip.dev.detailTabsAria": "Enhetsseksjoner",
   "dcim.equip.dev.tabOverview": "Oversikt",
   "dcim.equip.dev.tabNetwork": "Nettverk",
+  "dcim.equip.dev.snmpSectionTitle": "SNMP-inventar",
+  "dcim.equip.dev.snmpSectionHint":
+    "Spør enheten på styrings-IP (forhåndsutfylt fra IPAM, ?snmpHost= i URL eller første IPv4 på et grensesnitt). Hent grensesnitt, kjør full skann (IP/VLAN), og importer til denne DCIM-enheten.",
+  "dcim.equip.dev.snmpOpenTools": "Åpne full SNMP-side (MIB-bibliotek og probe)…",
   "dcim.equip.dev.tabHardware": "Maskinvare",
   "dcim.equip.dev.tabOs": "OS-info",
   "dcim.equip.dev.pluginPlaceholderHardware":
@@ -398,6 +402,8 @@ export const nb = {
   "ipam.grid.lastSeenCol": "Sist sett",
   "ipam.grid.lastSeenColHint": "Oppdateres når verten svarte under subnett-skann (inventory).",
   "ipam.grid.linkTitle": "Knytt IP til enhetsgrensesnitt (DCIM)",
+  "ipam.grid.addressOpenDeviceSnmp": "Åpne enhet — Nettverk-fanen med SNMP-mål satt til denne adressen",
+  "ipam.grid.addressOpenSnmpDiscovery": "Åpne SNMP-verktøy med denne adressen (ingen DCIM-enhet knyttet)",
   "ipam.grid.linkSubmit": "Tildel",
   "ipam.grid.action.link": "Knytt IP til enhet",
   "ipam.grid.action.release": "Frigi",

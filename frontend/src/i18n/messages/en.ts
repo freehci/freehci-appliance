@@ -285,6 +285,10 @@ export const en = {
   "dcim.equip.dev.detailTabsAria": "Device sections",
   "dcim.equip.dev.tabOverview": "Overview",
   "dcim.equip.dev.tabNetwork": "Network",
+  "dcim.equip.dev.snmpSectionTitle": "SNMP inventory",
+  "dcim.equip.dev.snmpSectionHint":
+    "Poll this unit by management IP (pre-filled from IPAM, query ?snmpHost=, or the first IPv4 on an interface). Fetch interfaces, run a full scan (IP/VLAN), then import into this DCIM device.",
+  "dcim.equip.dev.snmpOpenTools": "Open full SNMP page (MIB library & probe)…",
   "dcim.equip.dev.tabHardware": "Hardware",
   "dcim.equip.dev.tabOs": "OS info",
   "dcim.equip.dev.pluginPlaceholderHardware":
@@ -391,6 +395,8 @@ export const en = {
   "ipam.grid.lastSeenCol": "Last seen",
   "ipam.grid.lastSeenColHint": "Updated when this host responded during a subnet scan (inventory).",
   "ipam.grid.linkTitle": "Link IP to device interface (DCIM)",
+  "ipam.grid.addressOpenDeviceSnmp": "Open device — Network tab with SNMP target set to this address",
+  "ipam.grid.addressOpenSnmpDiscovery": "Open SNMP tools with this address (no DCIM device linked)",
   "ipam.grid.linkSubmit": "Assign",
   "ipam.grid.action.link": "Link IP to device",
   "ipam.grid.action.release": "Release",

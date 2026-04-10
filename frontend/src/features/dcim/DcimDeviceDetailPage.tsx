@@ -11,6 +11,7 @@ import type { DeviceInterface } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
 import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
 import { usePlugins } from "@/plugins/PluginContext";
+import { SnmpInventoryPanel } from "@/features/snmp/SnmpInventoryPanel";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 
@@ -149,6 +150,21 @@ export function DcimDeviceDetailPage() {
     const row = (sitesQ.data ?? []).find((x) => x.id === sid);
     return row ? `${row.name} (#${sid})` : `#${sid}`;
   }, [deviceQ.data?.effective_site_id, sitesQ.data]);
+
+  const snmpHostParam = searchParams.get("snmpHost")?.trim() ?? "";
+
+  const defaultSnmpHost = useMemo(() => {
+    if (snmpHostParam !== "") return snmpHostParam;
+    const rows = interfacesQ.data ?? [];
+    const v4: { addr: string; primary: boolean }[] = [];
+    for (const iface of rows) {
+      for (const ip of iface.ip_assignments ?? []) {
+        if (ip.family === "ipv4") v4.push({ addr: ip.address, primary: ip.is_primary });
+      }
+    }
+    const prim = v4.find((x) => x.primary);
+    return prim?.addr ?? v4[0]?.addr ?? "";
+  }, [snmpHostParam, interfacesQ.data]);
 
   const deviceTypeSlug = useMemo(() => {
     const tid = deviceQ.data?.effective_device_type_id;
@@ -564,6 +580,12 @@ export function DcimDeviceDetailPage() {
 
         {detailTab === "network" ? (
           <>
+            <SnmpInventoryPanel
+              mode="fixed_device"
+              deviceId={id}
+              initialHost={defaultSnmpHost}
+              hostSyncKey={`${snmpHostParam}\u0000${interfacesQ.dataUpdatedAt}`}
+            />
             <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.if.title")}</h3>
             <p className={styles.muted} style={{ marginTop: 0 }}>
               {t("dcim.equip.if.hint")}
