@@ -39,10 +39,11 @@ def test_ipam_subnet_scan_creates_and_lists(monkeypatch) -> None:
         assert body["status"] == "completed"
         assert body["hosts_scanned"] == 256
         assert body["hosts_responding"] == 1
-        assert len(body["hosts"]) == 1
-        assert body["hosts"][0]["address"] == "10.0.1.1"
-        assert body["hosts"][0]["mac_address"] == "aa:bb:cc:dd:ee:01"
-        assert body["hosts"][0]["ping_responded"] is True
+        assert len(body["hosts"]) == 256
+        alive = [h for h in body["hosts"] if h["ping_responded"]]
+        assert len(alive) == 1
+        assert alive[0]["address"] == "10.0.1.1"
+        assert alive[0]["mac_address"] == "aa:bb:cc:dd:ee:01"
 
         li = client.get(f"/api/v1/ipam/subnet-scans?ipv4_prefix_id={pid}")
         assert li.status_code == 200

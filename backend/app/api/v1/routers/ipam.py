@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.schemas.ipam import (
+    Ipv4AddressEnsure,
     Ipv4AddressPatch,
     Ipv4AddressRead,
     Ipv4AddressRequest,
@@ -12,6 +13,7 @@ from app.schemas.ipam import (
     Ipv4PrefixExploreRead,
     Ipv4PrefixRead,
     Ipv4PrefixUpdate,
+    PrefixAddressGridRead,
     SubnetScanCreate,
     SubnetScanDetailRead,
     SubnetScanRead,
@@ -20,6 +22,7 @@ from app.schemas.ipam import (
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
+from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
@@ -41,6 +44,11 @@ def create_ipv4_prefix(data: Ipv4PrefixCreate, db: Session = Depends(get_db)) ->
 @router.get("/ipv4-prefixes/{prefix_id}/explore", response_model=Ipv4PrefixExploreRead)
 def explore_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4PrefixExploreRead:
     return ipam_svc.explore_ipv4_prefix(db, prefix_id)
+
+
+@router.get("/ipv4-prefixes/{prefix_id}/address-grid", response_model=PrefixAddressGridRead)
+def get_prefix_address_grid(prefix_id: int, db: Session = Depends(get_db)) -> PrefixAddressGridRead:
+    return grid_svc.build_prefix_address_grid(db, prefix_id)
 
 
 @router.get("/ipv4-prefixes/{prefix_id}", response_model=Ipv4PrefixRead)
@@ -109,6 +117,12 @@ def list_users(limit: int = Query(200, ge=1, le=500), db: Session = Depends(get_
 @router.post("/users", response_model=UserRead)
 def create_user(data: UserCreate, db: Session = Depends(get_db)) -> UserRead:
     return addr_svc.create_user(db, data)
+
+
+@router.post("/ipv4-addresses/ensure", response_model=Ipv4AddressRead)
+def ensure_ipv4_address(data: Ipv4AddressEnsure, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+    row = grid_svc.ensure_ipv4_address_row(db, ipv4_prefix_id=data.ipv4_prefix_id, address=data.address)
+    return addr_svc._ipv4_address_read(db, row)
 
 
 @router.get("/ipv4-addresses", response_model=list[Ipv4AddressRead])

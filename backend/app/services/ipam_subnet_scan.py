@@ -296,18 +296,54 @@ def run_scan_background(
         logger.info("subnet scan %s: pinger %s (%d adresser)", scan_id, row.cidr, n_targets)
 
         responded: list[str] = []
+        chunk: list[tuple[str, bool]] = []
+        CHUNK = 48
+
+        def flush_scan_hosts() -> None:
+            nonlocal chunk
+            if not chunk:
+                return
+            for addr, ok in chunk:
+                db.add(
+                    IpamScanHost(
+                        scan_id=row.id,
+                        address=addr,
+                        mac_address=None,
+                        ping_responded=ok,
+                    ),
+                )
+            chunk.clear()
+            row.hosts_responding = len(responded)
+            db.commit()
+
         with ThreadPoolExecutor(max_workers=PING_WORKERS) as ex:
             futures = {ex.submit(ping, str(ip)): str(ip) for ip in targets}
             for fut in as_completed(futures):
                 ip_s = futures[fut]
                 try:
-                    if fut.result():
-                        responded.append(ip_s)
+                    ok = bool(fut.result())
                 except Exception as e:  # noqa: BLE001
                     logger.debug("ping future %s: %s", ip_s, e)
+                    ok = False
+                if ok:
+                    responded.append(ip_s)
+                chunk.append((ip_s, ok))
+                if len(chunk) >= CHUNK:
+                    flush_scan_hosts()
+
+        flush_scan_hosts()
 
         time.sleep(0.75)
         arp = load_macs()
+
+        # Fyll inn MAC på skannverter som svarte på ping.
+        host_rows = list(
+            db.execute(select(IpamScanHost).where(IpamScanHost.scan_id == row.id)).scalars().all(),
+        )
+        for h in host_rows:
+            if h.ping_responded:
+                h.mac_address = arp.get(h.address) or h.mac_address
+        db.commit()
 
         # Upsert responderende IP-er til varig inventory.
         now = datetime.now(timezone.utc)
@@ -338,16 +374,6 @@ def run_scan_background(
                     existing.mac_address = arp.get(ip_s) or existing.mac_address
         db.commit()
 
-        for ip_s in sorted(responded, key=ipaddress.ip_address):
-            mac = arp.get(ip_s)
-            db.add(
-                IpamScanHost(
-                    scan_id=row.id,
-                    address=ip_s,
-                    mac_address=mac,
-                    ping_responded=True,
-                ),
-            )
         row.hosts_responding = len(responded)
         row.status = "completed"
         row.completed_at = datetime.now(timezone.utc)

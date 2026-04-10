@@ -76,3 +76,18 @@ export type Ipv4Address = {
   created_at: string;
   updated_at: string;
 };
+
+export type PrefixAddressGridRow = {
+  address: string;
+  inventory: Ipv4Address | null;
+  assignment: Ipv4AssignmentInPrefix | null;
+  scan_ping_responded: boolean | null;
+  scan_mac: string | null;
+};
+
+export type PrefixAddressGridRead = {
+  prefix_id: number;
+  cidr: string;
+  active_scan: SubnetScan | null;
+  rows: PrefixAddressGridRow[];
+};

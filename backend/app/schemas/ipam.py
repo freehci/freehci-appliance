@@ -152,15 +152,50 @@ class Ipv4AddressRead(BaseModel):
     updated_at: dt.datetime
 
 
+class PrefixAddressGridRow(BaseModel):
+    """Én rad i subnett-tabellen: inventory + DCIM-tildeling + siste skann per IP."""
+
+    address: str
+    inventory: Ipv4AddressRead | None = None
+    assignment: Ipv4AssignmentInPrefixRead | None = None
+    scan_ping_responded: bool | None = Field(
+        default=None,
+        description="True/False fra aktivt eller siste skann; None hvis ingen rad ennå under pågående skann",
+    )
+    scan_mac: str | None = None
+
+
+class PrefixAddressGridRead(BaseModel):
+    prefix_id: int
+    cidr: str
+    active_scan: SubnetScanRead | None = Field(
+        default=None,
+        description="Siste skann for prefikset (pending/running/completed/failed)",
+    )
+    rows: list[PrefixAddressGridRow]
+
+
+class Ipv4AddressEnsure(BaseModel):
+    ipv4_prefix_id: int = Field(..., ge=1)
+    address: str = Field(..., min_length=1, max_length=45)
+
+
 class Ipv4AddressPatch(BaseModel):
     status: str | None = Field(None, max_length=32)
-    owner_user_id: int | None = Field(None, ge=1)
+    owner_user_id: int | None = Field(default=None)
     note: str | None = None
     mac_address: str | None = Field(None, max_length=32)
-    device_type_id: int | None = Field(None, ge=1)
-    device_model_id: int | None = Field(None, ge=1)
-    device_id: int | None = Field(None, ge=1)
-    interface_id: int | None = Field(None, ge=1)
+    device_type_id: int | None = Field(default=None)
+    device_model_id: int | None = Field(default=None)
+    device_id: int | None = Field(default=None)
+    interface_id: int | None = Field(default=None)
+
+    @field_validator("owner_user_id", "device_type_id", "device_model_id", "device_id", "interface_id")
+    @classmethod
+    def positive_id(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            raise ValueError("må være >= 1")
+        return v
 
 
 class Ipv4AddressRequest(BaseModel):

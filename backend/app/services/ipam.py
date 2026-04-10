@@ -139,6 +139,14 @@ def _assignment_rows_in_prefix(db: Session, parent: IpamIpv4Prefix) -> list[Ipv4
     return out
 
 
+def ipv4_assignments_for_prefix_id(db: Session, prefix_id: int) -> list[Ipv4AssignmentInPrefixRead]:
+    """DCIM IPv4-tildelinger innenfor et prefiks (for adressegitter m.m.)."""
+    row = get_ipv4_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+    return _assignment_rows_in_prefix(db, row)
+
+
 def explore_ipv4_prefix(db: Session, prefix_id: int) -> Ipv4PrefixExploreRead:
     row = get_ipv4_prefix(db, prefix_id)
     if row is None:

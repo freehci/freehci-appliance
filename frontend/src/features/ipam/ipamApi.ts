@@ -1,5 +1,13 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
-import type { Ipv4Address, Ipv4Prefix, Ipv4PrefixExplore, SubnetScan, SubnetScanDetail, User } from "./types";
+import type {
+  Ipv4Address,
+  Ipv4Prefix,
+  Ipv4PrefixExplore,
+  PrefixAddressGridRead,
+  SubnetScan,
+  SubnetScanDetail,
+  User,
+} from "./types";
 
 const P = "/api/v1/ipam";
 
@@ -10,6 +18,14 @@ export function listIpv4Prefixes(siteId?: number): Promise<Ipv4Prefix[]> {
 
 export function getIpv4PrefixExplore(prefixId: number): Promise<Ipv4PrefixExplore> {
   return apiGet(`${P}/ipv4-prefixes/${prefixId}/explore`);
+}
+
+export function getPrefixAddressGrid(prefixId: number): Promise<PrefixAddressGridRead> {
+  return apiGet(`${P}/ipv4-prefixes/${prefixId}/address-grid`);
+}
+
+export function ensureIpv4Address(body: { ipv4_prefix_id: number; address: string }): Promise<Ipv4Address> {
+  return apiPost(`${P}/ipv4-addresses/ensure`, body);
 }
 
 export function createIpv4Prefix(body: {
