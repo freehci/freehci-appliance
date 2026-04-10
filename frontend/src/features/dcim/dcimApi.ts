@@ -116,6 +116,7 @@ export function createDeviceModel(body: {
   form_factor?: string | null;
   image_front_url?: string | null;
   image_back_url?: string | null;
+  image_product_url?: string | null;
 }): Promise<DeviceModel> {
   return apiPost(`${P}/device-models`, body);
 }
@@ -138,6 +139,16 @@ export function deleteDeviceModelImageFront(id: number): Promise<DeviceModel> {
 
 export function deleteDeviceModelImageBack(id: number): Promise<DeviceModel> {
   return apiDeleteJson(`${P}/device-models/${id}/image-back`);
+}
+
+export function uploadDeviceModelImageProduct(id: number, file: File): Promise<DeviceModel> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/device-models/${id}/image-product`, fd);
+}
+
+export function deleteDeviceModelImageProduct(id: number): Promise<DeviceModel> {
+  return apiDeleteJson(`${P}/device-models/${id}/image-product`);
 }
 
 export function listDevices(): Promise<DeviceInstance[]> {

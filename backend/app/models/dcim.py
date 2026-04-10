@@ -97,6 +97,9 @@ class DeviceModel(Base):
     image_front_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     image_back_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
     image_back_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_product_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    image_product_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    image_product_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class DeviceInstance(Base):

@@ -247,10 +247,14 @@ export const en = {
   "dcim.equip.dm.typeCol": "Type",
   "dcim.equip.dm.modelName": "Model name",
   "dcim.equip.dm.u": "U height",
-  "dcim.equip.dm.imageFront": "Front image URL (optional)",
-  "dcim.equip.dm.imageBack": "Back image URL (optional)",
+  "dcim.equip.dm.imageFront": "Front image URL (optional, rack face)",
+  "dcim.equip.dm.imageBack": "Back image URL (optional, rack rear)",
+  "dcim.equip.dm.imageProduct": "Product photo URL (optional)",
+  "dcim.equip.dm.imageProductHint":
+    "Neutral catalog photo — e.g. wall tablet, DIN rail, or slim gear without a clear rack front/rear. Shown first in the model list; rack elevation uses it if rack front is empty.",
+  "dcim.equip.dm.imageProductFile": "Product photo file (optional)",
   "dcim.equip.dm.uploadHint":
-    "You can upload front/back images as files (stored on the server) or use image URLs. If both are set, the uploaded file is shown.",
+    "Upload images as files (on the server) or paste URLs. Front/back suit rack-mounted gear; product photo is for anything else. If both URL and file exist for a slot, the uploaded file wins.",
   "dcim.equip.dm.imageFrontFile": "Front image file (optional)",
   "dcim.equip.dm.imageBackFile": "Back image file (optional)",
   "dcim.equip.dm.thumbCol": "Thumb",

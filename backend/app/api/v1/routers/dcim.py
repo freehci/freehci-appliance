@@ -305,6 +305,17 @@ def get_device_model_image_back(mid: int, db: Session = Depends(get_db)) -> File
     return FileResponse(path, media_type=row.image_back_mime_type)
 
 
+@router.get("/device-models/{mid}/image-product")
+def get_device_model_image_product(mid: int, db: Session = Depends(get_db)) -> FileResponse:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None or not row.image_product_relpath or not row.image_product_mime_type:
+        raise HTTPException(status_code=404, detail="produkt-bilde finnes ikke")
+    path = resolve_device_model_image_path(get_settings().upload_root_path, row.image_product_relpath)
+    if path is None:
+        raise HTTPException(status_code=404, detail="produkt-bilde finnes ikke")
+    return FileResponse(path, media_type=row.image_product_mime_type)
+
+
 @router.post("/device-models/{mid}/image-front", response_model=DeviceModelRead)
 async def upload_device_model_image_front(
     mid: int,
@@ -335,6 +346,21 @@ async def upload_device_model_image_back(
     return dcim_svc.device_model_read(row)
 
 
+@router.post("/device-models/{mid}/image-product", response_model=DeviceModelRead)
+async def upload_device_model_image_product(
+    mid: int,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+) -> DeviceModelRead:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    content = await file.read()
+    mime = file.content_type or "application/octet-stream"
+    dcim_svc.set_device_model_image(db, row, "product", content, mime)
+    return dcim_svc.device_model_read(row)
+
+
 @router.delete("/device-models/{mid}/image-front", response_model=DeviceModelRead)
 def remove_device_model_image_front(mid: int, db: Session = Depends(get_db)) -> DeviceModelRead:
     row = dcim_svc.get_device_model(db, mid)
@@ -350,6 +376,15 @@ def remove_device_model_image_back(mid: int, db: Session = Depends(get_db)) -> D
     if row is None:
         raise HTTPException(status_code=404, detail="device_model ikke funnet")
     dcim_svc.clear_device_model_image(db, row, "back")
+    return dcim_svc.device_model_read(row)
+
+
+@router.delete("/device-models/{mid}/image-product", response_model=DeviceModelRead)
+def remove_device_model_image_product(mid: int, db: Session = Depends(get_db)) -> DeviceModelRead:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    dcim_svc.clear_device_model_image(db, row, "product")
     return dcim_svc.device_model_read(row)
 
 

@@ -479,8 +479,10 @@ def device_model_read(dm: DeviceModel) -> DeviceModelRead:
         form_factor=dm.form_factor,
         image_front_url=dm.image_front_url,
         image_back_url=dm.image_back_url,
+        image_product_url=dm.image_product_url,
         has_image_front_file=dm.image_front_relpath is not None,
         has_image_back_file=dm.image_back_relpath is not None,
+        has_image_product_file=dm.image_product_relpath is not None,
     )
 
 
@@ -502,6 +504,7 @@ def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModelRead
         form_factor=data.form_factor,
         image_front_url=data.image_front_url,
         image_back_url=data.image_back_url,
+        image_product_url=data.image_product_url,
     )
     db.add(row)
     db.commit()
@@ -514,8 +517,8 @@ def get_device_model(db: Session, mid: int) -> DeviceModel | None:
 
 
 def set_device_model_image(db: Session, row: DeviceModel, slot: str, content: bytes, mime: str) -> None:
-    if slot not in ("front", "back"):
-        raise HTTPException(status_code=400, detail="slot må være front eller back")
+    if slot not in ("front", "back", "product"):
+        raise HTTPException(status_code=400, detail="slot må være front, back eller product")
     if len(content) > DM_IMAGE_MAX_BYTES:
         raise HTTPException(status_code=413, detail="bilde for stort (maks 2 MiB)")
     if mime not in ALLOWED_LOGO_MIME:
@@ -528,24 +531,30 @@ def set_device_model_image(db: Session, row: DeviceModel, slot: str, content: by
     if slot == "front":
         row.image_front_relpath = relpath
         row.image_front_mime_type = mime
-    else:
+    elif slot == "back":
         row.image_back_relpath = relpath
         row.image_back_mime_type = mime
+    else:
+        row.image_product_relpath = relpath
+        row.image_product_mime_type = mime
     db.commit()
     db.refresh(row)
 
 
 def clear_device_model_image(db: Session, row: DeviceModel, slot: str) -> None:
-    if slot not in ("front", "back"):
-        raise HTTPException(status_code=400, detail="slot må være front eller back")
+    if slot not in ("front", "back", "product"):
+        raise HTTPException(status_code=400, detail="slot må være front, back eller product")
     root: Path = get_settings().upload_root_path
     delete_device_model_image_slot(root, row.id, slot)
     if slot == "front":
         row.image_front_relpath = None
         row.image_front_mime_type = None
-    else:
+    elif slot == "back":
         row.image_back_relpath = None
         row.image_back_mime_type = None
+    else:
+        row.image_product_relpath = None
+        row.image_product_mime_type = None
     db.commit()
     db.refresh(row)
 
@@ -580,6 +589,9 @@ def update_device_model(db: Session, row: DeviceModel, data: DeviceModelUpdate) 
     if "image_back_url" in patch:
         v = patch["image_back_url"]
         row.image_back_url = None if v is None else (str(v).strip() or None)
+    if "image_product_url" in patch:
+        v = patch["image_product_url"]
+        row.image_product_url = None if v is None else (str(v).strip() or None)
     db.commit()
     db.refresh(row)
     return device_model_read(row)

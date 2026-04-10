@@ -253,10 +253,14 @@ export const nb = {
   "dcim.equip.dm.typeCol": "Type",
   "dcim.equip.dm.modelName": "Modellnavn",
   "dcim.equip.dm.u": "U-høyde",
-  "dcim.equip.dm.imageFront": "Front-bilde URL (valgfritt)",
-  "dcim.equip.dm.imageBack": "Bak-bilde URL (valgfritt)",
+  "dcim.equip.dm.imageFront": "Front-bilde URL (valgfritt, rack-forside)",
+  "dcim.equip.dm.imageBack": "Bak-bilde URL (valgfritt, rack-bakside)",
+  "dcim.equip.dm.imageProduct": "Produktbilde URL (valgfritt)",
+  "dcim.equip.dm.imageProductHint":
+    "Nøytralt katalogbilde — f.eks. veggmontert panel, DIN-skinne eller smalt utstyr uten tydelig rack for-/bakside. Vises først i modelllisten; rack-visning bruker det hvis rack-front mangler.",
+  "dcim.equip.dm.imageProductFile": "Produktbilde (fil, valgfritt)",
   "dcim.equip.dm.uploadHint":
-    "Du kan laste opp for-/bak-bilder som filer (lagres på server) eller bruke bilde-URL-er. Hvis begge er satt, vises den opplastede fila.",
+    "Last opp bilder som filer (på server) eller lim inn URL-er. Front/bak passer rack-montert utstyr; produktbilde er for alt annet. Finnes både URL og fil for samme felt, vises den opplastede fila.",
   "dcim.equip.dm.imageFrontFile": "Front-bilde (fil, valgfritt)",
   "dcim.equip.dm.imageBackFile": "Bak-bilde (fil, valgfritt)",
   "dcim.equip.dm.thumbCol": "Miniatyr",

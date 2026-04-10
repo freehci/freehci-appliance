@@ -159,6 +159,7 @@ class DeviceModelCreate(BaseModel):
     form_factor: str | None = Field(None, max_length=64)
     image_front_url: str | None = Field(None, max_length=1024)
     image_back_url: str | None = Field(None, max_length=1024)
+    image_product_url: str | None = Field(None, max_length=1024)
 
 
 class DeviceModelUpdate(BaseModel):
@@ -169,6 +170,7 @@ class DeviceModelUpdate(BaseModel):
     form_factor: str | None = Field(None, max_length=64)
     image_front_url: str | None = Field(None, max_length=1024)
     image_back_url: str | None = Field(None, max_length=1024)
+    image_product_url: str | None = Field(None, max_length=1024)
 
 
 class DeviceModelRead(BaseModel):
@@ -182,8 +184,10 @@ class DeviceModelRead(BaseModel):
     form_factor: str | None
     image_front_url: str | None
     image_back_url: str | None
+    image_product_url: str | None
     has_image_front_file: bool
     has_image_back_file: bool
+    has_image_product_file: bool
 
 
 class DeviceInstanceCreate(BaseModel):

@@ -61,8 +61,8 @@ def resolve_manufacturer_logo_path(upload_root: Path, relpath: str) -> Path | No
 
 
 def device_model_image_relpath(model_id: int, slot: str, mime: str) -> str:
-    if slot not in ("front", "back"):
-        raise ValueError("slot må være front eller back")
+    if slot not in ("front", "back", "product"):
+        raise ValueError("slot må være front, back eller product")
     ext = MIME_TO_EXT[mime]
     return f"{DM_IMAGE_SUBDIR}/{model_id}_{slot}.{ext}"
 
@@ -102,6 +102,7 @@ def delete_device_model_image_slot(upload_root: Path, model_id: int, slot: str) 
 def delete_device_model_all_images(upload_root: Path, model_id: int) -> None:
     delete_device_model_image_slot(upload_root, model_id, "front")
     delete_device_model_image_slot(upload_root, model_id, "back")
+    delete_device_model_image_slot(upload_root, model_id, "product")
 
 
 def resolve_device_model_image_path(upload_root: Path, relpath: str) -> Path | None:

@@ -85,6 +85,7 @@ def test_dcim_site_room_rack_device_flow() -> None:
         dmod_id = dm.json()["id"]
         assert dm.json()["device_type_id"] == type_id
         assert dm.json()["has_image_front_file"] is False
+        assert dm.json()["has_image_product_file"] is False
 
         dm_img = client.post(
             f"/api/v1/dcim/device-models/{dmod_id}/image-front",
@@ -95,6 +96,16 @@ def test_dcim_site_room_rack_device_flow() -> None:
         gf = client.get(f"/api/v1/dcim/device-models/{dmod_id}/image-front")
         assert gf.status_code == 200
         assert gf.content == tiny_png
+
+        dm_prod = client.post(
+            f"/api/v1/dcim/device-models/{dmod_id}/image-product",
+            files={"file": ("p.png", tiny_png, "image/png")},
+        )
+        assert dm_prod.status_code == 200, dm_prod.text
+        assert dm_prod.json()["has_image_product_file"] is True
+        gp = client.get(f"/api/v1/dcim/device-models/{dmod_id}/image-product")
+        assert gp.status_code == 200
+        assert gp.content == tiny_png
 
         d = client.post(
             "/api/v1/dcim/devices",

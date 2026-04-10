@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
-import { deviceModelFrontSrc } from "./modelImages";
+import { deviceModelListThumbSrc } from "./modelImages";
 import type { Rack, RackPlacement } from "./types";
 
 type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl";
@@ -19,6 +19,7 @@ export function DcimEquipmentPage() {
   const dmPanelRef = useRef<HTMLDivElement | null>(null);
   const dmFileFrontRef = useRef<HTMLInputElement | null>(null);
   const dmFileBackRef = useRef<HTMLInputElement | null>(null);
+  const dmFileProductRef = useRef<HTMLInputElement | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const [mfrName, setMfrName] = useState("");
@@ -30,6 +31,7 @@ export function DcimEquipmentPage() {
   const [dmU, setDmU] = useState("1");
   const [dmImgFront, setDmImgFront] = useState("");
   const [dmImgBack, setDmImgBack] = useState("");
+  const [dmImgProduct, setDmImgProduct] = useState("");
   const [dtName, setDtName] = useState("");
   const [dtSlug, setDtSlug] = useState("");
   const [dtDesc, setDtDesc] = useState("");
@@ -209,13 +211,16 @@ export function DcimEquipmentPage() {
         device_type_id: dmDt === "" ? null : Number(dmDt),
         image_front_url: dmImgFront.trim() === "" ? null : dmImgFront.trim(),
         image_back_url: dmImgBack.trim() === "" ? null : dmImgBack.trim(),
+        image_product_url: dmImgProduct.trim() === "" ? null : dmImgProduct.trim(),
       }),
     onSuccess: async (created) => {
       const ff = dmFileFrontRef.current?.files?.[0];
       const fb = dmFileBackRef.current?.files?.[0];
+      const fp = dmFileProductRef.current?.files?.[0];
       try {
         if (ff) await api.uploadDeviceModelImageFront(created.id, ff);
         if (fb) await api.uploadDeviceModelImageBack(created.id, fb);
+        if (fp) await api.uploadDeviceModelImageProduct(created.id, fp);
         setErr(null);
       } catch (e) {
         setErr(e instanceof ApiError ? e.message : (e as Error).message);
@@ -223,8 +228,10 @@ export function DcimEquipmentPage() {
       setDmName("");
       setDmImgFront("");
       setDmImgBack("");
+      setDmImgProduct("");
       if (dmFileFrontRef.current) dmFileFrontRef.current.value = "";
       if (dmFileBackRef.current) dmFileBackRef.current.value = "";
+      if (dmFileProductRef.current) dmFileProductRef.current.value = "";
       void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -531,6 +538,16 @@ export function DcimEquipmentPage() {
             />
           </label>
           <label>
+            {t("dcim.equip.dm.imageProduct")}
+            <input
+              type="url"
+              value={dmImgProduct}
+              onChange={(e) => setDmImgProduct(e.target.value)}
+              placeholder="https://"
+              title={t("dcim.equip.dm.imageProductHint")}
+            />
+          </label>
+          <label>
             {t("dcim.equip.dm.imageFrontFile")}
             <input
               ref={dmFileFrontRef}
@@ -544,6 +561,15 @@ export function DcimEquipmentPage() {
               ref={dmFileBackRef}
               type="file"
               accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            />
+          </label>
+          <label>
+            {t("dcim.equip.dm.imageProductFile")}
+            <input
+              ref={dmFileProductRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              title={t("dcim.equip.dm.imageProductHint")}
             />
           </label>
           <button type="submit" className={styles.btn} disabled={createDm.isPending}>
@@ -565,7 +591,7 @@ export function DcimEquipmentPage() {
             </thead>
             <tbody>
               {modelsQ.data.map((x) => {
-                const src = deviceModelFrontSrc(x);
+                const src = deviceModelListThumbSrc(x);
                 return (
                   <tr key={x.id}>
                     <td className={styles.mfrLogoCell}>

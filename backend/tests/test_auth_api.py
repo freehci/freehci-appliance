@@ -46,6 +46,7 @@ def test_dcim_logo_and_model_images_get_without_bearer(client_with_auth: TestCli
     assert client_with_auth.get("/api/v1/dcim/manufacturers/999999/logo").status_code == 404
     assert client_with_auth.get("/api/v1/dcim/device-models/999999/image-front").status_code == 404
     assert client_with_auth.get("/api/v1/dcim/device-models/999999/image-back").status_code == 404
+    assert client_with_auth.get("/api/v1/dcim/device-models/999999/image-product").status_code == 404
 
 
 def test_dcim_logo_upload_still_requires_bearer(client_with_auth: TestClient) -> None:

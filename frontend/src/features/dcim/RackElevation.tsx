@@ -10,7 +10,7 @@ import {
   isInsideAnyRange,
   occupiesRange,
 } from "./rackUtils";
-import { deviceModelBackSrc, deviceModelFrontSrc } from "./modelImages";
+import { deviceModelBackSrc, deviceModelRackFaceSrc } from "./modelImages";
 import styles from "./RackPlanner.module.css";
 
 export type DragPayload =
@@ -182,8 +182,8 @@ export function RackElevation({
     const isRear = p.mounting === "rear";
     const thumbSrc = mod
       ? isRear
-        ? deviceModelBackSrc(mod) ?? deviceModelFrontSrc(mod)
-        : deviceModelFrontSrc(mod)
+        ? deviceModelBackSrc(mod) ?? deviceModelRackFaceSrc(mod)
+        : deviceModelRackFaceSrc(mod)
       : null;
     return (
       <div
