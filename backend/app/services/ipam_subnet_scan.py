@@ -300,7 +300,6 @@ def run_scan_background(
         CHUNK = 48
 
         def flush_scan_hosts() -> None:
-            nonlocal chunk
             if not chunk:
                 return
             for addr, ok in chunk:
