@@ -16,14 +16,24 @@ from pysnmp.hlapi.v3arch.asyncio import (
 from app.schemas.snmp import SnmpProbeRead, SnmpVarBindRead
 
 
-def _varbinds_to_read(varbinds: tuple) -> list[SnmpVarBindRead]:
+def varbinds_to_read(varbinds: tuple) -> list[SnmpVarBindRead]:
     out: list[SnmpVarBindRead] = []
     for vb in varbinds:
-        parts = [x.prettyPrint() for x in vb]
-        if len(parts) >= 2:
-            out.append(SnmpVarBindRead(oid=parts[0], value=parts[1]))
-        elif len(parts) == 1:
-            out.append(SnmpVarBindRead(oid=parts[0], value=""))
+        oid_obj = vb[0]
+        val_obj = vb[1] if len(vb) > 1 else None
+        oid_str = ""
+        tup_fn = getattr(oid_obj, "asTuple", None)
+        if callable(tup_fn):
+            tup = tup_fn()
+            if tup:
+                try:
+                    oid_str = ".".join(str(int(x)) for x in tup)
+                except (TypeError, ValueError):
+                    oid_str = ""
+        if not oid_str:
+            oid_str = oid_obj.prettyPrint()
+        val_str = val_obj.prettyPrint() if val_obj is not None else ""
+        out.append(SnmpVarBindRead(oid=oid_str, value=val_str))
     return out
 
 
@@ -63,9 +73,9 @@ async def run_snmp_probe(
                 return SnmpProbeRead(
                     ok=False,
                     error=f"SNMP errorStatus={error_status} index={error_index}",
-                    varbinds=_varbinds_to_read(varbinds),
+                    varbinds=varbinds_to_read(varbinds),
                 )
-            return SnmpProbeRead(ok=True, varbinds=_varbinds_to_read(varbinds))
+            return SnmpProbeRead(ok=True, varbinds=varbinds_to_read(varbinds))
 
         collected: list[SnmpVarBindRead] = []
         async for error_indication, error_status, error_index, varbinds in bulk_walk_cmd(
@@ -86,7 +96,7 @@ async def run_snmp_probe(
                     error=f"SNMP errorStatus={error_status} index={error_index}",
                     varbinds=collected,
                 )
-            collected.extend(_varbinds_to_read(varbinds))
+            collected.extend(varbinds_to_read(varbinds))
             if len(collected) >= max_oids:
                 break
 

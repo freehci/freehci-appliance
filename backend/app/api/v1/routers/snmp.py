@@ -3,10 +3,22 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, UploadFile
+from sqlalchemy.orm import Session
 from starlette.responses import Response
 
+from app.api.deps import get_db
 from app.core.config import Settings, get_settings
-from app.schemas.snmp import SnmpMibFileRead, SnmpProbeRead, SnmpProbeRequest
+from app.schemas.snmp import (
+    SnmpInventoryApplyRead,
+    SnmpInventoryApplyRequest,
+    SnmpInventoryRead,
+    SnmpInventoryRequest,
+    SnmpMibFileRead,
+    SnmpProbeRead,
+    SnmpProbeRequest,
+)
+from app.services import snmp_interface_import as iface_import_svc
+from app.services import snmp_inventory as inv_svc
 from app.services import snmp_mibs as mib_svc
 from app.services import snmp_probe as probe_svc
 
@@ -47,4 +59,35 @@ async def snmp_probe(data: SnmpProbeRequest) -> SnmpProbeRead:
         max_oids=data.max_oids,
         timeout_sec=data.timeout_sec,
         retries=data.retries,
+    )
+
+
+@router.post("/inventory", response_model=SnmpInventoryRead)
+async def snmp_inventory(data: SnmpInventoryRequest) -> SnmpInventoryRead:
+    """Hent sysName/sysDescr og IF-MIB/ifX-grensesnitt (SNMPv2c)."""
+    return await inv_svc.collect_interface_inventory(
+        host=data.host.strip(),
+        port=data.port,
+        community=data.community,
+        timeout_sec=data.timeout_sec,
+        retries=data.retries,
+        max_varbinds=data.max_varbinds,
+    )
+
+
+@router.post("/inventory/apply", response_model=SnmpInventoryApplyRead)
+async def snmp_inventory_apply(
+    data: SnmpInventoryApplyRequest,
+    db: Session = Depends(get_db),
+) -> SnmpInventoryApplyRead:
+    """Én SNMP-poll og oppdater DCIM-grensesnitt på enheten (match på navn)."""
+    return await iface_import_svc.apply_interface_inventory(
+        db,
+        device_id=data.device_id,
+        host=data.host.strip(),
+        port=data.port,
+        community=data.community,
+        timeout_sec=data.timeout_sec,
+        retries=data.retries,
+        max_varbinds=data.max_varbinds,
     )

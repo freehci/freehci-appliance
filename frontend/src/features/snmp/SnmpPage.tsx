@@ -4,6 +4,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
+import * as dcimApi from "@/features/dcim/dcimApi";
 import * as snmpApi from "./snmpApi";
 
 export function SnmpPage() {
@@ -17,8 +18,12 @@ export function SnmpPage() {
   const [probeOid, setProbeOid] = useState("1.3.6.1.2.1.1.1.0");
   const [probeOp, setProbeOp] = useState<"get" | "walk">("get");
   const [probeResult, setProbeResult] = useState<snmpApi.SnmpProbeResult | null>(null);
+  const [invResult, setInvResult] = useState<snmpApi.SnmpInventoryResult | null>(null);
+  const [invDeviceId, setInvDeviceId] = useState("");
+  const [applyMsg, setApplyMsg] = useState<string | null>(null);
 
   const mibsQ = useQuery({ queryKey: ["snmp", "mibs"], queryFn: snmpApi.listSnmpMibs });
+  const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: dcimApi.listDevices });
 
   const uploadMib = useMutation({
     mutationFn: (f: File) => snmpApi.uploadSnmpMib(f),
@@ -54,6 +59,54 @@ export function SnmpPage() {
     },
     onError: (e: Error) => {
       setProbeResult(null);
+      setErr(e instanceof ApiError ? e.message : e.message);
+    },
+  });
+
+  const invMut = useMutation({
+    mutationFn: () =>
+      snmpApi.snmpInventory({
+        host: probeHost.trim(),
+        port: Number(probePort) || 161,
+        community: probeCommunity,
+      }),
+    onSuccess: (r) => {
+      setErr(null);
+      setApplyMsg(null);
+      setInvResult(r);
+    },
+    onError: (e: Error) => {
+      setInvResult(null);
+      setErr(e instanceof ApiError ? e.message : e.message);
+    },
+  });
+
+  const applyMut = useMutation({
+    mutationFn: () =>
+      snmpApi.snmpInventoryApply({
+        device_id: Number(invDeviceId),
+        host: probeHost.trim(),
+        port: Number(probePort) || 161,
+        community: probeCommunity,
+      }),
+    onSuccess: (r) => {
+      setApplyMsg(null);
+      if (!r.ok) {
+        setErr(r.error ?? t("snmp.probeFail"));
+        return;
+      }
+      setErr(null);
+      const stats = t("snmp.invApplyStats")
+        .replace(/\{created\}/g, String(r.created))
+        .replace(/\{updated\}/g, String(r.updated))
+        .replace(/\{skipped\}/g, String(r.skipped));
+      setApplyMsg(`${t("snmp.invApplyOk")} ${stats}`);
+      if (r.poll) setInvResult(r.poll);
+      const did = r.device_id;
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", did, "interfaces"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => {
       setErr(e instanceof ApiError ? e.message : e.message);
     },
   });
@@ -208,6 +261,134 @@ export function SnmpPage() {
                 </table>
               </div>
             ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      <section className={dcimStyles.mfrDetailSection}>
+        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.invTitle")}</h3>
+        <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+          {t("snmp.invHint")}
+        </p>
+        <div className={dcimStyles.formRow} style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
+          <label>
+            {t("snmp.invDevice")}
+            <select
+              value={invDeviceId}
+              onChange={(e) => setInvDeviceId(e.target.value)}
+              style={{ minWidth: "12rem" }}
+            >
+              <option value="">{t("snmp.invDevicePlaceholder")}</option>
+              {(devicesQ.data ?? []).map((d) => (
+                <option key={d.id} value={String(d.id)}>
+                  {d.name} (id {d.id})
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className={dcimStyles.btn}
+            disabled={invMut.isPending || probeHost.trim() === ""}
+            onClick={() => {
+              setErr(null);
+              setApplyMsg(null);
+              if (probeHost.trim() === "") {
+                setErr(t("snmp.invMissingHost"));
+                return;
+              }
+              invMut.mutate();
+            }}
+          >
+            {invMut.isPending ? "…" : t("snmp.invFetch")}
+          </button>
+          <button
+            type="button"
+            className={dcimStyles.btn}
+            disabled={
+              applyMut.isPending || probeHost.trim() === "" || invDeviceId === "" || !Number(invDeviceId)
+            }
+            onClick={() => {
+              setErr(null);
+              setApplyMsg(null);
+              if (probeHost.trim() === "") {
+                setErr(t("snmp.invMissingHost"));
+                return;
+              }
+              if (invDeviceId === "" || !Number(invDeviceId)) {
+                setErr(t("snmp.invMissingDevice"));
+                return;
+              }
+              applyMut.mutate();
+            }}
+          >
+            {applyMut.isPending ? "…" : t("snmp.invApply")}
+          </button>
+        </div>
+        {applyMsg ? <p className={dcimStyles.muted}>{applyMsg}</p> : null}
+
+        {invResult ? (
+          <div style={{ marginTop: "var(--space-2)" }}>
+            {!invResult.ok ? (
+              <p className={dcimStyles.err}>
+                {t("snmp.probeFail")}: {invResult.error ?? "—"}
+              </p>
+            ) : (
+              <>
+                <p className={dcimStyles.muted}>
+                  <strong>{t("snmp.invSysName")}:</strong> {invResult.sys_name ?? "—"}{" "}
+                  <span className={dcimStyles.muted}>
+                    ({t("snmp.invVarbinds")}: {invResult.varbinds_collected ?? "—"})
+                  </span>
+                </p>
+                {invResult.sys_descr ? (
+                  <p className={dcimStyles.muted} style={{ whiteSpace: "pre-wrap", maxHeight: "6rem", overflow: "auto" }}>
+                    <strong>{t("snmp.invSysDescr")}:</strong> {invResult.sys_descr}
+                  </p>
+                ) : null}
+                {invResult.truncated ? <p className={dcimStyles.err}>{t("snmp.invTruncated")}</p> : null}
+                {invResult.interfaces.length > 0 ? (
+                  <div style={{ maxHeight: "55vh", overflow: "auto" }}>
+                    <table className={dcimStyles.table}>
+                      <thead>
+                        <tr>
+                          <th>{t("snmp.invColIfIndex")}</th>
+                          <th>{t("snmp.invColName")}</th>
+                          <th>{t("snmp.invColDescr")}</th>
+                          <th>{t("snmp.invColMac")}</th>
+                          <th>{t("snmp.invColSpeed")}</th>
+                          <th>{t("snmp.invColMtu")}</th>
+                          <th>{t("snmp.invColAdmin")}</th>
+                          <th>{t("snmp.invColOper")}</th>
+                          <th>{t("snmp.invColEnabled")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invResult.interfaces.map((row) => (
+                          <tr key={row.if_index}>
+                            <td>{row.if_index}</td>
+                            <td>
+                              <code>{row.name}</code>
+                            </td>
+                            <td>{row.description ?? "—"}</td>
+                            <td>
+                              <code>{row.mac_address ?? "—"}</code>
+                            </td>
+                            <td>{row.speed_mbps ?? "—"}</td>
+                            <td>{row.mtu ?? "—"}</td>
+                            <td>{row.admin_status}</td>
+                            <td>{row.oper_status}</td>
+                            <td>{row.enabled ? "✓" : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className={dcimStyles.muted}>—</p>
+                )}
+              </>
+            )}
           </div>
         ) : null}
       </section>
