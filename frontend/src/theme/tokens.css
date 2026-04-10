@@ -39,8 +39,18 @@
   --color-text-on-accent: #1a233a;
   --color-accent: #596280;
   --color-accent-hover: #6d7a99;
-  --color-input-bg: #1a233a;
-  --color-input-focus-bg: #272e48;
+  /* Skjemafelt: svart bakgrunn for bedre kontrast mot lys tekst */
+  --color-input-bg: #000000;
+  --color-input-focus-bg: #0a0a0a;
+  /* Primærknapper (avvik fra lenke-aksent #596280) */
+  --color-button-bg: #6e86d5;
+  --color-button-bg-hover: #7d94de;
+  --color-button-fg: #ffffff;
+  --color-button-hover-fg: #ffffff;
+  /* Slett/ fare — lysere rødt i mørk modus, samme «vekting» som primærknapp */
+  --color-danger-button-bg: #c93c3c;
+  --color-danger-button-bg-hover: #d85555;
+  --color-danger-button-fg: #ffffff;
   --color-row-alt: #272e48;
   --color-sidebar-hover: rgba(255, 255, 255, 0.08);
   --color-status-up: #3de010;
@@ -69,6 +79,13 @@
   --color-accent-hover: #4a546e;
   --color-input-bg: #ffffff;
   --color-input-focus-bg: #ffffff;
+  --color-button-bg: #f5f7fb;
+  --color-button-bg-hover: #596280;
+  --color-button-fg: #1a233a;
+  --color-button-hover-fg: #ffffff;
+  --color-danger-button-bg: #b91c1c;
+  --color-danger-button-bg-hover: #991b1b;
+  --color-danger-button-fg: #ffffff;
   --color-row-alt: #e8ecf4;
   --color-sidebar-hover: rgba(26, 35, 58, 0.06);
   --color-status-up: #2e7d1f;

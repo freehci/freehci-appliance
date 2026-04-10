@@ -327,8 +327,8 @@
   place-items: center;
   border: none;
   border-radius: var(--radius-sm);
-  background: rgba(127, 29, 29, 0.85);
-  color: #fecaca;
+  background: var(--color-danger-button-bg);
+  color: var(--color-danger-button-fg);
   cursor: pointer;
   font-size: 0.65rem;
   line-height: 1;
@@ -336,7 +336,7 @@
 }
 
 .removeBtn:hover {
-  background: #991b1b;
+  background: var(--color-danger-button-bg-hover);
 }
 
 .hint {
@@ -359,8 +359,14 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--shell-border);
-  background: var(--color-bg-surface);
+  background: var(--color-input-bg);
   color: var(--color-text);
+}
+
+.paletteMountRow select:focus {
+  background: var(--color-input-focus-bg);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-button-bg);
 }
 
 .paletteMountHint {
@@ -412,8 +418,15 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--shell-border);
-  background: var(--color-bg-surface);
+  background: var(--color-input-bg);
   color: var(--color-text);
+}
+
+.placementDialogLabel select:focus,
+.placementDialogLabel input:focus {
+  background: var(--color-input-focus-bg);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-button-bg);
 }
 
 .placementDialogErr {
@@ -488,7 +501,7 @@
   padding: 1px 2px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--shell-border);
-  background: rgba(26, 35, 58, 0.9);
+  background: var(--color-input-bg);
   color: var(--color-text);
 }
 
