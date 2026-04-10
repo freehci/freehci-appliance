@@ -16,6 +16,7 @@ from pysnmp.hlapi.v3arch.asyncio import (
 )
 
 from app.schemas.snmp import SnmpInterfaceRow, SnmpInventoryRead, SnmpVarBindRead
+from app.services.snmp_probe import varbinds_to_read
 
 # ifTable.ifEntry columns (RFC 1213 / IF-MIB)
 _IF_TABLE_BASE = (1, 3, 6, 1, 2, 1, 2, 2, 1)
