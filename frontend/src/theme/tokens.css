@@ -79,7 +79,8 @@
   --color-accent-hover: #4a546e;
   --color-input-bg: #ffffff;
   --color-input-focus-bg: #ffffff;
-  --color-button-bg: #f5f7fb;
+  /* Mørkere enn flater (#f5f7fb) slik at knapper skilles tydelig ut i lys modus */
+  --color-button-bg: #dfe6f4;
   --color-button-bg-hover: #596280;
   --color-button-fg: #1a233a;
   --color-button-hover-fg: #ffffff;
