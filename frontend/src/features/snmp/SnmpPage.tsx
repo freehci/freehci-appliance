@@ -19,6 +19,7 @@ export function SnmpPage() {
   const [probeOp, setProbeOp] = useState<"get" | "walk">("get");
   const [probeResult, setProbeResult] = useState<snmpApi.SnmpProbeResult | null>(null);
   const [invResult, setInvResult] = useState<snmpApi.SnmpInventoryResult | null>(null);
+  const [scanResult, setScanResult] = useState<snmpApi.SnmpScanResult | null>(null);
   const [invDeviceId, setInvDeviceId] = useState("");
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
 
@@ -74,9 +75,41 @@ export function SnmpPage() {
       setErr(null);
       setApplyMsg(null);
       setInvResult(r);
+      setScanResult(null);
     },
     onError: (e: Error) => {
       setInvResult(null);
+      setErr(e instanceof ApiError ? e.message : e.message);
+    },
+  });
+
+  const scanMut = useMutation({
+    mutationFn: () =>
+      snmpApi.snmpScan({
+        host: probeHost.trim(),
+        port: Number(probePort) || 161,
+        community: probeCommunity,
+        max_varbinds: 8000,
+      }),
+    onSuccess: (r) => {
+      setErr(null);
+      setApplyMsg(null);
+      setScanResult(r);
+      if (r.ok) {
+        setInvResult({
+          ok: true,
+          error: null,
+          host: r.host,
+          sys_name: r.sys_name,
+          sys_descr: r.sys_descr,
+          interfaces: r.interfaces,
+          truncated: r.truncated,
+          varbinds_collected: r.varbinds_collected,
+        });
+      }
+    },
+    onError: (e: Error) => {
+      setScanResult(null);
       setErr(e instanceof ApiError ? e.message : e.message);
     },
   });
@@ -289,7 +322,7 @@ export function SnmpPage() {
           <button
             type="button"
             className={dcimStyles.btn}
-            disabled={invMut.isPending || probeHost.trim() === ""}
+            disabled={invMut.isPending || scanMut.isPending || probeHost.trim() === ""}
             onClick={() => {
               setErr(null);
               setApplyMsg(null);
@@ -305,8 +338,30 @@ export function SnmpPage() {
           <button
             type="button"
             className={dcimStyles.btn}
+            disabled={invMut.isPending || scanMut.isPending || probeHost.trim() === ""}
+            onClick={() => {
+              setErr(null);
+              setApplyMsg(null);
+              if (probeHost.trim() === "") {
+                setErr(t("snmp.invMissingHost"));
+                return;
+              }
+              scanMut.mutate();
+            }}
+            title={t("snmp.scanHint")}
+          >
+            {scanMut.isPending ? "…" : t("snmp.scanFetch")}
+          </button>
+          <button
+            type="button"
+            className={dcimStyles.btn}
             disabled={
-              applyMut.isPending || probeHost.trim() === "" || invDeviceId === "" || !Number(invDeviceId)
+              applyMut.isPending ||
+              invMut.isPending ||
+              scanMut.isPending ||
+              probeHost.trim() === "" ||
+              invDeviceId === "" ||
+              !Number(invDeviceId)
             }
             onClick={() => {
               setErr(null);
@@ -389,6 +444,117 @@ export function SnmpPage() {
                 )}
               </>
             )}
+          </div>
+        ) : null}
+
+        {scanResult && !scanResult.ok ? (
+          <p className={dcimStyles.err} style={{ marginTop: "var(--space-2)" }}>
+            {t("snmp.probeFail")}: {scanResult.error ?? "—"}
+          </p>
+        ) : null}
+
+        {scanResult && scanResult.warnings.length > 0 ? (
+          <ul className={dcimStyles.muted} style={{ marginTop: "var(--space-2)" }}>
+            {scanResult.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        ) : null}
+
+        {scanResult && scanResult.ok ? (
+          <div style={{ marginTop: "var(--space-3)" }}>
+            {scanResult.ip_addresses.length > 0 ? (
+              <>
+                <h4 className={dcimStyles.mfrDetailSectionTitle} style={{ fontSize: "1rem" }}>
+                  {t("snmp.scanIpTitle")}
+                </h4>
+                <div style={{ maxHeight: "40vh", overflow: "auto" }}>
+                  <table className={dcimStyles.table}>
+                    <thead>
+                      <tr>
+                        <th>{t("snmp.scanColAddress")}</th>
+                        <th>{t("snmp.invColIfIndex")}</th>
+                        <th>{t("snmp.invColName")}</th>
+                        <th>{t("snmp.scanColNetmask")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scanResult.ip_addresses.map((row) => (
+                        <tr key={`${row.address}-${row.if_index}`}>
+                          <td>
+                            <code>{row.address}</code>
+                          </td>
+                          <td>{row.if_index}</td>
+                          <td>{row.interface_name ?? "—"}</td>
+                          <td>
+                            <code>{row.netmask ?? "—"}</code>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : null}
+
+            {scanResult.vlans.length > 0 ? (
+              <>
+                <h4 className={dcimStyles.mfrDetailSectionTitle} style={{ fontSize: "1rem", marginTop: "var(--space-2)" }}>
+                  {t("snmp.scanVlanTitle")}
+                </h4>
+                <div style={{ maxHeight: "30vh", overflow: "auto" }}>
+                  <table className={dcimStyles.table}>
+                    <thead>
+                      <tr>
+                        <th>{t("snmp.scanColVlanId")}</th>
+                        <th>{t("snmp.scanColVlanName")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scanResult.vlans.map((row) => (
+                        <tr key={row.vlan_id}>
+                          <td>{row.vlan_id}</td>
+                          <td>{row.name ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : null}
+
+            {scanResult.interface_vlans.length > 0 ? (
+              <>
+                <h4 className={dcimStyles.mfrDetailSectionTitle} style={{ fontSize: "1rem", marginTop: "var(--space-2)" }}>
+                  {t("snmp.scanPvidTitle")}
+                </h4>
+                <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+                  {t("snmp.scanPvidHint")}
+                </p>
+                <div style={{ maxHeight: "40vh", overflow: "auto" }}>
+                  <table className={dcimStyles.table}>
+                    <thead>
+                      <tr>
+                        <th>{t("snmp.invColIfIndex")}</th>
+                        <th>{t("snmp.invColName")}</th>
+                        <th>{t("snmp.scanColBridgePort")}</th>
+                        <th>{t("snmp.scanColPvid")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scanResult.interface_vlans.map((row) => (
+                        <tr key={`${row.if_index}-${row.bridge_port ?? 0}`}>
+                          <td>{row.if_index}</td>
+                          <td>{row.interface_name ?? "—"}</td>
+                          <td>{row.bridge_port ?? "—"}</td>
+                          <td>{row.native_vlan_id}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>

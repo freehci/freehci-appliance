@@ -77,6 +77,44 @@ class SnmpInventoryRead(BaseModel):
     varbinds_collected: int | None = None
 
 
+class SnmpScanRequest(SnmpInventoryRequest):
+    """Samme parametere som inventar; svar utvider med IPv4 og VLAN."""
+
+
+class SnmpIpAddressRow(BaseModel):
+    address: str = Field(..., max_length=45)
+    if_index: int
+    netmask: str | None = Field(None, max_length=64)
+    interface_name: str | None = Field(None, max_length=128)
+
+
+class SnmpVlanRow(BaseModel):
+    vlan_id: int = Field(..., ge=1, le=4094)
+    name: str | None = Field(None, max_length=256)
+
+
+class SnmpInterfaceVlanRow(BaseModel):
+    if_index: int
+    native_vlan_id: int = Field(..., ge=1, le=4094)
+    bridge_port: int | None = Field(None, ge=1)
+    interface_name: str | None = Field(None, max_length=128)
+
+
+class SnmpScanRead(BaseModel):
+    ok: bool
+    error: str | None = None
+    host: str
+    sys_name: str | None = None
+    sys_descr: str | None = None
+    interfaces: list[SnmpInterfaceRow] = Field(default_factory=list)
+    ip_addresses: list[SnmpIpAddressRow] = Field(default_factory=list)
+    vlans: list[SnmpVlanRow] = Field(default_factory=list)
+    interface_vlans: list[SnmpInterfaceVlanRow] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    truncated: bool = False
+    varbinds_collected: int | None = None
+
+
 class SnmpInventoryApplyRequest(SnmpInventoryRequest):
     device_id: int = Field(..., ge=1)
 

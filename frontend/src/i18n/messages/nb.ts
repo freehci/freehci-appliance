@@ -106,6 +106,20 @@ export const nb = {
   "snmp.invColEnabled": "Aktivert",
   "snmp.invApplyOk": "Import fullført.",
   "snmp.invApplyStats": "Opprettet: {created}, oppdatert: {updated}, uendret: {skipped}.",
+  "snmp.scanFetch": "Full skann (IP + VLAN)",
+  "snmp.scanHint":
+    "Henter IF-MIB, IPv4-adresser (ipAddrTable) og VLAN der Q-BRIDGE/BRIDGE-MIB er tilgjengelig. Oppdaterer også grensesnittlisten over slik at du kan importere til DCIM uten ekstra «Hent inventar».",
+  "snmp.scanIpTitle": "IPv4-adresser",
+  "snmp.scanColAddress": "Adresse",
+  "snmp.scanColNetmask": "Maske",
+  "snmp.scanVlanTitle": "Statiske VLAN (navn)",
+  "snmp.scanColVlanId": "VLAN-ID",
+  "snmp.scanColVlanName": "Navn",
+  "snmp.scanPvidTitle": "Native VLAN (PVID) per port",
+  "snmp.scanPvidHint":
+    "Krever Q-BRIDGE-MIB. Broport mappes til ifIndex via BRIDGE-MIB; på L3-only eller ikke-støttede agenter blir denne tabellen tom.",
+  "snmp.scanColBridgePort": "Broport",
+  "snmp.scanColPvid": "PVID",
 
   "placeholders.jobs.title": "Jobs",
   "placeholders.jobs.desc": "Celery-arbeidere, discovery og synk – fase 4.",

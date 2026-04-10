@@ -16,9 +16,12 @@ from app.schemas.snmp import (
     SnmpMibFileRead,
     SnmpProbeRead,
     SnmpProbeRequest,
+    SnmpScanRead,
+    SnmpScanRequest,
 )
 from app.services import snmp_interface_import as iface_import_svc
 from app.services import snmp_inventory as inv_svc
+from app.services import snmp_scan as scan_svc
 from app.services import snmp_mibs as mib_svc
 from app.services import snmp_probe as probe_svc
 
@@ -66,6 +69,19 @@ async def snmp_probe(data: SnmpProbeRequest) -> SnmpProbeRead:
 async def snmp_inventory(data: SnmpInventoryRequest) -> SnmpInventoryRead:
     """Hent sysName/sysDescr og IF-MIB/ifX-grensesnitt (SNMPv2c)."""
     return await inv_svc.collect_interface_inventory(
+        host=data.host.strip(),
+        port=data.port,
+        community=data.community,
+        timeout_sec=data.timeout_sec,
+        retries=data.retries,
+        max_varbinds=data.max_varbinds,
+    )
+
+
+@router.post("/scan", response_model=SnmpScanRead)
+async def snmp_scan(data: SnmpScanRequest) -> SnmpScanRead:
+    """Utvidet skanning: grensesnitt, IPv4 (ipAddrTable) og VLAN (BRIDGE/Q-BRIDGE) der støttet."""
+    return await scan_svc.collect_full_scan(
         host=data.host.strip(),
         port=data.port,
         community=data.community,

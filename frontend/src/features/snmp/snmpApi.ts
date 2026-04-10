@@ -81,6 +81,48 @@ export function snmpInventory(body: {
   return apiPost(`${P}/inventory`, body);
 }
 
+export type SnmpIpAddressRow = {
+  address: string;
+  if_index: number;
+  netmask: string | null;
+  interface_name: string | null;
+};
+
+export type SnmpVlanRow = { vlan_id: number; name: string | null };
+
+export type SnmpInterfaceVlanRow = {
+  if_index: number;
+  native_vlan_id: number;
+  bridge_port: number | null;
+  interface_name: string | null;
+};
+
+export type SnmpScanResult = {
+  ok: boolean;
+  error: string | null;
+  host: string;
+  sys_name: string | null;
+  sys_descr: string | null;
+  interfaces: SnmpInterfaceRow[];
+  ip_addresses: SnmpIpAddressRow[];
+  vlans: SnmpVlanRow[];
+  interface_vlans: SnmpInterfaceVlanRow[];
+  warnings: string[];
+  truncated: boolean;
+  varbinds_collected: number | null;
+};
+
+export function snmpScan(body: {
+  host: string;
+  port?: number;
+  community?: string;
+  max_varbinds?: number;
+  timeout_sec?: number;
+  retries?: number;
+}): Promise<SnmpScanResult> {
+  return apiPost(`${P}/scan`, body);
+}
+
 export type SnmpInventoryApplyResult = {
   ok: boolean;
   error: string | null;
