@@ -10,6 +10,7 @@ export function SidebarNav() {
   const mainNav: MainNavItem[] = [
     { to: "/", label: t("nav.dashboard"), end: true },
     { to: "/ipam", label: t("nav.ipam") },
+    { to: "/snmp", label: t("nav.snmp") },
     { to: "/jobs", label: t("nav.jobs") },
     { to: "/integrations", label: t("nav.integrations") },
     { to: "/service-catalog", label: t("nav.serviceCatalog") },

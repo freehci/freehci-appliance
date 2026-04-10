@@ -1,0 +1,78 @@
+"""Lagring av opplastede MIB-filer på disk."""
+
+from __future__ import annotations
+
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import HTTPException
+
+from app.core.config import Settings
+
+_MIB_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
+_ALLOWED_SUFFIX = frozenset({".mib", ".my", ".txt"})
+
+
+def _ensure_mib_root(settings: Settings) -> Path:
+    root = settings.mib_root_path.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def validate_mib_filename(name: str) -> str:
+    base = Path(name).name
+    if not _MIB_NAME_RE.fullmatch(base):
+        raise HTTPException(status_code=400, detail="ugyldig MIB-filnavn")
+    suf = Path(base).suffix.lower()
+    if suf not in _ALLOWED_SUFFIX:
+        raise HTTPException(
+            status_code=400,
+            detail="kun .mib, .my eller .txt er tillatt",
+        )
+    return base
+
+
+def list_mib_files(settings: Settings) -> list[dict]:
+    root = _ensure_mib_root(settings)
+    out: list[dict] = []
+    for p in sorted(root.iterdir()):
+        if not p.is_file():
+            continue
+        st = p.stat()
+        out.append(
+            {
+                "name": p.name,
+                "size_bytes": st.st_size,
+                "modified_at": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc),
+            },
+        )
+    return out
+
+
+def save_mib_file(settings: Settings, filename: str, data: bytes) -> dict:
+    safe = validate_mib_filename(filename)
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="MIB-fil for stor (maks 5 MiB)")
+    root = _ensure_mib_root(settings)
+    path = (root / safe).resolve()
+    if not str(path).startswith(str(root.resolve())):
+        raise HTTPException(status_code=400, detail="ugyldig sti")
+    path.write_bytes(data)
+    st = path.stat()
+    return {
+        "name": path.name,
+        "size_bytes": st.st_size,
+        "modified_at": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc),
+    }
+
+
+def delete_mib_file(settings: Settings, filename: str) -> None:
+    safe = validate_mib_filename(filename)
+    root = _ensure_mib_root(settings)
+    path = (root / safe).resolve()
+    if not str(path).startswith(str(root.resolve())):
+        raise HTTPException(status_code=400, detail="ugyldig sti")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
+    path.unlink()

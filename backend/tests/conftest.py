@@ -11,6 +11,8 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_tmp_db.as_posix()}"
 os.environ["FREEHCI_SKIP_AUTH"] = "1"
 _upload_root = Path(tempfile.mkdtemp(prefix="freehci-uploads-"))
 os.environ["UPLOAD_ROOT"] = str(_upload_root)
+_mib_root = Path(tempfile.mkdtemp(prefix="freehci-mibs-"))
+os.environ["MIB_ROOT"] = str(_mib_root)
 
 from app.core.config import get_settings
 

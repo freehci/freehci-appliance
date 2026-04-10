@@ -58,6 +58,11 @@ class Settings(BaseSettings):
         description="Rotkatalog for opplastede filer (logoer m.m.), relativ til arbeidskatalog eller absolutt sti",
     )
 
+    mib_root: str = Field(
+        default="data/mibs",
+        description="Katalog for opplastede SNMP-MIB-filer (.mib/.txt), relativ eller absolutt sti",
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -73,6 +78,10 @@ class Settings(BaseSettings):
     @property
     def upload_root_path(self) -> Path:
         return Path(self.upload_root).expanduser()
+
+    @property
+    def mib_root_path(self) -> Path:
+        return Path(self.mib_root).expanduser()
 
 
 @lru_cache

@@ -2,6 +2,7 @@
 export const en = {
   "nav.dashboard": "Dashboard",
   "nav.ipam": "IPAM",
+  "nav.snmp": "SNMP",
   "nav.jobs": "Jobs",
   "nav.integrations": "Integrations",
   "nav.serviceCatalog": "Service catalog",
@@ -50,6 +51,34 @@ export const en = {
 
   "placeholders.ipam.title": "IPAM",
   "placeholders.ipam.desc": "VRF, VLAN, prefixes and assignments — planned for phase 3.",
+
+  "snmp.title": "SNMP",
+  "snmp.intro":
+    "Upload vendor MIB files for future OID name resolution. Run SNMPv2c GET or WALK against reachable hosts. Like ICMP and ARP, SNMP from the API container only reaches networks the container can route to — use host networking or deploy the API on a host with L2/L3 access to your devices when needed.",
+  "snmp.mibsTitle": "MIB library",
+  "snmp.mibsHint":
+    "Store .mib / .my / .txt sources here (max 5 MiB per file). Compiled MIB integration for symbolic OIDs is planned; use numeric OIDs in the probe for now.",
+  "snmp.mibFile": "MIB file",
+  "snmp.mibUpload": "Upload",
+  "snmp.mibColName": "File",
+  "snmp.mibColSize": "Bytes",
+  "snmp.mibColModified": "Modified",
+  "snmp.mibsEmpty": "No MIB files uploaded yet.",
+  "snmp.mibDeleteConfirm": "Delete this MIB file from the server?",
+  "snmp.probeTitle": "SNMP probe",
+  "snmp.probeHint":
+    "SNMPv2c community string. Example OID: 1.3.6.1.2.1.1.1.0 (sysDescr.0). WALK uses BULK and stops after 200 OIDs by default.",
+  "snmp.probeHost": "Host / IP",
+  "snmp.probePort": "UDP port",
+  "snmp.probeCommunity": "Community",
+  "snmp.probeOid": "OID",
+  "snmp.probeOperation": "Operation",
+  "snmp.probeRun": "Run",
+  "snmp.probeMissing": "Enter host and OID.",
+  "snmp.probeOk": "Response received.",
+  "snmp.probeFail": "SNMP error",
+  "snmp.probeValue": "Value",
+  "snmp.colOid": "OID",
   "placeholders.jobs.title": "Jobs",
   "placeholders.jobs.desc": "Celery workers, discovery and sync — phase 4.",
   "placeholders.integrations.title": "Integrations",

@@ -20,7 +20,7 @@ COPY app ./app
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN chmod +x /docker-entrypoint.sh \
-    && mkdir -p /app/data/uploads \
+    && mkdir -p /app/data/uploads /app/data/mibs \
     && groupadd --gid 10001 freehci \
     && useradd --uid 10001 --gid freehci --system --no-create-home freehci \
     && chown -R freehci:freehci /app

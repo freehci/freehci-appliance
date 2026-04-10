@@ -4,6 +4,7 @@ import type { MessageKey } from "./en";
 export const nb = {
   "nav.dashboard": "Dashboard",
   "nav.ipam": "IPAM",
+  "nav.snmp": "SNMP",
   "nav.jobs": "Jobs",
   "nav.integrations": "Integrasjoner",
   "nav.serviceCatalog": "Servicekatalog",
@@ -53,6 +54,35 @@ export const nb = {
 
   "placeholders.ipam.title": "IPAM",
   "placeholders.ipam.desc": "VRF, VLAN, prefiks og tildelinger – redesignes i fase 3.",
+
+  "snmp.title": "SNMP",
+  "snmp.intro":
+    "Last opp leverandør-MIB-filer for senere OID-navneoppslag. Kjør SNMPv2c GET eller WALK mot tilgjengelige verter. Som ICMP og ARP når SNMP fra API-containeren bare nett den containeren har rute til — bruk host-nettverk eller kjør API på en vert med L2/L3 til utstyret når det trengs.",
+  "snmp.mibsTitle": "MIB-bibliotek",
+  "snmp.mibsHint":
+    "Lagre .mib / .my / .txt her (maks 5 MiB per fil). Kompilerte MIB-er og symbolske OID-er kommer senere; bruk numeriske OID-er i proben inntil videre.",
+  "snmp.mibFile": "MIB-fil",
+  "snmp.mibUpload": "Last opp",
+  "snmp.mibColName": "Fil",
+  "snmp.mibColSize": "Bytes",
+  "snmp.mibColModified": "Endret",
+  "snmp.mibsEmpty": "Ingen MIB-filer er lastet opp ennå.",
+  "snmp.mibDeleteConfirm": "Slette denne MIB-filen fra serveren?",
+  "snmp.probeTitle": "SNMP-probe",
+  "snmp.probeHint":
+    "SNMPv2c community. Eksempel-OID: 1.3.6.1.2.1.1.1.0 (sysDescr.0). WALK bruker BULK og stopper etter 200 OID-er som standard.",
+  "snmp.probeHost": "Vert / IP",
+  "snmp.probePort": "UDP-port",
+  "snmp.probeCommunity": "Community",
+  "snmp.probeOid": "OID",
+  "snmp.probeOperation": "Operasjon",
+  "snmp.probeRun": "Kjør",
+  "snmp.probeMissing": "Oppgi vert og OID.",
+  "snmp.probeOk": "Svar mottatt.",
+  "snmp.probeFail": "SNMP-feil",
+  "snmp.probeValue": "Verdi",
+  "snmp.colOid": "OID",
+
   "placeholders.jobs.title": "Jobs",
   "placeholders.jobs.desc": "Celery-arbeidere, discovery og synk – fase 4.",
   "placeholders.integrations.title": "Integrasjoner",

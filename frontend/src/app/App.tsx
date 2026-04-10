@@ -12,6 +12,7 @@ import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { IpamPage } from "@/features/ipam/IpamPage";
+import { SnmpPage } from "@/features/snmp/SnmpPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { PluginProvider } from "@/plugins/PluginContext";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -45,6 +46,7 @@ function AppRoutes() {
             <Route path="equipment/manufacturers/:manufacturerId" element={<DcimManufacturerDetailPage />} />
           </Route>
           <Route path="/ipam" element={<IpamPage />} />
+          <Route path="/snmp" element={<SnmpPage />} />
           <Route
             path="/jobs"
             element={
