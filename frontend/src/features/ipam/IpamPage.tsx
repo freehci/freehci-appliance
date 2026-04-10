@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -11,6 +11,21 @@ import type { Ipv4Prefix, PrefixAddressGridRow } from "./types";
 import * as ipamApi from "./ipamApi";
 
 type ExploreCrumb = { id: number; name: string; cidr: string };
+
+const GRID_PAGE_SIZE_OPTIONS = [25, 50, 100, 0] as const;
+
+function isGridRowFree(row: PrefixAddressGridRow): boolean {
+  if (row.assignment != null) return false;
+  const inv = row.inventory;
+  if (inv == null) return true;
+  return inv.status === "discovered";
+}
+
+function formatInventoryTimestamp(iso: string | null | undefined): string {
+  if (iso == null || iso === "") return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
 
 export function IpamPage() {
   const { t } = useI18n();
@@ -37,6 +52,14 @@ export function IpamPage() {
   const [reqInterfaceId, setReqInterfaceId] = useState("");
   const [addrFilterText, setAddrFilterText] = useState("");
   const [addrFilterStatus, setAddrFilterStatus] = useState("");
+  const [addrFilterFreeOnly, setAddrFilterFreeOnly] = useState(false);
+  const [addrFilterOwnerUserId, setAddrFilterOwnerUserId] = useState("");
+  const [gridFilterOpen, setGridFilterOpen] = useState(false);
+  const gridFilterRef = useRef<HTMLDivElement | null>(null);
+  const [gridPage, setGridPage] = useState(0);
+  const [gridPageSize, setGridPageSize] = useState<number>(50);
+  const [prefixListPage, setPrefixListPage] = useState(0);
+  const [prefixListPageSize, setPrefixListPageSize] = useState<number>(25);
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
@@ -82,7 +105,37 @@ export function IpamPage() {
     setReqDeviceId("");
     setReqInterfaceId("");
     setReqMode("reserve");
+    setAddrFilterFreeOnly(false);
+    setAddrFilterOwnerUserId("");
+    setGridFilterOpen(false);
+    setGridPage(0);
   }, [exploreId]);
+
+  useEffect(() => {
+    setPrefixListPage(0);
+  }, [siteIdFilter]);
+
+  useEffect(() => {
+    setPrefixListPage(0);
+  }, [prefixListPageSize]);
+
+  useEffect(() => {
+    setGridPage(0);
+  }, [addrFilterText, addrFilterStatus, addrFilterFreeOnly, addrFilterOwnerUserId]);
+
+  useEffect(() => {
+    setGridPage(0);
+  }, [gridPageSize]);
+
+  useEffect(() => {
+    if (!gridFilterOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = gridFilterRef.current;
+      if (el && e.target instanceof Node && !el.contains(e.target)) setGridFilterOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [gridFilterOpen]);
 
   useEffect(() => {
     const st = gridQ.data?.active_scan?.status;
@@ -193,10 +246,15 @@ export function IpamPage() {
   const filteredGridRows = useMemo(() => {
     const rows = gridQ.data?.rows ?? [];
     const q = addrFilterText.trim().toLowerCase();
+    const ownerF = addrFilterOwnerUserId === "" ? null : Number(addrFilterOwnerUserId);
     return rows.filter((row) => {
       const inv = row.inventory;
       const st = inv?.status ?? "";
       if (addrFilterStatus !== "" && st !== addrFilterStatus) return false;
+      if (addrFilterFreeOnly && !isGridRowFree(row)) return false;
+      if (ownerF != null && !Number.isNaN(ownerF)) {
+        if (inv?.owner_user_id !== ownerF) return false;
+      }
       if (q === "") return true;
       const devName =
         row.assignment != null
@@ -224,7 +282,74 @@ export function IpamPage() {
         mac.includes(q)
       );
     });
-  }, [gridQ.data?.rows, addrFilterText, addrFilterStatus, deviceNameById, userLabelById]);
+  }, [
+    gridQ.data?.rows,
+    addrFilterText,
+    addrFilterStatus,
+    addrFilterFreeOnly,
+    addrFilterOwnerUserId,
+    deviceNameById,
+    userLabelById,
+  ]);
+
+  useEffect(() => {
+    const total = filteredGridRows.length;
+    const size = gridPageSize === 0 ? Math.max(total, 1) : gridPageSize;
+    const pageCount = Math.max(1, Math.ceil(total / size));
+    setGridPage((p) => Math.min(Math.max(0, p), pageCount - 1));
+  }, [filteredGridRows.length, gridPageSize]);
+
+  const gridFilterActiveCount = useMemo(() => {
+    let n = 0;
+    if (addrFilterStatus !== "") n += 1;
+    if (addrFilterFreeOnly) n += 1;
+    if (addrFilterOwnerUserId !== "") n += 1;
+    return n;
+  }, [addrFilterStatus, addrFilterFreeOnly, addrFilterOwnerUserId]);
+
+  const gridPageSlice = useMemo(() => {
+    const total = filteredGridRows.length;
+    const size = gridPageSize === 0 ? Math.max(total, 1) : gridPageSize;
+    const pageCount = Math.max(1, Math.ceil(total / size));
+    const safePage = Math.min(Math.max(0, gridPage), pageCount - 1);
+    const start = safePage * size;
+    const end = gridPageSize === 0 ? total : Math.min(start + size, total);
+    return {
+      rows: filteredGridRows.slice(start, end),
+      total,
+      size,
+      pageCount,
+      safePage,
+      rangeStart: total === 0 ? 0 : start + 1,
+      rangeEnd: end,
+    };
+  }, [filteredGridRows, gridPage, gridPageSize]);
+
+  const prefixListSlice = useMemo(() => {
+    const all = prefixesQ.data ?? [];
+    const total = all.length;
+    const size = prefixListPageSize === 0 ? Math.max(total, 1) : prefixListPageSize;
+    const pageCount = Math.max(1, Math.ceil(total / size));
+    const safePage = Math.min(Math.max(0, prefixListPage), pageCount - 1);
+    const start = safePage * size;
+    const end = prefixListPageSize === 0 ? total : Math.min(start + size, total);
+    return {
+      rows: all.slice(start, end),
+      total,
+      size,
+      pageCount,
+      safePage,
+      rangeStart: total === 0 ? 0 : start + 1,
+      rangeEnd: end,
+    };
+  }, [prefixesQ.data, prefixListPage, prefixListPageSize]);
+
+  useEffect(() => {
+    const total = prefixesQ.data?.length ?? 0;
+    const size = prefixListPageSize === 0 ? Math.max(total, 1) : prefixListPageSize;
+    const pageCount = Math.max(1, Math.ceil(total / size));
+    setPrefixListPage((p) => Math.min(Math.max(0, p), pageCount - 1));
+  }, [prefixesQ.data?.length, prefixListPageSize]);
 
   const deviceIdNum = reqDeviceId === "" ? null : Number(reqDeviceId);
   const interfacesQ = useQuery({
@@ -615,8 +740,11 @@ export function IpamPage() {
                 </div>
               ) : null}
 
-              <div className={dcimStyles.formRow} style={{ marginTop: "var(--space-2)" }}>
-                <label>
+              <div
+                className={dcimStyles.formRow}
+                style={{ marginTop: "var(--space-2)", alignItems: "flex-end", flexWrap: "wrap" }}
+              >
+                <label style={{ flex: "1 1 14rem", minWidth: "10rem" }}>
                   {t("ipam.addr.filterText")}
                   <input
                     value={addrFilterText}
@@ -624,26 +752,180 @@ export function IpamPage() {
                     placeholder={t("ipam.addr.filterTextPlaceholder")}
                   />
                 </label>
-                <label>
-                  {t("ipam.addr.filterStatus")}
-                  <select value={addrFilterStatus} onChange={(e) => setAddrFilterStatus(e.target.value)}>
-                    <option value="">{t("ipam.addr.filterStatusAll")}</option>
-                    <option value="discovered">discovered</option>
-                    <option value="reserved">reserved</option>
-                    <option value="assigned">assigned</option>
-                  </select>
-                </label>
+                <div ref={gridFilterRef} style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    className={dcimStyles.btn}
+                    aria-expanded={gridFilterOpen}
+                    aria-label={
+                      gridFilterActiveCount > 0
+                        ? `${t("ipam.grid.filter.aria")} (${gridFilterActiveCount})`
+                        : t("ipam.grid.filter.aria")
+                    }
+                    onClick={() => setGridFilterOpen((o) => !o)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                  >
+                    <i className="fas fa-filter" aria-hidden />
+                    {gridFilterActiveCount > 0 ? (
+                      <span
+                        style={{
+                          fontSize: "var(--text-xs)",
+                          fontWeight: 600,
+                          minWidth: "1.1rem",
+                          textAlign: "center",
+                        }}
+                        aria-hidden
+                      >
+                        {gridFilterActiveCount}
+                      </span>
+                    ) : null}
+                  </button>
+                  {gridFilterOpen ? (
+                    <div
+                      role="dialog"
+                      aria-label={t("ipam.grid.filter.title")}
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "100%",
+                        marginTop: 6,
+                        zIndex: 30,
+                        minWidth: "min(100vw - 2rem, 20rem)",
+                        padding: "var(--space-2)",
+                        background: "var(--color-bg-elevated)",
+                        border: "1px solid var(--shell-border)",
+                        borderRadius: "var(--radius-md)",
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                      }}
+                    >
+                      <p style={{ marginTop: 0, marginBottom: "var(--space-2)", fontWeight: 600 }}>
+                        {t("ipam.grid.filter.title")}
+                      </p>
+                      <label style={{ display: "block", marginBottom: "var(--space-2)" }}>
+                        {t("ipam.addr.filterStatus")}
+                        <select
+                          value={addrFilterStatus}
+                          onChange={(e) => setAddrFilterStatus(e.target.value)}
+                          style={{ width: "100%", marginTop: 4 }}
+                        >
+                          <option value="">{t("ipam.addr.filterStatusAll")}</option>
+                          <option value="discovered">discovered</option>
+                          <option value="reserved">reserved</option>
+                          <option value="assigned">assigned</option>
+                        </select>
+                      </label>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          marginBottom: "var(--space-2)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={addrFilterFreeOnly}
+                          onChange={(e) => setAddrFilterFreeOnly(e.target.checked)}
+                        />
+                        {t("ipam.grid.filter.freeOnly")}
+                      </label>
+                      <label style={{ display: "block", marginBottom: "var(--space-2)" }}>
+                        {t("ipam.grid.filter.owner")}
+                        <select
+                          value={addrFilterOwnerUserId}
+                          onChange={(e) => setAddrFilterOwnerUserId(e.target.value)}
+                          style={{ width: "100%", marginTop: 4 }}
+                        >
+                          <option value="">{t("ipam.grid.filter.ownerAll")}</option>
+                          {(usersQ.data ?? []).map((u) => (
+                            <option key={u.id} value={String(u.id)}>
+                              #{u.id} · {u.display_name ?? u.username}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        className={dcimStyles.btn}
+                        style={{ width: "100%" }}
+                        onClick={() => {
+                          setAddrFilterStatus("");
+                          setAddrFilterFreeOnly(false);
+                          setAddrFilterOwnerUserId("");
+                        }}
+                      >
+                        {t("ipam.grid.filter.reset")}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               {gridQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
               {gridQ.isError ? <p className={dcimStyles.err}>{(gridQ.error as Error).message}</p> : null}
               {filteredGridRows.length > 0 ? (
-                <div style={{ maxHeight: "70vh", overflow: "auto" }}>
-                  <table className={dcimStyles.table}>
+                <>
+                  <div
+                    className={dcimStyles.muted}
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      marginTop: "var(--space-2)",
+                      marginBottom: "var(--space-1)",
+                    }}
+                  >
+                    <span>
+                      {t("ipam.grid.pagination.showing")}{" "}
+                      <strong>
+                        {gridPageSlice.rangeStart}–{gridPageSlice.rangeEnd}
+                      </strong>{" "}
+                      {t("ipam.grid.pagination.of")}{" "}
+                      <strong>{gridPageSlice.total}</strong>
+                    </span>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                      {t("ipam.grid.pagination.perPage")}
+                      <select
+                        value={String(gridPageSize)}
+                        onChange={(e) => setGridPageSize(Number(e.target.value))}
+                      >
+                        {GRID_PAGE_SIZE_OPTIONS.map((n) => (
+                          <option key={n} value={String(n)}>
+                            {n === 0 ? t("ipam.grid.pagination.all") : n}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <span style={{ display: "inline-flex", gap: "0.35rem" }}>
+                      <button
+                        type="button"
+                        className={dcimStyles.btn}
+                        disabled={gridPageSlice.safePage <= 0}
+                        onClick={() => setGridPage((p) => Math.max(0, p - 1))}
+                      >
+                        {t("ipam.grid.pagination.prev")}
+                      </button>
+                      <button
+                        type="button"
+                        className={dcimStyles.btn}
+                        disabled={gridPageSlice.safePage >= gridPageSlice.pageCount - 1}
+                        onClick={() =>
+                          setGridPage((p) => Math.min(p + 1, gridPageSlice.pageCount - 1))
+                        }
+                      >
+                        {t("ipam.grid.pagination.next")}
+                      </button>
+                    </span>
+                  </div>
+                  <div style={{ maxHeight: "70vh", overflow: "auto" }}>
+                    <table className={dcimStyles.table}>
                     <thead>
                       <tr>
                         <th>{t("ipam.ipv4.colAddress")}</th>
                         <th title={t("ipam.grid.reachColHint")}>{t("ipam.grid.reachCol")}</th>
+                        <th title={t("ipam.grid.lastSeenColHint")}>{t("ipam.grid.lastSeenCol")}</th>
                         <th>{t("ipam.scan.colMac")}</th>
                         <th>{t("ipam.ipv4.colDevice")}</th>
                         <th>{t("ipam.ipv4.colInterface")}</th>
@@ -654,9 +936,11 @@ export function IpamPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredGridRows.map((row) => {
+                      {gridPageSlice.rows.map((row) => {
                         const inv = row.inventory;
                         const ping = row.scan_ping_responded;
+                        const lastSeenRaw = inv?.last_seen_at ?? null;
+                        const lastSeenLabel = formatInventoryTimestamp(lastSeenRaw);
                         const reach =
                           scanRunning && ping === null ? (
                             <span title={t("ipam.grid.reach.scanning")}>
@@ -675,10 +959,38 @@ export function IpamPage() {
                               />
                             </span>
                           ) : ping === false ? (
-                            <span title={t("ipam.grid.reach.dead")}>
+                            lastSeenRaw ? (
+                              <span
+                                title={`${t("ipam.grid.reach.staleHint")}${lastSeenLabel ? ` ${lastSeenLabel}` : ""}`}
+                              >
+                                <i
+                                  className="fas fa-skull"
+                                  style={{
+                                    color: "var(--color-text-muted, #8fa8d4)",
+                                    fontSize: "0.85rem",
+                                  }}
+                                  aria-hidden
+                                />
+                              </span>
+                            ) : (
+                              <span title={t("ipam.grid.reach.dead")}>
+                                <i
+                                  className="fas fa-circle"
+                                  style={{ color: "var(--shell-muted-fg, #737373)", fontSize: "0.65rem" }}
+                                  aria-hidden
+                                />
+                              </span>
+                            )
+                          ) : lastSeenRaw ? (
+                            <span
+                              title={`${t("ipam.grid.reach.noScanHint")}${lastSeenLabel ? ` ${lastSeenLabel}` : ""}`}
+                            >
                               <i
-                                className="fas fa-circle"
-                                style={{ color: "var(--shell-muted-fg, #737373)", fontSize: "0.65rem" }}
+                                className="fas fa-clock"
+                                style={{
+                                  color: "var(--color-text-muted, #8fa8d4)",
+                                  fontSize: "0.85rem",
+                                }}
                                 aria-hidden
                               />
                             </span>
@@ -702,6 +1014,9 @@ export function IpamPage() {
                               <code>{row.address}</code>
                             </td>
                             <td>{reach}</td>
+                            <td className={dcimStyles.muted} title={lastSeenLabel || undefined}>
+                              {lastSeenLabel || "—"}
+                            </td>
                             <td>{mac}</td>
                             <td>
                               {devId != null ? (
@@ -805,7 +1120,8 @@ export function IpamPage() {
                       })}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               ) : gridQ.data != null && gridQ.data.rows.length > 0 && !gridQ.isLoading ? (
                 <p className={dcimStyles.muted}>{t("ipam.addr.filterNoResults")}</p>
               ) : null}
@@ -953,7 +1269,60 @@ export function IpamPage() {
 
       {prefixesQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
       {prefixesQ.data && prefixesQ.data.length > 0 ? (
-        <table className={dcimStyles.table}>
+        <>
+          <div
+            className={dcimStyles.muted}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "0.75rem",
+              marginBottom: "var(--space-2)",
+            }}
+          >
+            <span>
+              {t("ipam.grid.pagination.showing")}{" "}
+              <strong>
+                {prefixListSlice.rangeStart}–{prefixListSlice.rangeEnd}
+              </strong>{" "}
+              {t("ipam.grid.pagination.of")}{" "}
+              <strong>{prefixListSlice.total}</strong>
+            </span>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+              {t("ipam.grid.pagination.perPage")}
+              <select
+                value={String(prefixListPageSize)}
+                onChange={(e) => setPrefixListPageSize(Number(e.target.value))}
+              >
+                {GRID_PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n === 0 ? t("ipam.grid.pagination.all") : n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span style={{ display: "inline-flex", gap: "0.35rem" }}>
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                disabled={prefixListSlice.safePage <= 0}
+                onClick={() => setPrefixListPage((p) => Math.max(0, p - 1))}
+              >
+                {t("ipam.grid.pagination.prev")}
+              </button>
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                disabled={prefixListSlice.safePage >= prefixListSlice.pageCount - 1}
+                onClick={() =>
+                  setPrefixListPage((p) => Math.min(p + 1, prefixListSlice.pageCount - 1))
+                }
+              >
+                {t("ipam.grid.pagination.next")}
+              </button>
+            </span>
+          </div>
+          <table className={dcimStyles.table}>
           <thead>
             <tr>
               <th>{t("dcim.common.id")}</th>
@@ -966,7 +1335,7 @@ export function IpamPage() {
             </tr>
           </thead>
           <tbody>
-            {prefixesQ.data.map((x) => (
+            {prefixListSlice.rows.map((x) => (
               <tr key={x.id}>
                 <td>{x.id}</td>
                 <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
@@ -1074,6 +1443,7 @@ export function IpamPage() {
             ))}
           </tbody>
         </table>
+        </>
       ) : (
         !prefixesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.ipv4.empty")}</p>
       )}

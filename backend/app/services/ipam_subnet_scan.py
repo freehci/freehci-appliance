@@ -366,8 +366,10 @@ def run_scan_background(
                     ),
                 )
             else:
-                # Ikke overstyr reserverte/tildelte adresser; oppdater bare observasjonsfelt.
+                # Ikke overstyr reserverte/tildelte; ellers marker som oppdaget når den svarer på ping.
                 existing.last_seen_at = now
+                if existing.status not in ("reserved", "assigned"):
+                    existing.status = "discovered"
                 if existing.ipv4_prefix_id is None and row.ipv4_prefix_id is not None:
                     existing.ipv4_prefix_id = row.ipv4_prefix_id
                 if existing.status == "discovered" and (existing.mac_address is None):
