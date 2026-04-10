@@ -20,7 +20,10 @@ def varbinds_to_read(varbinds: tuple) -> list[SnmpVarBindRead]:
     out: list[SnmpVarBindRead] = []
     for vb in varbinds:
         oid_obj = vb[0]
-        val_obj = vb[1] if len(vb) > 1 else None
+        try:
+            val_obj = vb[1]
+        except IndexError:
+            val_obj = None
         oid_str = ""
         tup_fn = getattr(oid_obj, "asTuple", None)
         if callable(tup_fn):
