@@ -105,6 +105,13 @@ def compile_mib_modules(
         err = None
         if st == "failed" and hasattr(v, "error"):
             err = str(getattr(v, "error", ""))
+        elif st == "missing":
+            err = (
+                f'ASN.1-kilde for modul «{k}» ble ikke funnet (sjekk DEFINITIONS-navn, '
+                f"filnavn og at filen ligger i MIB_ROOT)"
+            )
+        elif st == "unprocessed":
+            err = "Modulen ble ikke ferdigskrevet (ofte stopp pga. feil i en avhengighet)"
         return (st, err, k)
 
     def status_for(requested: str) -> tuple[str, str | None, str | None]:
@@ -116,12 +123,26 @@ def compile_mib_modules(
                     return _tuple_for_key(k, v)
 
         for cand in cands:
+            ca = _alnum_upper(cand)
+            if len(ca) >= 3:
+                for k, v in processed.items():
+                    if _alnum_upper(k) == ca:
+                        return _tuple_for_key(k, v)
+
+        for cand in cands:
             ar = _alnum_upper(cand)
             if ar:
                 for k, v in processed.items():
                     ak = _alnum_upper(k)
                     if len(ar) >= 4 and len(ak) >= 4 and (ar in ak or ak in ar):
                         return _tuple_for_key(k, v)
+
+        missing_msgs: list[str] = []
+        for k, v in processed.items():
+            if str(v) == "missing":
+                missing_msgs.append(f"{k}: mangler ASN.1-kilde")
+        if missing_msgs:
+            return ("missing", "; ".join(missing_msgs[:12]), None)
 
         failed_msgs: list[str] = []
         for k, v in processed.items():
@@ -144,7 +165,13 @@ def compile_mib_modules(
                 None,
             )
 
-        return ("missing", "MIB ikke funnet eller ikke prosessert", None)
+        keys = sorted(processed.keys())
+        hint = ", ".join(keys[:30]) + ("…" if len(keys) > 30 else "")
+        return (
+            "missing",
+            f"Kunne ikke mappe forespurt modul til pysmi-resultat ({len(processed)} modul(er): {hint})",
+            None,
+        )
 
     return {req: status_for(req) for req in module_names}
 

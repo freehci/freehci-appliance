@@ -26,6 +26,10 @@ def test_snmp_mibs_upload_list_delete() -> None:
         assert len(li2.json()) == 1
         assert li2.json()[0]["name"] == "EXAMPLE-MIB.mib"
 
+        src = client.get("/api/v1/snmp/mibs/EXAMPLE-MIB.mib/source")
+        assert src.status_code == 200
+        assert "-- example mib --" in src.text
+
         rm = client.delete("/api/v1/snmp/mibs/EXAMPLE-MIB.mib")
         assert rm.status_code == 204
 

@@ -26,6 +26,11 @@ def test_guess_module_name_from_definitions() -> None:
     assert guess_module_name("x.mib", src) == "MY-CUSTOM-MIB"
 
 
+def test_guess_module_name_strips_utf8_bom() -> None:
+    src = "\ufeffWAGO-TEST-MIB DEFINITIONS ::= BEGIN\nEND\n"
+    assert guess_module_name("x.mib", src) == "WAGO-TEST-MIB"
+
+
 def test_imported_mib_modules_order() -> None:
     src = """
 FOO DEFINITIONS ::= BEGIN

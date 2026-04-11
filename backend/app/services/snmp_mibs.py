@@ -67,6 +67,18 @@ def save_mib_file(settings: Settings, filename: str, data: bytes) -> dict:
     }
 
 
+def read_mib_text(settings: Settings, filename: str) -> str:
+    """Les dekodet MIB-kildetekst (UTF-8 med feil-erstatning)."""
+    safe = validate_mib_filename(filename)
+    root = _ensure_mib_root(settings)
+    path = (root / safe).resolve()
+    if not str(path).startswith(str(root.resolve())):
+        raise HTTPException(status_code=400, detail="ugyldig sti")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
 def delete_mib_file(settings: Settings, filename: str) -> None:
     safe = validate_mib_filename(filename)
     root = _ensure_mib_root(settings)

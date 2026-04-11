@@ -19,6 +19,11 @@ _MODULE_DEF_RE = re.compile(
     r"^([A-Za-z][A-Za-z0-9-]*)\s+DEFINITIONS\s*::=",
     re.MULTILINE,
 )
+
+
+def _strip_mib_bom(mib_text: str) -> str:
+    """Fjern UTF-8 BOM slik at DEFINITIONS-regex treffer første linje."""
+    return mib_text.lstrip("\ufeff")
 _FROM_MODULE_RE = re.compile(r"\bFROM\s+([A-Za-z][A-Za-z0-9-]*)\b")
 
 # Vanlige IETF/infra-MIB-moduler — ikke brukt som «vendor-parent» for tre under enterprise.
@@ -46,6 +51,8 @@ _STD_IMPORT_MIBS = frozenset(
         "ENTITY-SENSOR-MIB",
         "TRANSPORT-ADDRESS-MIB",
         "RFC1213-MIB",
+        "RFC-1212",
+        "RFC1212",
         "RFC1155-SMI",
         "RFC1158-MIB",
         "RFC1065-SMI",
@@ -67,6 +74,7 @@ _STD_IMPORT_MIBS = frozenset(
 
 
 def extract_enterprise_numbers(mib_text: str) -> list[int]:
+    mib_text = _strip_mib_bom(mib_text)
     pens: set[int] = set()
     for m in _ENTERPRISES_BRACE_RE.finditer(mib_text):
         pens.add(int(m.group(1)))
@@ -83,6 +91,7 @@ def primary_enterprise_number(mib_text: str) -> int | None:
 
 
 def guess_module_name(filename: str, mib_text: str) -> str:
+    mib_text = _strip_mib_bom(mib_text)
     m = _MODULE_DEF_RE.search(mib_text)
     if m:
         return m.group(1)
@@ -91,6 +100,7 @@ def guess_module_name(filename: str, mib_text: str) -> str:
 
 def imported_mib_modules(mib_text: str) -> list[str]:
     """Modulnavn fra «FROM Modul» i IMPORTS (rekkefølge bevart, unike)."""
+    mib_text = _strip_mib_bom(mib_text)
     seen: set[str] = set()
     out: list[str] = []
     for m in _FROM_MODULE_RE.finditer(mib_text):

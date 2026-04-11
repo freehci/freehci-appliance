@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPostMultipart } from "@/lib/api";
+import { apiDelete, apiGet, apiGetText, apiPost, apiPostMultipart } from "@/lib/api";
 
 const P = "/api/v1/snmp";
 
@@ -65,6 +65,10 @@ export function deleteSnmpMib(name: string): Promise<void> {
 
 export function listSnmpMibsDetailed(): Promise<SnmpMibDetail[]> {
   return apiGet(`${P}/mibs/detailed`);
+}
+
+export function getSnmpMibSource(name: string): Promise<string> {
+  return apiGetText(`${P}/mibs/${encodeURIComponent(name)}/source`);
 }
 
 export function listSnmpEnterprises(): Promise<SnmpEnterpriseGroup[]> {

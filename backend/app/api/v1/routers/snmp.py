@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
@@ -95,6 +96,16 @@ async def upload_mibs_batch(
         SnmpMibDetailRead.model_validate(mib_cat_svc.mib_detail_dict(db, settings, disk_rows[n]))
         for n in saved
     ]
+
+
+@router.get("/mibs/{name}/source", response_class=PlainTextResponse)
+def get_mib_source(
+    name: str,
+    settings: Settings = Depends(get_settings),
+) -> PlainTextResponse:
+    """Rå MIB-kildetekst (UTF-8) for feilsøking i GUI."""
+    text = mib_disk_svc.read_mib_text(settings, name)
+    return PlainTextResponse(content=text, media_type="text/plain; charset=utf-8")
 
 
 @router.get("/mibs", response_model=list[SnmpMibFileRead])

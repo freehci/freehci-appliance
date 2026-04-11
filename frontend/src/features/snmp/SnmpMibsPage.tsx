@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
+import { MibSourceModal } from "./MibSourceModal";
 import * as snmpApi from "./snmpApi";
 
 export function SnmpMibsPage() {
@@ -11,8 +12,15 @@ export function SnmpMibsPage() {
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [viewSourceName, setViewSourceName] = useState<string | null>(null);
 
   const mibsQ = useQuery({ queryKey: ["snmp", "mibs", "detailed"], queryFn: snmpApi.listSnmpMibsDetailed });
+
+  const mibSourceQ = useQuery({
+    queryKey: ["snmp", "mibSource", viewSourceName],
+    queryFn: () => snmpApi.getSnmpMibSource(viewSourceName!),
+    enabled: viewSourceName != null,
+  });
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["snmp", "mibs"] });
@@ -70,6 +78,21 @@ export function SnmpMibsPage() {
 
   return (
     <>
+      {viewSourceName ? (
+        <MibSourceModal
+          filename={viewSourceName}
+          content={mibSourceQ.data ?? null}
+          loading={mibSourceQ.isLoading}
+          error={
+            mibSourceQ.isError
+              ? mibSourceQ.error instanceof ApiError
+                ? mibSourceQ.error.message
+                : String(mibSourceQ.error)
+              : null
+          }
+          onClose={() => setViewSourceName(null)}
+        />
+      ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
       <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
         {t("snmp.mibsPageIntro")}{" "}
@@ -182,6 +205,14 @@ export function SnmpMibsPage() {
                     </td>
                     <td>{m.linked_manufacturer?.name ?? "—"}</td>
                     <td>
+                      <button
+                        type="button"
+                        className={dcimStyles.btnLink}
+                        style={{ marginRight: "var(--space-2)" }}
+                        onClick={() => setViewSourceName(m.name)}
+                      >
+                        {t("snmp.mibViewSource")}
+                      </button>
                       <button
                         type="button"
                         className={dcimStyles.btnLink}

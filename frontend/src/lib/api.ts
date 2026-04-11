@@ -68,6 +68,20 @@ export async function apiGet<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** GET som ren tekst (f.eks. text/plain MIB-kilde). */
+export async function apiGetText(path: string): Promise<string> {
+  const res = await fetch(apiUrl(path), {
+    credentials: "include",
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) await onUnauthorized(path);
+  if (!res.ok) {
+    const msg = await failMessage(res, `${res.status} ${res.statusText}`);
+    throw new ApiError(res.status, msg);
+  }
+  return res.text();
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(apiUrl(path), {
     method: "POST",

@@ -1,0 +1,97 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgb(0 0 0 / 0.45);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  max-width: min(56rem, 100%);
+  width: 100%;
+  max-height: 90vh;
+  margin: auto;
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #111);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.2);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border, #ddd);
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+.pre {
+  margin: 0;
+  padding: var(--space-3);
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  tab-size: 2;
+}
+
+.line {
+  display: flex;
+  gap: var(--space-2);
+  min-height: 1.45em;
+}
+
+.ln {
+  flex: 0 0 3.5rem;
+  text-align: right;
+  user-select: none;
+  color: var(--color-muted, #888);
+  border-right: 1px solid var(--color-border, #eee);
+  padding-right: var(--space-2);
+}
+
+.code {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.kw {
+  color: var(--mib-kw, #0066cc);
+  font-weight: 600;
+}
+
+.comment {
+  color: var(--mib-comment, #6a737d);
+  font-style: italic;
+}
+
+.string {
+  color: var(--mib-string, #22863a);
+}
+
+.oid {
+  color: var(--mib-oid, #b58900);
+}
