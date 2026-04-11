@@ -21,6 +21,18 @@ export type Rack = {
   name: string;
   u_height: number;
   sort_order: number;
+  /** Ytre høyde i mm (H). */
+  height_mm: number | null;
+  /** Bredde i mm (B). */
+  width_mm: number | null;
+  /** Dybde i mm (D). */
+  depth_mm: number | null;
+  brand: string | null;
+  purchase_date: string | null;
+  commissioned_date: string | null;
+  notes: string | null;
+  /** Tilpassede nøkkel/verdi; f.eks. rack_type for fremtidige skjemaer eller plugin-data. */
+  attributes: Record<string, unknown> | null;
 };
 
 export type Manufacturer = {

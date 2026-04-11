@@ -197,6 +197,33 @@
   box-shadow: 0 0 0 1px var(--color-button-bg);
 }
 
+.formRow textarea {
+  min-width: min(100%, 12rem);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-input-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  resize: vertical;
+}
+
+.formRow textarea:focus {
+  background: var(--color-input-focus-bg);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-button-bg);
+}
+
+.formFullWidth {
+  flex: 1 1 100%;
+  min-width: min(100%, 28rem);
+}
+
+.formFullWidth textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .btn {
   padding: var(--space-1) var(--space-3);
   background: var(--color-button-bg);
@@ -210,6 +237,21 @@
 .btn:hover {
   background: var(--color-button-bg-hover);
   color: var(--color-button-hover-fg);
+}
+
+.btnMuted {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+
+.btnMuted:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
 }
 
 .btnDanger {

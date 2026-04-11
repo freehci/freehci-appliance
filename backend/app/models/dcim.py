@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -46,6 +46,15 @@ class Rack(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     u_height: Mapped[int] = mapped_column(Integer, nullable=False, default=42)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Fysiske mål i millimeter (H × B × D); valgfritt for planlegging og senere 3D/plugin.
+    height_mm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    width_mm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    depth_mm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    brand: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    purchase_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    commissioned_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     room: Mapped["Room"] = relationship(back_populates="racks")
     placements: Mapped[list["RackPlacement"]] = relationship(

@@ -272,6 +272,14 @@ def create_rack(db: Session, data: RackCreate) -> Rack:
         name=data.name.strip(),
         u_height=data.u_height,
         sort_order=data.sort_order,
+        height_mm=data.height_mm,
+        width_mm=data.width_mm,
+        depth_mm=data.depth_mm,
+        brand=data.brand.strip() if data.brand else None,
+        purchase_date=data.purchase_date,
+        commissioned_date=data.commissioned_date,
+        notes=data.notes.strip() if data.notes else None,
+        attributes=data.attributes,
     )
     db.add(row)
     db.commit()
@@ -284,12 +292,13 @@ def get_rack(db: Session, rack_id: int) -> Rack | None:
 
 
 def update_rack(db: Session, rack: Rack, data: RackUpdate) -> Rack:
-    from fastapi import HTTPException
+    payload = data.model_dump(exclude_unset=True)
 
-    if data.name is not None:
-        rack.name = data.name.strip()
-    if data.u_height is not None:
-        if data.u_height < rack.u_height:
+    if "name" in payload and payload["name"] is not None:
+        rack.name = str(payload["name"]).strip()
+    if "u_height" in payload and payload["u_height"] is not None:
+        new_u = int(payload["u_height"])
+        if new_u < rack.u_height:
             # strammere rack: sjekk at ingen plassering stikker utenfor
             placements = db.execute(
                 select(RackPlacement).where(RackPlacement.rack_id == rack.id),
@@ -299,14 +308,36 @@ def update_rack(db: Session, rack: Rack, data: RackUpdate) -> Rack:
                 if dev is None:
                     continue
                 _, top = _occupies_bottom_top(p.u_position, _device_u_height(db, dev))
-                if top > data.u_height:
+                if top > new_u:
                     raise HTTPException(
                         status_code=400,
                         detail=f"Kan ikke redusere u_height: enhet id={dev.id} går til RU {top}",
                     )
-        rack.u_height = data.u_height
-    if data.sort_order is not None:
-        rack.sort_order = data.sort_order
+        rack.u_height = new_u
+    if "sort_order" in payload:
+        so = payload["sort_order"]
+        rack.sort_order = int(so) if so is not None else 0
+
+    for dim in ("height_mm", "width_mm", "depth_mm"):
+        if dim in payload:
+            setattr(rack, dim, payload[dim])
+
+    if "brand" in payload:
+        b = payload["brand"]
+        rack.brand = b.strip() if isinstance(b, str) and b.strip() else None
+
+    if "purchase_date" in payload:
+        rack.purchase_date = payload["purchase_date"]
+    if "commissioned_date" in payload:
+        rack.commissioned_date = payload["commissioned_date"]
+
+    if "notes" in payload:
+        n = payload["notes"]
+        rack.notes = n.strip() if isinstance(n, str) and n.strip() else None
+
+    if "attributes" in payload:
+        rack.attributes = payload["attributes"]
+
     db.commit()
     db.refresh(rack)
     return rack

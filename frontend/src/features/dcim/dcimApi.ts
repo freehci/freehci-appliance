@@ -37,13 +37,30 @@ export function listRacks(roomId?: number): Promise<Rack[]> {
   return apiGet(`${P}/racks${q}`);
 }
 
-export function createRack(body: {
-  room_id: number;
-  name: string;
+export type RackWriteFields = {
   u_height?: number;
   sort_order?: number;
-}): Promise<Rack> {
+  height_mm?: number | null;
+  width_mm?: number | null;
+  depth_mm?: number | null;
+  brand?: string | null;
+  purchase_date?: string | null;
+  commissioned_date?: string | null;
+  notes?: string | null;
+  attributes?: Record<string, unknown> | null;
+};
+
+export function createRack(
+  body: {
+    room_id: number;
+    name: string;
+  } & RackWriteFields,
+): Promise<Rack> {
   return apiPost(`${P}/racks`, body);
+}
+
+export function updateRack(id: number, body: { name?: string } & RackWriteFields): Promise<Rack> {
+  return apiPatch(`${P}/racks/${id}`, body);
 }
 
 export function listManufacturers(): Promise<Manufacturer[]> {

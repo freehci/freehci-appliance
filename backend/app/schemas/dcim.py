@@ -65,12 +65,28 @@ class RackCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     u_height: int = Field(42, ge=1, le=64)
     sort_order: int = 0
+    height_mm: int | None = Field(None, ge=1, le=100_000)
+    width_mm: int | None = Field(None, ge=1, le=100_000)
+    depth_mm: int | None = Field(None, ge=1, le=100_000)
+    brand: str | None = Field(None, max_length=255)
+    purchase_date: dt.date | None = None
+    commissioned_date: dt.date | None = None
+    notes: str | None = None
+    attributes: dict[str, Any] | None = None
 
 
 class RackUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     u_height: int | None = Field(None, ge=1, le=64)
     sort_order: int | None = None
+    height_mm: int | None = Field(None, ge=1, le=100_000)
+    width_mm: int | None = Field(None, ge=1, le=100_000)
+    depth_mm: int | None = Field(None, ge=1, le=100_000)
+    brand: str | None = Field(None, max_length=255)
+    purchase_date: dt.date | None = None
+    commissioned_date: dt.date | None = None
+    notes: str | None = None
+    attributes: dict[str, Any] | None = None
 
 
 class RackRead(BaseModel):
@@ -81,6 +97,14 @@ class RackRead(BaseModel):
     name: str
     u_height: int
     sort_order: int
+    height_mm: int | None
+    width_mm: int | None
+    depth_mm: int | None
+    brand: str | None
+    purchase_date: dt.date | None
+    commissioned_date: dt.date | None
+    notes: str | None
+    attributes: dict[str, Any] | None
 
 
 class ManufacturerCreate(BaseModel):
