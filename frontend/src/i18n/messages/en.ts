@@ -126,7 +126,7 @@ export const en = {
   "snmp.mibFilesMulti": "MIB files (multiple)",
   "snmp.mibUploadBatch": "Upload all",
   "snmp.ianaSync": "Sync IANA enterprises",
-  "snmp.ianaSyncHint": "Download enterprise-numbers.txt from IANA (requires outbound HTTPS).",
+  "snmp.ianaSyncHint": "Download the IANA enterprise-numbers registry (requires outbound HTTPS).",
   "snmp.compileAll": "Compile all MIBs",
   "snmp.compileAllHint": "Runs pysmi for each uploaded file; can be slow and needs network for missing imports.",
   "snmp.compileAllConfirm": "Compile every MIB? This may take a long time and use the network.",

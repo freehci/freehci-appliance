@@ -5,7 +5,8 @@ from __future__ import annotations
 import httpx
 
 
-IANA_ENTERPRISE_TXT_URL = "https://www.iana.org/assignments/enterprise-numbers/enterprise-numbers.txt"
+# Kanonisk ressurs (tidligere .txt-URL gir 301; følg viderekoblinger ved behov).
+IANA_ENTERPRISE_TXT_URL = "https://www.iana.org/assignments/enterprise-numbers/enterprise-numbers"
 
 
 def parse_enterprise_numbers_txt(content: str) -> list[tuple[int, str]]:
@@ -32,7 +33,7 @@ def parse_enterprise_numbers_txt(content: str) -> list[tuple[int, str]]:
 
 
 def fetch_iana_enterprise_rows(*, timeout_sec: float = 120.0) -> list[tuple[int, str]]:
-    with httpx.Client(timeout=timeout_sec) as client:
+    with httpx.Client(timeout=timeout_sec, follow_redirects=True) as client:
         r = client.get(IANA_ENTERPRISE_TXT_URL)
         r.raise_for_status()
         return parse_enterprise_numbers_txt(r.text)
