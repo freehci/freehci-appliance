@@ -18,13 +18,25 @@ from pysmi.writer.pyfile import PyFileWriter
 
 from app.core.config import Settings
 
+# pysmi MibStatus-strenger som betyr at PySNMP kan bruke modulen (.py finnes eller er hentet).
+_COMPILE_OK = frozenset({"compiled", "untouched", "borrowed"})
+
+
+def compile_status_is_success(status: str) -> bool:
+    return status in _COMPILE_OK
+
 
 def _build_compiler(settings: Settings, *, cache_dir: str | None) -> MibCompiler:
     mib_root = settings.mib_root_path.resolve()
     compiled_root = settings.mib_compiled_path.resolve()
     compiled_root.mkdir(parents=True, exist_ok=True)
 
-    mib_sources = [mib_root.as_uri() + "/"]
+    # Lokale MIB-er først; deretter ASN.1 fra pysnmp (samme som mibdump-default).
+    # Uten HTTP-kilde blir aldri SNMPv2-SMI/SNMPv2-TC parsert → symbolTable mangler og codegen feiler.
+    mib_sources = [
+        mib_root.as_uri() + "/",
+        "https://mibs.pysnmp.com/asn1/@mib@",
+    ]
     mib_stubs = [x for x in PySnmpCodeGen.baseMibs if x not in PySnmpCodeGen.fakeMibs]
     mib_borrowers = [
         ("https://mibs.pysnmp.com:443/mibs/notexts/@mib@", False),
@@ -65,8 +77,8 @@ def compile_mib_modules(
     *,
     ignore_errors: bool = False,
     rebuild: bool = False,
-) -> dict[str, tuple[str, str | None]]:
-    """Kompiler MIB-modulnavn (f.eks. «CISCO-SMI»). Returnerer modul -> (status-streng, feilmelding)."""
+) -> dict[str, tuple[str, str | None, str | None]]:
+    """Kompiler MIB-modulnavn. Returnerer modul -> (status, feilmelding, kanonisk modulnavn fra pysmi)."""
     if not module_names:
         return {}
 
@@ -84,17 +96,17 @@ def compile_mib_modules(
         ),
     )
 
-    def status_for(requested: str) -> tuple[str, str | None]:
+    def status_for(requested: str) -> tuple[str, str | None, str | None]:
         ru = requested.upper()
         for k, v in processed.items():
             if k.upper() == ru:
                 err = None
                 if str(v) == "failed" and hasattr(v, "error"):
                     err = str(getattr(v, "error", ""))
-                return (str(v), err)
+                return (str(v), err, k)
         if requested in mib_compiler.failedMibs:
-            return ("failed", str(mib_compiler.failedMibs[requested]))
-        return ("missing", "MIB ikke funnet eller ikke prosessert")
+            return ("failed", str(mib_compiler.failedMibs[requested]), None)
+        return ("missing", "MIB ikke funnet eller ikke prosessert", None)
 
     return {req: status_for(req) for req in module_names}
 

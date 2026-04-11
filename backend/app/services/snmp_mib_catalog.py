@@ -14,7 +14,7 @@ from app.models.dcim import Manufacturer
 from app.models.snmp_catalog import SnmpIanaEnterprise, SnmpMibFileMeta
 from app.services import snmp_mibs as mib_disk
 from app.services.snmp_iana import fetch_iana_enterprise_rows
-from app.services.snmp_mib_compile import compile_mib_modules, compiled_py_path
+from app.services.snmp_mib_compile import compile_mib_modules, compile_status_is_success, compiled_py_path
 from app.services.snmp_mib_parse import guess_module_name, primary_enterprise_number
 
 
@@ -155,13 +155,13 @@ def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
         raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
     module = meta.module_name or Path(filename).stem
     results = compile_mib_modules(settings, [module], ignore_errors=False, rebuild=True)
-    st, err = results.get(module, ("missing", "ukjent feil"))
+    st, err, resolved = results.get(module, ("missing", "ukjent feil", None))
     now = _utcnow()
-    ok = st == "compiled"
+    ok = compile_status_is_success(st)
     meta.compile_status = "ok" if ok else "error"
     meta.compile_message = None if ok else (err or st)
     meta.compiled_at = now if ok else None
-    meta.compiled_module_name = module if ok else None
+    meta.compiled_module_name = (resolved or module) if ok else None
     meta.updated_at = now
     db.commit()
     db.refresh(meta)
