@@ -19,6 +19,9 @@ export function SnmpLayout() {
           <NavLink to="/snmp/mibs" className={snmpTabClass} role="tab">
             {t("snmp.tabMibs")}
           </NavLink>
+          <NavLink to="/snmp/enterprises" className={snmpTabClass} role="tab">
+            {t("snmp.tabEnterprises")}
+          </NavLink>
         </div>
       </nav>
       <Outlet />

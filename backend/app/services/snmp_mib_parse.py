@@ -19,6 +19,51 @@ _MODULE_DEF_RE = re.compile(
     r"^([A-Za-z][A-Za-z0-9-]*)\s+DEFINITIONS\s*::=",
     re.MULTILINE,
 )
+_FROM_MODULE_RE = re.compile(r"\bFROM\s+([A-Za-z][A-Za-z0-9-]*)\b")
+
+# Vanlige IETF/infra-MIB-moduler — ikke brukt som «vendor-parent» for tre under enterprise.
+_STD_IMPORT_MIBS = frozenset(
+    {
+        "SNMPv2-SMI",
+        "SNMPv2-TC",
+        "SNMPv2-CONF",
+        "SNMPv2-TM",
+        "SNMPv2-MIB",
+        "SNMP-FRAMEWORK-MIB",
+        "SNMP-TARGET-MIB",
+        "SNMP-NOTIFICATION-MIB",
+        "SNMP-COMMUNITY-MIB",
+        "SNMP-USER-BASED-SM-MIB",
+        "SNMP-VIEW-BASED-ACM-MIB",
+        "IANAifType-MIB",
+        "IANA-ADDRESS-FAMILY-NUMBERS-MIB",
+        "INET-ADDRESS-MIB",
+        "IP-MIB",
+        "IF-MIB",
+        "TCP-MIB",
+        "UDP-MIB",
+        "ENTITY-MIB",
+        "ENTITY-SENSOR-MIB",
+        "TRANSPORT-ADDRESS-MIB",
+        "RFC1213-MIB",
+        "RFC1155-SMI",
+        "RFC1158-MIB",
+        "RFC1065-SMI",
+        "BRIDGE-MIB",
+        "Q-BRIDGE-MIB",
+        "VLAN-TC-MIB",
+        "DIFFSERV-DSCP-TC",
+        "HC-TC-100MBPS-TM",
+        "HCNUM-TC",
+        "PerfHist-TC-MIB",
+        "ATM-TC-MIB",
+        "ATM-MIB",
+        "SNMP-USM-DH-OBJECTS-MIB",
+        "ASN1",
+        "ASN1-ENUMERATION",
+        "ASN1-REFINEMENT",
+    },
+)
 
 
 def extract_enterprise_numbers(mib_text: str) -> list[int]:
@@ -42,3 +87,20 @@ def guess_module_name(filename: str, mib_text: str) -> str:
     if m:
         return m.group(1)
     return Path(filename).stem
+
+
+def imported_mib_modules(mib_text: str) -> list[str]:
+    """Modulnavn fra «FROM Modul» i IMPORTS (rekkefølge bevart, unike)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in _FROM_MODULE_RE.finditer(mib_text):
+        name = m.group(1)
+        if name not in seen:
+            seen.add(name)
+            out.append(name)
+    return out
+
+
+def imported_vendor_mib_modules(mib_text: str) -> list[str]:
+    """IMPORTS minus typiske standard-/infra-MIB-er (kandidater for vendor-parent)."""
+    return [x for x in imported_mib_modules(mib_text) if x not in _STD_IMPORT_MIBS]

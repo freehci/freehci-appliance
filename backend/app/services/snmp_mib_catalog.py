@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -15,11 +16,19 @@ from app.models.snmp_catalog import SnmpIanaEnterprise, SnmpMibFileMeta
 from app.services import snmp_mibs as mib_disk
 from app.services.snmp_iana import fetch_iana_enterprise_rows
 from app.services.snmp_mib_compile import compile_mib_modules, compile_status_is_success, compiled_py_path
-from app.services.snmp_mib_parse import guess_module_name, primary_enterprise_number
+from app.services.snmp_mib_parse import guess_module_name, imported_vendor_mib_modules, primary_enterprise_number
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _mib_file_text(settings: Settings, filename: str) -> str:
+    root = settings.mib_root_path.resolve()
+    path = (root / filename).resolve()
+    if not str(path).startswith(str(root)) or not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")
 
 
 def upsert_mib_meta(db: Session, filename: str, content: bytes) -> SnmpMibFileMeta:
@@ -99,29 +108,156 @@ def mib_detail_dict(db: Session, settings: Settings, disk_row: dict) -> dict:
         "linked_manufacturer": (
             {"id": mfr.id, "name": mfr.name} if mfr else None
         ),
+        "effective_enterprise_number": pen,
+        "extends_mib_module": None,
+        "parent_mib_missing": False,
     }
+
+
+def _snmp_file_topology(db: Session, settings: Settings, disk_rows: list[dict]) -> dict[str, dict]:
+    """Utvid metadata per fil: effective PEN, import-parent, tre-bruk."""
+    by_file: dict[str, dict] = {}
+    module_to_files: dict[str, list[str]] = defaultdict(list)
+
+    for row in disk_rows:
+        fn = row["name"]
+        d = mib_detail_dict(db, settings, row)
+        by_file[fn] = d
+        mod = (d.get("module_name") or "").strip()
+        if mod:
+            module_to_files[mod.upper()].append(fn)
+
+    def resolve_parent_file(fn: str) -> str | None:
+        text = _mib_file_text(settings, fn)
+        if not text:
+            return None
+        for im in imported_vendor_mib_modules(text):
+            for c in module_to_files.get(im.upper(), []):
+                if c != fn:
+                    return c
+        return None
+
+    def effective_pen_for(fn: str, visited: frozenset[str]) -> int | None:
+        if fn in visited:
+            return None
+        nvisited = visited | {fn}
+        pen = by_file[fn].get("enterprise_number")
+        if pen is not None:
+            return pen
+        p = resolve_parent_file(fn)
+        if p:
+            return effective_pen_for(p, nvisited)
+        return None
+
+    out: dict[str, dict] = {}
+    for fn, d in by_file.items():
+        text = _mib_file_text(settings, fn)
+        vimports = imported_vendor_mib_modules(text) if text else []
+        ip = resolve_parent_file(fn)
+        pen = d.get("enterprise_number")
+        parent_missing = pen is None and len(vimports) > 0 and ip is None
+        eff = effective_pen_for(fn, frozenset())
+        out[fn] = {
+            **d,
+            "immediate_parent_file": ip,
+            "effective_enterprise_number": eff,
+            "vendor_import_modules": vimports,
+            "extends_mib_module": vimports[0] if vimports else None,
+            "parent_mib_missing": parent_missing,
+        }
+    return out
+
+
+def _build_mib_tree_for_group(group_files: list[str], topo: dict[str, dict], group_pen: int | None) -> list[dict]:
+    gf = set(group_files)
+
+    def ancestor_in_group(fn: str) -> str | None:
+        p = topo[fn].get("immediate_parent_file")
+        visited: set[str] = set()
+        while p and p not in visited:
+            visited.add(p)
+            if p in gf:
+                return p
+            p = topo.get(p, {}).get("immediate_parent_file")
+        return None
+
+    children: dict[str, list[str]] = defaultdict(list)
+    roots: list[str] = []
+    for fn in group_files:
+        anc = ancestor_in_group(fn)
+        if anc:
+            children[anc].append(fn)
+        else:
+            roots.append(fn)
+
+    def root_key(f: str) -> tuple:
+        t = topo[f]
+        has_native = t.get("enterprise_number") is not None and t.get("enterprise_number") == group_pen
+        return (0 if has_native else 1, f)
+
+    roots.sort(key=root_key)
+
+    def node_dict(fn: str) -> dict:
+        t = topo[fn]
+        ch = sorted(children.get(fn, []))
+        ext_mod = None
+        if t.get("enterprise_number") is None:
+            ext_mod = t.get("extends_mib_module")
+        return {
+            "filename": fn,
+            "module_name": t.get("module_name"),
+            "compile_status": t.get("compile_status"),
+            "extension_parent_module": ext_mod,
+            "parent_mib_missing": bool(t.get("parent_mib_missing")),
+            "children": [node_dict(c) for c in ch],
+        }
+
+    return [node_dict(r) for r in roots]
 
 
 def list_mibs_detailed(db: Session, settings: Settings) -> list[dict]:
     disk = mib_disk.list_mib_files(settings)
-    return [mib_detail_dict(db, settings, r) for r in disk]
+    topo = _snmp_file_topology(db, settings, disk)
+    out: list[dict] = []
+    for row in disk:
+        fn = row["name"]
+        t = topo[fn]
+        d = {
+            k: v
+            for k, v in t.items()
+            if k
+            not in (
+                "immediate_parent_file",
+                "vendor_import_modules",
+            )
+        }
+        if d.get("enterprise_number") is None and d.get("effective_enterprise_number") is not None:
+            m = _linked_mfr(db, d["effective_enterprise_number"])
+            if m:
+                d["linked_manufacturer"] = {"id": m.id, "name": m.name}
+        out.append(d)
+    return out
 
 
 def list_enterprise_groups(db: Session, settings: Settings) -> list[dict]:
-    detailed = list_mibs_detailed(db, settings)
-    by_pen: dict[int | None, list[str]] = defaultdict(list)
-    for d in detailed:
-        by_pen[d["enterprise_number"]].append(d["name"])
+    disk = mib_disk.list_mib_files(settings)
+    topo = _snmp_file_topology(db, settings, disk)
+    by_eff: dict[int | None, list[str]] = defaultdict(list)
+    for fn, t in topo.items():
+        by_eff[t["effective_enterprise_number"]].append(fn)
+
     groups: list[dict] = []
-    for pen in sorted(by_pen.keys(), key=lambda x: (x is None, x or 0)):
-        names = sorted(by_pen[pen])
+    for pen in sorted(by_eff.keys(), key=lambda x: (x is None, x or 0)):
+        names = sorted(by_eff[pen])
         iana_org = _iana_org(db, pen)
         mfr = _linked_mfr(db, pen)
+        tree = _build_mib_tree_for_group(names, topo, pen)
         groups.append(
             {
                 "enterprise_number": pen,
                 "iana_organization": iana_org,
                 "mib_files": names,
+                "mib_tree": tree,
                 "linked_manufacturer": (
                     {"id": mfr.id, "name": mfr.name} if mfr else None
                 ),
@@ -138,11 +274,73 @@ def sync_iana_enterprises(db: Session) -> int:
     total = 0
     for i in range(0, len(rows), batch):
         chunk = rows[i : i + batch]
-        for pen, org in chunk:
-            db.add(SnmpIanaEnterprise(pen=pen, organization=org))
+        for p, org in chunk:
+            db.add(SnmpIanaEnterprise(pen=p, organization=org))
         db.commit()
         total += len(chunk)
     return total
+
+
+def autocreate_dcim_manufacturers(
+    db: Session,
+    settings: Settings,
+    *,
+    enterprise_number: int | None = None,
+) -> dict:
+    """Opprett DCIM-produsent med IANA PEN der det mangler. enterprise_number=None: alle aktuelle PEN."""
+    if enterprise_number is not None:
+        pens = [enterprise_number]
+    else:
+        rows = mib_disk.list_mib_files(settings)
+        topo = _snmp_file_topology(db, settings, rows)
+        pens_set: set[int] = set()
+        for t in topo.values():
+            p = t.get("effective_enterprise_number")
+            if p is not None:
+                pens_set.add(p)
+        pens = sorted(pens_set)
+
+    created: list[dict] = []
+    skipped: list[str] = []
+
+    for pen in pens:
+        if pen is None:
+            continue
+        existing = _linked_mfr(db, pen)
+        if existing:
+            skipped.append(f"PEN {pen}: produsent finnes allerede ({existing.name})")
+            continue
+        org = _iana_org(db, pen)
+        if not org or not str(org).strip():
+            skipped.append(f"PEN {pen}: mangler IANA-navn (kjør IANA-synk)")
+            continue
+        name = str(org).strip()
+        if len(name) > 255:
+            name = name[:252] + "…"
+        clash = db.execute(select(Manufacturer).where(Manufacturer.name == name)).scalar_one_or_none()
+        if clash:
+            suffix = f" (IANA PEN {pen})"
+            name = (name[: 255 - len(suffix)] + suffix)[:255]
+
+        row = Manufacturer(
+            name=name,
+            description=None,
+            website_url=None,
+            iana_enterprise_number=pen,
+        )
+        db.add(row)
+        try:
+            db.commit()
+            db.refresh(row)
+            created.append({"enterprise_number": pen, "manufacturer_id": row.id, "name": row.name})
+        except IntegrityError:
+            db.rollback()
+            skipped.append(f"PEN {pen}: kunne ikke opprette (navn/PEN-konflikt)")
+        except Exception as e:  # noqa: BLE001
+            db.rollback()
+            skipped.append(f"PEN {pen}: {e!s}"[:500])
+
+    return {"created": created, "skipped": skipped}
 
 
 def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
@@ -153,8 +351,26 @@ def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
-    module = meta.module_name or Path(filename).stem
-    results = compile_mib_modules(settings, [module], ignore_errors=False, rebuild=True)
+
+    root = settings.mib_root_path.resolve()
+    path = (root / filename).resolve()
+    if not str(path).startswith(str(root)) or not path.is_file():
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    module = guess_module_name(filename, text)
+    meta.module_name = module
+    stem = Path(filename).stem
+    hints = list(dict.fromkeys([module, stem]))
+    results = compile_mib_modules(
+        settings,
+        [module],
+        ignore_errors=False,
+        rebuild=True,
+        resolution_hints=hints,
+    )
     st, err, resolved = results.get(module, ("missing", "ukjent feil", None))
     now = _utcnow()
     ok = compile_status_is_success(st)
@@ -172,6 +388,9 @@ def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
             break
     if dr is None:
         dr = {"name": filename, "size_bytes": 0, "modified_at": now}
+    for row in list_mibs_detailed(db, settings):
+        if row["name"] == filename:
+            return row
     return mib_detail_dict(db, settings, dr)
 
 

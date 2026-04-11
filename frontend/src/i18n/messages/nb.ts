@@ -123,8 +123,31 @@ export const nb = {
   "snmp.innerNavAria": "SNMP-faner",
   "snmp.tabTools": "Verktøy",
   "snmp.tabMibs": "MIB-bibliotek",
+  "snmp.tabEnterprises": "Enterprises",
+  "snmp.enterprisesTabLink": "Åpne fanen Enterprises for gruppering, tre og DCIM-kobling.",
+  "snmp.enterprisesPageIntro":
+    "MIB-er grupperes etter IANA enterprise (PEN). Utvidelser uten egen PEN vises under foreldre-MIB i treet. Koble til DCIM-produsent eller opprett produsent fra IANA-navn.",
+  "snmp.enterprisesBulkTitle": "Opprett DCIM-produsenter",
+  "snmp.autocreateManufacturer": "Autoprett DCIM-produsent",
+  "snmp.autocreateOneHint": "Oppretter én produsent med dette PEN og IANA-navn (hvis ikke allerede koblet).",
+  "snmp.autocreateAllManufacturers": "Autoprett alle (manglende)",
+  "snmp.autocreateAllHint":
+    "For hvert enterprise-nummer som finnes blant MIB-ene: opprett DCIM-produsent med IANA-navn hvis ingen produsent allerede har dette PEN.",
+  "snmp.autocreateAllExplain":
+    "Krever synkronisert IANA-register. Eksisterende produsenter med samme PEN hoppes over. Bruk «koble eksisterende» per enterprise for manuell kobling.",
+  "snmp.autocreateAllConfirm":
+    "Opprette DCIM-produsenter for alle PEN som mangler produsent? Eksisterende koblinger endres ikke.",
+  "snmp.autocreateCreatedCount": "Opprettet: {n}",
+  "snmp.autocreateSkippedCount": "Hoppet over: {n}",
+  "snmp.autocreateNothing": "Ingen endringer.",
+  "snmp.mibExtends": "utvider",
+  "snmp.mibParentMissing":
+    "Forelder-MIB «{module}» finnes ikke i biblioteket — last opp den modulen for riktig enterprise-gruppe.",
+  "snmp.mibParentMissingShort": "Mangler forelder-MIB «{module}» i biblioteket.",
+  "snmp.mibCompileErrorInTree": "Kompileringsfeil for denne filen",
+  "snmp.effectivePenShort": "arvet PEN {pen}",
   "snmp.mibsPageIntro":
-    "Last opp én eller flere MIB-kilder, kompiler til PySNMP Python-moduler (kan laste ned avhengigheter fra nettverket), synkroniser IANA enterprise-register for leverandørnavn, og koble enterprise-nummer til DCIM-produsent (IANA PEN lagres på produsenten).",
+    "Last opp MIB-kilder, kompiler til PySNMP (kan hente avhengigheter fra nett), og synkroniser IANA for leverandørnavn. Enterprise-grupper og DCIM-kobling:",
   "snmp.mibsUploadTitle": "Last opp MIB-filer",
   "snmp.mibFilesMulti": "MIB-filer (flere)",
   "snmp.mibUploadBatch": "Last opp alle",

@@ -120,8 +120,31 @@ export const en = {
   "snmp.innerNavAria": "SNMP sections",
   "snmp.tabTools": "Tools",
   "snmp.tabMibs": "MIB library",
+  "snmp.tabEnterprises": "Enterprises",
+  "snmp.enterprisesTabLink": "Open the Enterprises tab for grouping, tree view, and DCIM linking.",
+  "snmp.enterprisesPageIntro":
+    "MIBs are grouped by IANA enterprise (PEN). Extensions without their own PEN appear under the parent MIB in the tree. Link to a DCIM manufacturer or create one from the IANA name.",
+  "snmp.enterprisesBulkTitle": "Create DCIM manufacturers",
+  "snmp.autocreateManufacturer": "Auto-create DCIM manufacturer",
+  "snmp.autocreateOneHint": "Creates one manufacturer with this PEN and IANA name (if not already linked).",
+  "snmp.autocreateAllManufacturers": "Auto-create all (missing)",
+  "snmp.autocreateAllHint":
+    "For each enterprise number present among MIBs: create a DCIM manufacturer with the IANA name if no manufacturer already holds that PEN.",
+  "snmp.autocreateAllExplain":
+    "Requires a synced IANA registry. Existing manufacturers with the same PEN are skipped. Use “link existing” per enterprise for manual assignment.",
+  "snmp.autocreateAllConfirm":
+    "Create DCIM manufacturers for every PEN that has no manufacturer yet? Existing links are not changed.",
+  "snmp.autocreateCreatedCount": "Created: {n}",
+  "snmp.autocreateSkippedCount": "Skipped: {n}",
+  "snmp.autocreateNothing": "No changes.",
+  "snmp.mibExtends": "extends",
+  "snmp.mibParentMissing":
+    "Parent MIB “{module}” is not in the library — upload that module to place this file under the correct enterprise.",
+  "snmp.mibParentMissingShort": "Missing parent MIB “{module}” in the library.",
+  "snmp.mibCompileErrorInTree": "Compile error on this file",
+  "snmp.effectivePenShort": "inherited PEN {pen}",
   "snmp.mibsPageIntro":
-    "Upload one or more MIB sources, compile them to PySNMP Python modules (may download dependencies from the network), sync the IANA enterprise registry for vendor names, and link an enterprise number to a DCIM manufacturer (IANA PEN on the manufacturer record).",
+    "Upload MIB sources, compile to PySNMP (may fetch dependencies from the network), and sync IANA for vendor names. Enterprise groups and DCIM linking:",
   "snmp.mibsUploadTitle": "Upload MIB files",
   "snmp.mibFilesMulti": "MIB files (multiple)",
   "snmp.mibUploadBatch": "Upload all",

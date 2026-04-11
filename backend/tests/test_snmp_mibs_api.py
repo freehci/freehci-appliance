@@ -58,9 +58,13 @@ def test_snmp_mibs_batch_and_detailed() -> None:
 
         ent = client.get("/api/v1/snmp/enterprises")
         assert ent.status_code == 200
-        pens = {g["enterprise_number"] for g in ent.json()}
+        body = ent.json()
+        pens = {g["enterprise_number"] for g in body}
         assert None in pens
         assert 42 in pens
+        for g in body:
+            assert "mib_tree" in g
+            assert isinstance(g["mib_tree"], list)
 
 
 def test_snmp_mibs_reject_bad_name() -> None:

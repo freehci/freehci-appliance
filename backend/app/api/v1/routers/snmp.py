@@ -9,6 +9,8 @@ from starlette.responses import Response
 from app.api.deps import get_db
 from app.core.config import Settings, get_settings
 from app.schemas.snmp import (
+    SnmpEnterpriseAutocreateRequest,
+    SnmpEnterpriseAutocreateResultRead,
     SnmpEnterpriseGroupRead,
     SnmpIanaSyncRead,
     SnmpInventoryApplyRead,
@@ -50,6 +52,20 @@ def list_snmp_enterprises(
 ) -> list[SnmpEnterpriseGroupRead]:
     rows = mib_cat_svc.list_enterprise_groups(db, settings)
     return [SnmpEnterpriseGroupRead.model_validate(r) for r in rows]
+
+
+@router.post("/enterprises/autocreate-dcim", response_model=SnmpEnterpriseAutocreateResultRead)
+def snmp_enterprises_autocreate_dcim(
+    data: SnmpEnterpriseAutocreateRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> SnmpEnterpriseAutocreateResultRead:
+    r = mib_cat_svc.autocreate_dcim_manufacturers(
+        db,
+        settings,
+        enterprise_number=data.enterprise_number,
+    )
+    return SnmpEnterpriseAutocreateResultRead.model_validate(r)
 
 
 @router.post("/iana/sync", response_model=SnmpIanaSyncRead)

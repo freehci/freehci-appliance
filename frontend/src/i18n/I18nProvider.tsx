@@ -23,7 +23,7 @@ const dictionaries: Record<Locale, Record<MessageKey, string>> = {
 type I18nContextValue = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: MessageKey) => string;
+  t: (key: MessageKey, vars?: Record<string, string>) => string;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -59,7 +59,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [locale]);
 
   const t = useCallback(
-    (key: MessageKey): string => dictionaries[locale][key] ?? en[key] ?? key,
+    (key: MessageKey, vars?: Record<string, string>): string => {
+      let s = dictionaries[locale][key] ?? en[key] ?? key;
+      if (vars) {
+        for (const [vk, vv] of Object.entries(vars)) {
+          s = s.split(`{${vk}}`).join(vv);
+        }
+      }
+      return s;
+    },
     [locale],
   );
 

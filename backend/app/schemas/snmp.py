@@ -34,13 +34,43 @@ class SnmpMibDetailRead(BaseModel):
     compiled_module_name: str | None = None
     compiled_at: dt.datetime | None = None
     linked_manufacturer: SnmpMibManufacturerBrief | None = None
+    effective_enterprise_number: int | None = None
+    extends_mib_module: str | None = None
+    parent_mib_missing: bool = False
+
+
+class SnmpMibTreeNodeRead(BaseModel):
+    filename: str
+    module_name: str | None = None
+    compile_status: str | None = None
+    extension_parent_module: str | None = None
+    parent_mib_missing: bool = False
+    children: list["SnmpMibTreeNodeRead"] = Field(default_factory=list)
 
 
 class SnmpEnterpriseGroupRead(BaseModel):
     enterprise_number: int | None
     iana_organization: str | None = None
     mib_files: list[str] = Field(default_factory=list)
+    mib_tree: list[SnmpMibTreeNodeRead] = Field(default_factory=list)
     linked_manufacturer: SnmpMibManufacturerBrief | None = None
+
+
+class SnmpEnterpriseAutocreateRequest(BaseModel):
+    """enterprise_number=None: opprett for alle PEN med MIB og IANA-navn der det mangler DCIM-produsent."""
+
+    enterprise_number: int | None = Field(None, ge=0, le=2147483647)
+
+
+class SnmpAutocreateItemRead(BaseModel):
+    enterprise_number: int
+    manufacturer_id: int
+    name: str
+
+
+class SnmpEnterpriseAutocreateResultRead(BaseModel):
+    created: list[SnmpAutocreateItemRead] = Field(default_factory=list)
+    skipped: list[str] = Field(default_factory=list)
 
 
 class SnmpIanaSyncRead(BaseModel):
@@ -158,3 +188,6 @@ class SnmpInventoryApplyRead(BaseModel):
     updated: int = 0
     skipped: int = 0
     poll: SnmpInventoryRead | None = None
+
+
+SnmpMibTreeNodeRead.model_rebuild()

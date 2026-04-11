@@ -19,12 +19,25 @@ export type SnmpMibDetail = SnmpMibFile & {
   compiled_module_name: string | null;
   compiled_at: string | null;
   linked_manufacturer: SnmpMibManufacturerBrief | null;
+  effective_enterprise_number?: number | null;
+  extends_mib_module?: string | null;
+  parent_mib_missing?: boolean;
+};
+
+export type SnmpMibTreeNode = {
+  filename: string;
+  module_name: string | null;
+  compile_status: string | null;
+  extension_parent_module: string | null;
+  parent_mib_missing: boolean;
+  children: SnmpMibTreeNode[];
 };
 
 export type SnmpEnterpriseGroup = {
   enterprise_number: number | null;
   iana_organization: string | null;
   mib_files: string[];
+  mib_tree: SnmpMibTreeNode[];
   linked_manufacturer: SnmpMibManufacturerBrief | null;
 };
 
@@ -56,6 +69,17 @@ export function listSnmpMibsDetailed(): Promise<SnmpMibDetail[]> {
 
 export function listSnmpEnterprises(): Promise<SnmpEnterpriseGroup[]> {
   return apiGet(`${P}/enterprises`);
+}
+
+export type SnmpAutocreateDcimResult = {
+  created: Array<{ enterprise_number: number; manufacturer_id: number; name: string }>;
+  skipped: string[];
+};
+
+export function autocreateSnmpDcimManufacturers(body: {
+  enterprise_number?: number | null;
+}): Promise<SnmpAutocreateDcimResult> {
+  return apiPost(`${P}/enterprises/autocreate-dcim`, body);
 }
 
 export function syncSnmpIana(): Promise<{ rows_imported: number }> {

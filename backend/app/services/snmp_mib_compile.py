@@ -77,6 +77,7 @@ def compile_mib_modules(
     *,
     ignore_errors: bool = False,
     rebuild: bool = False,
+    resolution_hints: list[str] | None = None,
 ) -> dict[str, tuple[str, str | None, str | None]]:
     """Kompiler MIB-modulnavn. Returnerer modul -> (status, feilmelding, kanonisk modulnavn fra pysmi)."""
     if not module_names:
@@ -107,27 +108,41 @@ def compile_mib_modules(
         return (st, err, k)
 
     def status_for(requested: str) -> tuple[str, str | None, str | None]:
-        ru = requested.upper()
-        for k, v in processed.items():
-            if k.upper() == ru:
-                return _tuple_for_key(k, v)
-
-        # pysmi bruker modulnavn fra DEFINITIONS; meta/filstam trenger ikke matche nøyaktig.
-        ar = _alnum_upper(requested)
-        if ar:
+        cands = list(dict.fromkeys([requested, *(resolution_hints or [])]))
+        for cand in cands:
+            ru = cand.upper()
             for k, v in processed.items():
-                ak = _alnum_upper(k)
-                if len(ar) >= 4 and len(ak) >= 4 and (ar in ak or ak in ar):
+                if k.upper() == ru:
                     return _tuple_for_key(k, v)
 
-        failed = [(k, v) for k, v in processed.items() if str(v) == "failed"]
-        if failed:
-            k, v = failed[0]
-            return _tuple_for_key(k, v)
+        for cand in cands:
+            ar = _alnum_upper(cand)
+            if ar:
+                for k, v in processed.items():
+                    ak = _alnum_upper(k)
+                    if len(ar) >= 4 and len(ak) >= 4 and (ar in ak or ak in ar):
+                        return _tuple_for_key(k, v)
+
+        failed_msgs: list[str] = []
+        for k, v in processed.items():
+            if str(v) != "failed":
+                continue
+            msg = str(getattr(v, "error", "")) if hasattr(v, "error") else ""
+            failed_msgs.append(f"{k}: {msg}" if msg else f"{k}: failed")
+        if failed_msgs:
+            return ("failed", "; ".join(failed_msgs[:10]), None)
 
         if len(processed) == 1:
             k, v = next(iter(processed.items()))
             return _tuple_for_key(k, v)
+
+        unproc = [k for k, v in processed.items() if str(v) == "unprocessed"]
+        if unproc:
+            return (
+                "failed",
+                f"Kompilering stoppet (uprossesserte moduler: {', '.join(unproc[:8])})",
+                None,
+            )
 
         return ("missing", "MIB ikke funnet eller ikke prosessert", None)
 

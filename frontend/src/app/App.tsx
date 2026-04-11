@@ -13,6 +13,7 @@ import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { IpamPage } from "@/features/ipam/IpamPage";
 import { SnmpLayout } from "@/features/snmp/SnmpLayout";
+import { SnmpEnterprisesPage } from "@/features/snmp/SnmpEnterprisesPage";
 import { SnmpMibsPage } from "@/features/snmp/SnmpMibsPage";
 import { SnmpToolsPage } from "@/features/snmp/SnmpToolsPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
@@ -52,6 +53,7 @@ function AppRoutes() {
             <Route index element={<Navigate to="tools" replace />} />
             <Route path="tools" element={<SnmpToolsPage />} />
             <Route path="mibs" element={<SnmpMibsPage />} />
+            <Route path="enterprises" element={<SnmpEnterprisesPage />} />
           </Route>
           <Route
             path="/jobs"
