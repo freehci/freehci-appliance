@@ -247,7 +247,7 @@ export function SnmpInventoryPanel({
       {mode === "fixed_device" ? (
         <p className={dcimStyles.muted} style={{ marginTop: "var(--space-2)" }}>
           <Link
-            to={probeHost.trim() ? `/snmp?host=${encodeURIComponent(probeHost.trim())}` : "/snmp"}
+            to={probeHost.trim() ? `/snmp/tools?host=${encodeURIComponent(probeHost.trim())}` : "/snmp/tools"}
             className={dcimStyles.tableLink}
           >
             {t("dcim.equip.dev.snmpOpenTools")}

@@ -1,4 +1,4 @@
-import { Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { ChangePasswordPage } from "@/features/auth/ChangePasswordPage";
 import { LoginPage } from "@/features/auth/LoginPage";
@@ -12,7 +12,9 @@ import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { IpamPage } from "@/features/ipam/IpamPage";
-import { SnmpPage } from "@/features/snmp/SnmpPage";
+import { SnmpLayout } from "@/features/snmp/SnmpLayout";
+import { SnmpMibsPage } from "@/features/snmp/SnmpMibsPage";
+import { SnmpToolsPage } from "@/features/snmp/SnmpToolsPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { PluginProvider } from "@/plugins/PluginContext";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -46,7 +48,11 @@ function AppRoutes() {
             <Route path="equipment/manufacturers/:manufacturerId" element={<DcimManufacturerDetailPage />} />
           </Route>
           <Route path="/ipam" element={<IpamPage />} />
-          <Route path="/snmp" element={<SnmpPage />} />
+          <Route path="/snmp" element={<SnmpLayout />}>
+            <Route index element={<Navigate to="tools" replace />} />
+            <Route path="tools" element={<SnmpToolsPage />} />
+            <Route path="mibs" element={<SnmpMibsPage />} />
+          </Route>
           <Route
             path="/jobs"
             element={

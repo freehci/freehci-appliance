@@ -57,7 +57,7 @@ export const nb = {
 
   "snmp.title": "SNMP",
   "snmp.intro":
-    "Last opp leverandør-MIB-filer for senere OID-navneoppslag. Kjør SNMPv2c GET eller WALK mot tilgjengelige verter. Som ICMP og ARP når SNMP fra API-containeren bare nett den containeren har rute til — bruk host-nettverk eller kjør API på en vert med L2/L3 til utstyret når det trengs.",
+    "Bruk fanen MIB-bibliotek for opplasting, kompilering og gruppering etter enterprise. Her kjører du SNMPv2c GET eller WALK mot tilgjengelige verter. Som ICMP og ARP når SNMP fra API-containeren bare nett den containeren har rute til — bruk host-nettverk eller kjør API på en vert med L2/L3 til utstyret når det trengs.",
   "snmp.mibsTitle": "MIB-bibliotek",
   "snmp.mibsHint":
     "Lagre .mib / .my / .txt her (maks 5 MiB per fil). Kompilerte MIB-er og symbolske OID-er kommer senere; bruk numeriske OID-er i proben inntil videre.",
@@ -120,6 +120,38 @@ export const nb = {
     "Krever Q-BRIDGE-MIB. Broport mappes til ifIndex via BRIDGE-MIB; på L3-only eller ikke-støttede agenter blir denne tabellen tom.",
   "snmp.scanColBridgePort": "Broport",
   "snmp.scanColPvid": "PVID",
+  "snmp.innerNavAria": "SNMP-faner",
+  "snmp.tabTools": "Verktøy",
+  "snmp.tabMibs": "MIB-bibliotek",
+  "snmp.mibsPageIntro":
+    "Last opp én eller flere MIB-kilder, kompiler til PySNMP Python-moduler (kan laste ned avhengigheter fra nettverket), synkroniser IANA enterprise-register for leverandørnavn, og koble enterprise-nummer til DCIM-produsent (IANA PEN lagres på produsenten).",
+  "snmp.mibsUploadTitle": "Last opp MIB-filer",
+  "snmp.mibFilesMulti": "MIB-filer (flere)",
+  "snmp.mibUploadBatch": "Last opp alle",
+  "snmp.ianaSync": "Synk IANA enterprise",
+  "snmp.ianaSyncHint": "Henter enterprise-numbers.txt fra IANA (krever utgående HTTPS).",
+  "snmp.compileAll": "Kompiler alle MIB-er",
+  "snmp.compileAllHint": "Kjører pysmi per fil; kan ta tid og trenger nettverk for manglende imports.",
+  "snmp.compileAllConfirm": "Kompilere alle MIB-er? Dette kan ta lang tid og bruke nettverket.",
+  "snmp.compileOne": "Kompiler",
+  "snmp.enterprisesTitle": "Enterprises (grupperte MIB-er)",
+  "snmp.enterprisesHint":
+    "MIB-er grupperes etter detektert private enterprise-nummer (1.3.6.1.4.1.<pen>). Kobling til DCIM-produsent lagrer IANA PEN på produsentposten (standard vendor-id for SNMP).",
+  "snmp.mibsTableTitle": "Alle MIB-filer",
+  "snmp.mibColModule": "Modul",
+  "snmp.mibColEnterprise": "Enterprise",
+  "snmp.mibColIanaOrg": "IANA org",
+  "snmp.mibColCompile": "Kompileringsstatus",
+  "snmp.mibColMfr": "DCIM-produsent",
+  "snmp.enterpriseUnknown": "Ukjent enterprise (ingen PEN funnet i fil)",
+  "snmp.enterprisePenLabel": "Enterprise",
+  "snmp.enterpriseNoPenHint": "Ingen enterprise-OID funnet; koble til produsent når MIB definerer det, eller rett kildeteksten.",
+  "snmp.linkDcimManufacturer": "Koble DCIM-produsent (IANA PEN)",
+  "snmp.linkManufacturerPlaceholder": "Velg produsent…",
+  "snmp.linkApply": "Bruk kobling",
+  "snmp.linkRemove": "Fjern kobling",
+  "snmp.mibsVendorNote":
+    "Merke vs. leverandør: DCIM bruker én produsentpost per leverandør; IANA enterprise-nummer er SNMP-siden av leverandøridentitet. Valgfritt merke på modell/rack beholdes som i dag.",
 
   "placeholders.jobs.title": "Jobs",
   "placeholders.jobs.desc": "Celery-arbeidere, discovery og synk – fase 4.",

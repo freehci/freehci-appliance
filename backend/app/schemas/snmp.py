@@ -17,6 +17,36 @@ class SnmpMibFileRead(BaseModel):
     modified_at: dt.datetime
 
 
+class SnmpMibManufacturerBrief(BaseModel):
+    id: int
+    name: str
+
+
+class SnmpMibDetailRead(BaseModel):
+    name: str
+    size_bytes: int
+    modified_at: dt.datetime
+    module_name: str | None = None
+    enterprise_number: int | None = None
+    iana_organization: str | None = None
+    compile_status: str
+    compile_message: str | None = None
+    compiled_module_name: str | None = None
+    compiled_at: dt.datetime | None = None
+    linked_manufacturer: SnmpMibManufacturerBrief | None = None
+
+
+class SnmpEnterpriseGroupRead(BaseModel):
+    enterprise_number: int | None
+    iana_organization: str | None = None
+    mib_files: list[str] = Field(default_factory=list)
+    linked_manufacturer: SnmpMibManufacturerBrief | None = None
+
+
+class SnmpIanaSyncRead(BaseModel):
+    rows_imported: int
+
+
 class SnmpProbeRequest(BaseModel):
     host: str = Field(..., min_length=1, max_length=255)
     port: int = Field(161, ge=1, le=65535)

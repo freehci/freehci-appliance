@@ -34,6 +34,7 @@ services:
       CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
       UPLOAD_ROOT: /app/data/uploads
       MIB_ROOT: /app/data/mibs
+      MIB_COMPILED_ROOT: /app/data/mibs/compiled
       # Overstyr i produksjon (påvirker JWT for admin-innlogging).
       JWT_SECRET: change-me-in-production-use-long-random-string
     volumes:

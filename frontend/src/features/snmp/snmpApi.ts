@@ -8,6 +8,26 @@ export type SnmpMibFile = {
   modified_at: string;
 };
 
+export type SnmpMibManufacturerBrief = { id: number; name: string };
+
+export type SnmpMibDetail = SnmpMibFile & {
+  module_name: string | null;
+  enterprise_number: number | null;
+  iana_organization: string | null;
+  compile_status: string;
+  compile_message: string | null;
+  compiled_module_name: string | null;
+  compiled_at: string | null;
+  linked_manufacturer: SnmpMibManufacturerBrief | null;
+};
+
+export type SnmpEnterpriseGroup = {
+  enterprise_number: number | null;
+  iana_organization: string | null;
+  mib_files: string[];
+  linked_manufacturer: SnmpMibManufacturerBrief | null;
+};
+
 export type SnmpVarBind = { oid: string; value: string };
 
 export type SnmpProbeResult = {
@@ -28,6 +48,34 @@ export function uploadSnmpMib(file: File): Promise<SnmpMibFile> {
 
 export function deleteSnmpMib(name: string): Promise<void> {
   return apiDelete(`${P}/mibs/${encodeURIComponent(name)}`);
+}
+
+export function listSnmpMibsDetailed(): Promise<SnmpMibDetail[]> {
+  return apiGet(`${P}/mibs/detailed`);
+}
+
+export function listSnmpEnterprises(): Promise<SnmpEnterpriseGroup[]> {
+  return apiGet(`${P}/enterprises`);
+}
+
+export function syncSnmpIana(): Promise<{ rows_imported: number }> {
+  return apiPost(`${P}/iana/sync`, {});
+}
+
+export function uploadSnmpMibsBatch(files: File[]): Promise<SnmpMibDetail[]> {
+  const fd = new FormData();
+  for (const f of files) {
+    fd.append("files", f);
+  }
+  return apiPostMultipart(`${P}/mibs/batch`, fd);
+}
+
+export function compileSnmpMib(name: string): Promise<SnmpMibDetail> {
+  return apiPost(`${P}/mibs/${encodeURIComponent(name)}/compile`, {});
+}
+
+export function compileAllSnmpMibs(): Promise<SnmpMibDetail[]> {
+  return apiPost(`${P}/mibs/compile-all`, {});
 }
 
 export function snmpProbe(body: {

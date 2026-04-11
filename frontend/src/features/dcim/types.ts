@@ -41,6 +41,8 @@ export type Manufacturer = {
   description: string | null;
   website_url: string | null;
   has_logo: boolean;
+  /** IANA private enterprise number (1.3.6.1.4.1.<pen>) — kobling mot SNMP MIB-enterprise. */
+  iana_enterprise_number?: number | null;
 };
 
 export type DeviceType = {

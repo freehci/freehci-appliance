@@ -72,6 +72,8 @@ class Manufacturer(Base):
     website_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     logo_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     logo_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # IANA SMI Network Management Private Enterprise Number (1.3.6.1.4.1.<pen>) — kobler produsent til SNMP enterprise.
+    iana_enterprise_number: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
 
 
 class DeviceType(Base):

@@ -70,6 +70,7 @@ Options via environment:
 |-------------|--------|
 | `UPLOAD_ROOT` | Katalog for opplastede DCIM-filer (produsent-logoer og modellbilder); standard i Compose er `/app/data/uploads`. Compose bruker et **navngitt volum** (`dcim_uploads`) mot denne stien for varig lagring. |
 | `MIB_ROOT` | Katalog for opplastede SNMP-MIB-filer; standard i Compose er `/app/data/mibs`. Volumet **`dcim_mibs`** sørger for at MIB-er overlever image-rebuild (samme mønster som opplastinger). |
+| `MIB_COMPILED_ROOT` | Katalog for PySNMP-kompilerte MIB-moduler (`.py` fra pysmi). I Compose er standarden `/app/data/mibs/compiled` (under samme volum som `MIB_ROOT`). |
 | `NO_CACHE=1` | `docker compose build --no-cache` (full rebuild) |
 | `SKIP_GIT=1` | Only rebuild and restart; no `git pull` |
 | `GIT_BRANCH=name` | `git fetch` + checkout branch before pull |

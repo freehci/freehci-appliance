@@ -1021,7 +1021,7 @@ export function IpamPage() {
                                 </Link>
                               ) : (
                                 <Link
-                                  to={`/snmp?host=${encodeURIComponent(row.address)}`}
+                                  to={`/snmp/tools?host=${encodeURIComponent(row.address)}`}
                                   className={dcimStyles.tableLink}
                                   title={t("ipam.grid.addressOpenSnmpDiscovery")}
                                 >

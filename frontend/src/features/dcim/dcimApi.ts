@@ -81,7 +81,12 @@ export function createManufacturer(body: {
 
 export function updateManufacturer(
   id: number,
-  body: { name?: string; description?: string | null; website_url?: string | null },
+  body: {
+    name?: string;
+    description?: string | null;
+    website_url?: string | null;
+    iana_enterprise_number?: number | null;
+  },
 ): Promise<Manufacturer> {
   return apiPatch(`${P}/manufacturers/${id}`, body);
 }

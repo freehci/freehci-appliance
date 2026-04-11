@@ -23,6 +23,7 @@ import pytest
 import app.models.admin_account  # noqa: F401
 import app.models.dcim  # noqa: F401
 import app.models.ipam  # noqa: F401 — tabeller for IPAM + FK fra DCIM
+import app.models.snmp_catalog  # noqa: F401 — SNMP MIB-metadata + IANA
 from app.core.db import engine
 from app.models.base import Base
 

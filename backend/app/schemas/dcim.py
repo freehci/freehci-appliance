@@ -117,6 +117,7 @@ class ManufacturerUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     website_url: str | None = Field(None, max_length=1024)
+    iana_enterprise_number: int | None = Field(None, ge=0, le=2147483647)
 
 
 class ManufacturerRead(BaseModel):
@@ -127,6 +128,7 @@ class ManufacturerRead(BaseModel):
     description: str | None
     website_url: str | None
     has_logo: bool
+    iana_enterprise_number: int | None = None
 
 
 class DeviceTypeCreate(BaseModel):
@@ -172,6 +174,7 @@ class ManufacturerDetailRead(BaseModel):
     description: str | None
     website_url: str | None
     has_logo: bool
+    iana_enterprise_number: int | None = None
     device_models: list[DeviceModelBrief]
 
 

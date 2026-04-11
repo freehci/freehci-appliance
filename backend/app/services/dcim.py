@@ -5,7 +5,7 @@ from __future__ import annotations
 import ipaddress
 from collections import defaultdict
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -362,6 +362,7 @@ def manufacturer_read(m: Manufacturer) -> ManufacturerRead:
         description=m.description,
         website_url=m.website_url,
         has_logo=m.logo_relpath is not None,
+        iana_enterprise_number=m.iana_enterprise_number,
     )
 
 
@@ -399,6 +400,18 @@ def update_manufacturer(db: Session, m: Manufacturer, data: ManufacturerUpdate) 
     if "website_url" in patch:
         v = patch["website_url"]
         m.website_url = None if v is None else (str(v).strip() or None)
+    if "iana_enterprise_number" in patch:
+        pen = patch["iana_enterprise_number"]
+        if pen is not None:
+            db.execute(
+                update(Manufacturer)
+                .where(
+                    Manufacturer.iana_enterprise_number == pen,
+                    Manufacturer.id != m.id,
+                )
+                .values(iana_enterprise_number=None),
+            )
+        m.iana_enterprise_number = pen
     db.commit()
     db.refresh(m)
     return manufacturer_read(m)
@@ -420,6 +433,7 @@ def get_manufacturer_detail(db: Session, mid: int) -> ManufacturerDetailRead | N
         description=m.description,
         website_url=m.website_url,
         has_logo=m.logo_relpath is not None,
+        iana_enterprise_number=m.iana_enterprise_number,
         device_models=[DeviceModelBrief.model_validate(x) for x in models],
     )
 

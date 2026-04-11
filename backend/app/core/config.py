@@ -63,6 +63,11 @@ class Settings(BaseSettings):
         description="Katalog for opplastede SNMP-MIB-filer (.mib/.txt), relativ eller absolutt sti",
     )
 
+    mib_compiled_root: str = Field(
+        default="data/mibs_compiled",
+        description="Katalog for PySNMP-kompilerte MIB-moduler (.py), relativ eller absolutt sti",
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -82,6 +87,10 @@ class Settings(BaseSettings):
     @property
     def mib_root_path(self) -> Path:
         return Path(self.mib_root).expanduser()
+
+    @property
+    def mib_compiled_path(self) -> Path:
+        return Path(self.mib_compiled_root).expanduser()
 
 
 @lru_cache
