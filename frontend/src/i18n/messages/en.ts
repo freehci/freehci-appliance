@@ -132,6 +132,14 @@ export const en = {
     "For each enterprise number present among MIBs: create a DCIM manufacturer with the IANA name if no manufacturer already holds that PEN.",
   "snmp.autocreateAllExplain":
     "Requires a synced IANA registry. Existing manufacturers with the same PEN are skipped. Use “link existing” per enterprise for manual assignment.",
+  "snmp.autocreateByPenTitle": "Auto-create for one PEN",
+  "snmp.autocreateByPenLabel": "IANA enterprise (PEN)",
+  "snmp.autocreateByPenButton": "Auto-create for this PEN",
+  "snmp.autocreateByPenHint":
+    "Creates one DCIM manufacturer from the IANA name for the entered PEN (even if you have no MIB files for it). Requires IANA sync.",
+  "snmp.autocreateByPenInvalid": "Enter a valid non-negative integer PEN.",
+  "snmp.autocreateOneDespiteLinkHint":
+    "DCIM already has a manufacturer with this PEN. Click to try anyway — you will see a skip message if so.",
   "snmp.autocreateAllConfirm":
     "Create DCIM manufacturers for every PEN that has no manufacturer yet? Existing links are not changed.",
   "snmp.autocreateCreatedCount": "Created: {n}",
@@ -170,6 +178,7 @@ export const en = {
   "snmp.linkManufacturerPlaceholder": "Choose manufacturer…",
   "snmp.linkApply": "Apply link",
   "snmp.linkRemove": "Remove link",
+  "snmp.enterpriseActionsAria": "Actions for this enterprise number",
   "snmp.mibsVendorNote":
     "Brand vs vendor: DCIM uses one manufacturer record per vendor; the IANA enterprise number is the SNMP-side identifier. Optional product branding stays on device models/racks as today.",
   "placeholders.jobs.title": "Jobs",

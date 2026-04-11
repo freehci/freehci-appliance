@@ -135,6 +135,14 @@ export const nb = {
     "For hvert enterprise-nummer som finnes blant MIB-ene: opprett DCIM-produsent med IANA-navn hvis ingen produsent allerede har dette PEN.",
   "snmp.autocreateAllExplain":
     "Krever synkronisert IANA-register. Eksisterende produsenter med samme PEN hoppes over. Bruk «koble eksisterende» per enterprise for manuell kobling.",
+  "snmp.autocreateByPenTitle": "Autoprett for ett PEN-nummer",
+  "snmp.autocreateByPenLabel": "IANA enterprise (PEN)",
+  "snmp.autocreateByPenButton": "Autoprett for dette PEN",
+  "snmp.autocreateByPenHint":
+    "Oppretter én DCIM-produsent fra IANA-navnet for valgt PEN (uavhengig av om du har MIB-filer for tallet). Krever IANA-synk.",
+  "snmp.autocreateByPenInvalid": "Oppgi et gyldig ikke-negativt PEN-heltall.",
+  "snmp.autocreateOneDespiteLinkHint":
+    "DCIM har allerede en produsent med dette PEN. Klikk for å forsøke likevel — du får melding hvis den hoppes over.",
   "snmp.autocreateAllConfirm":
     "Opprette DCIM-produsenter for alle PEN som mangler produsent? Eksisterende koblinger endres ikke.",
   "snmp.autocreateCreatedCount": "Opprettet: {n}",
@@ -173,6 +181,7 @@ export const nb = {
   "snmp.linkManufacturerPlaceholder": "Velg produsent…",
   "snmp.linkApply": "Bruk kobling",
   "snmp.linkRemove": "Fjern kobling",
+  "snmp.enterpriseActionsAria": "Handlinger for dette enterprise-nummeret",
   "snmp.mibsVendorNote":
     "Merke vs. leverandør: DCIM bruker én produsentpost per leverandør; IANA enterprise-nummer er SNMP-siden av leverandøridentitet. Valgfritt merke på modell/rack beholdes som i dag.",
 

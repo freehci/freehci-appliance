@@ -59,6 +59,7 @@ export function SnmpEnterprisesPage() {
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
   const [autocreateMsg, setAutocreateMsg] = useState<string | null>(null);
+  const [penInput, setPenInput] = useState("");
 
   const entQ = useQuery({ queryKey: ["snmp", "enterprises"], queryFn: snmpApi.listSnmpEnterprises });
   const mfrQ = useQuery({ queryKey: ["dcim", "manufacturers", "all"], queryFn: dcimApi.listManufacturers });
@@ -91,7 +92,13 @@ export function SnmpEnterprisesPage() {
       if (r.skipped.length) {
         parts.push(t("snmp.autocreateSkippedCount", { n: String(r.skipped.length) }));
       }
-      setAutocreateMsg(parts.join(" · ") || t("snmp.autocreateNothing"));
+      const summary = parts.join(" · ") || t("snmp.autocreateNothing");
+      const detailLines: string[] = [
+        ...r.created.map((c) => `${c.name} (PEN ${c.enterprise_number})`),
+        ...r.skipped.slice(0, 12),
+      ];
+      const detail = detailLines.join("\n");
+      setAutocreateMsg([summary, detail].filter(Boolean).join("\n"));
       void qc.invalidateQueries({ queryKey: ["dcim", "manufacturers"] });
       invalidate();
     },
@@ -104,7 +111,14 @@ export function SnmpEnterprisesPage() {
   return (
     <>
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
-      {autocreateMsg ? <p className={dcimStyles.muted}>{autocreateMsg}</p> : null}
+      {autocreateMsg ? (
+        <pre
+          className={dcimStyles.muted}
+          style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "var(--text-sm)" }}
+        >
+          {autocreateMsg}
+        </pre>
+      ) : null}
       <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
         {t("snmp.enterprisesPageIntro")}
       </p>
@@ -126,8 +140,45 @@ export function SnmpEnterprisesPage() {
             {autocreateMut.isPending ? "…" : t("snmp.autocreateAllManufacturers")}
           </button>
         </div>
-        <p className={dcimStyles.muted} style={{ marginBottom: 0 }}>
+        <p className={dcimStyles.muted} style={{ marginBottom: "var(--space-2)" }}>
           {t("snmp.autocreateAllExplain")}
+        </p>
+        <h4 className={dcimStyles.mfrDetailSectionTitle} style={{ fontSize: "var(--text-sm)", marginBottom: "var(--space-2)" }}>
+          {t("snmp.autocreateByPenTitle")}
+        </h4>
+        <div className={dcimStyles.formRow} style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "var(--space-2)" }}>
+          <label>
+            {t("snmp.autocreateByPenLabel")}
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={penInput}
+              onChange={(e) => setPenInput(e.target.value)}
+              placeholder="1588"
+              style={{ width: "8rem", marginLeft: "var(--space-2)" }}
+            />
+          </label>
+          <button
+            type="button"
+            className={dcimStyles.btnMuted}
+            disabled={autocreateMut.isPending || penInput.trim() === ""}
+            onClick={() => {
+              setAutocreateMsg(null);
+              const n = Number.parseInt(penInput.trim(), 10);
+              if (!Number.isFinite(n) || n < 0) {
+                setErr(t("snmp.autocreateByPenInvalid"));
+                return;
+              }
+              setErr(null);
+              autocreateMut.mutate(n);
+            }}
+          >
+            {autocreateMut.isPending ? "…" : t("snmp.autocreateByPenButton")}
+          </button>
+        </div>
+        <p className={dcimStyles.muted} style={{ marginTop: "var(--space-2)", marginBottom: 0 }}>
+          {t("snmp.autocreateByPenHint")}
         </p>
       </section>
 
@@ -205,25 +256,14 @@ function EnterpriseGroupCard({
     >
       <h4 style={{ marginTop: 0, marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }}>{title}</h4>
       {pen != null ? (
-        <div
-          className={dcimStyles.formRow}
-          style={{ alignItems: "flex-end", marginBottom: "var(--space-2)", flexWrap: "wrap", gap: "var(--space-2)" }}
-        >
-          <button
-            type="button"
-            className={dcimStyles.btnMuted}
-            disabled={autocreatePending || !!group.linked_manufacturer}
-            onClick={onAutocreateOne}
-            title={t("snmp.autocreateOneHint")}
-          >
-            {t("snmp.autocreateManufacturer")}
-          </button>
-          <label>
+        <div style={{ marginBottom: "var(--space-2)" }}>
+          <label style={{ display: "block", marginBottom: "var(--space-2)" }}>
             {t("snmp.linkDcimManufacturer")}
             <select
               value={selected}
               onChange={(e) => setSelected(e.target.value)}
               disabled={linkPending || manufacturers.length === 0}
+              style={{ display: "block", marginTop: "var(--space-1)", maxWidth: "100%", width: "min(28rem, 100%)" }}
             >
               <option value="">{t("snmp.linkManufacturerPlaceholder")}</option>
               {manufacturers.map((m) => (
@@ -234,24 +274,44 @@ function EnterpriseGroupCard({
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            className={dcimStyles.btn}
-            disabled={linkPending || selected === ""}
-            onClick={() => onLink(Number(selected), pen)}
+          <div
+            className={dcimStyles.formRow}
+            style={{ alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}
+            role="group"
+            aria-label={t("snmp.enterpriseActionsAria")}
           >
-            {t("snmp.linkApply")}
-          </button>
-          {group.linked_manufacturer ? (
             <button
               type="button"
-              className={dcimStyles.btnMuted}
-              disabled={linkPending}
-              onClick={() => onUnlink(group.linked_manufacturer!.id)}
+              className={dcimStyles.btn}
+              disabled={autocreatePending}
+              onClick={onAutocreateOne}
+              title={
+                group.linked_manufacturer
+                  ? t("snmp.autocreateOneDespiteLinkHint")
+                  : t("snmp.autocreateOneHint")
+              }
             >
-              {t("snmp.linkRemove")}
+              {t("snmp.autocreateManufacturer")}
             </button>
-          ) : null}
+            <button
+              type="button"
+              className={dcimStyles.btn}
+              disabled={linkPending || selected === ""}
+              onClick={() => onLink(Number(selected), pen)}
+            >
+              {t("snmp.linkApply")}
+            </button>
+            {group.linked_manufacturer ? (
+              <button
+                type="button"
+                className={dcimStyles.btnMuted}
+                disabled={linkPending}
+                onClick={() => onUnlink(group.linked_manufacturer!.id)}
+              >
+                {t("snmp.linkRemove")}
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : (
         <p className={dcimStyles.muted}>{t("snmp.enterpriseNoPenHint")}</p>
