@@ -63,6 +63,11 @@
   --dcim-inner-tab-border-hover: rgba(186, 198, 220, 0.55);
   --dcim-inner-tab-active-bg: #5a5e8c;
   --dcim-inner-tab-active-fg: #0f172a;
+  /* MIB-kildeviewer (syntaks) */
+  --mib-syntax-kw: #8ab4f8;
+  --mib-syntax-string: #7bc96f;
+  --mib-syntax-comment: #8fa8d4;
+  --mib-syntax-oid: #f0c674;
 }
 
 /* Lys */
@@ -98,4 +103,8 @@
   --dcim-inner-tab-border-hover: #94a3b8;
   --dcim-inner-tab-active-bg: #5a5e8c;
   --dcim-inner-tab-active-fg: #0f172a;
+  --mib-syntax-kw: #0550ae;
+  --mib-syntax-string: #116329;
+  --mib-syntax-comment: #6a737d;
+  --mib-syntax-oid: #953800;
 }

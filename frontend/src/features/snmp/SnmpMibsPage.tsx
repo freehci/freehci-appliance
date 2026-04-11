@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { MibSourceModal } from "./MibSourceModal";
+import mibViewStyles from "./mibViewer.module.css";
 import * as snmpApi from "./snmpApi";
 
 export function SnmpMibsPage() {
@@ -164,7 +165,14 @@ export function SnmpMibsPage() {
                 {mibsQ.data.map((m) => (
                   <tr key={m.name}>
                     <td>
-                      <code>{m.name}</code>
+                      <button
+                        type="button"
+                        className={mibViewStyles.fileNameBtn}
+                        title={t("snmp.mibFilenameOpenHint")}
+                        onClick={() => setViewSourceName(m.name)}
+                      >
+                        <code>{m.name}</code>
+                      </button>
                       {m.parent_mib_missing ? (
                         <div className={dcimStyles.err} style={{ fontSize: "var(--text-xs)", marginTop: 4 }}>
                           {t("snmp.mibParentMissingShort", { module: m.extends_mib_module ?? "?" })}
@@ -205,14 +213,6 @@ export function SnmpMibsPage() {
                     </td>
                     <td>{m.linked_manufacturer?.name ?? "—"}</td>
                     <td>
-                      <button
-                        type="button"
-                        className={dcimStyles.btnLink}
-                        style={{ marginRight: "var(--space-2)" }}
-                        onClick={() => setViewSourceName(m.name)}
-                      >
-                        {t("snmp.mibViewSource")}
-                      </button>
                       <button
                         type="button"
                         className={dcimStyles.btnLink}

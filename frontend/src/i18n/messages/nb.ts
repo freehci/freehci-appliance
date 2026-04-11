@@ -165,7 +165,10 @@ export const nb = {
   "snmp.compileAllHint": "Kjører pysmi per fil; kan ta tid og trenger nettverk for manglende imports.",
   "snmp.compileAllConfirm": "Kompilere alle MIB-er? Dette kan ta lang tid og bruke nettverket.",
   "snmp.compileOne": "Kompiler",
-  "snmp.mibViewSource": "Vis kilde",
+  "snmp.mibFilenameOpenHint": "Åpne MIB-kilde i viewer (klikk på filnavnet)",
+  "snmp.mibDownloadHint": "Last ned denne MIB-filen",
+  "snmp.mibDownloadAria": "Last ned MIB",
+  "snmp.mibSourceCloseAria": "Lukk viewer",
   "snmp.enterprisesTitle": "Enterprises (grupperte MIB-er)",
   "snmp.enterprisesHint":
     "MIB-er grupperes etter detektert private enterprise-nummer (1.3.6.1.4.1.<pen>). Kobling til DCIM-produsent lagrer IANA PEN på produsentposten (standard vendor-id for SNMP).",

@@ -162,7 +162,10 @@ export const en = {
   "snmp.compileAllHint": "Runs pysmi for each uploaded file; can be slow and needs network for missing imports.",
   "snmp.compileAllConfirm": "Compile every MIB? This may take a long time and use the network.",
   "snmp.compileOne": "Compile",
-  "snmp.mibViewSource": "View source",
+  "snmp.mibFilenameOpenHint": "Open MIB source in viewer (click the file name)",
+  "snmp.mibDownloadHint": "Download this MIB file",
+  "snmp.mibDownloadAria": "Download MIB",
+  "snmp.mibSourceCloseAria": "Close viewer",
   "snmp.enterprisesTitle": "Enterprises (grouped MIBs)",
   "snmp.enterprisesHint":
     "MIBs are grouped by detected private enterprise number (1.3.6.1.4.1.<pen>). Link a group to a DCIM manufacturer to store the IANA PEN on that manufacturer (standard vendor id for SNMP).",

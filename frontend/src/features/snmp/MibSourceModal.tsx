@@ -1,6 +1,20 @@
 import { useEffect, useId, useMemo, type ReactNode } from "react";
 import dcimStyles from "@/features/dcim/dcim.module.css";
+import { useI18n } from "@/i18n/I18nProvider";
 import styles from "./mibViewer.module.css";
+
+function triggerDownload(filename: string, text: string) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 /** Ord og operatorer som ofte brukes i SMI-v1/v2 MIB-er */
 const TOKEN_RE =
@@ -76,6 +90,7 @@ export function MibSourceModal({
   error: string | null;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const titleId = useId();
 
   useEffect(() => {
@@ -105,13 +120,35 @@ export function MibSourceModal({
           <h2 id={titleId} className={styles.title}>
             {filename}
           </h2>
-          <button type="button" className={dcimStyles.btnMuted} onClick={onClose} aria-label="Close">
-            ×
-          </button>
+          <div className={styles.headerActions}>
+            {content != null && !loading && !error ? (
+              <button
+                type="button"
+                className={dcimStyles.btnMuted}
+                title={t("snmp.mibDownloadHint")}
+                aria-label={t("snmp.mibDownloadAria")}
+                onClick={() => triggerDownload(filename, content)}
+              >
+                <i className="fas fa-download" aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={dcimStyles.btnMuted}
+              onClick={onClose}
+              aria-label={t("snmp.mibSourceCloseAria")}
+            >
+              ×
+            </button>
+          </div>
         </div>
         <div className={styles.body}>
           {loading ? <p style={{ padding: "var(--space-3)" }}>…</p> : null}
-          {error ? <p style={{ padding: "var(--space-3)", color: "crimson" }}>{error}</p> : null}
+          {error ? (
+            <p className={dcimStyles.err} style={{ padding: "var(--space-3)" }}>
+              {error}
+            </p>
+          ) : null}
           {!loading && !error && content != null ? <MibHighlighted text={content} /> : null}
         </div>
       </div>
