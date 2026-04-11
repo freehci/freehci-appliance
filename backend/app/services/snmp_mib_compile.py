@@ -96,16 +96,39 @@ def compile_mib_modules(
         ),
     )
 
+    def _alnum_upper(s: str) -> str:
+        return "".join(c for c in s.upper() if c.isalnum())
+
+    def _tuple_for_key(k: str, v: Any) -> tuple[str, str | None, str | None]:
+        st = str(v)
+        err = None
+        if st == "failed" and hasattr(v, "error"):
+            err = str(getattr(v, "error", ""))
+        return (st, err, k)
+
     def status_for(requested: str) -> tuple[str, str | None, str | None]:
         ru = requested.upper()
         for k, v in processed.items():
             if k.upper() == ru:
-                err = None
-                if str(v) == "failed" and hasattr(v, "error"):
-                    err = str(getattr(v, "error", ""))
-                return (str(v), err, k)
-        if requested in mib_compiler.failedMibs:
-            return ("failed", str(mib_compiler.failedMibs[requested]), None)
+                return _tuple_for_key(k, v)
+
+        # pysmi bruker modulnavn fra DEFINITIONS; meta/filstam trenger ikke matche nøyaktig.
+        ar = _alnum_upper(requested)
+        if ar:
+            for k, v in processed.items():
+                ak = _alnum_upper(k)
+                if len(ar) >= 4 and len(ak) >= 4 and (ar in ak or ak in ar):
+                    return _tuple_for_key(k, v)
+
+        failed = [(k, v) for k, v in processed.items() if str(v) == "failed"]
+        if failed:
+            k, v = failed[0]
+            return _tuple_for_key(k, v)
+
+        if len(processed) == 1:
+            k, v = next(iter(processed.items()))
+            return _tuple_for_key(k, v)
+
         return ("missing", "MIB ikke funnet eller ikke prosessert", None)
 
     return {req: status_for(req) for req in module_names}
