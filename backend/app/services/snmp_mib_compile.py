@@ -21,6 +21,32 @@ from app.core.config import Settings
 # pysmi MibStatus-strenger som betyr at PySNMP kan bruke modulen (.py finnes eller er hentet).
 _COMPILE_OK = frozenset({"compiled", "untouched", "borrowed"})
 
+# Vanlige avhengigheter som ikke er «leverandørens» hovedmodul ved én-fil-kompilering.
+_PYSMI_INFRA_MODULES = frozenset(
+    {
+        "RFC-1212",
+        "RFC1212",
+        "RFC-1215",
+        "RFC1155-SMI",
+        "RFC1158-MIB",
+        "RFC1065-SMI",
+        "RFC1213-MIB",
+        "SNMPv2-SMI",
+        "SNMPv2-TC",
+        "SNMPv2-CONF",
+        "SNMPv2-TM",
+        "SNMPv2-MIB",
+        "SNMP-FRAMEWORK-MIB",
+        "IANAifType-MIB",
+        "INET-ADDRESS-MIB",
+        "IP-MIB",
+        "IF-MIB",
+        "ASN1",
+        "ASN1-ENUMERATION",
+        "ASN1-REFINEMENT",
+    },
+)
+
 
 def compile_status_is_success(status: str) -> bool:
     return status in _COMPILE_OK
@@ -165,11 +191,22 @@ def compile_mib_modules(
                 None,
             )
 
+        vendor_ok = [
+            (k, v)
+            for k, v in processed.items()
+            if str(v) in _COMPILE_OK and k not in _PYSMI_INFRA_MODULES
+        ]
+        if len(vendor_ok) == 1:
+            k, v = vendor_ok[0]
+            return _tuple_for_key(k, v)
+
         keys = sorted(processed.keys())
         hint = ", ".join(keys[:30]) + ("…" if len(keys) > 30 else "")
+        # Engelsk, stabil form — oversettes i frontend (i18n).
         return (
             "missing",
-            f"Kunne ikke mappe forespurt modul til pysmi-resultat ({len(processed)} modul(er): {hint})",
+            f"Could not map the requested module to the pysmi compiler result "
+            f"({len(processed)} modules: {hint}).",
             None,
         )
 

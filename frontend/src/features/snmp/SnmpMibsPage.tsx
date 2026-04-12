@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
+import { formatSnmpCompileMessageForUi } from "./compileMessages";
 import { MibSourceModal } from "./MibSourceModal";
 import mibViewStyles from "./mibViewer.module.css";
 import * as snmpApi from "./snmpApi";
@@ -207,7 +208,7 @@ export function SnmpMibsPage() {
                             wordBreak: "break-word",
                           }}
                         >
-                          {m.compile_message}
+                          {formatSnmpCompileMessageForUi(m.compile_message, t)}
                         </div>
                       ) : null}
                     </td>

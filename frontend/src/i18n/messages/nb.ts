@@ -164,6 +164,8 @@ export const nb = {
   "snmp.compileAll": "Kompiler alle MIB-er",
   "snmp.compileAllHint": "Kjører pysmi per fil; kan ta tid og trenger nettverk for manglende imports.",
   "snmp.compileAllConfirm": "Kompilere alle MIB-er? Dette kan ta lang tid og bruke nettverket.",
+  "snmp.compileErr.moduleMapFailed":
+    "Kunne ikke koble forespurt modul til pysmi-resultatet ({count} moduler: {modules}).",
   "snmp.compileOne": "Kompiler",
   "snmp.mibFilenameOpenHint": "Åpne MIB-kilde i viewer (klikk på filnavnet)",
   "snmp.mibDownloadHint": "Last ned denne MIB-filen",

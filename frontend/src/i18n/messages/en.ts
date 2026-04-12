@@ -161,6 +161,8 @@ export const en = {
   "snmp.compileAll": "Compile all MIBs",
   "snmp.compileAllHint": "Runs pysmi for each uploaded file; can be slow and needs network for missing imports.",
   "snmp.compileAllConfirm": "Compile every MIB? This may take a long time and use the network.",
+  "snmp.compileErr.moduleMapFailed":
+    "Could not map the requested module to the pysmi compiler result ({count} modules: {modules}).",
   "snmp.compileOne": "Compile",
   "snmp.mibFilenameOpenHint": "Open MIB source in viewer (click the file name)",
   "snmp.mibDownloadHint": "Download this MIB file",
