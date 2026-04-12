@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import textwrap
 
 import pytest
@@ -97,8 +98,8 @@ def test_local_mib_prefers_suffixed_file_over_extensionless(monkeypatch: pytest.
     assert compile_status_is_success(st), f"forventet ok, fikk {st!r}: {err}"
 
 
-def test_mib_dot_index_does_not_force_wrong_source(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    """pysmis .index kan peke til gammel kilde; vi leser den ikke (useIndexFile=False)."""
+def test_mib_dot_index_rebuilt_from_sources(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """Ved kompilering overskrives .index fra DEFINITIONS på disk — utdatert manuell .index erstattes."""
     mib_root = tmp_path / "mibs"
     compiled = tmp_path / "compiled"
     mib_root.mkdir()
@@ -122,7 +123,7 @@ def test_compile_finds_file_when_stem_differs_from_definitions_name(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """pysmi matcher fil som stem.txt; DEFINITIONS-navn kan være lengre (f.eks. …-MIB)."""
+    """Filnavn (SHORT.txt) kan avvike fra DEFINITIONS (MY-LONG-VENDOR-MIB) via regenerert .index."""
     mib_root = tmp_path / "mibs"
     compiled = tmp_path / "compiled"
     mib_root.mkdir()
@@ -135,9 +136,11 @@ def test_compile_finds_file_when_stem_differs_from_definitions_name(
 
     settings = get_settings()
     by_module = compile_mib_modules(settings, ["MY-LONG-VENDOR-MIB"], rebuild=True)
-    st_miss, _, _ = by_module["MY-LONG-VENDOR-MIB"]
-    assert not compile_status_is_success(st_miss)
+    st_mod, err_mod, _ = by_module["MY-LONG-VENDOR-MIB"]
+    assert compile_status_is_success(st_mod), f"forventet ok via .index, fikk {st_mod!r}: {err_mod}"
 
+    shutil.rmtree(compiled)
+    compiled.mkdir()
     by_stem = compile_mib_modules(
         settings,
         ["SHORT"],

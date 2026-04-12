@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from app.core.config import Settings
+from app.services.snmp_mib_index import rebuild_pysmi_mib_index
 from app.services.snmp_mib_normalize import normalize_mib_source_text
 
 _MIB_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
@@ -58,6 +59,8 @@ def list_mib_files(settings: Settings) -> list[dict]:
     for p in sorted(root.iterdir()):
         if not p.is_file():
             continue
+        if p.name.startswith("."):
+            continue
         st = p.stat()
         out.append(
             {
@@ -83,6 +86,7 @@ def save_mib_file(settings: Settings, filename: str, data: bytes) -> dict:
     if not str(path).startswith(str(root.resolve())):
         raise HTTPException(status_code=400, detail="ugyldig sti")
     path.write_bytes(data)
+    rebuild_pysmi_mib_index(root)
     st = path.stat()
     return {
         "name": path.name,
@@ -112,3 +116,4 @@ def delete_mib_file(settings: Settings, filename: str) -> None:
     if not path.is_file():
         raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
     path.unlink()
+    rebuild_pysmi_mib_index(root)

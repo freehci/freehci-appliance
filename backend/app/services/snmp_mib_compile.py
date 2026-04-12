@@ -19,6 +19,7 @@ from pysmi.searcher.stub import StubSearcher
 from pysmi.writer.pyfile import PyFileWriter
 
 from app.core.config import Settings
+from app.services.snmp_mib_index import rebuild_pysmi_mib_index
 
 # pysmi MibStatus-strenger som betyr at PySNMP kan bruke modulen (.py finnes eller er hentet).
 _COMPILE_OK = frozenset({"compiled", "untouched", "borrowed"})
@@ -68,6 +69,7 @@ def compile_status_is_success(status: str) -> bool:
 
 def _build_compiler(settings: Settings, *, cache_dir: str | None) -> MibCompiler:
     mib_root = settings.mib_root_path.resolve()
+    rebuild_pysmi_mib_index(mib_root)
     compiled_root = settings.mib_compiled_path.resolve()
     compiled_root.mkdir(parents=True, exist_ok=True)
 
@@ -100,12 +102,14 @@ def _build_compiler(settings: Settings, *, cache_dir: str | None) -> MibCompiler
     parser = SmiV1CompatParser(tempdir=cache_dir or tempfile.mkdtemp(prefix="pysmi-"))
 
     mib_compiler = MibCompiler(parser, code_gen, file_writer)
-    # useIndexFile=False: .index kan peke til én fil per modul og da ignoreres fuzzyMatching/exts —
-    # typisk feil: gammel Brocade-REG-MIB uten brocadeAgentCapability vinner over .my-kilden.
+    # useIndexFile=True: .index bygges på nytt før hver kompilering (rebuild_pysmi_mib_index) slik at
+    # modulnavn (JUNIPER-JS-SMI) mappes til Juniper-filnavn (mib-jnx-js-smi.txt). Uten dette faller
+    # pysmi tilbake til HTTP og kan få eldre ASN.1 uten nye OID-er.
     local_reader = FileReader(str(mib_root)).set_options(
         fuzzyMatching=True,
         exts=list(_MIB_SOURCE_EXTS_ORDERED),
-        useIndexFile=False,
+        # .index bygges fra faktisk DEFINITIONS-navn per fil → mib-jnx-js-smi.txt finnes som JUNIPER-JS-SMI.
+        useIndexFile=True,
     )
     mib_compiler.add_sources(
         local_reader,

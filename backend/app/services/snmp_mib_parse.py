@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from app.services.snmp_mib_index import extract_module_name_from_mib_text
+
 _ENTERPRISES_BRACE_RE = re.compile(r"\{\s*enterprises\s+(\d+)\s*\}", re.IGNORECASE)
 _OID_ENTERPRISE_RE = re.compile(
     r"1\s*\.\s*3\s*\.\s*6\s*\.\s*1\s*\.\s*4\s*\.\s*1\s*\.\s*(\d+)",
@@ -15,12 +17,6 @@ _OID_ENTERPRISE_BRACE_RE = re.compile(
     r"\{\s*1\s+3\s+6\s+1\s+4\s+1\s+(\d+)",
     re.IGNORECASE,
 )
-_MODULE_DEF_RE = re.compile(
-    r"^([A-Za-z][A-Za-z0-9-]*)\s+DEFINITIONS\s*::=",
-    re.MULTILINE,
-)
-
-
 def _strip_mib_bom(mib_text: str) -> str:
     """Fjern UTF-8 BOM slik at DEFINITIONS-regex treffer første linje."""
     return mib_text.lstrip("\ufeff")
@@ -94,9 +90,9 @@ def primary_enterprise_number(mib_text: str) -> int | None:
 
 def guess_module_name(filename: str, mib_text: str) -> str:
     mib_text = _strip_mib_bom(mib_text)
-    m = _MODULE_DEF_RE.search(mib_text)
-    if m:
-        return m.group(1)
+    mod = extract_module_name_from_mib_text(mib_text)
+    if mod:
+        return mod
     return Path(filename).stem
 
 
