@@ -250,83 +250,94 @@ function EnterpriseGroupCard({
   const tree = group.mib_tree?.length ? group.mib_tree : [];
 
   return (
-    <div
-      className={dcimStyles.adminDetails}
-      style={{ padding: "var(--space-3)", marginBottom: 0 }}
-    >
-      <h4 style={{ marginTop: 0, marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }}>{title}</h4>
-      {pen != null ? (
-        <div style={{ marginBottom: "var(--space-2)" }}>
-          <label style={{ display: "block", marginBottom: "var(--space-2)" }}>
-            {t("snmp.linkDcimManufacturer")}
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-              disabled={linkPending || manufacturers.length === 0}
-              style={{ display: "block", marginTop: "var(--space-1)", maxWidth: "100%", width: "min(28rem, 100%)" }}
-            >
-              <option value="">{t("snmp.linkManufacturerPlaceholder")}</option>
-              {manufacturers.map((m) => (
-                <option key={m.id} value={String(m.id)}>
-                  {m.name}
-                  {m.iana_enterprise_number != null ? ` (PEN ${m.iana_enterprise_number})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div
+    <div className={dcimStyles.adminDetails} style={{ marginTop: 0 }}>
+      <div className={dcimStyles.enterpriseGroupInner}>
+        <h4 className={dcimStyles.mfrDetailSectionTitle} style={{ fontSize: "var(--text-sm)" }}>
+          {title}
+        </h4>
+        {pen != null ? (
+          <form
             className={dcimStyles.formRow}
-            style={{ alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}
-            role="group"
-            aria-label={t("snmp.enterpriseActionsAria")}
+            style={{ flexDirection: "column", alignItems: "stretch", marginBottom: 0 }}
+            onSubmit={(e) => e.preventDefault()}
           >
-            <button
-              type="button"
-              className={dcimStyles.btn}
-              disabled={autocreatePending}
-              onClick={onAutocreateOne}
-              title={
-                group.linked_manufacturer
-                  ? t("snmp.autocreateOneDespiteLinkHint")
-                  : t("snmp.autocreateOneHint")
-              }
+            <label>
+              {t("snmp.linkDcimManufacturer")}
+              <select
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+                disabled={linkPending || manufacturers.length === 0}
+                style={{ width: "100%", maxWidth: "28rem" }}
+              >
+                <option value="">{t("snmp.linkManufacturerPlaceholder")}</option>
+                {manufacturers.map((m) => (
+                  <option key={m.id} value={String(m.id)}>
+                    {m.name}
+                    {m.iana_enterprise_number != null ? ` (PEN ${m.iana_enterprise_number})` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div
+              className={dcimStyles.formRow}
+              style={{
+                marginBottom: 0,
+                marginTop: 0,
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "var(--space-2)",
+              }}
+              role="group"
+              aria-label={t("snmp.enterpriseActionsAria")}
             >
-              {t("snmp.autocreateManufacturer")}
-            </button>
-            <button
-              type="button"
-              className={dcimStyles.btn}
-              disabled={linkPending || selected === ""}
-              onClick={() => onLink(Number(selected), pen)}
-            >
-              {t("snmp.linkApply")}
-            </button>
-            {group.linked_manufacturer ? (
               <button
                 type="button"
-                className={dcimStyles.btnMuted}
-                disabled={linkPending}
-                onClick={() => onUnlink(group.linked_manufacturer!.id)}
+                className={dcimStyles.btn}
+                disabled={autocreatePending}
+                onClick={onAutocreateOne}
+                title={
+                  group.linked_manufacturer
+                    ? t("snmp.autocreateOneDespiteLinkHint")
+                    : t("snmp.autocreateOneHint")
+                }
               >
-                {t("snmp.linkRemove")}
+                {t("snmp.autocreateManufacturer")}
               </button>
-            ) : null}
-          </div>
-        </div>
-      ) : (
-        <p className={dcimStyles.muted}>{t("snmp.enterpriseNoPenHint")}</p>
-      )}
-      {tree.length > 0 ? (
-        <MibTreeList nodes={tree} depth={0} />
-      ) : (
-        <ul style={{ margin: 0, paddingLeft: "1.2rem", fontSize: "var(--text-xs)" }}>
-          {group.mib_files.map((n) => (
-            <li key={n}>
-              <code>{n}</code>
-            </li>
-          ))}
-        </ul>
-      )}
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                disabled={linkPending || selected === ""}
+                onClick={() => onLink(Number(selected), pen)}
+              >
+                {t("snmp.linkApply")}
+              </button>
+              {group.linked_manufacturer ? (
+                <button
+                  type="button"
+                  className={dcimStyles.btnMuted}
+                  disabled={linkPending}
+                  onClick={() => onUnlink(group.linked_manufacturer!.id)}
+                >
+                  {t("snmp.linkRemove")}
+                </button>
+              ) : null}
+            </div>
+          </form>
+        ) : (
+          <p className={dcimStyles.muted}>{t("snmp.enterpriseNoPenHint")}</p>
+        )}
+        {tree.length > 0 ? (
+          <MibTreeList nodes={tree} depth={0} />
+        ) : (
+          <ul style={{ margin: "var(--space-2) 0 0", paddingLeft: "1.2rem", fontSize: "var(--text-xs)" }}>
+            {group.mib_files.map((n) => (
+              <li key={n}>
+                <code>{n}</code>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

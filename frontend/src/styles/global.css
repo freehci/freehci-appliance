@@ -33,6 +33,15 @@ html[data-theme="light"] body {
     linear-gradient(180deg, #dfe6f2 0%, var(--color-bg-body) 50%);
 }
 
+/* Native file input: «Velg fil»-knapp følger mørk/lys modus */
+[data-theme="dark"] input[type="file"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] input[type="file"] {
+  color-scheme: light;
+}
+
 a {
   color: inherit;
   text-decoration: none;
