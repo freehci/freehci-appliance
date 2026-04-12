@@ -79,3 +79,14 @@ def test_snmp_mibs_reject_bad_name() -> None:
             files={"file": ("not-a-mib.exe", b"x", "application/octet-stream")},
         )
         assert up.status_code == 400
+
+
+def test_snmp_mibs_reject_double_suffix_mib_txt() -> None:
+    """*.mib.txt matches ikke pysmis filnavnvarianter (MODUL.txt / MODUL.mib)."""
+    app = create_app()
+    with TestClient(app) as client:
+        up = client.post(
+            "/api/v1/snmp/mibs",
+            files={"file": ("BROCADE-REG-MIB.mib.txt", b"X", "text/plain")},
+        )
+        assert up.status_code == 400

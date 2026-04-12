@@ -30,6 +30,24 @@ def validate_mib_filename(name: str) -> str:
             status_code=400,
             detail="kun .mib, .my eller .txt er tillatt",
         )
+    stem = Path(base).stem
+    stem_l = stem.lower()
+    # pysmi prøver f.eks. «BROCADE-REG-MIB» + «.txt» → Brocade-REG-MIB.txt, aldri *.mib.txt.
+    if suf == ".txt" and (stem_l.endswith(".mib") or stem_l.endswith(".my")):
+        raise HTTPException(
+            status_code=400,
+            detail="bruk ett suffiks (.mib, .my eller .txt), ikke .mib.txt eller .my.txt",
+        )
+    if suf == ".mib" and stem_l.endswith(".my"):
+        raise HTTPException(
+            status_code=400,
+            detail="bruk ett suffiks (.mib, .my eller .txt), ikke .my.mib",
+        )
+    if suf == ".my" and stem_l.endswith(".mib"):
+        raise HTTPException(
+            status_code=400,
+            detail="bruk ett suffiks (.mib, .my eller .txt), ikke .mib.my",
+        )
     return base
 
 
