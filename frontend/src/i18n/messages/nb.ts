@@ -179,8 +179,13 @@ export const nb = {
   "snmp.ianaSync": "Synk IANA enterprise",
   "snmp.ianaSyncHint": "Henter IANA enterprise-register (krever utgående HTTPS).",
   "snmp.compileAll": "Kompiler alle MIB-er",
-  "snmp.compileAllHint": "Kjører pysmi per fil; kan ta tid og trenger nettverk for manglende imports.",
-  "snmp.compileAllConfirm": "Kompilere alle MIB-er? Dette kan ta lang tid og bruke nettverket.",
+  "snmp.compileAllHint":
+    "Legger pysmi-kompilering av hver fil i kø på serveren (unngår gateway timeout). Trenger nett for manglende imports. Siden henter kompileringsstatus noen sekunder mens jobben kjører.",
+  "snmp.compileAllConfirm":
+    "Kompilere alle MIB-er i bakgrunnen? Dette kan ta lang tid og bruke nettverket; tabellen oppdateres fortløpende.",
+  "snmp.compileAllStarted":
+    "Kompilering av alle MIB-er er satt i kø på serveren. Status i tabellen oppdateres hvert fjerde sekund (inntil 30 minutter).",
+  "snmp.compileAllRunning": "Kompiler alle (kjører)…",
   "snmp.compileErr.moduleMapFailedBefore":
     "Kunne ikke koble forespurt modul til pysmi-resultatet ({count} moduler: ",
   "snmp.compileErr.moduleMapFailedAfter": ").",

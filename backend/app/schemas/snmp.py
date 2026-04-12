@@ -77,6 +77,12 @@ class SnmpIanaSyncRead(BaseModel):
     rows_imported: int
 
 
+class SnmpMibCompileAllQueuedRead(BaseModel):
+    """Kompilering av alle MIB-er kjøres asynkront for å unngå gateway timeout."""
+
+    queued: Literal[True] = True
+
+
 class SnmpProbeRequest(BaseModel):
     host: str = Field(..., min_length=1, max_length=255)
     port: int = Field(161, ge=1, le=65535)

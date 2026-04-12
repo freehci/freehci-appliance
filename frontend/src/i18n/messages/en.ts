@@ -176,8 +176,13 @@ export const en = {
   "snmp.ianaSync": "Sync IANA enterprises",
   "snmp.ianaSyncHint": "Download the IANA enterprise-numbers registry (requires outbound HTTPS).",
   "snmp.compileAll": "Compile all MIBs",
-  "snmp.compileAllHint": "Runs pysmi for each uploaded file; can be slow and needs network for missing imports.",
-  "snmp.compileAllConfirm": "Compile every MIB? This may take a long time and use the network.",
+  "snmp.compileAllHint":
+    "Queues pysmi for each uploaded file on the server (avoids gateway timeouts). Needs network for missing imports. This page refreshes compile status every few seconds while a batch is running.",
+  "snmp.compileAllConfirm":
+    "Compile every MIB in the background? This can take a long time and use the network; the table will update automatically.",
+  "snmp.compileAllStarted":
+    "Compile-all has been queued on the server. Status in the table will refresh every few seconds (up to 30 minutes).",
+  "snmp.compileAllRunning": "Compile all (running)…",
   "snmp.compileErr.moduleMapFailedBefore":
     "Could not map the requested module to the pysmi compiler result ({count} modules: ",
   "snmp.compileErr.moduleMapFailedAfter": ").",

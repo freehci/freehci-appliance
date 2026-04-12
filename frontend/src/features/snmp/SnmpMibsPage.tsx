@@ -32,9 +32,14 @@ export function SnmpMibsPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [viewSourceName, setViewSourceName] = useState<string | null>(null);
   const [flashMibRow, setFlashMibRow] = useState<string | null>(null);
+  const [bgCompileAll, setBgCompileAll] = useState(false);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const mibsQ = useQuery({ queryKey: ["snmp", "mibs", "detailed"], queryFn: snmpApi.listSnmpMibsDetailed });
+  const mibsQ = useQuery({
+    queryKey: ["snmp", "mibs", "detailed"],
+    queryFn: snmpApi.listSnmpMibsDetailed,
+    refetchInterval: bgCompileAll ? 4000 : false,
+  });
 
   const mibSourceQ = useQuery({
     queryKey: ["snmp", "mibSource", viewSourceName],
@@ -72,7 +77,9 @@ export function SnmpMibsPage() {
     mutationFn: () => snmpApi.compileAllSnmpMibs(),
     onSuccess: () => {
       setErr(null);
+      setBgCompileAll(true);
       void qc.invalidateQueries({ queryKey: ["snmp", "mibs", "detailed"] });
+      invalidate();
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -118,6 +125,12 @@ export function SnmpMibsPage() {
     [],
   );
 
+  useEffect(() => {
+    if (!bgCompileAll) return;
+    const stop = window.setTimeout(() => setBgCompileAll(false), 30 * 60 * 1000);
+    return () => window.clearTimeout(stop);
+  }, [bgCompileAll]);
+
   return (
     <>
       {viewSourceName ? (
@@ -137,6 +150,7 @@ export function SnmpMibsPage() {
         />
       ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
+      {bgCompileAll ? <p className={dcimStyles.muted}>{t("snmp.compileAllStarted")}</p> : null}
       <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
         {t("snmp.mibsPageIntro")}{" "}
         <Link to="/snmp/enterprises">{t("snmp.enterprisesTabLink")}</Link>
@@ -174,14 +188,20 @@ export function SnmpMibsPage() {
           <button
             type="button"
             className={dcimStyles.btnMuted}
-            disabled={compileAll.isPending || (mibsQ.data?.length ?? 0) === 0}
+            disabled={
+              compileAll.isPending || bgCompileAll || (mibsQ.data?.length ?? 0) === 0
+            }
             onClick={() => {
               if (!window.confirm(t("snmp.compileAllConfirm"))) return;
               compileAll.mutate();
             }}
             title={t("snmp.compileAllHint")}
           >
-            {compileAll.isPending ? "…" : t("snmp.compileAll")}
+            {compileAll.isPending
+              ? "…"
+              : bgCompileAll
+                ? t("snmp.compileAllRunning")
+                : t("snmp.compileAll")}
           </button>
         </div>
       </section>

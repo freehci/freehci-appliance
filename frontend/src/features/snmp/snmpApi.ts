@@ -102,7 +102,9 @@ export function compileSnmpMib(name: string): Promise<SnmpMibDetail> {
   return apiPost(`${P}/mibs/${encodeURIComponent(name)}/compile`, {});
 }
 
-export function compileAllSnmpMibs(): Promise<SnmpMibDetail[]> {
+export type SnmpMibCompileAllQueued = { queued: true };
+
+export function compileAllSnmpMibs(): Promise<SnmpMibCompileAllQueued> {
   return apiPost(`${P}/mibs/compile-all`, {});
 }
 

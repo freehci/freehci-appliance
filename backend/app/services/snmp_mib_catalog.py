@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,7 +11,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
+from app.core.db import SessionLocal
 from app.models.dcim import Manufacturer
 from app.models.snmp_catalog import SnmpIanaEnterprise, SnmpMibFileMeta
 from app.services import snmp_mibs as mib_disk
@@ -18,6 +20,8 @@ from app.services.snmp_iana import fetch_iana_enterprise_rows
 from app.services.snmp_mib_compile import compile_mib_modules, compile_status_is_success, compiled_py_path
 from app.services.snmp_mib_normalize import normalize_mib_source_text
 from app.services.snmp_mib_parse import guess_module_name, imported_vendor_mib_modules, primary_enterprise_number
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -416,6 +420,19 @@ def compile_all_mibs(db: Session, settings: Settings) -> list[dict]:
                 db.commit()
             out.append(mib_detail_dict(db, settings, row))
     return out
+
+
+def run_compile_all_mibs_background() -> None:
+    """Kall fra FastAPI BackgroundTasks; egen DB-sesjon (request-sesjonen er lukket)."""
+    settings = get_settings()
+    db = SessionLocal()
+    try:
+        compile_all_mibs(db, settings)
+        logger.info("MIB compile-all (background) fullført")
+    except Exception:
+        logger.exception("MIB compile-all (background) feilet")
+    finally:
+        db.close()
 
 
 def delete_mib_complete(db: Session, settings: Settings, filename: str) -> None:

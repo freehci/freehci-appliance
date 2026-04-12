@@ -1,8 +1,10 @@
 """API-tester for SNMP MIB-lager."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.services import snmp_mib_catalog as mib_cat
 
 
 def test_snmp_mibs_upload_list_delete() -> None:
@@ -93,3 +95,18 @@ def test_snmp_mibs_reject_double_suffix_mib_txt() -> None:
             files={"file": ("BROCADE-REG-MIB.mib.txt", b"X", "text/plain")},
         )
         assert up.status_code == 400
+
+
+def test_snmp_mibs_compile_all_returns_202_and_runs_background(monkeypatch: pytest.MonkeyPatch) -> None:
+    called: list[int] = []
+
+    def fake_bg() -> None:
+        called.append(1)
+
+    monkeypatch.setattr(mib_cat, "run_compile_all_mibs_background", fake_bg)
+    app = create_app()
+    with TestClient(app) as client:
+        r = client.post("/api/v1/snmp/mibs/compile-all", json={})
+        assert r.status_code == 202, r.text
+        assert r.json() == {"queued": True}
+    assert called == [1]

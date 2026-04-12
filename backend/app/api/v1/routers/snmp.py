@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from starlette.responses import Response
@@ -18,6 +18,7 @@ from app.schemas.snmp import (
     SnmpInventoryApplyRequest,
     SnmpInventoryRead,
     SnmpInventoryRequest,
+    SnmpMibCompileAllQueuedRead,
     SnmpMibDetailRead,
     SnmpMibFileRead,
     SnmpProbeRead,
@@ -136,13 +137,17 @@ def compile_mib(
     return SnmpMibDetailRead.model_validate(row)
 
 
-@router.post("/mibs/compile-all", response_model=list[SnmpMibDetailRead])
+@router.post(
+    "/mibs/compile-all",
+    response_model=SnmpMibCompileAllQueuedRead,
+    status_code=202,
+)
 def compile_all_mibs(
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> list[SnmpMibDetailRead]:
-    rows = mib_cat_svc.compile_all_mibs(db, settings)
-    return [SnmpMibDetailRead.model_validate(r) for r in rows]
+    background_tasks: BackgroundTasks,
+) -> SnmpMibCompileAllQueuedRead:
+    """Kjør pysmi for hver MIB-fil i bakgrunnen (unngår 504 ved store biblioteker)."""
+    background_tasks.add_task(mib_cat_svc.run_compile_all_mibs_background)
+    return SnmpMibCompileAllQueuedRead()
 
 
 @router.delete("/mibs/{name}", status_code=204)
