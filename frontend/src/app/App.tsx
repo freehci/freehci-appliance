@@ -12,6 +12,7 @@ import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { IpamPage } from "@/features/ipam/IpamPage";
+import { NetworkScansPage } from "@/features/networkScans/NetworkScansPage";
 import { SnmpLayout } from "@/features/snmp/SnmpLayout";
 import { SnmpEnterprisesPage } from "@/features/snmp/SnmpEnterprisesPage";
 import { SnmpMibsPage } from "@/features/snmp/SnmpMibsPage";
@@ -55,12 +56,7 @@ function AppRoutes() {
             <Route path="mibs" element={<SnmpMibsPage />} />
             <Route path="enterprises" element={<SnmpEnterprisesPage />} />
           </Route>
-          <Route
-            path="/jobs"
-            element={
-              <PlaceholderPage titleKey="placeholders.jobs.title" descriptionKey="placeholders.jobs.desc" />
-            }
-          />
+          <Route path="/jobs" element={<NetworkScansPage />} />
           <Route
             path="/integrations"
             element={

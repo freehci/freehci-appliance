@@ -13,7 +13,10 @@ from pysnmp.hlapi.v3arch.asyncio import (
     get_cmd,
 )
 
-from app.schemas.snmp import SnmpProbeRead, SnmpVarBindRead
+from app.schemas.snmp import SnmpProbeRead, SnmpSysInfoRead, SnmpVarBindRead
+
+_SYS_DESCR_OID = "1.3.6.1.2.1.1.1.0"
+_SYS_NAME_OID = "1.3.6.1.2.1.1.5.0"
 
 
 def varbinds_to_read(varbinds: tuple) -> list[SnmpVarBindRead]:
@@ -104,5 +107,57 @@ async def run_snmp_probe(
                 break
 
         return SnmpProbeRead(ok=True, varbinds=collected[:max_oids])
+    finally:
+        snmp_engine.close_dispatcher()
+
+
+async def run_snmp_sys_info(
+    *,
+    host: str,
+    port: int,
+    community: str,
+    timeout_sec: float = 2.0,
+    retries: int = 1,
+) -> SnmpSysInfoRead:
+    """GET sysDescr.0 og sysName.0 (SNMPv2c)."""
+    snmp_engine = SnmpEngine()
+    try:
+        transport = await UdpTransportTarget.create(
+            (host, port),
+            timeout=timeout_sec,
+            retries=retries,
+        )
+        auth = CommunityData(community, mpModel=1)
+        ctx = ContextData()
+        o_descr = ObjectType(ObjectIdentity(_SYS_DESCR_OID))
+        o_name = ObjectType(ObjectIdentity(_SYS_NAME_OID))
+        error_indication, error_status, error_index, varbinds = await get_cmd(
+            snmp_engine,
+            auth,
+            transport,
+            ctx,
+            o_descr,
+            o_name,
+        )
+        if error_indication:
+            return SnmpSysInfoRead(ok=False, error=str(error_indication))
+        if error_status:
+            return SnmpSysInfoRead(
+                ok=False,
+                error=f"SNMP errorStatus={error_status} index={error_index}",
+            )
+        vbs = varbinds_to_read(varbinds)
+        sys_descr: str | None = None
+        sys_name: str | None = None
+        for vb in vbs:
+            o = vb.oid.replace(" ", "").strip()
+            v = vb.value.strip()
+            if not v or v == "":
+                continue
+            if o == _SYS_DESCR_OID or o.endswith(".1.1.1.0"):
+                sys_descr = v
+            elif o == _SYS_NAME_OID or o.endswith(".1.1.5.0"):
+                sys_name = v
+        return SnmpSysInfoRead(ok=True, sys_name=sys_name, sys_descr=sys_descr)
     finally:
         snmp_engine.close_dispatcher()

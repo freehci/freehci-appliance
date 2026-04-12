@@ -99,6 +99,15 @@ class SnmpProbeRead(BaseModel):
     varbinds: list[SnmpVarBindRead] = Field(default_factory=list)
 
 
+class SnmpSysInfoRead(BaseModel):
+    """sysDescr.0 + sysName.0 for nettverksskann / DCIM-kandidater."""
+
+    ok: bool
+    sys_name: str | None = None
+    sys_descr: str | None = None
+    error: str | None = None
+
+
 class SnmpInventoryRequest(BaseModel):
     """SNMPv2c-poll av IF-MIB / ifXTable (ingen MIB-kompilering nødvendig)."""
 
