@@ -364,14 +364,17 @@ def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
     meta.module_name = module
     stem = Path(filename).stem
     hints = list(dict.fromkeys([module, stem]))
+    # pysmi leter etter «stem» + .txt/.mib/.my (f.eks. MBG-SNMP-NTP-DISPLAY.txt), ikke nødvendigvis DEFINITIONS-navnet
+    # (MBG-SNMP-NTP-DISPLAY-MIB.txt). Ulik stem → kompilér med filnavn som frø.
+    compile_seed = stem if stem.casefold() != module.casefold() else module
     results = compile_mib_modules(
         settings,
-        [module],
+        [compile_seed],
         ignore_errors=False,
         rebuild=True,
         resolution_hints=hints,
     )
-    st, err, resolved = results.get(module, ("missing", "ukjent feil", None))
+    st, err, resolved = results.get(compile_seed, ("missing", "ukjent feil", None))
     now = _utcnow()
     ok = compile_status_is_success(st)
     meta.compile_status = "ok" if ok else "error"
