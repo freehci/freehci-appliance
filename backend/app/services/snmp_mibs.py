@@ -54,6 +54,8 @@ def save_mib_file(settings: Settings, filename: str, data: bytes) -> dict:
     safe = validate_mib_filename(filename)
     if len(data) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="MIB-fil for stor (maks 5 MiB)")
+    if data.startswith(b"\xef\xbb\xbf"):
+        data = data[3:]
     root = _ensure_mib_root(settings)
     path = (root / safe).resolve()
     if not str(path).startswith(str(root.resolve())):

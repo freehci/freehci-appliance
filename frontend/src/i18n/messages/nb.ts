@@ -167,6 +167,12 @@ export const nb = {
   "snmp.compileErr.moduleMapFailed":
     "Kunne ikke koble forespurt modul til pysmi-resultatet ({count} moduler: {modules}).",
   "snmp.compileOne": "Kompiler",
+  "snmp.mibCompileAria": "Kompiler denne MIB-filen",
+  "snmp.mibDeleteAria": "Slett denne MIB-filen",
+  "snmp.compileStatus.compiling": "Kompilerer…",
+  "snmp.compileStatus.pending": "Venter",
+  "snmp.compileStatus.ok": "OK",
+  "snmp.compileStatus.error": "Feil",
   "snmp.mibFilenameOpenHint": "Åpne MIB-kilde i viewer (klikk på filnavnet)",
   "snmp.mibDownloadHint": "Last ned denne MIB-filen",
   "snmp.mibDownloadAria": "Last ned MIB",

@@ -2,12 +2,27 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { formatSnmpCompileMessageForUi } from "./compileMessages";
 import { MibSourceModal } from "./MibSourceModal";
 import mibViewStyles from "./mibViewer.module.css";
+import mibsTableStyles from "./snmpMibs.module.css";
 import * as snmpApi from "./snmpApi";
+
+function labelForStoredCompileStatus(status: string, t: (k: MessageKey) => string) {
+  switch (status) {
+    case "pending":
+      return t("snmp.compileStatus.pending");
+    case "ok":
+      return t("snmp.compileStatus.ok");
+    case "error":
+      return t("snmp.compileStatus.error");
+    default:
+      return status;
+  }
+}
 
 export function SnmpMibsPage() {
   const { t } = useI18n();
@@ -77,6 +92,9 @@ export function SnmpMibsPage() {
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
+
+  const compilingName = compileOne.isPending ? compileOne.variables : undefined;
+  const deletingName = delMib.isPending ? delMib.variables : undefined;
 
   return (
     <>
@@ -163,80 +181,103 @@ export function SnmpMibsPage() {
                 </tr>
               </thead>
               <tbody>
-                {mibsQ.data.map((m) => (
-                  <tr key={m.name}>
-                    <td>
-                      <button
-                        type="button"
-                        className={mibViewStyles.fileNameBtn}
-                        title={t("snmp.mibFilenameOpenHint")}
-                        onClick={() => setViewSourceName(m.name)}
-                      >
-                        <code>{m.name}</code>
-                      </button>
-                      {m.parent_mib_missing ? (
-                        <div className={dcimStyles.err} style={{ fontSize: "var(--text-xs)", marginTop: 4 }}>
-                          {t("snmp.mibParentMissingShort", { module: m.extends_mib_module ?? "?" })}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className={dcimStyles.muted}>{m.module_name ?? "—"}</td>
-                    <td>
-                      {m.enterprise_number ?? "—"}
-                      {m.enterprise_number == null && m.effective_enterprise_number != null ? (
-                        <span className={dcimStyles.muted}>
-                          {" "}
-                          ({t("snmp.effectivePenShort", { pen: String(m.effective_enterprise_number) })})
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className={dcimStyles.muted}>{m.iana_organization ?? "—"}</td>
-                    <td>
-                      <div>
-                        <span className={m.compile_status === "error" ? dcimStyles.err : dcimStyles.muted}>
-                          {m.compile_status}
-                        </span>
-                      </div>
-                      {m.compile_message ? (
-                        <div
-                          className={dcimStyles.err}
-                          style={{
-                            fontSize: "var(--text-xs)",
-                            marginTop: 4,
-                            maxWidth: "28rem",
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-word",
-                          }}
+                {mibsQ.data.map((m) => {
+                  const compilingThis = compilingName === m.name;
+                  const statusLabel = compilingThis
+                    ? t("snmp.compileStatus.compiling")
+                    : labelForStoredCompileStatus(m.compile_status, t);
+                  const statusClass = compilingThis
+                    ? `${mibsTableStyles.compileStatusCompiling} ${mibsTableStyles.compileStatusCompilingPulse}`
+                    : m.compile_status === "error"
+                      ? dcimStyles.err
+                      : m.compile_status === "ok"
+                        ? mibsTableStyles.compileStatusOk
+                        : mibsTableStyles.compileStatusPending;
+
+                  return (
+                    <tr key={m.name}>
+                      <td>
+                        <button
+                          type="button"
+                          className={mibViewStyles.fileNameBtn}
+                          title={t("snmp.mibFilenameOpenHint")}
+                          onClick={() => setViewSourceName(m.name)}
                         >
-                          {formatSnmpCompileMessageForUi(m.compile_message, t)}
+                          <code>{m.name}</code>
+                        </button>
+                        {m.parent_mib_missing ? (
+                          <div className={dcimStyles.err} style={{ fontSize: "var(--text-xs)", marginTop: 4 }}>
+                            {t("snmp.mibParentMissingShort", { module: m.extends_mib_module ?? "?" })}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className={dcimStyles.muted}>{m.module_name ?? "—"}</td>
+                      <td>
+                        {m.enterprise_number ?? "—"}
+                        {m.enterprise_number == null && m.effective_enterprise_number != null ? (
+                          <span className={dcimStyles.muted}>
+                            {" "}
+                            ({t("snmp.effectivePenShort", { pen: String(m.effective_enterprise_number) })})
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className={dcimStyles.muted}>{m.iana_organization ?? "—"}</td>
+                      <td>
+                        <div>
+                          <span className={statusClass} title={statusLabel}>
+                            {statusLabel}
+                          </span>
                         </div>
-                      ) : null}
-                    </td>
-                    <td>{m.linked_manufacturer?.name ?? "—"}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className={dcimStyles.btnLink}
-                        style={{ marginRight: "var(--space-2)" }}
-                        disabled={compileOne.isPending}
-                        onClick={() => compileOne.mutate(m.name)}
-                      >
-                        {t("snmp.compileOne")}
-                      </button>
-                      <button
-                        type="button"
-                        className={dcimStyles.btnDanger}
-                        disabled={delMib.isPending}
-                        onClick={() => {
-                          if (!window.confirm(t("snmp.mibDeleteConfirm"))) return;
-                          delMib.mutate(m.name);
-                        }}
-                      >
-                        {t("dcim.common.delete")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                        {m.compile_message ? (
+                          <div
+                            className={dcimStyles.err}
+                            style={{
+                              fontSize: "var(--text-xs)",
+                              marginTop: 4,
+                              maxWidth: "28rem",
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {formatSnmpCompileMessageForUi(m.compile_message, t)}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td>{m.linked_manufacturer?.name ?? "—"}</td>
+                      <td>
+                        <div className={mibsTableStyles.mibTableActions}>
+                          <button
+                            type="button"
+                            className={mibsTableStyles.mibIconBtn}
+                            title={t("snmp.compileOne")}
+                            aria-label={t("snmp.mibCompileAria")}
+                            disabled={
+                              compileOne.isPending || (deletingName != null && deletingName === m.name)
+                            }
+                            onClick={() => compileOne.mutate(m.name)}
+                          >
+                            <i className="fas fa-gears" aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            className={`${mibsTableStyles.mibIconBtn} ${mibsTableStyles.mibIconBtnDanger}`.trim()}
+                            title={t("dcim.common.delete")}
+                            aria-label={t("snmp.mibDeleteAria")}
+                            disabled={
+                              delMib.isPending || (compilingName != null && compilingName === m.name)
+                            }
+                            onClick={() => {
+                              if (!window.confirm(t("snmp.mibDeleteConfirm"))) return;
+                              delMib.mutate(m.name);
+                            }}
+                          >
+                            <i className="fas fa-trash-can" aria-hidden />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

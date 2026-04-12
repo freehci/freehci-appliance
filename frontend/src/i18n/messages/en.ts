@@ -164,6 +164,12 @@ export const en = {
   "snmp.compileErr.moduleMapFailed":
     "Could not map the requested module to the pysmi compiler result ({count} modules: {modules}).",
   "snmp.compileOne": "Compile",
+  "snmp.mibCompileAria": "Compile this MIB file",
+  "snmp.mibDeleteAria": "Delete this MIB file",
+  "snmp.compileStatus.compiling": "Compiling…",
+  "snmp.compileStatus.pending": "Pending",
+  "snmp.compileStatus.ok": "OK",
+  "snmp.compileStatus.error": "Error",
   "snmp.mibFilenameOpenHint": "Open MIB source in viewer (click the file name)",
   "snmp.mibDownloadHint": "Download this MIB file",
   "snmp.mibDownloadAria": "Download MIB",

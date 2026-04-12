@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from pysmi.borrower import PyFileBorrower
 from pysmi.codegen import PySnmpCodeGen
 from pysmi.compiler import MibCompiler
 from pysmi.parser.smiv1compat import SmiV1CompatParser
+from pysmi.reader.localfile import FileReader
 from pysmi.reader.url import get_readers_from_urls
 from pysmi.searcher.pyfile import PyFileSearcher
 from pysmi.searcher.pypackage import PyPackageSearcher
@@ -22,6 +24,18 @@ from app.core.config import Settings
 _COMPILE_OK = frozenset({"compiled", "untouched", "borrowed"})
 
 # Vanlige avhengigheter som ikke er «leverandørens» hovedmodul ved én-fil-kompilering.
+# pysmis standardrekkefølge prøver filnavn uten suffiks før .my/.mib. Da kan en gammel
+# «Brocade-REG-MIB» (uten endelse) skygge for «Brocade-REG-MIB.my» og gi manglende symboler.
+_MIB_SOURCE_EXTS_ORDERED: tuple[str, ...] = (
+    f"{os.path.extsep}my",
+    f"{os.path.extsep}MY",
+    f"{os.path.extsep}mib",
+    f"{os.path.extsep}MIB",
+    f"{os.path.extsep}txt",
+    f"{os.path.extsep}TXT",
+    "",
+)
+
 _PYSMI_INFRA_MODULES = frozenset(
     {
         "RFC-1212",
@@ -59,10 +73,7 @@ def _build_compiler(settings: Settings, *, cache_dir: str | None) -> MibCompiler
 
     # Lokale MIB-er først; deretter ASN.1 fra pysnmp (samme som mibdump-default).
     # Uten HTTP-kilde blir aldri SNMPv2-SMI/SNMPv2-TC parsert → symbolTable mangler og codegen feiler.
-    mib_sources = [
-        mib_root.as_uri() + "/",
-        "https://mibs.pysnmp.com/asn1/@mib@",
-    ]
+    mib_http_asn1 = "https://mibs.pysnmp.com/asn1/@mib@"
     mib_stubs = [x for x in PySnmpCodeGen.baseMibs if x not in PySnmpCodeGen.fakeMibs]
     mib_borrowers = [
         ("https://mibs.pysnmp.com:443/mibs/notexts/@mib@", False),
@@ -89,8 +100,13 @@ def _build_compiler(settings: Settings, *, cache_dir: str | None) -> MibCompiler
     parser = SmiV1CompatParser(tempdir=cache_dir or tempfile.mkdtemp(prefix="pysmi-"))
 
     mib_compiler = MibCompiler(parser, code_gen, file_writer)
+    local_reader = FileReader(str(mib_root)).set_options(
+        fuzzyMatching=True,
+        exts=list(_MIB_SOURCE_EXTS_ORDERED),
+    )
     mib_compiler.add_sources(
-        *get_readers_from_urls(*mib_sources, **dict(fuzzyMatching=True)),
+        local_reader,
+        *get_readers_from_urls(mib_http_asn1, **dict(fuzzyMatching=True)),
     )
     mib_compiler.add_searchers(*searchers)
     mib_compiler.add_borrowers(*borrowers)

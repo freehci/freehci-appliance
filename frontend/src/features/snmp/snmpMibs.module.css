@@ -1,0 +1,65 @@
+.mibTableActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mibIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: var(--transition-color);
+}
+
+.mibIconBtn:hover:not(:disabled) {
+  border-color: var(--color-border);
+  background: var(--color-sidebar-hover);
+}
+
+.mibIconBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mibIconBtnDanger {
+  color: var(--color-danger-button-bg);
+}
+
+.mibIconBtnDanger:hover:not(:disabled) {
+  border-color: var(--color-danger-button-bg);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.compileStatusOk {
+  color: #86efac;
+  font-weight: 500;
+}
+
+.compileStatusPending {
+  color: var(--color-text-muted);
+}
+
+.compileStatusCompiling {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+@keyframes mibCompilePulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.compileStatusCompilingPulse {
+  animation: mibCompilePulse 1.1s ease-in-out infinite;
+}
