@@ -503,7 +503,6 @@ def _run_ping_job(db: Session, row: NetworkScanJob, _tpl: NetworkScanTemplate, o
     chunk: list[tuple[str, dict]] = []
 
     def flush() -> None:
-        nonlocal chunk
         for addr, rj in chunk:
             db.add(NetworkScanHostResult(job_id=row.id, address=addr, result_json=rj))
         chunk.clear()

@@ -32,7 +32,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("template_id", sa.Integer(), nullable=False),
         sa.Column("ipv4_prefix_id", sa.Integer(), nullable=False),
-        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.ForeignKeyConstraint(["ipv4_prefix_id"], ["ipam_ipv4_prefixes.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["template_id"], ["network_scan_templates.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
