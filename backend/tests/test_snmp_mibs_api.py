@@ -10,7 +10,8 @@ def test_snmp_mibs_upload_list_delete() -> None:
     with TestClient(app) as client:
         li = client.get("/api/v1/snmp/mibs")
         assert li.status_code == 200
-        assert li.json() == []
+        initial_names = {x["name"] for x in li.json()}
+        assert "EXAMPLE-MIB.mib" not in initial_names
 
         up = client.post(
             "/api/v1/snmp/mibs",
@@ -35,7 +36,7 @@ def test_snmp_mibs_upload_list_delete() -> None:
 
         li3 = client.get("/api/v1/snmp/mibs")
         assert li3.status_code == 200
-        assert li3.json() == []
+        assert {x["name"] for x in li3.json()} == initial_names
 
 
 def test_snmp_mibs_batch_and_detailed() -> None:

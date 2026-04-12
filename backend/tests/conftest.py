@@ -14,19 +14,19 @@ os.environ["UPLOAD_ROOT"] = str(_upload_root)
 _mib_root = Path(tempfile.mkdtemp(prefix="freehci-mibs-"))
 os.environ["MIB_ROOT"] = str(_mib_root)
 
-from app.core.config import get_settings
+from app.core.config import get_settings  # noqa: E402
 
 get_settings.cache_clear()
 
-import pytest
+import pytest  # noqa: E402
 
-import app.models.admin_account  # noqa: F401
-import app.models.dcim  # noqa: F401
-import app.models.ipam  # noqa: F401 — tabeller for IPAM + FK fra DCIM
-import app.models.snmp_catalog  # noqa: F401 — SNMP MIB-metadata + IANA
-import app.models.network_scan  # noqa: F401 — nettverksskann
-from app.core.db import engine
-from app.models.base import Base
+import app.models.admin_account  # noqa: E402, F401
+import app.models.dcim  # noqa: E402, F401
+import app.models.ipam  # noqa: E402, F401 — tabeller for IPAM + FK fra DCIM
+import app.models.snmp_catalog  # noqa: E402, F401 — SNMP MIB-metadata + IANA
+import app.models.network_scan  # noqa: E402, F401 — nettverksskann
+from app.core.db import engine  # noqa: E402
+from app.models.base import Base  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)

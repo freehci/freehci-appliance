@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.schemas.snmp import SnmpIpAddressRow, SnmpInterfaceVlanRow, SnmpVarBindRead, SnmpVlanRow
+from app.schemas.snmp import SnmpInterfaceVlanRow, SnmpVarBindRead, SnmpVlanRow
 from app.services.snmp_scan import (
     build_interface_vlan_rows,
     parse_dot1d_base_port_if_index,

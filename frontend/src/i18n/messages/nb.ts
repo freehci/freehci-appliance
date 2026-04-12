@@ -6,6 +6,19 @@ export const nb = {
   "nav.ipam": "IPAM",
   "nav.snmp": "SNMP",
   "nav.jobs": "Jobs",
+
+  "jobs.innerNavAria": "Faner for jobber",
+  "jobs.tabJobs": "Jobber",
+  "jobs.tabScheduler": "Planlegger",
+  "jobs.tabTemplates": "Maler",
+  "jobs.runsPanelTitle": "Nettverksskann",
+  "jobs.schedulerPanelTitle": "Planlegger",
+  "jobs.schedulerIntro":
+    "For periodiske kjøringer kan du trigge samme API eller Celery-oppgave som manuelle jobber. En innebygd planeditor kommer her senere.",
+  "jobs.schedulerFooter": "Oppgavenavn: freehci.run_network_scan_job — bruk jobb-id etter at skann-jobb er opprettet via API.",
+  "jobs.templatesPanelTitle": "Maler og prefiks-koblinger",
+  "jobs.templatesIntro":
+    "Administrer innebygde og egendefinerte skannemaler, og begrens hvilke maler som er tillatt per IPv4-prefiks (subnett).",
   "nav.integrations": "Integrasjoner",
   "nav.serviceCatalog": "Servicekatalog",
   "nav.dcimSection": "DCIM",

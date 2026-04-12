@@ -234,7 +234,8 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
         ra = client.post("/api/v1/dcim/rooms", json={"site_id": sa, "name": "R1"}).json()["id"]
         rb = client.post("/api/v1/dcim/rooms", json={"site_id": sb, "name": "R2"}).json()["id"]
         ka = client.post("/api/v1/dcim/racks", json={"room_id": ra, "name": "K1"}).json()["id"]
-        kb = client.post("/api/v1/dcim/racks", json={"room_id": rb, "name": "K2"}).json()["id"]
+        rk2 = client.post("/api/v1/dcim/racks", json={"room_id": rb, "name": "K2"})
+        assert rk2.status_code == 200
 
         mid = client.post(
             "/api/v1/dcim/manufacturers",

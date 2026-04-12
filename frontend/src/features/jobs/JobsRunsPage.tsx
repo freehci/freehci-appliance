@@ -5,10 +5,10 @@ import * as dcimApi from "@/features/dcim/dcimApi";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
-import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
-import type { InventoryMode, NameSource, NetworkScanDiscovery, ParentFilter } from "./networkScanApi";
-import * as netscanApi from "./networkScanApi";
+import type { InventoryMode, NameSource, ParentFilter } from "@/features/networkScans/networkScanApi";
+import * as netscanApi from "@/features/networkScans/networkScanApi";
+import { DiscoveryTable } from "./JobsDiscoveryTable";
 
 const DEFAULT_PRIORITY: NameSource[] = ["snmp_sysname", "ptr", "ip"];
 
@@ -22,13 +22,10 @@ function parseNamePriority(raw: string): NameSource[] {
   return out.length > 0 ? out : [...DEFAULT_PRIORITY];
 }
 
-export function NetworkScansPage() {
+export function JobsRunsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
-
-  const [bindPrefix, setBindPrefix] = useState("");
-  const [bindTemplate, setBindTemplate] = useState("");
 
   const [jobPrefix, setJobPrefix] = useState("");
   const [jobTemplate, setJobTemplate] = useState("");
@@ -39,10 +36,6 @@ export function NetworkScansPage() {
   const [jobModelId, setJobModelId] = useState("");
   const [jobSnmpCommunity, setJobSnmpCommunity] = useState("");
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
-
-  const [customSlug, setCustomSlug] = useState("");
-  const [customName, setCustomName] = useState("");
-  const [customPorts, setCustomPorts] = useState("1883,502,22");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const prefixesQ = useQuery({
@@ -57,10 +50,6 @@ export function NetworkScansPage() {
     queryKey: ["network-scans", "jobs"],
     queryFn: () => netscanApi.listNetworkScanJobs({ limit: 80 }),
   });
-  const bindingsQ = useQuery({
-    queryKey: ["network-scans", "bindings"],
-    queryFn: () => netscanApi.listPrefixBindings(),
-  });
   const discoveriesQ = useQuery({
     queryKey: ["network-scans", "discoveries", "pending"],
     queryFn: () => netscanApi.listDiscoveries({ status: "pending", limit: 200 }),
@@ -71,35 +60,6 @@ export function NetworkScansPage() {
     queryKey: ["network-scans", "job", expandedJobId],
     queryFn: () => netscanApi.getNetworkScanJob(expandedJobId!),
     enabled: expandedJobId != null,
-  });
-
-  const createBinding = useMutation({
-    mutationFn: netscanApi.createPrefixBinding,
-    onSuccess: () => {
-      setErr(null);
-      void qc.invalidateQueries({ queryKey: ["network-scans", "bindings"] });
-    },
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
-  });
-
-  const delBinding = useMutation({
-    mutationFn: netscanApi.deletePrefixBinding,
-    onSuccess: () => {
-      setErr(null);
-      void qc.invalidateQueries({ queryKey: ["network-scans", "bindings"] });
-    },
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
-  });
-
-  const createTpl = useMutation({
-    mutationFn: netscanApi.createNetworkScanTemplate,
-    onSuccess: () => {
-      setErr(null);
-      setCustomSlug("");
-      setCustomName("");
-      void qc.invalidateQueries({ queryKey: ["network-scans", "templates"] });
-    },
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
   const createJob = useMutation({
@@ -187,161 +147,11 @@ export function NetworkScansPage() {
 
   return (
     <>
-      <Panel title={t("netscan.title")}>
+      <Panel title={t("jobs.runsPanelTitle")}>
         <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
           {t("netscan.intro")}
         </p>
         {err ? <p className={dcimStyles.err}>{err}</p> : null}
-        <p className={dcimStyles.muted} style={{ fontSize: "var(--text-xs)" }}>
-          {t("netscan.schedulesHint")}
-        </p>
-      </Panel>
-
-      <Panel title={t("netscan.sectionTemplates")}>
-        {templatesQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
-        {templatesQ.data && templatesQ.data.length > 0 ? (
-          <table className={dcimStyles.table}>
-            <thead>
-              <tr>
-                <th>{t("netscan.colSlug")}</th>
-                <th>{t("netscan.colName")}</th>
-                <th>{t("netscan.colKind")}</th>
-                <th>{t("netscan.colBuiltin")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {templatesQ.data.map((x) => (
-                <tr key={x.id}>
-                  <td>
-                    <code>{x.slug}</code>
-                  </td>
-                  <td>{x.name}</td>
-                  <td>{x.kind}</td>
-                  <td>{x.is_builtin ? t("netscan.yes") : t("netscan.no")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-
-        <h4 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
-          {t("netscan.customTcpTitle")}
-        </h4>
-        <p className={dcimStyles.muted}>{t("netscan.customTcpHint")}</p>
-        <form
-          className={dcimStyles.formRow}
-          onSubmit={(e) => {
-            e.preventDefault();
-            const ports = customPorts
-              .split(/[,;\s]+/)
-              .map((s) => Number(s.trim()))
-              .filter((n) => Number.isFinite(n) && n >= 1 && n <= 65535);
-            if (!customSlug.trim() || !customName.trim() || ports.length === 0) {
-              setErr(t("netscan.errCustomTcp"));
-              return;
-            }
-            createTpl.mutate({
-              slug: customSlug.trim().toLowerCase(),
-              name: customName.trim(),
-              kind: "tcp_ports",
-              default_config: { ports, timeout_sec: 1.0 },
-            });
-          }}
-        >
-          <label>
-            {t("netscan.customSlug")}
-            <input value={customSlug} onChange={(e) => setCustomSlug(e.target.value)} placeholder="iot-discovery" />
-          </label>
-          <label>
-            {t("netscan.customName")}
-            <input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="IoT Discovery" />
-          </label>
-          <label>
-            {t("netscan.customPorts")}
-            <input value={customPorts} onChange={(e) => setCustomPorts(e.target.value)} placeholder="1883,502,22" />
-          </label>
-          <button type="submit" className={dcimStyles.btn} disabled={createTpl.isPending}>
-            {createTpl.isPending ? "…" : t("netscan.createTemplate")}
-          </button>
-        </form>
-      </Panel>
-
-      <Panel title={t("netscan.sectionBindings")}>
-        <p className={dcimStyles.muted}>{t("netscan.bindingsHint")}</p>
-        <form
-          className={dcimStyles.formRow}
-          onSubmit={(e) => {
-            e.preventDefault();
-            const tid = Number(bindTemplate);
-            const pid = Number(bindPrefix);
-            if (!tid || !pid) {
-              setErr(t("netscan.errSelectTplPrefix"));
-              return;
-            }
-            createBinding.mutate({ template_id: tid, ipv4_prefix_id: pid, enabled: true });
-          }}
-        >
-          <label>
-            {t("netscan.fieldPrefix")}
-            <select value={bindPrefix} onChange={(e) => setBindPrefix(e.target.value)}>
-              <option value="">{t("dcim.common.none")}</option>
-              {(prefixesQ.data ?? []).map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {prefixLabel.get(p.id) ?? `${p.name} (${p.cidr})`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("netscan.fieldTemplate")}
-            <select value={bindTemplate} onChange={(e) => setBindTemplate(e.target.value)}>
-              <option value="">{t("dcim.common.none")}</option>
-              {(templatesQ.data ?? []).map((x) => (
-                <option key={x.id} value={String(x.id)}>
-                  {x.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="submit" className={dcimStyles.btn} disabled={createBinding.isPending}>
-            {createBinding.isPending ? "…" : t("netscan.addBinding")}
-          </button>
-        </form>
-        {bindingsQ.data && bindingsQ.data.length > 0 ? (
-          <table className={dcimStyles.table} style={{ marginTop: "var(--space-2)" }}>
-            <thead>
-              <tr>
-                <th>{t("netscan.colId")}</th>
-                <th>{t("netscan.fieldPrefix")}</th>
-                <th>{t("netscan.fieldTemplate")}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {bindingsQ.data.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.id}</td>
-                  <td>{prefixLabel.get(b.ipv4_prefix_id) ?? `#${b.ipv4_prefix_id}`}</td>
-                  <td>
-                    {(templatesQ.data ?? []).find((t) => t.id === b.template_id)?.name ?? `#${b.template_id}`}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className={dcimStyles.btnMuted}
-                      onClick={() => delBinding.mutate(b.id)}
-                      disabled={delBinding.isPending}
-                    >
-                      {t("netscan.removeBinding")}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className={dcimStyles.muted}>{t("netscan.bindingsEmpty")}</p>
-        )}
       </Panel>
 
       <Panel title={t("netscan.sectionRunJob")}>
@@ -392,10 +202,7 @@ export function NetworkScansPage() {
           </label>
           <label>
             {t("netscan.fieldInventory")}
-            <select
-              value={jobInventory}
-              onChange={(e) => setJobInventory(e.target.value as InventoryMode)}
-            >
+            <select value={jobInventory} onChange={(e) => setJobInventory(e.target.value as InventoryMode)}>
               <option value="none">{t("netscan.invNone")}</option>
               <option value="discovered_queue">{t("netscan.invQueue")}</option>
               <option value="auto">{t("netscan.invAuto")}</option>
@@ -506,146 +313,11 @@ export function NetworkScansPage() {
             onReject={(id) => rejectDisc.mutate(id)}
             busy={approveDisc.isPending || rejectDisc.isPending}
             t={t}
-            styles={dcimStyles}
           />
         ) : (
           <p className={dcimStyles.muted}>{t("netscan.discoveriesEmpty")}</p>
         )}
       </Panel>
     </>
-  );
-}
-
-function DiscoveryTable({
-  rows,
-  models,
-  onApprove,
-  onReject,
-  busy,
-  t,
-  styles,
-}: {
-  rows: NetworkScanDiscovery[];
-  models: Awaited<ReturnType<typeof dcimApi.listDeviceModels>>;
-  onApprove: (id: number, body: { chosen_name_source: NameSource; chosen_name?: string; device_model_id: number }) => void;
-  onReject: (id: number) => void;
-  busy: boolean;
-  t: (k: MessageKey) => string;
-  styles: typeof dcimStyles;
-}) {
-  return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>IP</th>
-          <th>{t("netscan.candidates")}</th>
-          <th>{t("netscan.approveCol")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((d) => (
-          <DiscoveryRow key={d.id} d={d} models={models} onApprove={onApprove} onReject={onReject} busy={busy} t={t} styles={styles} />
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function DiscoveryRow({
-  d,
-  models,
-  onApprove,
-  onReject,
-  busy,
-  t,
-  styles,
-}: {
-  d: NetworkScanDiscovery;
-  models: Awaited<ReturnType<typeof dcimApi.listDeviceModels>>;
-  onApprove: (id: number, body: { chosen_name_source: NameSource; chosen_name?: string; device_model_id: number }) => void;
-  onReject: (id: number) => void;
-  busy: boolean;
-  t: (k: MessageKey) => string;
-  styles: typeof dcimStyles;
-}) {
-  const [src, setSrc] = useState<NameSource>("ip");
-  const [custom, setCustom] = useState("");
-  const [mid, setMid] = useState("");
-
-  const c = d.name_candidates_json ?? {};
-
-  return (
-    <tr>
-      <td>
-        <code>{d.address}</code>
-        <div className={styles.muted} style={{ fontSize: "var(--text-xs)" }}>
-          job #{d.job_id}
-        </div>
-      </td>
-      <td style={{ fontSize: "var(--text-xs)" }}>
-        <div>
-          <strong>IP:</strong> {c.ip ?? d.address}
-        </div>
-        {c.ptr ? (
-          <div>
-            <strong>PTR:</strong> {c.ptr}
-          </div>
-        ) : null}
-        {c.snmp_sysname ? (
-          <div>
-            <strong>sysName:</strong> {c.snmp_sysname}
-          </div>
-        ) : null}
-      </td>
-      <td>
-        <div className={styles.formRow} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
-          <label>
-            {t("netscan.nameSource")}
-            <select value={src} onChange={(e) => setSrc(e.target.value as NameSource)}>
-              <option value="ip">IP</option>
-              <option value="ptr">PTR</option>
-              <option value="snmp_sysname">sysName</option>
-              <option value="custom">{t("netscan.nameCustom")}</option>
-            </select>
-          </label>
-          {src === "custom" ? (
-            <label>
-              {t("netscan.customDeviceName")}
-              <input value={custom} onChange={(e) => setCustom(e.target.value)} />
-            </label>
-          ) : null}
-          <label>
-            {t("netscan.fieldDefaultModel")}
-            <select value={mid} onChange={(e) => setMid(e.target.value)}>
-              <option value="">{t("dcim.common.none")}</option>
-              {models.map((m) => (
-                <option key={m.id} value={String(m.id)}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className={styles.btn}
-            disabled={busy || !mid}
-            onClick={() => {
-              const device_model_id = Number(mid);
-              if (!device_model_id) return;
-              if (src === "custom") {
-                onApprove(d.id, { chosen_name_source: "custom", chosen_name: custom.trim(), device_model_id });
-              } else {
-                onApprove(d.id, { chosen_name_source: src, device_model_id });
-              }
-            }}
-          >
-            {t("netscan.promote")}
-          </button>
-          <button type="button" className={styles.btnMuted} disabled={busy} onClick={() => onReject(d.id)}>
-            {t("netscan.reject")}
-          </button>
-        </div>
-      </td>
-    </tr>
   );
 }

@@ -4,6 +4,19 @@ export const en = {
   "nav.ipam": "IPAM",
   "nav.snmp": "SNMP",
   "nav.jobs": "Jobs",
+
+  "jobs.innerNavAria": "Jobs section tabs",
+  "jobs.tabJobs": "Jobs",
+  "jobs.tabScheduler": "Scheduler",
+  "jobs.tabTemplates": "Templates",
+  "jobs.runsPanelTitle": "Network scans",
+  "jobs.schedulerPanelTitle": "Scheduler",
+  "jobs.schedulerIntro":
+    "Run scans on a repeating schedule by triggering the same API or Celery task your manual jobs use. A built-in schedule editor will be added here later.",
+  "jobs.schedulerFooter": "Task name: freehci.run_network_scan_job — pass the job id after creating a scan job via the API.",
+  "jobs.templatesPanelTitle": "Templates & subnet bindings",
+  "jobs.templatesIntro":
+    "Manage built-in and custom scan templates, and limit which templates are allowed per IPv4 prefix (subnet).",
   "nav.integrations": "Integrations",
   "nav.serviceCatalog": "Service catalog",
   "nav.dcimSection": "DCIM",

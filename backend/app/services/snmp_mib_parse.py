@@ -24,6 +24,8 @@ _MODULE_DEF_RE = re.compile(
 def _strip_mib_bom(mib_text: str) -> str:
     """Fjern UTF-8 BOM slik at DEFINITIONS-regex treffer første linje."""
     return mib_text.lstrip("\ufeff")
+
+
 _FROM_MODULE_RE = re.compile(r"\bFROM\s+([A-Za-z][A-Za-z0-9-]*)\b")
 
 # Vanlige IETF/infra-MIB-moduler — ikke brukt som «vendor-parent» for tre under enterprise.

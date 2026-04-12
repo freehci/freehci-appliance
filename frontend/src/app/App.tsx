@@ -12,7 +12,10 @@ import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { IpamPage } from "@/features/ipam/IpamPage";
-import { NetworkScansPage } from "@/features/networkScans/NetworkScansPage";
+import { JobsLayout } from "@/features/jobs/JobsLayout";
+import { JobsRunsPage } from "@/features/jobs/JobsRunsPage";
+import { JobsSchedulerPage } from "@/features/jobs/JobsSchedulerPage";
+import { JobsTemplatesPage } from "@/features/jobs/JobsTemplatesPage";
 import { SnmpLayout } from "@/features/snmp/SnmpLayout";
 import { SnmpEnterprisesPage } from "@/features/snmp/SnmpEnterprisesPage";
 import { SnmpMibsPage } from "@/features/snmp/SnmpMibsPage";
@@ -56,7 +59,11 @@ function AppRoutes() {
             <Route path="mibs" element={<SnmpMibsPage />} />
             <Route path="enterprises" element={<SnmpEnterprisesPage />} />
           </Route>
-          <Route path="/jobs" element={<NetworkScansPage />} />
+          <Route path="/jobs" element={<JobsLayout />}>
+            <Route index element={<JobsRunsPage />} />
+            <Route path="scheduler" element={<JobsSchedulerPage />} />
+            <Route path="templates" element={<JobsTemplatesPage />} />
+          </Route>
           <Route
             path="/integrations"
             element={
