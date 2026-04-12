@@ -24,8 +24,10 @@ def test_snmp_mibs_upload_list_delete() -> None:
 
         li2 = client.get("/api/v1/snmp/mibs")
         assert li2.status_code == 200
-        assert len(li2.json()) == 1
-        assert li2.json()[0]["name"] == "EXAMPLE-MIB.mib"
+        names_after_up = {x["name"] for x in li2.json()}
+        assert names_after_up == initial_names | {"EXAMPLE-MIB.mib"}
+        example = next(x for x in li2.json() if x["name"] == "EXAMPLE-MIB.mib")
+        assert example["size_bytes"] == len(b"-- example mib --")
 
         src = client.get("/api/v1/snmp/mibs/EXAMPLE-MIB.mib/source")
         assert src.status_code == 200
