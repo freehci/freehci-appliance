@@ -186,6 +186,23 @@ export const nb = {
   "snmp.compileAllStarted":
     "Kompilering av alle MIB-er er satt i kø på serveren. Status i tabellen oppdateres hvert fjerde sekund (inntil 30 minutter).",
   "snmp.compileAllRunning": "Kompiler alle (kjører)…",
+  "snmp.compileErrorMore": "Mer",
+  "snmp.compileErrorLess": "Mindre",
+  "snmp.compileErrorHintsTitle": "Hva feilen vanligvis betyr",
+  "snmp.compileHint.generic":
+    "PySMI stoppet på denne filen. Åpne MIB-kilden via filnavnet, sjekk linjenummer i meldingen hvis det er oppgitt, og sammenlign IMPORTS/SYNTAX med en referanse-SMI-modul. Gamle leverandør-MIB-er blander ofte SMIv1 og SMIv2, eller bruker samme navn på både tabellrad-OBJECT-TYPE og SEQUENCE-typen for raden.",
+  "snmp.compileHint.integer64Imports":
+    "En TEXTUAL-CONVENTION eller type (ofte Integer64) brukes uten at riktige symboler er importert — f.eks. TEXTUAL-CONVENTION fra SNMPv2-TC og Opaque fra SNMPv2-SMI. Noen Juniper-SMI-filer utelater dette; kompilatoren trenger det i IMPORTS.",
+  "snmp.compileHint.badGrammarComma":
+    "IMPORTS-lister i SMI skal skille «FROM modul»-grupper med linjeskift, ikke komma etter modulnavnet. Et komma rett etter FROM SNMPv2-SMI før neste gruppe er ugyldig og gir «token type ,»-feil.",
+  "snmp.compileHint.badGrammarObjectType":
+    "«Bad grammar» ved OBJECT-TYPE betyr ofte at definisjonen før er ugyldig: for eksempel samme identifikator både som OBJECT-TYPE-node og som SEQUENCE-radtype (f.eks. FooEntry OBJECT-TYPE … SYNTAX FooEntry og FooEntry ::= SEQUENCE { … } med identisk navn). Gi radtypen og radobjektet ulike navn i tråd med vanlig SNMP-tabellkonvensjon. Gamle MIB-er bruker også STATUS optional og ACCESS sammen med konstruksjoner som ligger mellom SMIv1 og v2.",
+  "snmp.compileHint.noSymbolInModule":
+    "Det importerte symbolet finnes ikke i avhengighetsmodulen PySMI faktisk lastet. Vanlige årsaker: en eldre kopi ble hentet over HTTP i stedet for din lokale fil (sjekk filnavn mot modulnavn), avhengighets-MIB mangler i opplastingen, eller revisjonen er eldre enn symbolet (oppdater leverandørsettet).",
+  "snmp.compileHint.missingDependency":
+    "Nødvendig MIB-kilde ble ikke funnet under MIB_ROOT, eller kompilatoren fant den ikke. Last opp den manglende modulen, sørg for at filnavn svarer til MODULE DEFINITIONS-navnet, og prøv igjen — standard IETF-basemoduler hentes ofte automatisk hvis utgående HTTPS er tillatt.",
+  "snmp.compileHint.compilerState":
+    "Kompilatoren ga et uklart eller «overfylt» resultat (mange moduler i én kjøring, eller intern «unprocessed»-tilstand). Prøv å kompilere bare denne filen når IMPORTS er på plass, eller kompiler avhengigheter først.",
   "snmp.compileErr.moduleMapFailedBefore":
     "Kunne ikke koble forespurt modul til pysmi-resultatet ({count} moduler: ",
   "snmp.compileErr.moduleMapFailedAfter": ").",

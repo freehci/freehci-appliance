@@ -183,6 +183,23 @@ export const en = {
   "snmp.compileAllStarted":
     "Compile-all has been queued on the server. Status in the table will refresh every few seconds (up to 30 minutes).",
   "snmp.compileAllRunning": "Compile all (running)…",
+  "snmp.compileErrorMore": "More",
+  "snmp.compileErrorLess": "Less",
+  "snmp.compileErrorHintsTitle": "What this usually means",
+  "snmp.compileHint.generic":
+    "PySMI stopped on this file. Open the MIB source from the file name, check the line number in the message if given, and compare IMPORTS / SYNTAX with a reference SMI module. Very old vendor MIBs often mix SMIv1 and SMIv2 or reuse the same name for a table row OBJECT-TYPE and its SEQUENCE type.",
+  "snmp.compileHint.integer64Imports":
+    "A TEXTUAL-CONVENTION or type (often Integer64) is used without importing the right symbols — for example TEXTUAL-CONVENTION from SNMPv2-TC and Opaque from SNMPv2-SMI. Some Juniper SMI files omit these; the compiler needs them in IMPORTS.",
+  "snmp.compileHint.badGrammarComma":
+    "IMPORTS lists in SMI must separate “FROM module” groups with a line break, not a comma after the module name. A trailing comma after FROM SNMPv2-SMI before the next group is invalid and triggers “token type ,” errors.",
+  "snmp.compileHint.badGrammarObjectType":
+    "“Bad grammar” at OBJECT-TYPE often means the previous definition is invalid: for example the same identifier used both as an OBJECT-TYPE node and as a SEQUENCE row type (e.g. FooEntry OBJECT-TYPE … SYNTAX FooEntry and FooEntry ::= SEQUENCE { … } with an identical name). Rename one of them to match normal SNMP table/row conventions. Old MIBs also use STATUS optional and ACCESS with constructs that straddle SMIv1/v2.",
+  "snmp.compileHint.noSymbolInModule":
+    "The imported symbol is missing from the dependency module PySMI actually loaded. Common causes: an older copy was fetched over HTTP instead of your local file (fix file names vs module names), the dependency MIB was never uploaded, or the dependency revision predates the symbol (update the vendor MIB set).",
+  "snmp.compileHint.missingDependency":
+    "A required MIB source was not found under MIB_ROOT, or the compiler could not locate it. Upload the missing module, ensure its file name maps to the MODULE DEFINITIONS name, and retry — often the standard IETF base MIBs are pulled automatically if outbound HTTPS is allowed.",
+  "snmp.compileHint.compilerState":
+    "The compiler returned an ambiguous or crowded result (many modules in one run, or an internal “unprocessed” state). Try compiling this file alone after its IMPORTS are present, or compile dependencies first.",
   "snmp.compileErr.moduleMapFailedBefore":
     "Could not map the requested module to the pysmi compiler result ({count} modules: ",
   "snmp.compileErr.moduleMapFailedAfter": ").",

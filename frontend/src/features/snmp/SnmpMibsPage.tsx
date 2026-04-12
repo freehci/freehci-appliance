@@ -5,7 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
-import { MibCompileMessage } from "./MibCompileMessage";
+import { MibCompileErrorBlock } from "./MibCompileErrorBlock";
 import { mibTableRowDomId } from "./mibCompileDiagnostics";
 import { MibSourceModal } from "./MibSourceModal";
 import mibViewStyles from "./mibViewer.module.css";
@@ -276,17 +276,8 @@ export function SnmpMibsPage() {
                           </span>
                         </div>
                         {m.compile_message ? (
-                          <div
-                            className={dcimStyles.err}
-                            style={{
-                              fontSize: "var(--text-xs)",
-                              marginTop: 4,
-                              maxWidth: "28rem",
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            <MibCompileMessage
+                          <div className={dcimStyles.err} style={{ marginTop: 4 }}>
+                            <MibCompileErrorBlock
                               raw={m.compile_message}
                               rows={mibsQ.data ?? []}
                               t={t}
