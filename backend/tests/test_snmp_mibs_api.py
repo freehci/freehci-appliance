@@ -97,6 +97,21 @@ def test_snmp_mibs_reject_double_suffix_mib_txt() -> None:
         assert up.status_code == 400
 
 
+def test_snmp_mibs_compile_pending_returns_202_and_runs_background(monkeypatch: pytest.MonkeyPatch) -> None:
+    called: list[int] = []
+
+    def fake_bg() -> None:
+        called.append(1)
+
+    monkeypatch.setattr(mib_cat, "run_compile_pending_mibs_background", fake_bg)
+    app = create_app()
+    with TestClient(app) as client:
+        r = client.post("/api/v1/snmp/mibs/compile-pending", json={})
+        assert r.status_code == 202, r.text
+        assert r.json() == {"queued": True}
+    assert called == [1]
+
+
 def test_snmp_mibs_compile_all_returns_202_and_runs_background(monkeypatch: pytest.MonkeyPatch) -> None:
     called: list[int] = []
 

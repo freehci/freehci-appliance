@@ -68,6 +68,13 @@ class Settings(BaseSettings):
         description="Katalog for PySNMP-kompilerte MIB-moduler (.py), relativ eller absolutt sti",
     )
 
+    mib_upload_max_bytes: int = Field(
+        default=20 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=100 * 1024 * 1024,
+        description="Maks størrelse per opplastet MIB-fil (bytes), standard 20 MiB",
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

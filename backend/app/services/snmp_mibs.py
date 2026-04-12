@@ -74,8 +74,13 @@ def list_mib_files(settings: Settings) -> list[dict]:
 
 def save_mib_file(settings: Settings, filename: str, data: bytes) -> dict:
     safe = validate_mib_filename(filename)
-    if len(data) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="MIB-fil for stor (maks 5 MiB)")
+    max_b = settings.mib_upload_max_bytes
+    if len(data) > max_b:
+        mib_mb = max_b // (1024 * 1024)
+        raise HTTPException(
+            status_code=400,
+            detail=f"MIB-fil for stor (maks {mib_mb} MiB)",
+        )
     if data.startswith(b"\xef\xbb\xbf"):
         data = data[3:]
     text = data.decode("utf-8", errors="replace")

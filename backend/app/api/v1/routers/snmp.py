@@ -30,6 +30,7 @@ from app.services import snmp_interface_import as iface_import_svc
 from app.services import snmp_inventory as inv_svc
 from app.services import snmp_mib_catalog as mib_cat_svc
 from app.services import snmp_mibs as mib_disk_svc
+from app.services.snmp_mib_dependencies import refresh_missing_imports_all
 from app.services import snmp_scan as scan_svc
 from app.services import snmp_probe as probe_svc
 
@@ -90,8 +91,9 @@ async def upload_mibs_batch(
     for f in files:
         raw = await f.read()
         row = mib_disk_svc.save_mib_file(settings, f.filename or "upload.mib", raw)
-        mib_cat_svc.upsert_mib_meta(db, row["name"], raw)
+        mib_cat_svc.upsert_mib_meta(db, settings, row["name"], raw)
         saved.append(row["name"])
+    refresh_missing_imports_all(db, settings)
     disk_rows = {r["name"]: r for r in mib_disk_svc.list_mib_files(settings)}
     return [
         SnmpMibDetailRead.model_validate(mib_cat_svc.mib_detail_dict(db, settings, disk_rows[n]))
@@ -123,7 +125,8 @@ async def upload_mib(
 ) -> SnmpMibFileRead:
     raw = await file.read()
     row = mib_disk_svc.save_mib_file(settings, file.filename or "upload.mib", raw)
-    mib_cat_svc.upsert_mib_meta(db, row["name"], raw)
+    mib_cat_svc.upsert_mib_meta(db, settings, row["name"], raw)
+    refresh_missing_imports_all(db, settings)
     return SnmpMibFileRead.model_validate(row)
 
 
@@ -147,6 +150,19 @@ def compile_all_mibs(
 ) -> SnmpMibCompileAllQueuedRead:
     """Kjør pysmi for hver MIB-fil i bakgrunnen (unngår 504 ved store biblioteker)."""
     background_tasks.add_task(mib_cat_svc.run_compile_all_mibs_background)
+    return SnmpMibCompileAllQueuedRead()
+
+
+@router.post(
+    "/mibs/compile-pending",
+    response_model=SnmpMibCompileAllQueuedRead,
+    status_code=202,
+)
+def compile_pending_mibs(
+    background_tasks: BackgroundTasks,
+) -> SnmpMibCompileAllQueuedRead:
+    """Kompiler kun filer med status pending (bakgrunn)."""
+    background_tasks.add_task(mib_cat_svc.run_compile_pending_mibs_background)
     return SnmpMibCompileAllQueuedRead()
 
 

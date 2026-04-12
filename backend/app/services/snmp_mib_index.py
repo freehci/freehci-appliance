@@ -14,6 +14,32 @@ _MODULE_DEF_RE = re.compile(
 _INDEX_NAME = ".index"
 
 
+def mib_module_names_in_root(mib_root: Path) -> set[str]:
+    """Alle MODULE DEFINITIONS-navn funnet som .mib/.my/.txt i katalogen."""
+    root = mib_root.resolve()
+    names: set[str] = set()
+    if not root.is_dir():
+        return names
+    for p in root.iterdir():
+        if not p.is_file():
+            continue
+        if p.name == _INDEX_NAME or p.name.startswith("."):
+            continue
+        if p.suffix.lower() not in {".mib", ".my", ".txt"}:
+            continue
+        try:
+            raw = p.read_bytes()
+            if raw.startswith(b"\xef\xbb\xbf"):
+                raw = raw[3:]
+            text = raw.decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        mod = extract_module_name_from_mib_text(text)
+        if mod:
+            names.add(mod)
+    return names
+
+
 def extract_module_name_from_mib_text(text: str) -> str | None:
     text = text.lstrip("\ufeff")
     m = _MODULE_DEF_RE.search(text)

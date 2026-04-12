@@ -19,6 +19,7 @@ from app.services import snmp_mibs as mib_disk
 from app.services.snmp_iana import fetch_iana_enterprise_rows
 from app.services.snmp_mib_compile import compile_mib_modules, compile_status_is_success, compiled_py_path
 from app.services.snmp_mib_normalize import normalize_mib_source_text
+from app.services.snmp_mib_dependencies import parse_missing_imports_json, refresh_missing_imports_all
 from app.services.snmp_mib_parse import guess_module_name, imported_vendor_mib_modules, primary_enterprise_number
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ def _mib_file_text(settings: Settings, filename: str) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def upsert_mib_meta(db: Session, filename: str, content: bytes) -> SnmpMibFileMeta:
+def upsert_mib_meta(db: Session, settings: Settings, filename: str, content: bytes) -> SnmpMibFileMeta:
     text = content.decode("utf-8", errors="replace")
     mod = guess_module_name(filename, text)
     pen = primary_enterprise_number(text)
@@ -51,6 +52,7 @@ def upsert_mib_meta(db: Session, filename: str, content: bytes) -> SnmpMibFileMe
             compile_message=None,
             compiled_module_name=None,
             compiled_at=None,
+            missing_import_modules_json="[]",
             updated_at=now,
         )
         db.add(row)
@@ -72,7 +74,10 @@ def refresh_mib_meta_from_disk(db: Session, settings: Settings, filename: str) -
     path = (root / filename).resolve()
     if not str(path).startswith(str(root.resolve())) or not path.is_file():
         return None
-    return upsert_mib_meta(db, filename, path.read_bytes())
+    row = upsert_mib_meta(db, settings, filename, path.read_bytes())
+    refresh_missing_imports_all(db, settings)
+    db.refresh(row)
+    return row
 
 
 def _iana_org(db: Session, pen: int | None) -> str | None:
@@ -116,6 +121,9 @@ def mib_detail_dict(db: Session, settings: Settings, disk_row: dict) -> dict:
         "effective_enterprise_number": pen,
         "extends_mib_module": None,
         "parent_mib_missing": False,
+        "missing_import_modules": parse_missing_imports_json(
+            getattr(meta, "missing_import_modules_json", None) if meta else None,
+        ),
     }
 
 
@@ -422,6 +430,26 @@ def compile_all_mibs(db: Session, settings: Settings) -> list[dict]:
     return out
 
 
+def compile_pending_mibs(db: Session, settings: Settings) -> list[dict]:
+    out: list[dict] = []
+    for row in mib_disk.list_mib_files(settings):
+        name = row["name"]
+        meta = db.get(SnmpMibFileMeta, name)
+        if meta is None or meta.compile_status != "pending":
+            continue
+        try:
+            out.append(compile_mib_file(db, settings, name))
+        except Exception as e:  # noqa: BLE001
+            m = db.get(SnmpMibFileMeta, name)
+            if m:
+                m.compile_status = "error"
+                m.compile_message = str(e)[:4000]
+                m.updated_at = _utcnow()
+                db.commit()
+            out.append(mib_detail_dict(db, settings, row))
+    return out
+
+
 def run_compile_all_mibs_background() -> None:
     """Kall fra FastAPI BackgroundTasks; egen DB-sesjon (request-sesjonen er lukket)."""
     settings = get_settings()
@@ -435,6 +463,18 @@ def run_compile_all_mibs_background() -> None:
         db.close()
 
 
+def run_compile_pending_mibs_background() -> None:
+    settings = get_settings()
+    db = SessionLocal()
+    try:
+        compile_pending_mibs(db, settings)
+        logger.info("MIB compile-pending (background) fullført")
+    except Exception:
+        logger.exception("MIB compile-pending (background) feilet")
+    finally:
+        db.close()
+
+
 def delete_mib_complete(db: Session, settings: Settings, filename: str) -> None:
     meta = db.get(SnmpMibFileMeta, filename)
     mod = meta.compiled_module_name if meta else None
@@ -442,6 +482,7 @@ def delete_mib_complete(db: Session, settings: Settings, filename: str) -> None:
     if meta:
         db.delete(meta)
     db.commit()
+    refresh_missing_imports_all(db, settings)
     if mod:
         p = compiled_py_path(settings, mod)
         if p and p.is_file():

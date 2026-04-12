@@ -171,6 +171,20 @@ export const en = {
   "snmp.mibsPageIntro":
     "Upload MIB sources, compile to PySNMP (may fetch dependencies from the network), and sync IANA for vendor names. Enterprise groups and DCIM linking:",
   "snmp.mibsUploadTitle": "Upload MIB files",
+  "snmp.mibUploadMaxHint":
+    "Maximum size per file is 20 MiB by default (server setting MIB_UPLOAD_MAX_BYTES).",
+  "snmp.pendingMibsTitle": "Pending compilation",
+  "snmp.pendingMibsIntro":
+    "{count} MIB file(s) are still pending compilation (not yet run through PySMI).",
+  "snmp.compilePending": "Compile pending",
+  "snmp.compilePendingHint":
+    "Queue PySMI only for files whose compile status is pending (runs on the server in the background).",
+  "snmp.compilePendingConfirm": "Compile all pending MIB files in the background?",
+  "snmp.compilePendingStarted":
+    "Compile-pending has been queued. The tables will refresh every few seconds (up to 30 minutes).",
+  "snmp.compilePendingRunning": "Compile pending (running)…",
+  "snmp.missingImportsCol": "Missing IMPORTS (local)",
+  "snmp.missingImportsNone": "—",
   "snmp.mibFilesMulti": "MIB files (multiple)",
   "snmp.mibUploadBatch": "Upload all",
   "snmp.ianaSync": "Sync IANA enterprises",

@@ -174,6 +174,20 @@ export const nb = {
   "snmp.mibsPageIntro":
     "Last opp MIB-kilder, kompiler til PySNMP (kan hente avhengigheter fra nett), og synkroniser IANA for leverandørnavn. Enterprise-grupper og DCIM-kobling:",
   "snmp.mibsUploadTitle": "Last opp MIB-filer",
+  "snmp.mibUploadMaxHint":
+    "Maks størrelse per fil er 20 MiB som standard (serverinnstilling MIB_UPLOAD_MAX_BYTES).",
+  "snmp.pendingMibsTitle": "Venter på kompilering",
+  "snmp.pendingMibsIntro":
+    "{count} MIB-fil(er) har status «pending» og er ikke kjørt gjennom PySMI ennå.",
+  "snmp.compilePending": "Kompiler ventende",
+  "snmp.compilePendingHint":
+    "Legger kun PySMI-kø for filer med kompileringsstatus pending (kjøres i bakgrunnen på serveren).",
+  "snmp.compilePendingConfirm": "Kompilere alle ventende MIB-filer i bakgrunnen?",
+  "snmp.compilePendingStarted":
+    "Kompilering av ventende MIB-er er satt i kø. Tabellene oppdateres hvert fjerde sekund (inntil 30 minutter).",
+  "snmp.compilePendingRunning": "Kompiler ventende (kjører)…",
+  "snmp.missingImportsCol": "Manglende IMPORTS (lokalt)",
+  "snmp.missingImportsNone": "—",
   "snmp.mibFilesMulti": "MIB-filer (flere)",
   "snmp.mibUploadBatch": "Last opp alle",
   "snmp.ianaSync": "Synk IANA enterprise",

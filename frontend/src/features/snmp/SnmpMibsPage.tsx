@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
@@ -33,13 +33,20 @@ export function SnmpMibsPage() {
   const [viewSourceName, setViewSourceName] = useState<string | null>(null);
   const [flashMibRow, setFlashMibRow] = useState<string | null>(null);
   const [bgCompileAll, setBgCompileAll] = useState(false);
+  const [bgCompilePending, setBgCompilePending] = useState(false);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bgMibCompile = bgCompileAll || bgCompilePending;
 
   const mibsQ = useQuery({
     queryKey: ["snmp", "mibs", "detailed"],
     queryFn: snmpApi.listSnmpMibsDetailed,
-    refetchInterval: bgCompileAll ? 4000 : false,
+    refetchInterval: bgMibCompile ? 4000 : false,
   });
+
+  const pendingMibs = useMemo(
+    () => (mibsQ.data ?? []).filter((m) => m.compile_status === "pending"),
+    [mibsQ.data],
+  );
 
   const mibSourceQ = useQuery({
     queryKey: ["snmp", "mibSource", viewSourceName],
@@ -78,6 +85,17 @@ export function SnmpMibsPage() {
     onSuccess: () => {
       setErr(null);
       setBgCompileAll(true);
+      void qc.invalidateQueries({ queryKey: ["snmp", "mibs", "detailed"] });
+      invalidate();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const compilePending = useMutation({
+    mutationFn: () => snmpApi.compilePendingSnmpMibs(),
+    onSuccess: () => {
+      setErr(null);
+      setBgCompilePending(true);
       void qc.invalidateQueries({ queryKey: ["snmp", "mibs", "detailed"] });
       invalidate();
     },
@@ -126,10 +144,13 @@ export function SnmpMibsPage() {
   );
 
   useEffect(() => {
-    if (!bgCompileAll) return;
-    const stop = window.setTimeout(() => setBgCompileAll(false), 30 * 60 * 1000);
+    if (!bgMibCompile) return;
+    const stop = window.setTimeout(() => {
+      setBgCompileAll(false);
+      setBgCompilePending(false);
+    }, 30 * 60 * 1000);
     return () => window.clearTimeout(stop);
-  }, [bgCompileAll]);
+  }, [bgMibCompile]);
 
   return (
     <>
@@ -151,6 +172,7 @@ export function SnmpMibsPage() {
       ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
       {bgCompileAll ? <p className={dcimStyles.muted}>{t("snmp.compileAllStarted")}</p> : null}
+      {bgCompilePending ? <p className={dcimStyles.muted}>{t("snmp.compilePendingStarted")}</p> : null}
       <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
         {t("snmp.mibsPageIntro")}{" "}
         <Link to="/snmp/enterprises">{t("snmp.enterprisesTabLink")}</Link>
@@ -158,6 +180,9 @@ export function SnmpMibsPage() {
 
       <section className={dcimStyles.mfrDetailSection}>
         <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.mibsUploadTitle")}</h3>
+        <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+          {t("snmp.mibUploadMaxHint")}
+        </p>
         <div className={dcimStyles.formRow} style={{ alignItems: "flex-end" }}>
           <label>
             {t("snmp.mibFilesMulti")}
@@ -189,7 +214,9 @@ export function SnmpMibsPage() {
             type="button"
             className={dcimStyles.btnMuted}
             disabled={
-              compileAll.isPending || bgCompileAll || (mibsQ.data?.length ?? 0) === 0
+              compileAll.isPending ||
+              bgCompileAll ||
+              (mibsQ.data?.length ?? 0) === 0
             }
             onClick={() => {
               if (!window.confirm(t("snmp.compileAllConfirm"))) return;
@@ -206,6 +233,74 @@ export function SnmpMibsPage() {
         </div>
       </section>
 
+      {pendingMibs.length > 0 ? (
+        <section className={dcimStyles.mfrDetailSection}>
+          <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.pendingMibsTitle")}</h3>
+          <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+            {t("snmp.pendingMibsIntro", { count: String(pendingMibs.length) })}
+          </p>
+          <div className={dcimStyles.formRow} style={{ alignItems: "center", marginBottom: "var(--space-2)" }}>
+            <button
+              type="button"
+              className={dcimStyles.btnMuted}
+              disabled={
+                compilePending.isPending ||
+                bgCompilePending ||
+                pendingMibs.length === 0
+              }
+              title={t("snmp.compilePendingHint")}
+              onClick={() => {
+                if (!window.confirm(t("snmp.compilePendingConfirm"))) return;
+                compilePending.mutate();
+              }}
+            >
+              {compilePending.isPending
+                ? "…"
+                : bgCompilePending
+                  ? t("snmp.compilePendingRunning")
+                  : t("snmp.compilePending")}
+            </button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className={dcimStyles.table}>
+              <thead>
+                <tr>
+                  <th>{t("snmp.mibColName")}</th>
+                  <th>{t("snmp.mibColModule")}</th>
+                  <th>{t("snmp.missingImportsCol")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingMibs.map((m) => (
+                  <tr key={`p-${m.name}`}>
+                    <td>
+                      <button
+                        type="button"
+                        className={mibViewStyles.fileNameBtn}
+                        title={t("snmp.mibFilenameOpenHint")}
+                        onClick={() => setViewSourceName(m.name)}
+                      >
+                        <code>{m.name}</code>
+                      </button>
+                    </td>
+                    <td className={dcimStyles.muted}>{m.module_name ?? "—"}</td>
+                    <td>
+                      {(m.missing_import_modules?.length ?? 0) > 0 ? (
+                        <span className={dcimStyles.err} style={{ fontSize: "var(--text-xs)" }}>
+                          {(m.missing_import_modules ?? []).join(", ")}
+                        </span>
+                      ) : (
+                        <span className={dcimStyles.muted}>{t("snmp.missingImportsNone")}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       <section className={dcimStyles.mfrDetailSection}>
         <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.mibsTableTitle")}</h3>
         {mibsQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
@@ -218,6 +313,7 @@ export function SnmpMibsPage() {
                   <th>{t("snmp.mibColModule")}</th>
                   <th>{t("snmp.mibColEnterprise")}</th>
                   <th>{t("snmp.mibColIanaOrg")}</th>
+                  <th>{t("snmp.missingImportsCol")}</th>
                   <th>{t("snmp.mibColCompile")}</th>
                   <th>{t("snmp.mibColMfr")}</th>
                   <th>{t("ipam.ipv4.actionsCol")}</th>
@@ -269,6 +365,15 @@ export function SnmpMibsPage() {
                         ) : null}
                       </td>
                       <td className={dcimStyles.muted}>{m.iana_organization ?? "—"}</td>
+                      <td style={{ fontSize: "var(--text-xs)", maxWidth: "14rem" }}>
+                        {(m.missing_import_modules?.length ?? 0) > 0 ? (
+                          <span className={dcimStyles.err} title={(m.missing_import_modules ?? []).join(", ")}>
+                            {(m.missing_import_modules ?? []).join(", ")}
+                          </span>
+                        ) : (
+                          <span className={dcimStyles.muted}>{t("snmp.missingImportsNone")}</span>
+                        )}
+                      </td>
                       <td>
                         <div>
                           <span className={statusClass} title={statusLabel}>

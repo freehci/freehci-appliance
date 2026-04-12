@@ -22,6 +22,7 @@ export type SnmpMibDetail = SnmpMibFile & {
   effective_enterprise_number?: number | null;
   extends_mib_module?: string | null;
   parent_mib_missing?: boolean;
+  missing_import_modules?: string[];
 };
 
 export type SnmpMibTreeNode = {
@@ -106,6 +107,10 @@ export type SnmpMibCompileAllQueued = { queued: true };
 
 export function compileAllSnmpMibs(): Promise<SnmpMibCompileAllQueued> {
   return apiPost(`${P}/mibs/compile-all`, {});
+}
+
+export function compilePendingSnmpMibs(): Promise<SnmpMibCompileAllQueued> {
+  return apiPost(`${P}/mibs/compile-pending`, {});
 }
 
 export function snmpProbe(body: {

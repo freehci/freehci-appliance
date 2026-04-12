@@ -37,6 +37,7 @@ class SnmpMibDetailRead(BaseModel):
     effective_enterprise_number: int | None = None
     extends_mib_module: str | None = None
     parent_mib_missing: bool = False
+    missing_import_modules: list[str] = Field(default_factory=list)
 
 
 class SnmpMibTreeNodeRead(BaseModel):
