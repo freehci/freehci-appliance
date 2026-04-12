@@ -7,6 +7,9 @@ import dcimStyles from "@/features/dcim/dcim.module.css";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import * as snmpApi from "./snmpApi";
 
+/** IF-MIB + ifXTable: nok plass til switcher med mange logiske porter/VLAN (samme som API-standard). */
+const SNMP_INV_MAX_VARBINDS = 20_000;
+
 export type SnmpInventoryPanelProps = {
   /** Velg DCIM-enhet i UI, eller bruk fast deviceId (enhetsvisning). */
   mode: "picker" | "fixed_device";
@@ -77,7 +80,7 @@ export function SnmpInventoryPanel({
         host: probeHost.trim(),
         port: Number(probePort) || 161,
         community: probeCommunity,
-        max_varbinds: 8000,
+        max_varbinds: SNMP_INV_MAX_VARBINDS,
       }),
     onSuccess: (r) => {
       setErr(null);
@@ -114,6 +117,7 @@ export function SnmpInventoryPanel({
         host: probeHost.trim(),
         port: Number(probePort) || 161,
         community: probeCommunity,
+        max_varbinds: SNMP_INV_MAX_VARBINDS,
       }),
     onSuccess: (r) => {
       setApplyMsg(null);

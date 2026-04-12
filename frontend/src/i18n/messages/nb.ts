@@ -106,7 +106,8 @@ export const nb = {
   "snmp.invMissingDevice": "Velg en DCIM-enhet for import.",
   "snmp.invSysName": "sysName",
   "snmp.invSysDescr": "sysDescr",
-  "snmp.invTruncated": "Avkortet (øk max varbinds eller filtrer på agent).",
+  "snmp.invTruncated":
+    "Avkortet — agenten har mer IF-MIB/ifX-data enn vi hentet. Bruk full skann med høyere max varbinds (API opptil 50000), eller færre logiske grensesnitt på enheten.",
   "snmp.invVarbinds": "Varbinds samlet",
   "snmp.invColIfIndex": "ifIndex",
   "snmp.invColName": "Navn",

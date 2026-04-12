@@ -103,7 +103,8 @@ export const en = {
   "snmp.invMissingDevice": "Select a DCIM device to import into.",
   "snmp.invSysName": "sysName",
   "snmp.invSysDescr": "sysDescr",
-  "snmp.invTruncated": "Truncated (raise max varbinds or filter on the agent).",
+  "snmp.invTruncated":
+    "Truncated — the agent returned more IF-MIB/ifX data than collected. Use full scan with a higher max varbinds (API up to 50000) or reduce logical interfaces on the device.",
   "snmp.invVarbinds": "Varbinds collected",
   "snmp.invColIfIndex": "ifIndex",
   "snmp.invColName": "Name",

@@ -114,7 +114,8 @@ class SnmpInventoryRequest(BaseModel):
     host: str = Field(..., min_length=1, max_length=255)
     port: int = Field(161, ge=1, le=65535)
     community: str = Field("public", min_length=1, max_length=256)
-    max_varbinds: int = Field(4000, ge=200, le=50_000)
+    # Større L2/L3-switcher (f.eks. Juniper EX) har mange ifEntry/ifXEntry-rader — 4k var for lavt.
+    max_varbinds: int = Field(20_000, ge=200, le=50_000)
     timeout_sec: float = Field(3.0, ge=0.5, le=30.0)
     retries: int = Field(1, ge=0, le=5)
 
