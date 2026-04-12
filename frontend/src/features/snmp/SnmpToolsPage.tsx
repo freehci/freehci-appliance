@@ -1,11 +1,27 @@
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import * as snmpApi from "./snmpApi";
 import { SnmpInventoryPanel } from "./SnmpInventoryPanel";
+
+const SYS_NAME_OID_SUFFIX = "1.3.6.1.2.1.1.5.0";
+
+function suggestedDeviceNameFromProbe(r: snmpApi.SnmpProbeResult, fallbackHost: string): string {
+  const host = fallbackHost.trim();
+  if (!r.ok) return host;
+  const norm = (oid: string) => oid.replace(/\s+/g, "").trim();
+  for (const vb of r.varbinds) {
+    const o = norm(vb.oid);
+    if (o === SYS_NAME_OID_SUFFIX || o.endsWith(".1.1.5.0")) {
+      const v = vb.value.trim();
+      if (v !== "") return v;
+    }
+  }
+  return host;
+}
 
 export function SnmpToolsPage() {
   const { t } = useI18n();
@@ -42,6 +58,19 @@ export function SnmpToolsPage() {
       setErr(e instanceof ApiError ? e.message : e.message);
     },
   });
+
+  const dcimPrefillName = useMemo(
+    () =>
+      probeResult && probeHost.trim() !== ""
+        ? suggestedDeviceNameFromProbe(probeResult, probeHost)
+        : "",
+    [probeResult, probeHost],
+  );
+
+  const dcimEquipmentHref =
+    dcimPrefillName !== "" && probeHost.trim() !== ""
+      ? `/dcim/equipment?prefillDeviceName=${encodeURIComponent(dcimPrefillName)}&snmpHost=${encodeURIComponent(probeHost.trim())}`
+      : null;
 
   return (
     <>
@@ -98,7 +127,16 @@ export function SnmpToolsPage() {
         {probeResult ? (
           <div style={{ marginTop: "var(--space-2)" }}>
             {probeResult.ok ? (
-              <p className={dcimStyles.muted}>{t("snmp.probeOk")}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
+                <p className={dcimStyles.muted} style={{ margin: 0 }}>
+                  {t("snmp.probeOk")}
+                </p>
+                {dcimEquipmentHref ? (
+                  <Link className={dcimStyles.btnMuted} to={dcimEquipmentHref} title={t("snmp.addDeviceDcimHint")}>
+                    {t("snmp.addDeviceDcim")}
+                  </Link>
+                ) : null}
+              </div>
             ) : (
               <p className={dcimStyles.err}>
                 {t("snmp.probeFail")}: {probeResult.error ?? "—"}

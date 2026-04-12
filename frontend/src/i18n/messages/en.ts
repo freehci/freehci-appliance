@@ -121,6 +121,9 @@ export const en = {
   "snmp.tabTools": "Tools",
   "snmp.tabMibs": "MIB library",
   "snmp.tabEnterprises": "Enterprises",
+  "snmp.addDeviceDcim": "Create DCIM device from probe",
+  "snmp.addDeviceDcimHint":
+    "Opens Equipment → Devices with hostname (sysName.0 if present) and snmp_host in attributes. Choose model and save.",
   "snmp.enterprisesTabLink": "Open the Enterprises tab for grouping, tree view, and DCIM linking.",
   "snmp.enterprisesPageIntro":
     "MIBs are grouped by IANA enterprise (PEN). Extensions without their own PEN appear under the parent MIB in the tree. Link to a DCIM manufacturer or create one from the IANA name.",

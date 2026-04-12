@@ -17,6 +17,7 @@ export function DcimEquipmentPage() {
   const qc = useQueryClient();
   const [searchParams] = useSearchParams();
   const dmPanelRef = useRef<HTMLDivElement | null>(null);
+  const devPanelRef = useRef<HTMLFormElement | null>(null);
   const dmFileFrontRef = useRef<HTMLInputElement | null>(null);
   const dmFileBackRef = useRef<HTMLInputElement | null>(null);
   const dmFileProductRef = useRef<HTMLInputElement | null>(null);
@@ -145,6 +146,32 @@ export function DcimEquipmentPage() {
     setEquipTab("dm");
     requestAnimationFrame(() =>
       dmPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }, [searchParams]);
+
+  useEffect(() => {
+    const name = searchParams.get("prefillDeviceName")?.trim() ?? "";
+    const snmpHost = searchParams.get("snmpHost")?.trim() ?? "";
+    if (name === "" && snmpHost === "") return;
+
+    if (name !== "") setDevName(name);
+    if (snmpHost !== "") {
+      setDevAttrsJson((prev) => {
+        try {
+          const raw = prev.trim() === "" ? "{}" : prev;
+          const obj = JSON.parse(raw) as unknown;
+          if (obj !== null && typeof obj === "object" && !Array.isArray(obj)) {
+            return JSON.stringify({ ...(obj as Record<string, unknown>), snmp_host: snmpHost }, null, 2);
+          }
+        } catch {
+          /* ignore */
+        }
+        return JSON.stringify({ snmp_host: snmpHost }, null, 2);
+      });
+    }
+    setEquipTab("dev");
+    requestAnimationFrame(() =>
+      devPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
     );
   }, [searchParams]);
 
@@ -638,6 +665,7 @@ export function DcimEquipmentPage() {
       {equipTab === "dev" ? (
         <>
         <form
+          ref={devPanelRef}
           className={styles.formRow}
           onSubmit={(e) => {
             e.preventDefault();

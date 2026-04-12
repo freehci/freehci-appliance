@@ -124,6 +124,9 @@ export const nb = {
   "snmp.tabTools": "Verktøy",
   "snmp.tabMibs": "MIB-bibliotek",
   "snmp.tabEnterprises": "Enterprises",
+  "snmp.addDeviceDcim": "Opprett DCIM-enhet fra probe",
+  "snmp.addDeviceDcimHint":
+    "Åpner Utstyr → Enheter med vertsnavn (sysName.0 hvis funnet) og snmp_host i attributter. Velg modell og lagre.",
   "snmp.enterprisesTabLink": "Åpne fanen Enterprises for gruppering, tre og DCIM-kobling.",
   "snmp.enterprisesPageIntro":
     "MIB-er grupperes etter IANA enterprise (PEN). Utvidelser uten egen PEN vises under foreldre-MIB i treet. Koble til DCIM-produsent eller opprett produsent fra IANA-navn.",
