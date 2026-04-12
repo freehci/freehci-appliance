@@ -16,6 +16,7 @@ from app.models.snmp_catalog import SnmpIanaEnterprise, SnmpMibFileMeta
 from app.services import snmp_mibs as mib_disk
 from app.services.snmp_iana import fetch_iana_enterprise_rows
 from app.services.snmp_mib_compile import compile_mib_modules, compile_status_is_success, compiled_py_path
+from app.services.snmp_mib_normalize import normalize_mib_source_text
 from app.services.snmp_mib_parse import guess_module_name, imported_vendor_mib_modules, primary_enterprise_number
 
 
@@ -360,6 +361,9 @@ def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
         raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
 
     text = path.read_text(encoding="utf-8", errors="replace")
+    text, mib_normalized = normalize_mib_source_text(text)
+    if mib_normalized:
+        path.write_text(text, encoding="utf-8", newline="\n")
     module = guess_module_name(filename, text)
     meta.module_name = module
     stem = Path(filename).stem

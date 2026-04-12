@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from app.core.config import Settings
+from app.services.snmp_mib_normalize import normalize_mib_source_text
 
 _MIB_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
 _ALLOWED_SUFFIX = frozenset({".mib", ".my", ".txt"})
@@ -74,6 +75,9 @@ def save_mib_file(settings: Settings, filename: str, data: bytes) -> dict:
         raise HTTPException(status_code=400, detail="MIB-fil for stor (maks 5 MiB)")
     if data.startswith(b"\xef\xbb\xbf"):
         data = data[3:]
+    text = data.decode("utf-8", errors="replace")
+    text, _normalized = normalize_mib_source_text(text)
+    data = text.encode("utf-8")
     root = _ensure_mib_root(settings)
     path = (root / safe).resolve()
     if not str(path).startswith(str(root.resolve())):
