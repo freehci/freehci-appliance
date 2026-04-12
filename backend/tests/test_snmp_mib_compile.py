@@ -77,3 +77,24 @@ def test_local_mib_prefers_suffixed_file_over_extensionless(monkeypatch: pytest.
     results = compile_mib_modules(settings, ["TEST-CONS-MIB"], rebuild=True)
     st, err, _ = results["TEST-CONS-MIB"]
     assert compile_status_is_success(st), f"forventet ok, fikk {st!r}: {err}"
+
+
+def test_mib_dot_index_does_not_force_wrong_source(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """pysmis .index kan peke til gammel kilde; vi leser den ikke (useIndexFile=False)."""
+    mib_root = tmp_path / "mibs"
+    compiled = tmp_path / "compiled"
+    mib_root.mkdir()
+    compiled.mkdir()
+    monkeypatch.setenv("MIB_ROOT", str(mib_root))
+    monkeypatch.setenv("MIB_COMPILED_ROOT", str(compiled))
+    get_settings.cache_clear()
+
+    (mib_root / "Brocade-REG-MIB").write_text(_BROCADE_REG_OLD, encoding="utf-8")
+    (mib_root / "Brocade-REG-MIB.my").write_text(_BROCADE_REG_NEW, encoding="utf-8")
+    (mib_root / "TEST-CONS-MIB.mib").write_text(_TEST_CONSUMER, encoding="utf-8")
+    (mib_root / ".index").write_text("Brocade-REG-MIB Brocade-REG-MIB\n", encoding="utf-8")
+
+    settings = get_settings()
+    results = compile_mib_modules(settings, ["TEST-CONS-MIB"], rebuild=True)
+    st, err, _ = results["TEST-CONS-MIB"]
+    assert compile_status_is_success(st), f"forventet ok, fikk {st!r}: {err}"

@@ -100,9 +100,12 @@ def _build_compiler(settings: Settings, *, cache_dir: str | None) -> MibCompiler
     parser = SmiV1CompatParser(tempdir=cache_dir or tempfile.mkdtemp(prefix="pysmi-"))
 
     mib_compiler = MibCompiler(parser, code_gen, file_writer)
+    # useIndexFile=False: .index kan peke til én fil per modul og da ignoreres fuzzyMatching/exts —
+    # typisk feil: gammel Brocade-REG-MIB uten brocadeAgentCapability vinner over .my-kilden.
     local_reader = FileReader(str(mib_root)).set_options(
         fuzzyMatching=True,
         exts=list(_MIB_SOURCE_EXTS_ORDERED),
+        useIndexFile=False,
     )
     mib_compiler.add_sources(
         local_reader,
