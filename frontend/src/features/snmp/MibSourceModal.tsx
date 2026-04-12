@@ -1,6 +1,12 @@
-import { useEffect, useId, useMemo, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
+import {
+  allProblemLines,
+  collectDiagnosticsForMibFile,
+  type MibSourceDiagnostic,
+} from "./mibCompileDiagnostics";
+import type { SnmpMibDetail } from "./snmpApi";
 import styles from "./mibViewer.module.css";
 
 function triggerDownload(filename: string, text: string) {
@@ -63,16 +69,39 @@ function highlightLine(line: string, lineIndex: number): ReactNode {
   return <>{highlightCodePart(line, `L${lineIndex}`)}</>;
 }
 
-function MibHighlighted({ text }: { text: string }) {
+function makeLineDomId(filename: string, line: number): string {
+  const safe = filename.replace(/[^a-zA-Z0-9_.-]+/g, "_");
+  return `mib-view-line-${safe}-${line}`;
+}
+
+function MibHighlighted({
+  text,
+  problemLines,
+  focusedLine,
+  filename,
+}: {
+  text: string;
+  problemLines: Set<number>;
+  focusedLine: number | null;
+  filename: string;
+}) {
   const lines = useMemo(() => text.split(/\n/), [text]);
   return (
     <pre className={styles.pre}>
-      {lines.map((line, i) => (
-        <div key={i} className={styles.line}>
-          <span className={styles.ln}>{i + 1}</span>
-          <span className={styles.code}>{highlightLine(line, i)}</span>
-        </div>
-      ))}
+      {lines.map((line, i) => {
+        const n = i + 1;
+        const isProblem = problemLines.has(n);
+        const isFocused = focusedLine === n;
+        const lineCls = [styles.line, isProblem ? styles.lineProblem : "", isFocused ? styles.lineFocused : ""]
+          .filter(Boolean)
+          .join(" ");
+        return (
+          <div key={i} id={makeLineDomId(filename, n)} className={lineCls}>
+            <span className={styles.ln}>{n}</span>
+            <span className={styles.code}>{highlightLine(line, i)}</span>
+          </div>
+        );
+      })}
     </pre>
   );
 }
@@ -83,15 +112,29 @@ export function MibSourceModal({
   loading,
   error,
   onClose,
+  allMibs,
 }: {
   filename: string;
   content: string | null;
   loading: boolean;
   error: string | null;
   onClose: () => void;
+  allMibs: SnmpMibDetail[];
 }) {
   const { t } = useI18n();
   const titleId = useId();
+  const [focusedLine, setFocusedLine] = useState<number | null>(null);
+
+  const diagnostics: MibSourceDiagnostic[] = useMemo(
+    () => collectDiagnosticsForMibFile(filename, allMibs, content),
+    [filename, allMibs, content],
+  );
+
+  const problemLines = useMemo(() => allProblemLines(diagnostics), [diagnostics]);
+
+  useEffect(() => {
+    setFocusedLine(null);
+  }, [filename]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -100,6 +143,14 @@ export function MibSourceModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    if (focusedLine == null) return;
+    const id = makeLineDomId(filename, focusedLine);
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }, [focusedLine, filename]);
 
   return (
     <div
@@ -142,14 +193,53 @@ export function MibSourceModal({
             </button>
           </div>
         </div>
-        <div className={styles.body}>
-          {loading ? <p style={{ padding: "var(--space-3)" }}>…</p> : null}
-          {error ? (
-            <p className={dcimStyles.err} style={{ padding: "var(--space-3)" }}>
-              {error}
-            </p>
+        <div className={styles.bodyWrap}>
+          <div className={styles.codeScroll}>
+            {loading ? <p style={{ padding: "var(--space-3)" }}>…</p> : null}
+            {error ? (
+              <p className={dcimStyles.err} style={{ padding: "var(--space-3)" }}>
+                {error}
+              </p>
+            ) : null}
+            {!loading && !error && content != null ? (
+              <MibHighlighted
+                text={content}
+                problemLines={problemLines}
+                focusedLine={focusedLine}
+                filename={filename}
+              />
+            ) : null}
+          </div>
+          {diagnostics.length > 0 ? (
+            <div
+              className={styles.problemsPanel}
+              role="region"
+              aria-label={t("snmp.mibViewerProblems")}
+            >
+              <div className={styles.problemsPanelTitle}>{t("snmp.mibViewerProblems")}</div>
+              <ul className={styles.problemsList}>
+                {diagnostics.map((d, i) => (
+                  <li key={i} className={styles.problemItem}>
+                    <button
+                      type="button"
+                      className={styles.problemJumpBtn}
+                      disabled={d.line == null}
+                      onClick={() => d.line != null && setFocusedLine(d.line)}
+                      title={d.line != null ? t("snmp.mibViewerJumpToLine", { line: String(d.line) }) : undefined}
+                    >
+                      {d.line != null
+                        ? t("snmp.mibViewerProblemLine", { line: String(d.line) })
+                        : t("snmp.mibViewerProblemNoLine")}
+                      {d.fromFile ? (
+                        <span className={styles.problemFrom}> · {d.fromFile}</span>
+                      ) : null}
+                    </button>
+                    <div className={styles.problemText}>{d.message}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
-          {!loading && !error && content != null ? <MibHighlighted text={content} /> : null}
         </div>
       </div>
     </div>

@@ -63,3 +63,17 @@
 .compileStatusCompilingPulse {
   animation: mibCompilePulse 1.1s ease-in-out infinite;
 }
+
+@keyframes mibRowFlashBg {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.14);
+  }
+}
+
+.mibRowFlash {
+  animation: mibRowFlashBg 0.85s ease-in-out 4;
+}

@@ -59,6 +59,128 @@
   background: var(--color-bg-surface);
 }
 
+.bodyWrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.codeScroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--color-bg-surface);
+}
+
+.problemsPanel {
+  flex-shrink: 0;
+  max-height: min(40vh, 14rem);
+  overflow: auto;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  padding: var(--space-2) var(--space-3);
+}
+
+.problemsPanelTitle {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.problemsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.problemItem {
+  margin-bottom: var(--space-2);
+}
+
+.problemItem:last-child {
+  margin-bottom: 0;
+}
+
+.problemJumpBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.problemJumpBtn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.problemJumpBtn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  color: var(--color-text-muted);
+}
+
+.problemFrom {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.problemText {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 5.5rem;
+  overflow: auto;
+  padding: 0 var(--space-1);
+}
+
+.lineProblem {
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.lineProblem .ln {
+  box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.75);
+}
+
+.lineFocused {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.mibRefLink {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--color-accent);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.mibRefLink:hover {
+  color: var(--color-accent-hover);
+}
+
+.mibRefLink:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
 .pre {
   margin: 0;
   padding: var(--space-3);

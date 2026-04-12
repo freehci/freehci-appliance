@@ -161,8 +161,9 @@ export const en = {
   "snmp.compileAll": "Compile all MIBs",
   "snmp.compileAllHint": "Runs pysmi for each uploaded file; can be slow and needs network for missing imports.",
   "snmp.compileAllConfirm": "Compile every MIB? This may take a long time and use the network.",
-  "snmp.compileErr.moduleMapFailed":
-    "Could not map the requested module to the pysmi compiler result ({count} modules: {modules}).",
+  "snmp.compileErr.moduleMapFailedBefore":
+    "Could not map the requested module to the pysmi compiler result ({count} modules: ",
+  "snmp.compileErr.moduleMapFailedAfter": ").",
   "snmp.compileOne": "Compile",
   "snmp.mibCompileAria": "Compile this MIB file",
   "snmp.mibDeleteAria": "Delete this MIB file",
@@ -174,6 +175,10 @@ export const en = {
   "snmp.mibDownloadHint": "Download this MIB file",
   "snmp.mibDownloadAria": "Download MIB",
   "snmp.mibSourceCloseAria": "Close viewer",
+  "snmp.mibViewerProblems": "Problems",
+  "snmp.mibViewerProblemLine": "Line {line}",
+  "snmp.mibViewerProblemNoLine": "No line",
+  "snmp.mibViewerJumpToLine": "Scroll to line {line}",
   "snmp.enterprisesTitle": "Enterprises (grouped MIBs)",
   "snmp.enterprisesHint":
     "MIBs are grouped by detected private enterprise number (1.3.6.1.4.1.<pen>). Link a group to a DCIM manufacturer to store the IANA PEN on that manufacturer (standard vendor id for SNMP).",

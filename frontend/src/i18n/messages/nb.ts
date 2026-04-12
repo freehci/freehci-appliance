@@ -164,8 +164,9 @@ export const nb = {
   "snmp.compileAll": "Kompiler alle MIB-er",
   "snmp.compileAllHint": "Kjører pysmi per fil; kan ta tid og trenger nettverk for manglende imports.",
   "snmp.compileAllConfirm": "Kompilere alle MIB-er? Dette kan ta lang tid og bruke nettverket.",
-  "snmp.compileErr.moduleMapFailed":
-    "Kunne ikke koble forespurt modul til pysmi-resultatet ({count} moduler: {modules}).",
+  "snmp.compileErr.moduleMapFailedBefore":
+    "Kunne ikke koble forespurt modul til pysmi-resultatet ({count} moduler: ",
+  "snmp.compileErr.moduleMapFailedAfter": ").",
   "snmp.compileOne": "Kompiler",
   "snmp.mibCompileAria": "Kompiler denne MIB-filen",
   "snmp.mibDeleteAria": "Slett denne MIB-filen",
@@ -177,6 +178,10 @@ export const nb = {
   "snmp.mibDownloadHint": "Last ned denne MIB-filen",
   "snmp.mibDownloadAria": "Last ned MIB",
   "snmp.mibSourceCloseAria": "Lukk viewer",
+  "snmp.mibViewerProblems": "Problemer",
+  "snmp.mibViewerProblemLine": "Linje {line}",
+  "snmp.mibViewerProblemNoLine": "Ingen linje",
+  "snmp.mibViewerJumpToLine": "Rull til linje {line}",
   "snmp.enterprisesTitle": "Enterprises (grupperte MIB-er)",
   "snmp.enterprisesHint":
     "MIB-er grupperes etter detektert private enterprise-nummer (1.3.6.1.4.1.<pen>). Kobling til DCIM-produsent lagrer IANA PEN på produsentposten (standard vendor-id for SNMP).",

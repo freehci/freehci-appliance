@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
-import { formatSnmpCompileMessageForUi } from "./compileMessages";
+import { MibCompileMessage } from "./MibCompileMessage";
+import { mibTableRowDomId } from "./mibCompileDiagnostics";
 import { MibSourceModal } from "./MibSourceModal";
 import mibViewStyles from "./mibViewer.module.css";
 import mibsTableStyles from "./snmpMibs.module.css";
@@ -30,6 +31,8 @@ export function SnmpMibsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [viewSourceName, setViewSourceName] = useState<string | null>(null);
+  const [flashMibRow, setFlashMibRow] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mibsQ = useQuery({ queryKey: ["snmp", "mibs", "detailed"], queryFn: snmpApi.listSnmpMibsDetailed });
 
@@ -96,6 +99,25 @@ export function SnmpMibsPage() {
   const compilingName = compileOne.isPending ? compileOne.variables : undefined;
   const deletingName = delMib.isPending ? delMib.variables : undefined;
 
+  const handleMibRefNavigate = useCallback((filename: string) => {
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    setFlashMibRow(filename);
+    flashTimerRef.current = window.setTimeout(() => setFlashMibRow(null), 4500);
+    requestAnimationFrame(() => {
+      document.getElementById(mibTableRowDomId(filename))?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    },
+    [],
+  );
+
   return (
     <>
       {viewSourceName ? (
@@ -111,6 +133,7 @@ export function SnmpMibsPage() {
               : null
           }
           onClose={() => setViewSourceName(null)}
+          allMibs={mibsQ.data ?? []}
         />
       ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
@@ -195,7 +218,11 @@ export function SnmpMibsPage() {
                         : mibsTableStyles.compileStatusPending;
 
                   return (
-                    <tr key={m.name}>
+                    <tr
+                      key={m.name}
+                      id={mibTableRowDomId(m.name)}
+                      className={flashMibRow === m.name ? mibsTableStyles.mibRowFlash : undefined}
+                    >
                       <td>
                         <button
                           type="button"
@@ -239,7 +266,12 @@ export function SnmpMibsPage() {
                               wordBreak: "break-word",
                             }}
                           >
-                            {formatSnmpCompileMessageForUi(m.compile_message, t)}
+                            <MibCompileMessage
+                              raw={m.compile_message}
+                              rows={mibsQ.data ?? []}
+                              t={t}
+                              onMibRefNavigate={handleMibRefNavigate}
+                            />
                           </div>
                         ) : null}
                       </td>
