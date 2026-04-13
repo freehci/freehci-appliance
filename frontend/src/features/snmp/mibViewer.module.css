@@ -14,8 +14,14 @@
   flex-direction: column;
   max-width: min(56rem, 100%);
   width: 100%;
+  /* Eksplisitt høyde: margin:auto på flex-barn hindrer stretch; uten dette blir Monaco height:100% ≈ 0. */
+  height: min(90vh, 52rem);
   max-height: 90vh;
-  margin: auto;
+  min-height: min(70vh, 36rem);
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: auto;
+  margin-bottom: auto;
   background: var(--color-bg-elevated);
   color: var(--color-text);
   border: 1px solid var(--color-border);
