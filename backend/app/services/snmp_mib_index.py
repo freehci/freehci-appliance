@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from pathlib import Path
 
-# Tillat innrykk før «FOO-MIB DEFINITIONS» (Juniper / utdaterte eksporter).
+# Tillat innrykk før modulnavn, linjeskift før DEFINITIONS, og én eller flere
+# ASN.1-linjekommentarer (-- …) mellom navn og DEFINITIONS (vanlig i eldre vendor-MIB).
 _MODULE_DEF_RE = re.compile(
-    r"^\s*([A-Za-z][A-Za-z0-9-]*)\s+DEFINITIONS\s*::=",
+    r"^\s*([A-Za-z][A-Za-z0-9-]*)(?:\s+|--[^\r\n]*\r?\n)+DEFINITIONS\s*::=",
     re.MULTILINE,
 )
 
@@ -38,6 +40,36 @@ def mib_module_names_in_root(mib_root: Path) -> set[str]:
         if mod:
             names.add(mod)
     return names
+
+
+def mib_module_to_files_map(mib_root: Path) -> dict[str, list[str]]:
+    """Uppercase MODULE DEFINITIONS-navn → MIB-filnavn (alle treff, sortert).
+
+    Brukes av SNMP-tre-topologi slik at foreldermatch følger faktisk kilde, ikke
+    kun cachet module_name i DB (som kan være utdatert når fil er byttet på disk).
+    """
+    root = mib_root.resolve()
+    raw_map: dict[str, list[str]] = defaultdict(list)
+    if not root.is_dir():
+        return {}
+    for p in root.iterdir():
+        if not p.is_file():
+            continue
+        if p.name == _INDEX_NAME or p.name.startswith("."):
+            continue
+        if p.suffix.lower() not in {".mib", ".my", ".txt"}:
+            continue
+        try:
+            b = p.read_bytes()
+            if b.startswith(b"\xef\xbb\xbf"):
+                b = b[3:]
+            text = b.decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        mod = extract_module_name_from_mib_text(text)
+        if mod:
+            raw_map[mod.upper()].append(p.name)
+    return {k: sorted(v) for k, v in raw_map.items()}
 
 
 def extract_module_name_from_mib_text(text: str) -> str | None:

@@ -20,6 +20,7 @@ from app.services.snmp_iana import fetch_iana_enterprise_rows
 from app.services.snmp_mib_compile import compile_mib_modules, compile_status_is_success, compiled_py_path
 from app.services.snmp_mib_normalize import normalize_mib_source_text
 from app.services.snmp_mib_dependencies import parse_missing_imports_json, refresh_missing_imports_all
+from app.services.snmp_mib_index import mib_module_to_files_map
 from app.services.snmp_mib_parse import guess_module_name, imported_vendor_mib_modules, primary_enterprise_number
 
 logger = logging.getLogger(__name__)
@@ -130,22 +131,22 @@ def mib_detail_dict(db: Session, settings: Settings, disk_row: dict) -> dict:
 def _snmp_file_topology(db: Session, settings: Settings, disk_rows: list[dict]) -> dict[str, dict]:
     """Utvid metadata per fil: effective PEN, import-parent, tre-bruk."""
     by_file: dict[str, dict] = {}
-    module_to_files: dict[str, list[str]] = defaultdict(list)
 
     for row in disk_rows:
         fn = row["name"]
         d = mib_detail_dict(db, settings, row)
         by_file[fn] = d
-        mod = (d.get("module_name") or "").strip()
-        if mod:
-            module_to_files[mod.upper()].append(fn)
+
+    # Modul → fil: alltid fra DEFINITIONS i filinnhold (samme som .index / manglende IMPORTS),
+    # ikke fra DB-felt module_name (kan skille seg fra kilden etter manuell filbytte).
+    module_to_files_map = mib_module_to_files_map(settings.mib_root_path.resolve())
 
     def resolve_parent_file(fn: str) -> str | None:
         text = _mib_file_text(settings, fn)
         if not text:
             return None
         for im in imported_vendor_mib_modules(text):
-            for c in module_to_files.get(im.upper(), []):
+            for c in module_to_files_map.get(im.upper(), []):
                 if c != fn:
                     return c
         return None

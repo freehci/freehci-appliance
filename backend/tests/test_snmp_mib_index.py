@@ -17,6 +17,24 @@ END
     assert extract_module_name_from_mib_text(text) == "JUNIPER-SMS-MIB"
 
 
+def test_extract_module_name_allows_comment_before_definitions() -> None:
+    """Som FCMGMT-MIB: modulnavn, så -- kommentarlinje, så DEFINITIONS."""
+    text = """FCMGMT-MIB
+-- Last edit date: Aug 19th, 2001
+DEFINITIONS ::= BEGIN
+END
+"""
+    assert extract_module_name_from_mib_text(text) == "FCMGMT-MIB"
+
+
+def test_extract_module_name_split_lines_without_comment() -> None:
+    text = """EMCGATEWAY-MIB
+DEFINITIONS ::= BEGIN
+END
+"""
+    assert extract_module_name_from_mib_text(text) == "EMCGATEWAY-MIB"
+
+
 def test_guess_module_name_uses_definitions_not_filename(tmp_path: Path) -> None:
     text = """JUNIPER-JS-SMI DEFINITIONS ::= BEGIN
 END
