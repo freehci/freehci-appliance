@@ -1,0 +1,21 @@
+/* Brukes som className på Monaco-linjedekorasjoner (ikke scope-problemer når vi sender hashet navn inn i API-et). */
+.lineProblem {
+  background-color: rgba(248, 113, 113, 0.08) !important;
+}
+
+.lineFocused {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+}
+
+.lineProblemFocused {
+  background-color: rgba(217, 119, 87, 0.12) !important;
+}
+
+.wrap {
+  flex: 1;
+  min-height: min(50vh, 28rem);
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}

@@ -70,7 +70,11 @@
 .codeScroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3);
+  gap: var(--space-2);
   background: var(--color-bg-surface);
 }
 

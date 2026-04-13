@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
@@ -7,10 +7,11 @@ import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { MibCompileErrorBlock } from "./MibCompileErrorBlock";
 import { mibTableRowDomId } from "./mibCompileDiagnostics";
-import { MibSourceModal } from "./MibSourceModal";
 import mibViewStyles from "./mibViewer.module.css";
 import mibsTableStyles from "./snmpMibs.module.css";
 import * as snmpApi from "./snmpApi";
+
+const MibSourceModalLazy = lazy(() => import("./MibSourceModal"));
 
 function labelForStoredCompileStatus(status: string, t: (k: MessageKey) => string) {
   switch (status) {
@@ -155,20 +156,41 @@ export function SnmpMibsPage() {
   return (
     <>
       {viewSourceName ? (
-        <MibSourceModal
-          filename={viewSourceName}
-          content={mibSourceQ.data ?? null}
-          loading={mibSourceQ.isLoading}
-          error={
-            mibSourceQ.isError
-              ? mibSourceQ.error instanceof ApiError
-                ? mibSourceQ.error.message
-                : String(mibSourceQ.error)
-              : null
+        <Suspense
+          fallback={
+            <div className={mibViewStyles.backdrop} role="status" aria-live="polite">
+              <div
+                className={mibViewStyles.dialog}
+                style={{
+                  padding: "var(--space-4)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: "12rem",
+                }}
+              >
+                <p className={dcimStyles.muted} style={{ margin: 0 }}>
+                  {t("snmp.mibSourceLoading")}
+                </p>
+              </div>
+            </div>
           }
-          onClose={() => setViewSourceName(null)}
-          allMibs={mibsQ.data ?? []}
-        />
+        >
+          <MibSourceModalLazy
+            filename={viewSourceName}
+            content={mibSourceQ.data ?? null}
+            loading={mibSourceQ.isLoading}
+            error={
+              mibSourceQ.isError
+                ? mibSourceQ.error instanceof ApiError
+                  ? mibSourceQ.error.message
+                  : String(mibSourceQ.error)
+                : null
+            }
+            onClose={() => setViewSourceName(null)}
+            allMibs={mibsQ.data ?? []}
+          />
+        </Suspense>
       ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
       {bgCompileAll ? <p className={dcimStyles.muted}>{t("snmp.compileAllStarted")}</p> : null}

@@ -231,6 +231,7 @@ export const nb = {
   "snmp.mibDownloadHint": "Last ned denne MIB-filen",
   "snmp.mibDownloadAria": "Last ned MIB",
   "snmp.mibSourceCloseAria": "Lukk viewer",
+  "snmp.mibSourceLoading": "Laster editor…",
   "snmp.mibViewerProblems": "Problemer",
   "snmp.mibViewerProblemLine": "Linje {line}",
   "snmp.mibViewerProblemNoLine": "Ingen linje",

@@ -1,4 +1,5 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { SourceCodeEditor } from "@/components/source-editor";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
@@ -22,91 +23,7 @@ function triggerDownload(filename: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Ord og operatorer som ofte brukes i SMI-v1/v2 MIB-er */
-const TOKEN_RE =
-  /("(?:[^"\\]|\\.)*")|(\b(?:DEFINITIONS|BEGIN|END|IMPORTS|FROM|SEQUENCE|OF|CHOICE|OPTIONAL|INTEGER|OBJECT-TYPE|MODULE-IDENTITY|OBJECT-IDENTITY|OBJECT\s+IDENTITY|OBJECT\s+GROUP|NOTIFICATION-TYPE|TEXTUAL-CONVENTION|MODULE-COMPLIANCE|AGENT-CAPABILITIES|MAX-ACCESS|MIN-ACCESS|SYNTAX|STATUS|ACCESS|DESCRIPTION|REVISION|ORGANIZATION|CONTACT-INFO|LAST-UPDATED|AUGMENTS|INDEX|DEFVAL|UNITS|REFERENCE|NOTIFICATION-GROUP|::=)\b)|(\{[^}\n]{0,400}\})/gi;
-
-function highlightCodePart(s: string, baseKey: string): ReactNode[] {
-  const out: ReactNode[] = [];
-  let last = 0;
-  let ki = 0;
-  TOKEN_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = TOKEN_RE.exec(s)) !== null) {
-    if (m.index > last) {
-      out.push(<span key={`${baseKey}-p-${ki++}`}>{s.slice(last, m.index)}</span>);
-    }
-    const token = m[0];
-    let cls = "";
-    if (m[1]) cls = styles.string;
-    else if (m[2]) cls = styles.kw;
-    else if (m[3]) cls = styles.oid;
-    out.push(
-      <span key={`${baseKey}-p-${ki++}`} className={cls || undefined}>
-        {token}
-      </span>,
-    );
-    last = m.index + token.length;
-  }
-  if (last < s.length) {
-    out.push(<span key={`${baseKey}-p-${ki++}`}>{s.slice(last)}</span>);
-  }
-  return out.length ? out : [s];
-}
-
-function highlightLine(line: string, lineIndex: number): ReactNode {
-  const c = line.indexOf("--");
-  if (c >= 0) {
-    const head = line.slice(0, c);
-    const tail = line.slice(c);
-    return (
-      <>
-        {highlightCodePart(head, `L${lineIndex}a`)}
-        <span className={styles.comment}>{tail}</span>
-      </>
-    );
-  }
-  return <>{highlightCodePart(line, `L${lineIndex}`)}</>;
-}
-
-function makeLineDomId(filename: string, line: number): string {
-  const safe = filename.replace(/[^a-zA-Z0-9_.-]+/g, "_");
-  return `mib-view-line-${safe}-${line}`;
-}
-
-function MibHighlighted({
-  text,
-  problemLines,
-  focusedLine,
-  filename,
-}: {
-  text: string;
-  problemLines: Set<number>;
-  focusedLine: number | null;
-  filename: string;
-}) {
-  const lines = useMemo(() => text.split(/\n/), [text]);
-  return (
-    <pre className={styles.pre}>
-      {lines.map((line, i) => {
-        const n = i + 1;
-        const isProblem = problemLines.has(n);
-        const isFocused = focusedLine === n;
-        const lineCls = [styles.line, isProblem ? styles.lineProblem : "", isFocused ? styles.lineFocused : ""]
-          .filter(Boolean)
-          .join(" ");
-        return (
-          <div key={i} id={makeLineDomId(filename, n)} className={lineCls}>
-            <span className={styles.ln}>{n}</span>
-            <span className={styles.code}>{highlightLine(line, i)}</span>
-          </div>
-        );
-      })}
-    </pre>
-  );
-}
-
-export function MibSourceModal({
+function MibSourceModal({
   filename,
   content,
   loading,
@@ -143,14 +60,6 @@ export function MibSourceModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  useEffect(() => {
-    if (focusedLine == null) return;
-    const id = makeLineDomId(filename, focusedLine);
-    requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
-  }, [focusedLine, filename]);
 
   return (
     <div
@@ -202,11 +111,13 @@ export function MibSourceModal({
               </p>
             ) : null}
             {!loading && !error && content != null ? (
-              <MibHighlighted
-                text={content}
-                problemLines={problemLines}
-                focusedLine={focusedLine}
+              <SourceCodeEditor
+                value={content}
                 filename={filename}
+                path={`mib-library://${encodeURIComponent(filename)}`}
+                readOnly
+                problemLineNumbers={problemLines}
+                focusedLine={focusedLine}
               />
             ) : null}
           </div>
@@ -245,3 +156,6 @@ export function MibSourceModal({
     </div>
   );
 }
+
+export { MibSourceModal };
+export default MibSourceModal;

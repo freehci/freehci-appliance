@@ -228,6 +228,7 @@ export const en = {
   "snmp.mibDownloadHint": "Download this MIB file",
   "snmp.mibDownloadAria": "Download MIB",
   "snmp.mibSourceCloseAria": "Close viewer",
+  "snmp.mibSourceLoading": "Loading editor…",
   "snmp.mibViewerProblems": "Problems",
   "snmp.mibViewerProblemLine": "Line {line}",
   "snmp.mibViewerProblemNoLine": "No line",
