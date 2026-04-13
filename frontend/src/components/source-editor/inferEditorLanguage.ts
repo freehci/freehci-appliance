@@ -1,5 +1,6 @@
 /**
- * Monaco language-id fra filnavn. Ukjente endelser → plaintext (trygt for MIB m.m.).
+ * Monaco language-id fra filnavn. Ukjente endelser → plaintext.
+ * `.txt` mappes til MIB-grammatikk (vanlig for SMI-kilde i biblioteket).
  * HCL brukes for Terraform / OpenTofu (.tf, .tofu, .hcl).
  */
 export function inferEditorLanguageFromFilename(filename: string): string {
@@ -28,6 +29,8 @@ export function inferEditorLanguageFromFilename(filename: string): string {
       return "python";
     case ".mib":
     case ".my":
+    case ".txt":
+      // MIB-biblioteket bruker ofte .txt; SourceCodeEditor brukes i praksis til MIB-kilde her.
       return "mib";
     default:
       return "plaintext";

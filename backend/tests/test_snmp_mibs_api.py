@@ -86,15 +86,27 @@ def test_snmp_mibs_reject_bad_name() -> None:
         assert up.status_code == 400
 
 
-def test_snmp_mibs_reject_double_suffix_mib_txt() -> None:
-    """*.mib.txt matches ikke pysmis filnavnvarianter (MODUL.txt / MODUL.mib)."""
+def test_snmp_mibs_normalizes_double_suffix_mib_txt() -> None:
+    """*.mib.txt normaliseres til MODUL.txt slik at pysmi finner filen."""
     app = create_app()
     with TestClient(app) as client:
         up = client.post(
             "/api/v1/snmp/mibs",
             files={"file": ("BROCADE-REG-MIB.mib.txt", b"X", "text/plain")},
         )
-        assert up.status_code == 400
+        assert up.status_code == 200, up.text
+        assert up.json()["name"] == "BROCADE-REG-MIB.txt"
+
+
+def test_snmp_mibs_normalizes_double_suffix_my_txt() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        up = client.post(
+            "/api/v1/snmp/mibs",
+            files={"file": ("FOO-MIB.my.txt", b"Y", "text/plain")},
+        )
+        assert up.status_code == 200, up.text
+        assert up.json()["name"] == "FOO-MIB.txt"
 
 
 def test_snmp_mibs_compile_pending_returns_202_and_runs_background(monkeypatch: pytest.MonkeyPatch) -> None:

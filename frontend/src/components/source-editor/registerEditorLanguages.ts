@@ -13,7 +13,7 @@ export function registerEditorLanguages(monaco: Monaco): void {
   const known = new Set(monaco.languages.getLanguages().map((l: { id: string }) => l.id));
 
   if (!known.has("mib")) {
-    monaco.languages.register({ id: "mib", extensions: [".mib", ".my"], aliases: ["MIB", "SMI"] });
+    monaco.languages.register({ id: "mib", extensions: [".mib", ".my", ".txt"], aliases: ["MIB", "SMI"] });
   }
   monaco.languages.setMonarchTokensProvider("mib", mibMonarchLanguage);
   monaco.languages.setLanguageConfiguration("mib", {

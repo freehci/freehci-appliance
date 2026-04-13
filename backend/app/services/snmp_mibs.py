@@ -16,6 +16,20 @@ _MIB_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
 _ALLOWED_SUFFIX = frozenset({".mib", ".my", ".txt"})
 
 
+def _normalize_mib_filename_base(base: str) -> str:
+    """Fjern dobbel endelse (.mib.txt / .my.txt) → én .txt (pysmi forventer MODUL.txt, ikke MODUL.mib.txt)."""
+    while True:
+        lower = base.lower()
+        if lower.endswith(".mib.txt"):
+            base = base[: -len(".mib.txt")] + ".txt"
+            continue
+        if lower.endswith(".my.txt"):
+            base = base[: -len(".my.txt")] + ".txt"
+            continue
+        break
+    return base
+
+
 def _ensure_mib_root(settings: Settings) -> Path:
     root = settings.mib_root_path.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -24,6 +38,7 @@ def _ensure_mib_root(settings: Settings) -> Path:
 
 def validate_mib_filename(name: str) -> str:
     base = Path(name).name
+    base = _normalize_mib_filename_base(base)
     if not _MIB_NAME_RE.fullmatch(base):
         raise HTTPException(status_code=400, detail="ugyldig MIB-filnavn")
     suf = Path(base).suffix.lower()
@@ -34,7 +49,7 @@ def validate_mib_filename(name: str) -> str:
         )
     stem = Path(base).stem
     stem_l = stem.lower()
-    # pysmi prøver f.eks. «BROCADE-REG-MIB» + «.txt» → Brocade-REG-MIB.txt, aldri *.mib.txt.
+    # Etter normalisering skal ikke stammen fortsatt ende på .mib/.my før .txt (f.eks. håndtert over).
     if suf == ".txt" and (stem_l.endswith(".mib") or stem_l.endswith(".my")):
         raise HTTPException(
             status_code=400,
