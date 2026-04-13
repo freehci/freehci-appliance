@@ -35,6 +35,7 @@ export function SnmpToolsPage() {
   const [probeOid, setProbeOid] = useState("1.3.6.1.2.1.1.1.0");
   const [probeOp, setProbeOp] = useState<"get" | "walk">("get");
   const [probeResult, setProbeResult] = useState<snmpApi.SnmpProbeResult | null>(null);
+  const [discoveryResult, setDiscoveryResult] = useState<snmpApi.SnmpHostDiscoveryResult | null>(null);
 
   useEffect(() => {
     if (hostFromQuery !== "") setProbeHost(hostFromQuery);
@@ -59,6 +60,23 @@ export function SnmpToolsPage() {
     },
   });
 
+  const discoveryMut = useMutation({
+    mutationFn: () =>
+      snmpApi.snmpHostDiscovery({
+        host: probeHost.trim(),
+        port: Number(probePort) || 161,
+        community: probeCommunity,
+      }),
+    onSuccess: (r) => {
+      setErr(null);
+      setDiscoveryResult(r);
+    },
+    onError: (e: Error) => {
+      setDiscoveryResult(null);
+      setErr(e instanceof ApiError ? e.message : e.message);
+    },
+  });
+
   const dcimPrefillName = useMemo(
     () =>
       probeResult && probeHost.trim() !== ""
@@ -71,6 +89,32 @@ export function SnmpToolsPage() {
     dcimPrefillName !== "" && probeHost.trim() !== ""
       ? `/dcim/equipment?prefillDeviceName=${encodeURIComponent(dcimPrefillName)}&snmpHost=${encodeURIComponent(probeHost.trim())}`
       : null;
+
+  const dcimFromDiscoveryHref = useMemo(() => {
+    if (!discoveryResult?.ok || probeHost.trim() === "") return null;
+    const name = discoveryResult.sys_name?.trim() || probeHost.trim();
+    const params = new URLSearchParams();
+    params.set("prefillDeviceName", name);
+    params.set("snmpHost", probeHost.trim());
+    const m = discoveryResult.linked_manufacturer;
+    if (m) params.set("prefillManufacturer", String(m.id));
+    return `/dcim/equipment?${params.toString()}`;
+  }, [discoveryResult, probeHost]);
+
+  const discoveryField = (label: string, value: string | null | undefined) => (
+    <tr>
+      <th scope="row" style={{ verticalAlign: "top", whiteSpace: "nowrap" }}>
+        {label}
+      </th>
+      <td>
+        {value != null && value !== "" ? (
+          <code style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{value}</code>
+        ) : (
+          <span className={dcimStyles.muted}>—</span>
+        )}
+      </td>
+    </tr>
+  );
 
   return (
     <>
@@ -166,6 +210,104 @@ export function SnmpToolsPage() {
                 </table>
               </div>
             ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      <section className={dcimStyles.mfrDetailSection}>
+        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.discoveryTitle")}</h3>
+        <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+          {t("snmp.discoveryHint")}
+        </p>
+        <div className={dcimStyles.formRow}>
+          <button
+            type="button"
+            className={dcimStyles.btn}
+            disabled={discoveryMut.isPending}
+            onClick={() => {
+              setErr(null);
+              if (probeHost.trim() === "") {
+                setErr(t("snmp.discoveryMissingHost"));
+                return;
+              }
+              discoveryMut.mutate();
+            }}
+          >
+            {discoveryMut.isPending ? "…" : t("snmp.discoveryRun")}
+          </button>
+          <span className={dcimStyles.muted}>{t("snmp.probeHost")}: samme som over</span>
+        </div>
+
+        {discoveryResult ? (
+          <div style={{ marginTop: "var(--space-3)" }}>
+            {!discoveryResult.ok ? (
+              <p className={dcimStyles.err}>
+                {t("snmp.discoveryFail")}: {discoveryResult.error ?? "—"}
+              </p>
+            ) : (
+              <>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
+                  {dcimFromDiscoveryHref ? (
+                    <Link
+                      className={dcimStyles.btnMuted}
+                      to={dcimFromDiscoveryHref}
+                      title={t("snmp.discoveryAddDcimHint")}
+                    >
+                      {t("snmp.discoveryAddDcim")}
+                    </Link>
+                  ) : null}
+                  <Link className={dcimStyles.btnMuted} to="/snmp/enterprises">
+                    {t("snmp.discoveryOpenEnterprises")}
+                  </Link>
+                  <Link className={dcimStyles.btnMuted} to="/snmp/mibs">
+                    {t("snmp.discoveryOpenMibs")}
+                  </Link>
+                </div>
+                <table className={dcimStyles.table} style={{ marginTop: "var(--space-2)" }}>
+                  <tbody>
+                    {discoveryField(t("snmp.discoverySysName"), discoveryResult.sys_name)}
+                    {discoveryField(t("snmp.discoverySysDescr"), discoveryResult.sys_descr)}
+                    {discoveryField(t("snmp.discoverySysLocation"), discoveryResult.sys_location)}
+                    {discoveryField(t("snmp.discoverySysContact"), discoveryResult.sys_contact)}
+                    {discoveryField(t("snmp.discoverySysUptime"), discoveryResult.sys_uptime)}
+                    {discoveryField(t("snmp.discoverySysObjectId"), discoveryResult.sys_object_id)}
+                    {discoveryField(t("snmp.discoverySysObjectNumeric"), discoveryResult.sys_object_id_numeric)}
+                    {discoveryField(
+                      t("snmp.discoveryEnterprise"),
+                      discoveryResult.enterprise_number != null ? String(discoveryResult.enterprise_number) : null,
+                    )}
+                    {discoveryField(t("snmp.discoveryIanaOrg"), discoveryResult.iana_organization)}
+                    {discoveryField(
+                      t("snmp.discoveryDcimMfr"),
+                      discoveryResult.linked_manufacturer
+                        ? `${discoveryResult.linked_manufacturer.name} (id ${discoveryResult.linked_manufacturer.id})`
+                        : null,
+                    )}
+                  </tbody>
+                </table>
+                {discoveryResult.enterprise_number == null && discoveryResult.sys_object_id ? (
+                  <p className={dcimStyles.muted} style={{ marginTop: "var(--space-2)" }}>
+                    {t("snmp.discoveryNoPen")}
+                  </p>
+                ) : null}
+                <p className={dcimStyles.muted} style={{ marginTop: "var(--space-2)", marginBottom: "var(--space-1)" }}>
+                  {t("snmp.discoveryMibFiles")}
+                </p>
+                {discoveryResult.mib_files_in_library.length > 0 ? (
+                  <ul style={{ marginTop: 0 }}>
+                    {discoveryResult.mib_files_in_library.map((f) => (
+                      <li key={f}>
+                        <code>{f}</code>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+                    {t("snmp.discoveryMibFilesEmpty")}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         ) : null}
       </section>

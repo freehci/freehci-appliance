@@ -13,6 +13,8 @@ from app.schemas.snmp import (
     SnmpEnterpriseAutocreateRequest,
     SnmpEnterpriseAutocreateResultRead,
     SnmpEnterpriseGroupRead,
+    SnmpHostDiscoveryRead,
+    SnmpHostDiscoveryRequest,
     SnmpIanaSyncRead,
     SnmpInventoryApplyRead,
     SnmpInventoryApplyRequest,
@@ -21,6 +23,7 @@ from app.schemas.snmp import (
     SnmpMibCompileAllQueuedRead,
     SnmpMibDetailRead,
     SnmpMibFileRead,
+    SnmpMibManufacturerBrief,
     SnmpProbeRead,
     SnmpProbeRequest,
     SnmpScanRead,
@@ -188,6 +191,46 @@ async def snmp_probe(data: SnmpProbeRequest) -> SnmpProbeRead:
         max_oids=data.max_oids,
         timeout_sec=data.timeout_sec,
         retries=data.retries,
+    )
+
+
+@router.post("/host-discovery", response_model=SnmpHostDiscoveryRead)
+async def snmp_host_discovery(
+    data: SnmpHostDiscoveryRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> SnmpHostDiscoveryRead:
+    """Hent system-gruppe (sys*), trekk ut PEN fra sysObjectID, slå opp IANA/DCIM og MIB-filer i biblioteket."""
+    host = data.host.strip()
+    raw = await probe_svc.run_snmp_system_group_get(
+        host=host,
+        port=data.port,
+        community=data.community,
+        timeout_sec=data.timeout_sec,
+        retries=data.retries,
+    )
+    err = raw.pop("_error", None)
+    if err:
+        return SnmpHostDiscoveryRead(ok=False, host=host, error=err)
+    sys_object_id = raw.get("sys_object_id")
+    pen, num_oid = probe_svc.parse_sys_object_id_for_enterprise(sys_object_id or "")
+    ctx = mib_cat_svc.discovery_context_for_pen(db, settings, pen)
+    lm = ctx.get("linked_manufacturer")
+    brief = SnmpMibManufacturerBrief.model_validate(lm) if lm else None
+    return SnmpHostDiscoveryRead(
+        ok=True,
+        host=host,
+        sys_descr=raw.get("sys_descr"),
+        sys_object_id=sys_object_id,
+        sys_object_id_numeric=num_oid,
+        sys_uptime=raw.get("sys_uptime"),
+        sys_contact=raw.get("sys_contact"),
+        sys_name=raw.get("sys_name"),
+        sys_location=raw.get("sys_location"),
+        enterprise_number=pen,
+        iana_organization=ctx.get("iana_organization"),
+        linked_manufacturer=brief,
+        mib_files_in_library=list(ctx.get("mib_files_in_library") or []),
     )
 
 

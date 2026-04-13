@@ -96,6 +96,30 @@ def _linked_mfr(db: Session, pen: int | None) -> Manufacturer | None:
     ).scalar_one_or_none()
 
 
+def discovery_context_for_pen(db: Session, settings: Settings, pen: int | None) -> dict:
+    """IANA-navn, DCIM-produsent og MIB-filer gruppert på PEN (for SNMP host discovery)."""
+    if pen is None:
+        return {
+            "iana_organization": None,
+            "linked_manufacturer": None,
+            "mib_files_in_library": [],
+        }
+    iana = _iana_org(db, pen)
+    mfr = _linked_mfr(db, pen)
+    mib_files: list[str] = []
+    for g in list_enterprise_groups(db, settings):
+        if g.get("enterprise_number") == pen:
+            mib_files = sorted(g.get("mib_files") or [])
+            break
+    return {
+        "iana_organization": iana,
+        "linked_manufacturer": (
+            {"id": mfr.id, "name": mfr.name} if mfr else None
+        ),
+        "mib_files_in_library": mib_files,
+    }
+
+
 def mib_detail_dict(db: Session, settings: Settings, disk_row: dict) -> dict:
     name = disk_row["name"]
     meta = db.get(SnmpMibFileMeta, name)

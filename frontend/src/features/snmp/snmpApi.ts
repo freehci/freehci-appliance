@@ -126,6 +126,33 @@ export function snmpProbe(body: {
   return apiPost(`${P}/probe`, body);
 }
 
+export type SnmpHostDiscoveryResult = {
+  ok: boolean;
+  host: string;
+  error: string | null;
+  sys_descr: string | null;
+  sys_object_id: string | null;
+  sys_object_id_numeric: string | null;
+  sys_uptime: string | null;
+  sys_contact: string | null;
+  sys_name: string | null;
+  sys_location: string | null;
+  enterprise_number: number | null;
+  iana_organization: string | null;
+  linked_manufacturer: SnmpMibManufacturerBrief | null;
+  mib_files_in_library: string[];
+};
+
+export function snmpHostDiscovery(body: {
+  host: string;
+  port?: number;
+  community?: string;
+  timeout_sec?: number;
+  retries?: number;
+}): Promise<SnmpHostDiscoveryResult> {
+  return apiPost(`${P}/host-discovery`, body);
+}
+
 export type SnmpInterfaceRow = {
   if_index: number;
   name: string;

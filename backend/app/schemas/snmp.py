@@ -115,6 +115,35 @@ class SnmpSysInfoRead(BaseModel):
     error: str | None = None
 
 
+class SnmpHostDiscoveryRequest(BaseModel):
+    """SNMPv2c GET av system-gruppen (sys*), med PEN/IANA/MIB-kontekst fra databasen."""
+
+    host: str = Field(..., min_length=1, max_length=255)
+    port: int = Field(161, ge=1, le=65535)
+    community: str = Field("public", min_length=1, max_length=256)
+    timeout_sec: float = Field(3.0, ge=0.5, le=30.0)
+    retries: int = Field(1, ge=0, le=5)
+
+
+class SnmpHostDiscoveryRead(BaseModel):
+    """System-gruppe fra agent + tolket enterprise og koblinger mot IANA, DCIM og MIB-bibliotek."""
+
+    ok: bool
+    host: str
+    error: str | None = None
+    sys_descr: str | None = None
+    sys_object_id: str | None = None
+    sys_object_id_numeric: str | None = None
+    sys_uptime: str | None = None
+    sys_contact: str | None = None
+    sys_name: str | None = None
+    sys_location: str | None = None
+    enterprise_number: int | None = None
+    iana_organization: str | None = None
+    linked_manufacturer: SnmpMibManufacturerBrief | None = None
+    mib_files_in_library: list[str] = Field(default_factory=list)
+
+
 class SnmpInventoryRequest(BaseModel):
     """SNMPv2c-poll av IF-MIB / ifXTable (ingen MIB-kompilering nødvendig)."""
 

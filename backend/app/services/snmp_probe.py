@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from pysnmp.hlapi.v3arch.asyncio import (
     CommunityData,
     ContextData,
@@ -16,7 +18,56 @@ from pysnmp.hlapi.v3arch.asyncio import (
 from app.schemas.snmp import SnmpProbeRead, SnmpSysInfoRead, SnmpVarBindRead
 
 _SYS_DESCR_OID = "1.3.6.1.2.1.1.1.0"
+_SYS_OBJECT_ID_OID = "1.3.6.1.2.1.1.2.0"
+_SYS_UPTIME_OID = "1.3.6.1.2.1.1.3.0"
+_SYS_CONTACT_OID = "1.3.6.1.2.1.1.4.0"
 _SYS_NAME_OID = "1.3.6.1.2.1.1.5.0"
+_SYS_LOCATION_OID = "1.3.6.1.2.1.1.6.0"
+
+_SYSTEM_GROUP_GET_OIDS: tuple[tuple[str, str], ...] = (
+    (_SYS_DESCR_OID, "sys_descr"),
+    (_SYS_OBJECT_ID_OID, "sys_object_id"),
+    (_SYS_UPTIME_OID, "sys_uptime"),
+    (_SYS_CONTACT_OID, "sys_contact"),
+    (_SYS_NAME_OID, "sys_name"),
+    (_SYS_LOCATION_OID, "sys_location"),
+)
+
+# Agent kan returnere kortere eller lengre OID-streng; siste ledd under system (1.3.6.1.2.1.1) er stabilt.
+_OID_SUFFIX_TO_FIELD: tuple[tuple[str, str], ...] = (
+    (".1.1.1.0", "sys_descr"),
+    (".1.1.2.0", "sys_object_id"),
+    (".1.1.3.0", "sys_uptime"),
+    (".1.1.4.0", "sys_contact"),
+    (".1.1.5.0", "sys_name"),
+    (".1.1.6.0", "sys_location"),
+)
+
+
+def parse_sys_object_id_for_enterprise(display: str) -> tuple[int | None, str | None]:
+    """Trekk ut IANA private enterprise (PEN) og numerisk OID fra sysObjectID.0 (tekst fra agent)."""
+    s = display.replace(" ", "").strip()
+    if not s:
+        return None, None
+    # Ren numerisk OID: …1.3.6.1.4.1.<pen>…
+    if re.fullmatch(r"[\d.]+", s):
+        parts = s.split(".")
+        for i in range(len(parts) - 6):
+            if parts[i : i + 6] == ["1", "3", "6", "1", "4", "1"]:
+                try:
+                    pen = int(parts[i + 6])
+                    return pen, s
+                except (ValueError, IndexError):
+                    return None, s
+        return None, s
+    # Symbolsk: SNMPv2-SMI::enterprises.890.3.2 m.m.
+    m = re.search(r"(?i)enterprises\.(\d+)(\.[\d.]+)?", s)
+    if m:
+        pen = int(m.group(1))
+        tail = m.group(2) or ""
+        numeric = f"1.3.6.1.4.1.{pen}{tail}"
+        return pen, numeric
+    return None, None
 
 
 def varbinds_to_read(varbinds: tuple) -> list[SnmpVarBindRead]:
@@ -159,5 +210,53 @@ async def run_snmp_sys_info(
             elif o == _SYS_NAME_OID or o.endswith(".1.1.5.0"):
                 sys_name = v
         return SnmpSysInfoRead(ok=True, sys_name=sys_name, sys_descr=sys_descr)
+    finally:
+        snmp_engine.close_dispatcher()
+
+
+async def run_snmp_system_group_get(
+    *,
+    host: str,
+    port: int,
+    community: str,
+    timeout_sec: float = 3.0,
+    retries: int = 1,
+) -> dict[str, str | None]:
+    """Én GET med system-gruppen (RFC 1213 / SNMPv2-MIB). Verdier er agentens prettyPrint."""
+    snmp_engine = SnmpEngine()
+    out: dict[str, str | None] = {key: None for _, key in _SYSTEM_GROUP_GET_OIDS}
+    try:
+        transport = await UdpTransportTarget.create(
+            (host, port),
+            timeout=timeout_sec,
+            retries=retries,
+        )
+        auth = CommunityData(community, mpModel=1)
+        ctx = ContextData()
+        otypes = tuple(ObjectType(ObjectIdentity(oid)) for oid, _ in _SYSTEM_GROUP_GET_OIDS)
+        error_indication, error_status, error_index, varbinds = await get_cmd(
+            snmp_engine,
+            auth,
+            transport,
+            ctx,
+            *otypes,
+        )
+        if error_indication:
+            out["_error"] = str(error_indication)
+            return out
+        if error_status:
+            out["_error"] = f"SNMP errorStatus={error_status} index={error_index}"
+            return out
+        vbs = varbinds_to_read(varbinds)
+        for vb in vbs:
+            o = vb.oid.replace(" ", "").strip()
+            v = vb.value.strip()
+            if v == "":
+                continue
+            for suf, key in _OID_SUFFIX_TO_FIELD:
+                if o.endswith(suf):
+                    out[key] = v
+                    break
+        return out
     finally:
         snmp_engine.close_dispatcher()
