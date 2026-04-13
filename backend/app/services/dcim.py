@@ -24,6 +24,7 @@ from app.core.media_storage import (
 from app.models.dcim import (
     DeviceInstance,
     DeviceInterface,
+    DeviceIpAssignment,
     DeviceModel,
     DeviceType,
     InterfaceIpAssignment,
@@ -45,6 +46,9 @@ from app.schemas.dcim import (
     IpAssignmentCreate,
     IpAssignmentRead,
     IpAssignmentUpdate,
+    DeviceIpAssignmentCreate,
+    DeviceIpAssignmentRead,
+    DeviceIpAssignmentUpdate,
     DeviceModelCreate,
     DeviceModelUpdate,
     DeviceModelBrief,
@@ -134,7 +138,9 @@ def _device_u_height(db: Session, device: DeviceInstance) -> int:
     if device.device_model_id is None:
         return 1
     m = db.get(DeviceModel, device.device_model_id)
-    return 1 if m is None else m.u_height
+    if m is None:
+        return 1
+    return m.u_height
 
 
 def _occupies_bottom_top(u_bottom: int, u_h: int) -> tuple[int, int]:
@@ -156,6 +162,20 @@ def assert_placement_fits_rack(
     from fastapi import HTTPException
 
     u_h = _device_u_height(db, device)
+    if u_h == 0:
+        if u_position != 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Modell med U-høyde 0 må plasseres med u_position=0 (utenfor RU-rutenettet)",
+            )
+        return
+
+    if u_position < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="u_position må være minst 1 for rack-montert utstyr (RU 1 = nederst)",
+        )
+
     bottom, top = _occupies_bottom_top(u_position, u_h)
     if bottom < 1 or top > rack.u_height:
         raise HTTPException(
@@ -172,6 +192,8 @@ def assert_placement_fits_rack(
         if other is None:
             continue
         oh = _device_u_height(db, other)
+        if oh == 0:
+            continue
         ob, ot = _occupies_bottom_top(p.u_position, oh)
         if _ranges_overlap(bottom, top, ob, ot):
             raise HTTPException(
@@ -307,7 +329,10 @@ def update_rack(db: Session, rack: Rack, data: RackUpdate) -> Rack:
                 dev = db.get(DeviceInstance, p.device_id)
                 if dev is None:
                     continue
-                _, top = _occupies_bottom_top(p.u_position, _device_u_height(db, dev))
+                duh = _device_u_height(db, dev)
+                if duh == 0:
+                    continue
+                _, top = _occupies_bottom_top(p.u_position, duh)
                 if top > new_u:
                     raise HTTPException(
                         status_code=400,
@@ -528,6 +553,7 @@ def device_model_read(dm: DeviceModel) -> DeviceModelRead:
         has_image_front_file=dm.image_front_relpath is not None,
         has_image_back_file=dm.image_back_relpath is not None,
         has_image_product_file=dm.image_product_relpath is not None,
+        snmp_sys_object_id_prefix=dm.snmp_sys_object_id_prefix,
     )
 
 
@@ -541,6 +567,8 @@ def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModelRead
         raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
     if data.device_type_id is not None and get_device_type(db, data.device_type_id) is None:
         raise HTTPException(status_code=404, detail="device_type ikke funnet")
+    snmp_pfx = data.snmp_sys_object_id_prefix
+    snmp_pfx = None if snmp_pfx is None else str(snmp_pfx).strip() or None
     row = DeviceModel(
         manufacturer_id=data.manufacturer_id,
         device_type_id=data.device_type_id,
@@ -550,6 +578,7 @@ def create_device_model(db: Session, data: DeviceModelCreate) -> DeviceModelRead
         image_front_url=data.image_front_url,
         image_back_url=data.image_back_url,
         image_product_url=data.image_product_url,
+        snmp_sys_object_id_prefix=snmp_pfx,
     )
     db.add(row)
     db.commit()
@@ -637,9 +666,32 @@ def update_device_model(db: Session, row: DeviceModel, data: DeviceModelUpdate) 
     if "image_product_url" in patch:
         v = patch["image_product_url"]
         row.image_product_url = None if v is None else (str(v).strip() or None)
+    if "snmp_sys_object_id_prefix" in patch:
+        v = patch["snmp_sys_object_id_prefix"]
+        row.snmp_sys_object_id_prefix = None if v is None else (str(v).strip() or None)
     db.commit()
     db.refresh(row)
     return device_model_read(row)
+
+
+def list_device_models_matching_snmp_oid(db: Session, numeric_oid: str) -> list[DeviceModelRead]:
+    """Returnerer modeller der snmp_sys_object_id_prefix er prefiks av den numeriske OID-en (lengst prefiks først)."""
+    needle = numeric_oid.strip()
+    if not needle:
+        return []
+    rows = list(db.execute(select(DeviceModel).order_by(DeviceModel.name)).scalars().all())
+    hits: list[tuple[int, DeviceModel]] = []
+    for dm in rows:
+        pfx = dm.snmp_sys_object_id_prefix
+        if not pfx:
+            continue
+        p = str(pfx).strip()
+        if not p:
+            continue
+        if needle.startswith(p) or needle == p:
+            hits.append((len(p), dm))
+    hits.sort(key=lambda x: (-x[0], x[1].name))
+    return [device_model_read(dm) for _, dm in hits]
 
 
 def delete_device_model(db: Session, row: DeviceModel) -> None:
@@ -1072,6 +1124,114 @@ def update_iface_ip_assignment(
 
 
 def delete_iface_ip_assignment(db: Session, row: InterfaceIpAssignment) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def _clear_primary_same_family_device(db: Session, device_id: int, family: str) -> None:
+    q = select(DeviceIpAssignment).where(
+        DeviceIpAssignment.device_id == device_id,
+        DeviceIpAssignment.family == family,
+        DeviceIpAssignment.is_primary.is_(True),
+    )
+    for r in db.execute(q).scalars().all():
+        r.is_primary = False
+
+
+def list_device_ip_assignments(db: Session, device_id: int) -> list[DeviceIpAssignmentRead]:
+    _require_device(db, device_id)
+    q = (
+        select(DeviceIpAssignment)
+        .where(DeviceIpAssignment.device_id == device_id)
+        .order_by(DeviceIpAssignment.family, DeviceIpAssignment.address)
+    )
+    rows = list(db.execute(q).scalars().all())
+    return [DeviceIpAssignmentRead.model_validate(x) for x in rows]
+
+
+def create_device_ip_assignment(
+    db: Session,
+    device_id: int,
+    data: DeviceIpAssignmentCreate,
+) -> DeviceIpAssignmentRead:
+    _require_device(db, device_id)
+    family, addr = _normalize_ip(data.address)
+    dup = db.execute(
+        select(DeviceIpAssignment).where(
+            DeviceIpAssignment.device_id == device_id,
+            DeviceIpAssignment.address == addr,
+        )
+    ).scalar_one_or_none()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="IP-adressen finnes allerede på denne enheten")
+    pfx_id = _validate_ipv4_prefix_for_assignment(
+        db,
+        device_id=device_id,
+        prefix_id=data.ipv4_prefix_id,
+        family=family,
+        address=addr,
+    )
+    if data.is_primary:
+        _clear_primary_same_family_device(db, device_id, family)
+    row = DeviceIpAssignment(
+        device_id=device_id,
+        ipv4_prefix_id=pfx_id,
+        family=family,
+        address=addr,
+        is_primary=data.is_primary,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="IP-adressen finnes allerede på denne enheten",
+        ) from None
+    db.refresh(row)
+    return DeviceIpAssignmentRead.model_validate(row)
+
+
+def get_device_ip_assignment(db: Session, device_id: int, assignment_id: int) -> DeviceIpAssignment | None:
+    row = db.get(DeviceIpAssignment, assignment_id)
+    if row is None or row.device_id != device_id:
+        return None
+    return row
+
+
+def update_device_ip_assignment(
+    db: Session,
+    device_id: int,
+    row: DeviceIpAssignment,
+    data: DeviceIpAssignmentUpdate,
+) -> DeviceIpAssignmentRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "ipv4_prefix_id" in patch:
+        v = patch["ipv4_prefix_id"]
+        if v is None:
+            row.ipv4_prefix_id = None
+        else:
+            row.ipv4_prefix_id = _validate_ipv4_prefix_for_assignment(
+                db,
+                device_id=device_id,
+                prefix_id=int(v),
+                family=row.family,
+                address=row.address,
+            )
+    if patch.get("is_primary") is True:
+        _clear_primary_same_family_device(db, device_id, row.family)
+        row.is_primary = True
+    elif patch.get("is_primary") is False:
+        row.is_primary = False
+    db.commit()
+    db.refresh(row)
+    return DeviceIpAssignmentRead.model_validate(row)
+
+
+def delete_device_ip_assignment(db: Session, row: DeviceIpAssignment) -> None:
     db.delete(row)
     db.commit()
 

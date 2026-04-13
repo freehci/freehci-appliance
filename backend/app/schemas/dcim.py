@@ -166,6 +166,7 @@ class DeviceModelBrief(BaseModel):
     name: str
     u_height: int
     device_type_id: int | None
+    snmp_sys_object_id_prefix: str | None = None
 
 
 class ManufacturerDetailRead(BaseModel):
@@ -182,22 +183,24 @@ class DeviceModelCreate(BaseModel):
     manufacturer_id: int | None = None
     device_type_id: int | None = None
     name: str = Field(..., min_length=1, max_length=255)
-    u_height: int = Field(1, ge=1, le=64)
+    u_height: int = Field(1, ge=0, le=64)
     form_factor: str | None = Field(None, max_length=64)
     image_front_url: str | None = Field(None, max_length=1024)
     image_back_url: str | None = Field(None, max_length=1024)
     image_product_url: str | None = Field(None, max_length=1024)
+    snmp_sys_object_id_prefix: str | None = Field(None, max_length=512)
 
 
 class DeviceModelUpdate(BaseModel):
     manufacturer_id: int | None = None
     device_type_id: int | None = None
     name: str | None = Field(None, min_length=1, max_length=255)
-    u_height: int | None = Field(None, ge=1, le=64)
+    u_height: int | None = Field(None, ge=0, le=64)
     form_factor: str | None = Field(None, max_length=64)
     image_front_url: str | None = Field(None, max_length=1024)
     image_back_url: str | None = Field(None, max_length=1024)
     image_product_url: str | None = Field(None, max_length=1024)
+    snmp_sys_object_id_prefix: str | None = Field(None, max_length=512)
 
 
 class DeviceModelRead(BaseModel):
@@ -215,6 +218,7 @@ class DeviceModelRead(BaseModel):
     has_image_front_file: bool
     has_image_back_file: bool
     has_image_product_file: bool
+    snmp_sys_object_id_prefix: str | None = None
 
 
 class DeviceInstanceCreate(BaseModel):
@@ -313,10 +317,32 @@ class IpAssignmentUpdate(BaseModel):
     ipv4_prefix_id: int | None = None
 
 
+class DeviceIpAssignmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    ipv4_prefix_id: int | None = None
+    family: str
+    address: str
+    is_primary: bool
+
+
+class DeviceIpAssignmentCreate(BaseModel):
+    address: str = Field(..., min_length=1, max_length=45)
+    is_primary: bool = False
+    ipv4_prefix_id: int | None = None
+
+
+class DeviceIpAssignmentUpdate(BaseModel):
+    is_primary: bool | None = None
+    ipv4_prefix_id: int | None = None
+
+
 class RackPlacementCreate(BaseModel):
     rack_id: int
     device_id: int
-    u_position: int = Field(..., ge=1)
+    u_position: int = Field(..., ge=0)
     mounting: str = Field(default="front", max_length=16)
 
     @field_validator("mounting")
@@ -340,7 +366,7 @@ class RackPlacementRead(BaseModel):
 
 class RackPlacementUpdate(BaseModel):
     rack_id: int | None = None
-    u_position: int | None = Field(None, ge=1)
+    u_position: int | None = Field(None, ge=0)
     mounting: str | None = Field(None, max_length=16)
 
     @field_validator("mounting")

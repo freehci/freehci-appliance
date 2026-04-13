@@ -2,6 +2,7 @@ import { apiDelete, apiDeleteJson, apiGet, apiPatch, apiPost, apiPostMultipart, 
 import type {
   DeviceInstance,
   DeviceInterface,
+  DeviceIpAssignment,
   DeviceModel,
   DeviceType,
   IpAssignment,
@@ -139,8 +140,31 @@ export function createDeviceModel(body: {
   image_front_url?: string | null;
   image_back_url?: string | null;
   image_product_url?: string | null;
+  snmp_sys_object_id_prefix?: string | null;
 }): Promise<DeviceModel> {
   return apiPost(`${P}/device-models`, body);
+}
+
+export function updateDeviceModel(
+  id: number,
+  body: {
+    manufacturer_id?: number | null;
+    device_type_id?: number | null;
+    name?: string;
+    u_height?: number;
+    form_factor?: string | null;
+    image_front_url?: string | null;
+    image_back_url?: string | null;
+    image_product_url?: string | null;
+    snmp_sys_object_id_prefix?: string | null;
+  },
+): Promise<DeviceModel> {
+  return apiPatch(`${P}/device-models/${id}`, body);
+}
+
+export function matchDeviceModelsBySnmpOid(numericOid: string): Promise<DeviceModel[]> {
+  const q = `?numeric_oid=${encodeURIComponent(numericOid)}`;
+  return apiGet(`${P}/device-models/match-snmp${q}`);
 }
 
 export function uploadDeviceModelImageFront(id: number, file: File): Promise<DeviceModel> {
@@ -247,6 +271,29 @@ export function deleteIfaceIpAssignment(
   assignmentId: number,
 ): Promise<void> {
   return apiDelete(`${P}/devices/${deviceId}/interfaces/${interfaceId}/ip-assignments/${assignmentId}`);
+}
+
+export function listDeviceIpAssignments(deviceId: number): Promise<DeviceIpAssignment[]> {
+  return apiGet(`${P}/devices/${deviceId}/device-ip-assignments`);
+}
+
+export function createDeviceIpAssignment(
+  deviceId: number,
+  body: { address: string; is_primary?: boolean; ipv4_prefix_id?: number | null },
+): Promise<DeviceIpAssignment> {
+  return apiPost(`${P}/devices/${deviceId}/device-ip-assignments`, body);
+}
+
+export function updateDeviceIpAssignment(
+  deviceId: number,
+  assignmentId: number,
+  body: { is_primary?: boolean; ipv4_prefix_id?: number | null },
+): Promise<DeviceIpAssignment> {
+  return apiPatch(`${P}/devices/${deviceId}/device-ip-assignments/${assignmentId}`, body);
+}
+
+export function deleteDeviceIpAssignment(deviceId: number, assignmentId: number): Promise<void> {
+  return apiDelete(`${P}/devices/${deviceId}/device-ip-assignments/${assignmentId}`);
 }
 
 export function createDevice(body: {

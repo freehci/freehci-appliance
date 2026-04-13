@@ -57,6 +57,7 @@ export type DeviceModelBrief = {
   name: string;
   u_height: number;
   device_type_id: number | null;
+  snmp_sys_object_id_prefix?: string | null;
 };
 
 export type ManufacturerDetail = Manufacturer & {
@@ -76,6 +77,8 @@ export type DeviceModel = {
   has_image_front_file: boolean;
   has_image_back_file: boolean;
   has_image_product_file: boolean;
+  /** Numerisk sysObjectID-prefiks for SNMP-kobling (f.eks. 1.3.6.1.4.1.890). */
+  snmp_sys_object_id_prefix: string | null;
 };
 
 export type DeviceInstance = {
@@ -95,6 +98,16 @@ export type DeviceInstance = {
 export type IpAssignment = {
   id: number;
   interface_id: number;
+  ipv4_prefix_id: number | null;
+  family: string;
+  address: string;
+  is_primary: boolean;
+};
+
+/** IP på enheten uten kobling til et bestemt grensesnitt. */
+export type DeviceIpAssignment = {
+  id: number;
+  device_id: number;
   ipv4_prefix_id: number | null;
   family: string;
   address: string;

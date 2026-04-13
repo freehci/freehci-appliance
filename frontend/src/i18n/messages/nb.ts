@@ -86,7 +86,10 @@ export const nb = {
     "SNMPv2c community. Eksempel-OID: 1.3.6.1.2.1.1.1.0 (sysDescr.0). WALK bruker BULK og stopper etter 200 OID-er som standard.",
   "snmp.probeHost": "Vert / IP",
   "snmp.probePort": "UDP-port",
-  "snmp.probeCommunity": "Community",
+  "snmp.probeCommunity": "Community (les)",
+  "snmp.probeCommunityWrite": "Skriv-community (valgfritt)",
+  "snmp.probeCommunityWriteHint":
+    "For fremtidige SET-operasjoner; lagres også med SNMP-innstillingene under Oversikt-fanen.",
   "snmp.probeOid": "OID",
   "snmp.probeOperation": "Operasjon",
   "snmp.probeRun": "Kjør",
@@ -459,6 +462,12 @@ export const nb = {
   "dcim.racks.editorCancel": "Avbryt",
   "dcim.racks.editorInvalidU": "Oppgi en gyldig U-posisjon.",
   "dcim.racks.editorNoFit": "Plasseringen passer ikke eller kolliderer med annet utstyr.",
+  "dcim.racks.editorUZeroHint":
+    "Enheten har 0U-modell: den ligger i 0U-feltet under racket (U-posisjon er alltid 0).",
+  "dcim.racks.zeroStripTitle": "0U / ikke RU-plassert",
+  "dcim.racks.zeroStripHint":
+    "Slipp 0U-enheter eller -modeller her. De bruker ikke nummererte RU-felt i rutenettet.",
+  "dcim.racks.zeroUDeviceMeta": "U0 · 0U · {mount}",
 
   "dcim.equip.introBody":
     "Produsenter (profil, nettsted og logo), enhetstyper (switch, server, …), modeller, enheter og rack-plassering. Modeller kan peke på en type; enheter arver typen fra modellen med mindre du overstyrer. JSON-attributter på enheter brukes foreløpig til metadata (f.eks. os, port_count) inntil egne tabeller og IPAM kommer. Dobbelt plassering av samme enhet avvises av API-et. Klikk produsentnavn for detaljer.",
@@ -508,6 +517,20 @@ export const nb = {
   "dcim.equip.dm.thumbCol": "Miniatyr",
   "dcim.equip.dm.create": "Opprett modell",
   "dcim.equip.dm.empty": "Ingen modeller.",
+  "dcim.equip.dm.uHintZero": "0 = bruker ikke rack-enheter (plasseres i 0U-felt med U0).",
+  "dcim.equip.dm.snmpOidPrefix": "SNMP sysObjectID-prefiks",
+  "dcim.equip.dm.snmpOidPrefixHint":
+    "Numerisk OID-prefiks (f.eks. 1.3.6.1.4.1.890). Lengst matchende prefiks vinner i /device-models/match-snmp.",
+  "dcim.equip.dm.actionsCol": "Handlinger",
+  "dcim.equip.dm.edit": "Rediger",
+  "dcim.equip.dm.editTitle": "Rediger enhetsmodell",
+  "dcim.equip.dm.editSave": "Lagre modell",
+  "dcim.equip.dm.editCancel": "Avbryt",
+  "dcim.equip.dm.matchSnmpLabel": "Test SNMP OID-match",
+  "dcim.equip.dm.matchSnmpPlaceholder": "Numerisk sysObjectID fra discovery",
+  "dcim.equip.dm.matchSnmpRun": "Match modeller",
+  "dcim.equip.dm.matchSnmpEmpty": "Ingen modeller matcher det prefikset.",
+  "dcim.equip.dm.matchSnmpResult": "Treff (best først):",
   "dcim.equip.dev.title": "Enheter",
   "dcim.equip.dev.model": "Modell",
   "dcim.equip.dev.dtOverride": "Overstyr type",
@@ -541,6 +564,17 @@ export const nb = {
   "dcim.equip.dev.snmpSectionHint":
     "Spør enheten på styrings-IP (forhåndsutfylt fra IPAM, ?snmpHost= i URL eller første IPv4 på et grensesnitt). Hent grensesnitt, kjør full skann (IP/VLAN), og importer til denne DCIM-enheten.",
   "dcim.equip.dev.snmpOpenTools": "Åpne full SNMP-side (MIB-bibliotek og probe)…",
+  "dcim.equip.dev.identityTitle": "Identifikasjon",
+  "dcim.equip.dev.serial": "Serienummer",
+  "dcim.equip.dev.assetTag": "Asset tag",
+  "dcim.equip.dev.identitySave": "Lagre identifikasjon",
+  "dcim.equip.dev.snmpCommunitiesTitle": "SNMP-community (lagres på enheten)",
+  "dcim.equip.dev.snmpRead": "Les-community (GET / walk)",
+  "dcim.equip.dev.snmpWrite": "Skriv-community (SET) — valgfritt",
+  "dcim.equip.dev.snmpExtra": "Flere community, komma-separert — valgfritt",
+  "dcim.equip.dev.snmpSave": "Lagre SNMP-felt",
+  "dcim.equip.dev.snmpPersistHint":
+    "Community brukt i probe/import hentes fra feltene under; lagre her for at de skal bli værende.",
   "dcim.equip.dev.tabHardware": "Maskinvare",
   "dcim.equip.dev.tabOs": "OS-info",
   "dcim.equip.dev.pluginPlaceholderHardware":
@@ -584,6 +618,9 @@ export const nb = {
   "dcim.equip.ip.chooseIface": "Velg et grensesnitt.",
   "dcim.equip.ip.ipv4Prefix": "IPv4-prefiks (valgfritt)",
   "dcim.equip.ip.ipv4PrefixNone": "— ingen —",
+  "dcim.equip.ip.deviceTitle": "Enhets-IP (uten grensesnitt)",
+  "dcim.equip.ip.deviceHint":
+    "Når samme MAC er på alle porter eller du bare kjenner management-IP, legg den her i stedet for å knytte til én port.",
   "dcim.equip.ip.prefixNeedsSite":
     "Plasser enheten i et rack for å knytte IPv4-adresse til et prefiks på riktig site.",
   "ipam.ipv4.title": "IPAM — IPv4-prefiks",
@@ -699,6 +736,7 @@ export const nb = {
   "dcim.equip.pl.filterRack": "Filtrer på rack-ID",
   "dcim.equip.pl.device": "Enhet",
   "dcim.equip.pl.uPos": "U-pos",
+  "dcim.equip.pl.uPosHint": "Bruk 0 med 0U-modell (0U-felt, ikke RU-rutenett).",
   "dcim.equip.pl.mount": "Mount",
   "dcim.equip.pl.place": "Plasser",
   "dcim.equip.pl.empty": "Ingen plasseringer.",

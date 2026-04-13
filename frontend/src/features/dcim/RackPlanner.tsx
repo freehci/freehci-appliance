@@ -75,6 +75,10 @@ function PlacementEditorDialog({
   const clientErr = useMemo(() => {
     if (!selectedRack) return t("dcim.racks.editorInvalidU");
     const u = Number(uStr);
+    if (h === 0) {
+      if (!Number.isFinite(u) || u !== 0) return t("dcim.racks.editorInvalidU");
+      return null;
+    }
     if (!Number.isFinite(u) || u < 1) return t("dcim.racks.editorInvalidU");
     const ranges = existingRangesForRack(
       allPlacements,
@@ -126,13 +130,19 @@ function PlacementEditorDialog({
             {t("dcim.racks.editorU")}
             <input
               type="number"
-              min={1}
-              max={selectedRack?.u_height ?? 64}
+              min={h === 0 ? 0 : 1}
+              max={h === 0 ? 0 : selectedRack?.u_height ?? 64}
               value={uStr}
               onChange={(e) => setUStr(e.target.value)}
+              readOnly={h === 0}
               aria-invalid={clientErr != null}
             />
           </label>
+          {h === 0 ? (
+            <p className={baseStyles.muted} style={{ gridColumn: "1 / -1", margin: 0, fontSize: "var(--text-xs)" }}>
+              {t("dcim.racks.editorUZeroHint")}
+            </p>
+          ) : null}
           <label className={styles.placementDialogLabel}>
             {t("dcim.racks.editorMount")}
             <select value={mount} onChange={(e) => setMount(e.target.value)} data-rack-no-drag="">

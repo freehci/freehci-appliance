@@ -469,3 +469,68 @@ def test_device_interface_subinterface_parent() -> None:
         assert del_me0.status_code == 204
         li2 = client.get(f"/api/v1/dcim/devices/{dev_id}/interfaces")
         assert li2.json() == []
+
+
+def test_dcim_zero_u_snmp_prefix_device_ip() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        s = client.post("/api/v1/dcim/sites", json={"name": "Z", "slug": f"z-{uuid.uuid4().hex[:8]}"})
+        assert s.status_code == 200
+        site_id = s.json()["id"]
+        room_id = client.post("/api/v1/dcim/rooms", json={"site_id": site_id, "name": "R"}).json()["id"]
+        rack_id = client.post("/api/v1/dcim/racks", json={"room_id": room_id, "name": "K"}).json()["id"]
+        mid = client.post("/api/v1/dcim/manufacturers", json={"name": "M"}).json()["id"]
+        tid = client.post(
+            "/api/v1/dcim/device-types",
+            json={"name": "Thing", "slug": f"thing-{uuid.uuid4().hex[:8]}"},
+        ).json()["id"]
+
+        dm0 = client.post(
+            "/api/v1/dcim/device-models",
+            json={
+                "manufacturer_id": mid,
+                "device_type_id": tid,
+                "name": "Shelf PDU",
+                "u_height": 0,
+                "snmp_sys_object_id_prefix": "1.3.6.1.4.1.999",
+            },
+        )
+        assert dm0.status_code == 200, dm0.text
+        d0_id = dm0.json()["id"]
+
+        dev0 = client.post(
+            "/api/v1/dcim/devices",
+            json={"device_model_id": d0_id, "name": "pdu-1"},
+        )
+        assert dev0.status_code == 200
+        pdu_dev = dev0.json()["id"]
+
+        bad_u = client.post(
+            "/api/v1/dcim/placements",
+            json={"rack_id": rack_id, "device_id": pdu_dev, "u_position": 5, "mounting": "front"},
+        )
+        assert bad_u.status_code == 400
+
+        ok0 = client.post(
+            "/api/v1/dcim/placements",
+            json={"rack_id": rack_id, "device_id": pdu_dev, "u_position": 0, "mounting": "front"},
+        )
+        assert ok0.status_code == 200, ok0.text
+
+        match = client.get(
+            "/api/v1/dcim/device-models/match-snmp",
+            params={"numeric_oid": "1.3.6.1.4.1.999.1.2"},
+        )
+        assert match.status_code == 200
+        assert len(match.json()) >= 1
+        assert match.json()[0]["id"] == d0_id
+
+        dip = client.post(
+            f"/api/v1/dcim/devices/{pdu_dev}/device-ip-assignments",
+            json={"address": "10.0.0.50", "is_primary": True},
+        )
+        assert dip.status_code == 200, dip.text
+        assert dip.json()["address"] == "10.0.0.50"
+        listed = client.get(f"/api/v1/dcim/devices/{pdu_dev}/device-ip-assignments")
+        assert listed.status_code == 200
+        assert len(listed.json()) == 1

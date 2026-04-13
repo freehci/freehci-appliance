@@ -7,13 +7,24 @@ import { ApiError, apiGet } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
-import type { DeviceInterface } from "./types";
+import type { DeviceInterface, DeviceIpAssignment } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
 import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
 import { usePlugins } from "@/plugins/PluginContext";
 import { SnmpInventoryPanel } from "@/features/snmp/SnmpInventoryPanel";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
+
+function strAttr(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+function formatSnmpExtra(attrs: Record<string, unknown>): string {
+  const x = attrs.snmp_communities;
+  if (Array.isArray(x)) return x.map(String).join(", ");
+  if (typeof x === "string") return x;
+  return "";
+}
 
 const DEVICE_DETAIL_TABS = new Set(["overview", "network", "hardware", "os"]);
 type DeviceDetailTab = "overview" | "network" | "hardware" | "os";
@@ -60,6 +71,15 @@ export function DcimDeviceDetailPage() {
   const [ipPrefix, setIpPrefix] = useState("");
   const [ipPrefixDraft, setIpPrefixDraft] = useState<Record<number, string>>({});
   const [typeEdit, setTypeEdit] = useState("");
+  const [serialDraft, setSerialDraft] = useState("");
+  const [assetDraft, setAssetDraft] = useState("");
+  const [snmpReadDraft, setSnmpReadDraft] = useState("public");
+  const [snmpWriteDraft, setSnmpWriteDraft] = useState("");
+  const [snmpExtraDraft, setSnmpExtraDraft] = useState("");
+  const [devIpAddr, setDevIpAddr] = useState("");
+  const [devIpPrimary, setDevIpPrimary] = useState(false);
+  const [devIpPrefix, setDevIpPrefix] = useState("");
+  const [devIpPrefixDraft, setDevIpPrefixDraft] = useState<Record<number, string>>({});
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -70,6 +90,12 @@ export function DcimDeviceDetailPage() {
   const interfacesQ = useQuery({
     queryKey: ["dcim", "devices", id, "interfaces"],
     queryFn: () => api.listDeviceInterfaces(id),
+    enabled: Number.isFinite(id) && id > 0,
+  });
+
+  const deviceIpsQ = useQuery({
+    queryKey: ["dcim", "devices", id, "device-ip-assignments"],
+    queryFn: () => api.listDeviceIpAssignments(id),
     enabled: Number.isFinite(id) && id > 0,
   });
 
@@ -155,8 +181,11 @@ export function DcimDeviceDetailPage() {
 
   const defaultSnmpHost = useMemo(() => {
     if (snmpHostParam !== "") return snmpHostParam;
-    const rows = interfacesQ.data ?? [];
     const v4: { addr: string; primary: boolean }[] = [];
+    for (const dip of deviceIpsQ.data ?? []) {
+      if (dip.family === "ipv4") v4.push({ addr: dip.address, primary: dip.is_primary });
+    }
+    const rows = interfacesQ.data ?? [];
     for (const iface of rows) {
       for (const ip of iface.ip_assignments ?? []) {
         if (ip.family === "ipv4") v4.push({ addr: ip.address, primary: ip.is_primary });
@@ -164,7 +193,27 @@ export function DcimDeviceDetailPage() {
     }
     const prim = v4.find((x) => x.primary);
     return prim?.addr ?? v4[0]?.addr ?? "";
-  }, [snmpHostParam, interfacesQ.data]);
+  }, [snmpHostParam, interfacesQ.data, deviceIpsQ.data]);
+
+  const snmpHostSyncKey = useMemo(() => {
+    const a = deviceQ.data?.attributes ?? {};
+    return `${snmpHostParam}\u0000${interfacesQ.dataUpdatedAt}\u0000${deviceIpsQ.dataUpdatedAt}\u0000${strAttr(a.snmp_community_read)}\u0000${strAttr(a.snmp_community)}\u0000${strAttr(a.snmp_community_write)}`;
+  }, [
+    snmpHostParam,
+    interfacesQ.dataUpdatedAt,
+    deviceIpsQ.dataUpdatedAt,
+    deviceQ.data?.attributes,
+  ]);
+
+  const snmpProbeRead = useMemo(() => {
+    const a = deviceQ.data?.attributes ?? {};
+    return strAttr(a.snmp_community_read) || strAttr(a.snmp_community) || "public";
+  }, [deviceQ.data?.attributes]);
+
+  const snmpProbeWrite = useMemo(() => {
+    const a = deviceQ.data?.attributes ?? {};
+    return strAttr(a.snmp_community_write);
+  }, [deviceQ.data?.attributes]);
 
   const deviceTypeSlug = useMemo(() => {
     const tid = deviceQ.data?.effective_device_type_id;
@@ -214,7 +263,20 @@ export function DcimDeviceDetailPage() {
     const d = deviceQ.data;
     if (!d) return;
     setTypeEdit(d.device_type_id != null ? String(d.device_type_id) : "");
-  }, [deviceQ.data?.id, deviceQ.data?.device_type_id]);
+    setSerialDraft(d.serial_number ?? "");
+    setAssetDraft(d.asset_tag ?? "");
+    const a = d.attributes ?? {};
+    const read = strAttr(a.snmp_community_read) || strAttr(a.snmp_community);
+    setSnmpReadDraft(read !== "" ? read : "public");
+    setSnmpWriteDraft(strAttr(a.snmp_community_write));
+    setSnmpExtraDraft(formatSnmpExtra(a as Record<string, unknown>));
+  }, [
+    deviceQ.data?.id,
+    deviceQ.data?.device_type_id,
+    deviceQ.data?.serial_number,
+    deviceQ.data?.asset_tag,
+    deviceQ.data?.attributes,
+  ]);
 
   const typeDirty = useMemo(() => {
     const d = deviceQ.data;
@@ -225,6 +287,51 @@ export function DcimDeviceDetailPage() {
 
   const patchDeviceType = useMutation({
     mutationFn: (device_type_id: number | null) => api.updateDevice(id, { device_type_id }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchIdentity = useMutation({
+    mutationFn: () =>
+      api.updateDevice(id, {
+        serial_number: serialDraft.trim() === "" ? null : serialDraft.trim(),
+        asset_tag: assetDraft.trim() === "" ? null : assetDraft.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchSnmpAttrs = useMutation({
+    mutationFn: () => {
+      const prev = deviceQ.data?.attributes ?? {};
+      const next: Record<string, unknown> = { ...prev };
+      const r = snmpReadDraft.trim();
+      if (r !== "") {
+        next.snmp_community_read = r;
+        next.snmp_community = r;
+      } else {
+        delete next.snmp_community_read;
+        delete next.snmp_community;
+      }
+      const w = snmpWriteDraft.trim();
+      if (w !== "") next.snmp_community_write = w;
+      else delete next.snmp_community_write;
+      const extras = snmpExtraDraft
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== "");
+      if (extras.length > 0) next.snmp_communities = extras;
+      else delete next.snmp_communities;
+      return api.updateDevice(id, { attributes: next });
+    },
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
@@ -378,6 +485,58 @@ export function DcimDeviceDetailPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const createDevIp = useMutation({
+    mutationFn: () => {
+      const body: { address: string; is_primary: boolean; ipv4_prefix_id?: number } = {
+        address: devIpAddr.trim(),
+        is_primary: devIpPrimary,
+      };
+      if (devIpPrefix !== "") body.ipv4_prefix_id = Number(devIpPrefix);
+      return api.createDeviceIpAssignment(id, body);
+    },
+    onSuccess: () => {
+      setDevIpAddr("");
+      setDevIpPrimary(false);
+      setDevIpPrefix("");
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "device-ip-assignments"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delDevIp = useMutation({
+    mutationFn: (aid: number) => api.deleteDeviceIpAssignment(id, aid),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "device-ip-assignments"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const setPrimaryDevIp = useMutation({
+    mutationFn: (aid: number) => api.updateDeviceIpAssignment(id, aid, { is_primary: true }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "device-ip-assignments"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchDevIpPrefix = useMutation({
+    mutationFn: ({ aid, ipv4_prefix_id }: { aid: number; ipv4_prefix_id: number | null }) =>
+      api.updateDeviceIpAssignment(id, aid, { ipv4_prefix_id }),
+    onSuccess: (_d, vars) => {
+      setErr(null);
+      setDevIpPrefixDraft((prev) => {
+        const next = { ...prev };
+        delete next[vars.aid];
+        return next;
+      });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "device-ip-assignments"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const patchIpPrefix = useMutation({
     mutationFn: ({
       iid,
@@ -471,6 +630,66 @@ export function DcimDeviceDetailPage() {
               <dt>{t("dcim.equip.dev.siteCol")}</dt>
               <dd>{siteLabel ?? "—"}</dd>
             </dl>
+            <section className={styles.mfrDetailSection}>
+              <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.identityTitle")}</h3>
+              <div className={styles.formRow}>
+                <label>
+                  {t("dcim.equip.dev.serial")}
+                  <input value={serialDraft} onChange={(e) => setSerialDraft(e.target.value)} />
+                </label>
+                <label>
+                  {t("dcim.equip.dev.assetTag")}
+                  <input value={assetDraft} onChange={(e) => setAssetDraft(e.target.value)} />
+                </label>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={patchIdentity.isPending}
+                  onClick={() => {
+                    setErr(null);
+                    patchIdentity.mutate();
+                  }}
+                >
+                  {patchIdentity.isPending ? "…" : t("dcim.equip.dev.identitySave")}
+                </button>
+              </div>
+            </section>
+            <section className={styles.mfrDetailSection}>
+              <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.snmpCommunitiesTitle")}</h3>
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.dev.snmpPersistHint")}
+              </p>
+              <div className={styles.formRow}>
+                <label>
+                  {t("dcim.equip.dev.snmpRead")}
+                  <input value={snmpReadDraft} onChange={(e) => setSnmpReadDraft(e.target.value)} autoComplete="off" />
+                </label>
+                <label>
+                  {t("dcim.equip.dev.snmpWrite")}
+                  <input value={snmpWriteDraft} onChange={(e) => setSnmpWriteDraft(e.target.value)} autoComplete="off" />
+                </label>
+                <label style={{ flex: "1 1 14rem" }}>
+                  {t("dcim.equip.dev.snmpExtra")}
+                  <input
+                    value={snmpExtraDraft}
+                    onChange={(e) => setSnmpExtraDraft(e.target.value)}
+                    placeholder="public, network"
+                    autoComplete="off"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={patchSnmpAttrs.isPending}
+                  onClick={() => {
+                    setErr(null);
+                    patchSnmpAttrs.mutate();
+                  }}
+                >
+                  {patchSnmpAttrs.isPending ? "…" : t("dcim.equip.dev.snmpSave")}
+                </button>
+              </div>
+            </section>
             <section className={styles.mfrDetailSection}>
               <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.typeOverrideLabel")}</h3>
               <div className={styles.formRow}>
@@ -584,8 +803,148 @@ export function DcimDeviceDetailPage() {
               mode="fixed_device"
               deviceId={id}
               initialHost={defaultSnmpHost}
-              hostSyncKey={`${snmpHostParam}\u0000${interfacesQ.dataUpdatedAt}`}
+              initialCommunity={snmpProbeRead}
+              initialCommunityWrite={snmpProbeWrite}
+              hostSyncKey={snmpHostSyncKey}
             />
+            <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.ip.deviceTitle")}</h3>
+            <p className={styles.muted} style={{ marginTop: 0 }}>
+              {t("dcim.equip.ip.deviceHint")}
+            </p>
+            {deviceSiteId == null ? (
+              <p className={styles.muted}>{t("dcim.equip.ip.prefixNeedsSite")}</p>
+            ) : null}
+            <form
+              className={styles.formRow}
+              onSubmit={(e) => {
+                e.preventDefault();
+                setErr(null);
+                createDevIp.mutate();
+              }}
+            >
+              <label>
+                {t("dcim.equip.ip.address")}
+                <input
+                  value={devIpAddr}
+                  onChange={(e) => setDevIpAddr(e.target.value)}
+                  placeholder="192.168.1.1"
+                  required
+                />
+              </label>
+              {deviceSiteId != null ? (
+                <label>
+                  {t("dcim.equip.ip.ipv4Prefix")}
+                  <select value={devIpPrefix} onChange={(e) => setDevIpPrefix(e.target.value)}>
+                    <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
+                    {(prefixesQ.data ?? []).map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.name} — {p.cidr}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  checked={devIpPrimary}
+                  onChange={(e) => setDevIpPrimary(e.target.checked)}
+                />
+                {t("dcim.equip.ip.primary")}
+              </label>
+              <button type="submit" className={styles.btn} disabled={createDevIp.isPending}>
+                {createDevIp.isPending ? "…" : t("dcim.equip.ip.add")}
+              </button>
+            </form>
+            {deviceIpsQ.data != null && deviceIpsQ.data.length > 0 ? (
+              <ul className={styles.ipList} style={{ marginTop: "var(--space-2)" }}>
+                {deviceIpsQ.data.map((ip: DeviceIpAssignment) => (
+                  <li key={ip.id}>
+                    <code>{ip.address}</code>{" "}
+                    <span className={styles.muted}>({ip.family})</span>
+                    {ip.family === "ipv4" && ip.ipv4_prefix_id != null ? (
+                      <span className={styles.muted}>
+                        {" "}
+                        · {prefixById.get(ip.ipv4_prefix_id) ?? `#${ip.ipv4_prefix_id}`}
+                      </span>
+                    ) : null}
+                    {ip.family === "ipv4" && deviceSiteId != null ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          flexWrap: "wrap",
+                          gap: "0.25rem",
+                          alignItems: "center",
+                          marginLeft: "0.35rem",
+                        }}
+                      >
+                        <select
+                          style={{ maxWidth: "14rem", fontSize: "var(--text-xs)" }}
+                          value={
+                            devIpPrefixDraft[ip.id] ??
+                            (ip.ipv4_prefix_id != null ? String(ip.ipv4_prefix_id) : "")
+                          }
+                          onChange={(e) =>
+                            setDevIpPrefixDraft((prev) => ({ ...prev, [ip.id]: e.target.value }))
+                          }
+                          title={t("dcim.equip.ip.ipv4Prefix")}
+                        >
+                          <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
+                          {(prefixesQ.data ?? []).map((p) => (
+                            <option key={p.id} value={String(p.id)}>
+                              {p.name} — {p.cidr}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className={styles.btn}
+                          style={{ fontSize: "var(--text-xs)", padding: "0.15rem 0.45rem" }}
+                          disabled={patchDevIpPrefix.isPending}
+                          onClick={() => {
+                            setErr(null);
+                            const raw = (
+                              devIpPrefixDraft[ip.id] ??
+                              (ip.ipv4_prefix_id != null ? String(ip.ipv4_prefix_id) : "")
+                            ).trim();
+                            let ipv4_prefix_id: number | null = null;
+                            if (raw !== "") {
+                              const n = Number(raw);
+                              if (!Number.isFinite(n)) return;
+                              ipv4_prefix_id = n;
+                            }
+                            patchDevIpPrefix.mutate({ aid: ip.id, ipv4_prefix_id });
+                          }}
+                        >
+                          {patchDevIpPrefix.isPending ? "…" : t("dcim.common.save")}
+                        </button>
+                      </span>
+                    ) : null}
+                    {ip.is_primary ? (
+                      <span className={styles.ipPrimaryMark}> {t("dcim.equip.ip.primaryMark")}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.btnLink}
+                        onClick={() => setPrimaryDevIp.mutate(ip.id)}
+                        disabled={setPrimaryDevIp.isPending}
+                      >
+                        {t("dcim.equip.ip.setPrimary")}
+                      </button>
+                    )}{" "}
+                    <button
+                      type="button"
+                      className={styles.btnDanger}
+                      style={{ fontSize: "var(--text-xs)", padding: "0.1rem 0.4rem" }}
+                      onClick={() => delDevIp.mutate(ip.id)}
+                      disabled={delDevIp.isPending}
+                    >
+                      {t("dcim.common.remove")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.if.title")}</h3>
             <p className={styles.muted} style={{ marginTop: 0 }}>
               {t("dcim.equip.if.hint")}

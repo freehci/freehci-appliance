@@ -8,7 +8,7 @@ import * as api from "./dcimApi";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { deviceModelListThumbSrc } from "./modelImages";
-import type { Rack, RackPlacement } from "./types";
+import type { DeviceModel, Rack, RackPlacement } from "./types";
 
 type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl";
 
@@ -43,6 +43,15 @@ export function DcimEquipmentPage() {
   const [plRack, setPlRack] = useState<string>("");
   const [plDev, setPlDev] = useState<string>("");
   const [plU, setPlU] = useState("1");
+  const [dmSnmpPrefix, setDmSnmpPrefix] = useState("");
+  const [dmEditId, setDmEditId] = useState<number | null>(null);
+  const [dmEditName, setDmEditName] = useState("");
+  const [dmEditU, setDmEditU] = useState("1");
+  const [dmEditMfr, setDmEditMfr] = useState("");
+  const [dmEditDt, setDmEditDt] = useState("");
+  const [dmEditSnmp, setDmEditSnmp] = useState("");
+  const [dmMatchOid, setDmMatchOid] = useState("");
+  const [dmMatchResult, setDmMatchResult] = useState<DeviceModel[] | null>(null);
   const [plMount, setPlMount] = useState("front");
   const [rackFilter, setRackFilter] = useState<string>("");
   const [devListFilter, setDevListFilter] = useState("");
@@ -230,16 +239,21 @@ export function DcimEquipmentPage() {
   });
 
   const createDm = useMutation({
-    mutationFn: () =>
-      api.createDeviceModel({
+    mutationFn: () => {
+      const uN = Number(dmU);
+      const u_height = Number.isFinite(uN) && uN >= 0 ? uN : 1;
+      const snmp = dmSnmpPrefix.trim();
+      return api.createDeviceModel({
         name: dmName.trim(),
-        u_height: Number(dmU) || 1,
+        u_height,
         manufacturer_id: dmMfr === "" ? null : Number(dmMfr),
         device_type_id: dmDt === "" ? null : Number(dmDt),
         image_front_url: dmImgFront.trim() === "" ? null : dmImgFront.trim(),
         image_back_url: dmImgBack.trim() === "" ? null : dmImgBack.trim(),
         image_product_url: dmImgProduct.trim() === "" ? null : dmImgProduct.trim(),
-      }),
+        snmp_sys_object_id_prefix: snmp === "" ? null : snmp,
+      });
+    },
     onSuccess: async (created) => {
       const ff = dmFileFrontRef.current?.files?.[0];
       const fb = dmFileBackRef.current?.files?.[0];
@@ -253,12 +267,35 @@ export function DcimEquipmentPage() {
         setErr(e instanceof ApiError ? e.message : (e as Error).message);
       }
       setDmName("");
+      setDmSnmpPrefix("");
       setDmImgFront("");
       setDmImgBack("");
       setDmImgProduct("");
       if (dmFileFrontRef.current) dmFileFrontRef.current.value = "";
       if (dmFileBackRef.current) dmFileBackRef.current.value = "";
       if (dmFileProductRef.current) dmFileProductRef.current.value = "";
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchDm = useMutation({
+    mutationFn: () => {
+      if (dmEditId == null) throw new Error("missing model");
+      const uN = Number(dmEditU);
+      const u_height = Number.isFinite(uN) && uN >= 0 ? uN : 1;
+      const snmp = dmEditSnmp.trim();
+      return api.updateDeviceModel(dmEditId, {
+        name: dmEditName.trim(),
+        u_height,
+        manufacturer_id: dmEditMfr === "" ? null : Number(dmEditMfr),
+        device_type_id: dmEditDt === "" ? null : Number(dmEditDt),
+        snmp_sys_object_id_prefix: snmp === "" ? null : snmp,
+      });
+    },
+    onSuccess: () => {
+      setErr(null);
+      setDmEditId(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -297,13 +334,16 @@ export function DcimEquipmentPage() {
   });
 
   const createPl = useMutation({
-    mutationFn: () =>
-      api.createPlacement({
+    mutationFn: () => {
+      const uN = Number(plU);
+      const u_position = Number.isFinite(uN) ? uN : 0;
+      return api.createPlacement({
         rack_id: Number(plRack),
         device_id: Number(plDev),
-        u_position: Number(plU) || 1,
+        u_position,
         mounting: plMount,
-      }),
+      });
+    },
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "placements"] });
@@ -544,7 +584,16 @@ export function DcimEquipmentPage() {
           </label>
           <label>
             {t("dcim.equip.dm.u")}
-            <input type="number" min={1} max={64} value={dmU} onChange={(e) => setDmU(e.target.value)} />
+            <input type="number" min={0} max={64} value={dmU} onChange={(e) => setDmU(e.target.value)} />
+          </label>
+          <label title={t("dcim.equip.dm.snmpOidPrefixHint")}>
+            {t("dcim.equip.dm.snmpOidPrefix")}
+            <input
+              value={dmSnmpPrefix}
+              onChange={(e) => setDmSnmpPrefix(e.target.value)}
+              placeholder="1.3.6.1.4.1.…"
+              spellCheck={false}
+            />
           </label>
           <label>
             {t("dcim.equip.dm.imageFront")}
@@ -603,6 +652,130 @@ export function DcimEquipmentPage() {
             {createDm.isPending ? "…" : t("dcim.equip.dm.create")}
           </button>
         </form>
+        <p className={styles.muted} style={{ marginTop: "var(--space-2)" }}>
+          {t("dcim.equip.dm.uHintZero")}
+        </p>
+        <div className={styles.formRow} style={{ marginTop: "var(--space-3)", alignItems: "flex-end" }}>
+          <label style={{ flex: "1 1 14rem" }}>
+            {t("dcim.equip.dm.matchSnmpLabel")}
+            <input
+              value={dmMatchOid}
+              onChange={(e) => {
+                setDmMatchOid(e.target.value);
+                setDmMatchResult(null);
+              }}
+              placeholder={t("dcim.equip.dm.matchSnmpPlaceholder")}
+              spellCheck={false}
+            />
+          </label>
+          <button
+            type="button"
+            className={styles.btn}
+            disabled={dmMatchOid.trim() === ""}
+            onClick={() => {
+              setErr(null);
+              void api.matchDeviceModelsBySnmpOid(dmMatchOid.trim()).then(setDmMatchResult).catch((e: Error) => {
+                setDmMatchResult(null);
+                setErr(e instanceof ApiError ? e.message : e.message);
+              });
+            }}
+          >
+            {t("dcim.equip.dm.matchSnmpRun")}
+          </button>
+        </div>
+        {dmMatchResult != null ? (
+          dmMatchResult.length === 0 ? (
+            <p className={styles.muted}>{t("dcim.equip.dm.matchSnmpEmpty")}</p>
+          ) : (
+            <div className={styles.mfrDetailSection} style={{ marginTop: "var(--space-2)" }}>
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.dm.matchSnmpResult")}
+              </p>
+              <ul className={styles.ipList}>
+                {dmMatchResult.map((m) => (
+                  <li key={m.id}>
+                    <code>#{m.id}</code> {m.name}{" "}
+                    <span className={styles.muted}>
+                      ({m.snmp_sys_object_id_prefix ?? "—"})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        ) : null}
+        {dmEditId != null ? (
+          <section className={styles.mfrDetailSection} style={{ marginTop: "var(--space-4)" }}>
+            <h3 className={styles.mfrDetailSectionTitle}>
+              {t("dcim.equip.dm.editTitle")} #{dmEditId}
+            </h3>
+            <form
+              className={styles.formRow}
+              onSubmit={(e) => {
+                e.preventDefault();
+                setErr(null);
+                patchDm.mutate();
+              }}
+            >
+              <label>
+                {t("dcim.equip.dm.mfr")}
+                <select value={dmEditMfr} onChange={(e) => setDmEditMfr(e.target.value)}>
+                  <option value="">{t("dcim.common.none")}</option>
+                  {(manufacturersQ.data ?? []).map((m) => (
+                    <option key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("dcim.equip.dm.dt")}
+                <select value={dmEditDt} onChange={(e) => setDmEditDt(e.target.value)}>
+                  <option value="">{t("dcim.common.none")}</option>
+                  {(deviceTypesQ.data ?? []).map((d) => (
+                    <option key={d.id} value={String(d.id)}>
+                      {d.name} ({d.slug})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("dcim.equip.dm.modelName")}
+                <input value={dmEditName} onChange={(e) => setDmEditName(e.target.value)} required />
+              </label>
+              <label>
+                {t("dcim.equip.dm.u")}
+                <input
+                  type="number"
+                  min={0}
+                  max={64}
+                  value={dmEditU}
+                  onChange={(e) => setDmEditU(e.target.value)}
+                />
+              </label>
+              <label title={t("dcim.equip.dm.snmpOidPrefixHint")}>
+                {t("dcim.equip.dm.snmpOidPrefix")}
+                <input
+                  value={dmEditSnmp}
+                  onChange={(e) => setDmEditSnmp(e.target.value)}
+                  placeholder="1.3.6.1.4.1.…"
+                  spellCheck={false}
+                />
+              </label>
+              <button type="submit" className={styles.btn} disabled={patchDm.isPending}>
+                {patchDm.isPending ? "…" : t("dcim.equip.dm.editSave")}
+              </button>
+              <button
+                type="button"
+                className={styles.btn}
+                disabled={patchDm.isPending}
+                onClick={() => setDmEditId(null)}
+              >
+                {t("dcim.equip.dm.editCancel")}
+              </button>
+            </form>
+          </section>
+        ) : null}
         {modelsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
         {modelsQ.data && modelsQ.data.length > 0 ? (
           <table className={styles.table}>
@@ -614,11 +787,15 @@ export function DcimEquipmentPage() {
                 <th>{t("dcim.equip.dm.typeCol")}</th>
                 <th>{t("dcim.common.name")}</th>
                 <th>{t("dcim.equip.dm.u")}</th>
+                <th>{t("dcim.equip.dm.snmpOidPrefix")}</th>
+                <th>{t("dcim.equip.dm.actionsCol")}</th>
               </tr>
             </thead>
             <tbody>
               {modelsQ.data.map((x) => {
                 const src = deviceModelListThumbSrc(x);
+                const pfx = x.snmp_sys_object_id_prefix ?? "";
+                const pfxShort = pfx.length > 28 ? `${pfx.slice(0, 28)}…` : pfx;
                 return (
                   <tr key={x.id}>
                     <td className={styles.mfrLogoCell}>
@@ -652,6 +829,24 @@ export function DcimEquipmentPage() {
                     </td>
                     <td>{x.name}</td>
                     <td>{x.u_height}</td>
+                    <td title={pfx || undefined}>{pfxShort !== "" ? <code>{pfxShort}</code> : "—"}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        onClick={() => {
+                          setErr(null);
+                          setDmEditId(x.id);
+                          setDmEditName(x.name);
+                          setDmEditU(String(x.u_height));
+                          setDmEditMfr(x.manufacturer_id != null ? String(x.manufacturer_id) : "");
+                          setDmEditDt(x.device_type_id != null ? String(x.device_type_id) : "");
+                          setDmEditSnmp(x.snmp_sys_object_id_prefix ?? "");
+                        }}
+                      >
+                        {t("dcim.equip.dm.edit")}
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -840,7 +1035,7 @@ export function DcimEquipmentPage() {
           </label>
           <label>
             {t("dcim.equip.pl.uPos")}
-            <input type="number" min={1} value={plU} onChange={(e) => setPlU(e.target.value)} />
+            <input type="number" min={0} value={plU} onChange={(e) => setPlU(e.target.value)} />
           </label>
           <label>
             {t("dcim.equip.pl.mount")}
@@ -853,6 +1048,9 @@ export function DcimEquipmentPage() {
             {createPl.isPending ? "…" : t("dcim.equip.pl.place")}
           </button>
         </form>
+        <p className={styles.muted} style={{ marginTop: "var(--space-2)" }}>
+          {t("dcim.equip.pl.uPosHint")}
+        </p>
         {placementsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
         {placementsQ.data && placementsQ.data.length > 0 ? (
           <table className={styles.table}>

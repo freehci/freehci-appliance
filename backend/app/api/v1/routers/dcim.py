@@ -11,6 +11,9 @@ from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
     DeviceInstanceUpdate,
+    DeviceIpAssignmentCreate,
+    DeviceIpAssignmentRead,
+    DeviceIpAssignmentUpdate,
     DeviceInterfaceCreate,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
@@ -278,6 +281,15 @@ def list_device_models(db: Session = Depends(get_db)) -> list[DeviceModelRead]:
     return dcim_svc.list_device_models(db)
 
 
+@router.get("/device-models/match-snmp", response_model=list[DeviceModelRead])
+def match_device_models_snmp(
+    numeric_oid: str = Query(..., min_length=1, max_length=512),
+    db: Session = Depends(get_db),
+) -> list[DeviceModelRead]:
+    """Foreslå modeller ut fra numerisk sysObjectID (prefiksmatch mot snmp_sys_object_id_prefix)."""
+    return dcim_svc.list_device_models_matching_snmp_oid(db, numeric_oid)
+
+
 @router.post("/device-models", response_model=DeviceModelRead)
 def create_device_model(data: DeviceModelCreate, db: Session = Depends(get_db)) -> DeviceModelRead:
     return dcim_svc.create_device_model(db, data)
@@ -516,6 +528,44 @@ def get_device(did: int, db: Session = Depends(get_db)) -> DeviceInstanceRead:
     if row is None:
         raise HTTPException(status_code=404, detail="device ikke funnet")
     return dcim_svc.device_instance_read(db, row)
+
+
+@router.get("/devices/{did}/device-ip-assignments", response_model=list[DeviceIpAssignmentRead])
+def list_device_ip_assignments(did: int, db: Session = Depends(get_db)) -> list[DeviceIpAssignmentRead]:
+    return dcim_svc.list_device_ip_assignments(db, did)
+
+
+@router.post("/devices/{did}/device-ip-assignments", response_model=DeviceIpAssignmentRead)
+def create_device_ip_assignment(
+    did: int,
+    data: DeviceIpAssignmentCreate,
+    db: Session = Depends(get_db),
+) -> DeviceIpAssignmentRead:
+    return dcim_svc.create_device_ip_assignment(db, did, data)
+
+
+@router.patch(
+    "/devices/{did}/device-ip-assignments/{aid}",
+    response_model=DeviceIpAssignmentRead,
+)
+def patch_device_ip_assignment(
+    did: int,
+    aid: int,
+    data: DeviceIpAssignmentUpdate,
+    db: Session = Depends(get_db),
+) -> DeviceIpAssignmentRead:
+    row = dcim_svc.get_device_ip_assignment(db, did, aid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-tildeling ikke funnet")
+    return dcim_svc.update_device_ip_assignment(db, did, row, data)
+
+
+@router.delete("/devices/{did}/device-ip-assignments/{aid}", status_code=204)
+def delete_device_ip_assignment(did: int, aid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_ip_assignment(db, did, aid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-tildeling ikke funnet")
+    dcim_svc.delete_device_ip_assignment(db, row)
 
 
 @router.patch("/devices/{did}", response_model=DeviceInstanceRead)

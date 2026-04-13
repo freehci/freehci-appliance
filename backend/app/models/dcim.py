@@ -111,6 +111,8 @@ class DeviceModel(Base):
     image_product_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     image_product_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
     image_product_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Numerisk sysObjectID (f.eks. 1.3.6.1.4.1.890.1.5.8.40) — matching: agent-OID starter med denne strengen.
+    snmp_sys_object_id_prefix: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
 
 class DeviceInstance(Base):
@@ -140,6 +142,11 @@ class DeviceInstance(Base):
         back_populates="device",
         cascade="all, delete-orphan",
         order_by="DeviceInterface.sort_order, DeviceInterface.name",
+    )
+    device_ip_assignments: Mapped[list["DeviceIpAssignment"]] = relationship(
+        back_populates="device",
+        cascade="all, delete-orphan",
+        order_by="DeviceIpAssignment.family, DeviceIpAssignment.address",
     )
 
 
@@ -216,6 +223,28 @@ class InterfaceIpAssignment(Base):
     is_primary: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     interface: Mapped["DeviceInterface"] = relationship(back_populates="ip_assignments")
+
+
+class DeviceIpAssignment(Base):
+    """IPv4/IPv6 på enheten uten kobling til et bestemt grensesnitt (f.eks. én felles MAC på alle porter)."""
+
+    __tablename__ = "dcim_device_ip_assignments"
+    __table_args__ = (UniqueConstraint("device_id", "address", name="uq_dcim_device_ip_addr"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    ipv4_prefix_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_ipv4_prefixes.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    family: Mapped[str] = mapped_column(String(4), nullable=False)
+    address: Mapped[str] = mapped_column(String(45), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    device: Mapped["DeviceInstance"] = relationship(back_populates="device_ip_assignments")
 
 
 class RackPlacement(Base):

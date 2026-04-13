@@ -18,6 +18,8 @@ export type SnmpInventoryPanelProps = {
   /** Fyller SNMP-vert ved navigasjon / første IPv4 på enhet. */
   initialHost?: string;
   initialCommunity?: string;
+  /** Visuelt / fremtidig SET; synkroniseres fra enhets attributter. */
+  initialCommunityWrite?: string;
   /** Endre når URL/query oppdateres (f.eks. snmpHost fra IPAM). */
   hostSyncKey?: string;
 };
@@ -27,6 +29,7 @@ export function SnmpInventoryPanel({
   deviceId: fixedDeviceId,
   initialHost = "",
   initialCommunity = "public",
+  initialCommunityWrite = "",
   hostSyncKey = "",
 }: SnmpInventoryPanelProps) {
   const { t } = useI18n();
@@ -35,6 +38,7 @@ export function SnmpInventoryPanel({
   const [probeHost, setProbeHost] = useState("");
   const [probePort, setProbePort] = useState("161");
   const [probeCommunity, setProbeCommunity] = useState(initialCommunity);
+  const [probeCommunityWrite, setProbeCommunityWrite] = useState(initialCommunityWrite);
   const [invResult, setInvResult] = useState<snmpApi.SnmpInventoryResult | null>(null);
   const [scanResult, setScanResult] = useState<snmpApi.SnmpScanResult | null>(null);
   const [invDeviceId, setInvDeviceId] = useState("");
@@ -49,6 +53,10 @@ export function SnmpInventoryPanel({
   useEffect(() => {
     setProbeCommunity(initialCommunity);
   }, [initialCommunity]);
+
+  useEffect(() => {
+    setProbeCommunityWrite(initialCommunityWrite);
+  }, [initialCommunityWrite]);
 
   useEffect(() => {
     const h = initialHost?.trim() ?? "";
@@ -134,6 +142,7 @@ export function SnmpInventoryPanel({
       if (r.poll) setInvResult(r.poll);
       const did = r.device_id;
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", did, "interfaces"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", did, "device-ip-assignments"] });
       void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
     },
     onError: (e: Error) => {
@@ -169,6 +178,15 @@ export function SnmpInventoryPanel({
         <label>
           {t("snmp.probeCommunity")}
           <input value={probeCommunity} onChange={(e) => setProbeCommunity(e.target.value)} />
+        </label>
+        <label title={t("snmp.probeCommunityWriteHint")}>
+          {t("snmp.probeCommunityWrite")}
+          <input
+            value={probeCommunityWrite}
+            onChange={(e) => setProbeCommunityWrite(e.target.value)}
+            placeholder="private"
+            autoComplete="off"
+          />
         </label>
         {mode === "picker" ? (
           <label>
@@ -249,14 +267,19 @@ export function SnmpInventoryPanel({
       </div>
 
       {mode === "fixed_device" ? (
-        <p className={dcimStyles.muted} style={{ marginTop: "var(--space-2)" }}>
-          <Link
-            to={probeHost.trim() ? `/snmp/tools?host=${encodeURIComponent(probeHost.trim())}` : "/snmp/tools"}
-            className={dcimStyles.tableLink}
-          >
-            {t("dcim.equip.dev.snmpOpenTools")}
-          </Link>
-        </p>
+        <>
+          <p className={dcimStyles.muted} style={{ marginTop: "var(--space-2)" }}>
+            {t("dcim.equip.dev.snmpPersistHint")}
+          </p>
+          <p className={dcimStyles.muted} style={{ marginTop: "var(--space-1)" }}>
+            <Link
+              to={probeHost.trim() ? `/snmp/tools?host=${encodeURIComponent(probeHost.trim())}` : "/snmp/tools"}
+              className={dcimStyles.tableLink}
+            >
+              {t("dcim.equip.dev.snmpOpenTools")}
+            </Link>
+          </p>
+        </>
       ) : null}
 
       {applyMsg ? <p className={dcimStyles.muted}>{applyMsg}</p> : null}
