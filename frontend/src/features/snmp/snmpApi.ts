@@ -25,6 +25,22 @@ export type SnmpMibDetail = SnmpMibFile & {
   missing_import_modules?: string[];
 };
 
+export type SnmpMibDetailPage = {
+  items: SnmpMibDetail[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type SnmpMibListQuery = {
+  page?: number;
+  page_size?: number;
+  sort?: string;
+  order?: "asc" | "desc";
+  q?: string;
+  compile_status?: "pending" | "ok" | "error";
+};
+
 export type SnmpMibTreeNode = {
   filename: string;
   module_name: string | null;
@@ -64,8 +80,16 @@ export function deleteSnmpMib(name: string): Promise<void> {
   return apiDelete(`${P}/mibs/${encodeURIComponent(name)}`);
 }
 
-export function listSnmpMibsDetailed(): Promise<SnmpMibDetail[]> {
-  return apiGet(`${P}/mibs/detailed`);
+export function listSnmpMibsDetailed(params?: SnmpMibListQuery): Promise<SnmpMibDetailPage> {
+  const sp = new URLSearchParams();
+  if (params?.page != null) sp.set("page", String(params.page));
+  if (params?.page_size != null) sp.set("page_size", String(params.page_size));
+  if (params?.sort) sp.set("sort", params.sort);
+  if (params?.order) sp.set("order", params.order);
+  if (params?.q) sp.set("q", params.q);
+  if (params?.compile_status) sp.set("compile_status", params.compile_status);
+  const qs = sp.toString();
+  return apiGet(`${P}/mibs/detailed${qs ? `?${qs}` : ""}`);
 }
 
 export function getSnmpMibSource(name: string): Promise<string> {

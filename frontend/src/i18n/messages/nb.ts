@@ -80,6 +80,9 @@ export const nb = {
   "snmp.mibColSize": "Bytes",
   "snmp.mibColModified": "Endret",
   "snmp.mibsEmpty": "Ingen MIB-filer er lastet opp ennå.",
+  "snmp.mibsEmptySearch": "Ingen MIB-filer samsvarer med søket.",
+  "snmp.mibsSearchLabel": "Søk",
+  "snmp.mibsSearchPlaceholder": "Filnavn, modul, IANA, produsent, kompilermelding …",
   "snmp.mibDeleteConfirm": "Slette denne MIB-filen fra serveren?",
   "snmp.probeTitle": "SNMP-probe",
   "snmp.probeHint":

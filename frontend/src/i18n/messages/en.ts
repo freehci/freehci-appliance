@@ -77,6 +77,9 @@ export const en = {
   "snmp.mibColSize": "Bytes",
   "snmp.mibColModified": "Modified",
   "snmp.mibsEmpty": "No MIB files uploaded yet.",
+  "snmp.mibsEmptySearch": "No MIB files match your search.",
+  "snmp.mibsSearchLabel": "Search",
+  "snmp.mibsSearchPlaceholder": "File name, module, IANA, manufacturer, compile message…",
   "snmp.mibDeleteConfirm": "Delete this MIB file from the server?",
   "snmp.probeTitle": "SNMP probe",
   "snmp.probeHint":

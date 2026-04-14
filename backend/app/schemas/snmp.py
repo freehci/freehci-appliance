@@ -40,6 +40,15 @@ class SnmpMibDetailRead(BaseModel):
     missing_import_modules: list[str] = Field(default_factory=list)
 
 
+class SnmpMibDetailPageRead(BaseModel):
+    """Paginert MIB-liste med filtrering/sortering."""
+
+    items: list[SnmpMibDetailRead]
+    total: int
+    page: int
+    page_size: int
+
+
 class SnmpMibTreeNodeRead(BaseModel):
     filename: str
     module_name: str | None = None

@@ -278,6 +278,83 @@ def list_mibs_detailed(db: Session, settings: Settings) -> list[dict]:
     return out
 
 
+def list_mibs_detailed_page(
+    db: Session,
+    settings: Settings,
+    *,
+    q: str | None,
+    sort: str,
+    order: str,
+    page: int,
+    page_size: int,
+    compile_status: str | None,
+) -> dict:
+    """Som list_mibs_detailed, med valgfritt søk, statusfilter, sortering og paginering (side 1-basert)."""
+    rows = list_mibs_detailed(db, settings)
+    if compile_status is not None and compile_status in ("pending", "ok", "error"):
+        rows = [r for r in rows if (r.get("compile_status") or "") == compile_status]
+    if q and q.strip():
+        ql = q.strip().casefold()
+
+        def matches(row: dict) -> bool:
+            mfr = row.get("linked_manufacturer") or {}
+            mfr_name = mfr.get("name") if isinstance(mfr, dict) else None
+            miss = row.get("missing_import_modules") or []
+            miss_s = " ".join(str(x) for x in miss) if isinstance(miss, list) else ""
+            parts = [
+                str(row.get("name") or ""),
+                str(row.get("module_name") or ""),
+                str(row.get("iana_organization") or ""),
+                str(mfr_name or ""),
+                str(row.get("compile_message") or ""),
+                miss_s,
+            ]
+            return any(ql in p.casefold() for p in parts)
+
+        rows = [r for r in rows if matches(r)]
+
+    sort_l = (sort or "name").lower()
+    order_l = (order or "asc").lower()
+    reverse = order_l == "desc"
+
+    def row_sort_key(r: dict) -> tuple:
+        if sort_l == "name":
+            return (str(r.get("name") or "").casefold(),)
+        if sort_l == "module_name":
+            return (str(r.get("module_name") or "").casefold(),)
+        if sort_l == "compile_status":
+            return (str(r.get("compile_status") or "").casefold(),)
+        if sort_l == "modified_at":
+            ma = r.get("modified_at")
+            return (ma is None, ma)
+        if sort_l == "size_bytes":
+            return (int(r.get("size_bytes") or 0),)
+        if sort_l == "enterprise_number":
+            v = r.get("enterprise_number")
+            return (v is None, v if v is not None else 0)
+        if sort_l == "effective_enterprise_number":
+            v = r.get("effective_enterprise_number")
+            return (v is None, v if v is not None else 0)
+        if sort_l == "iana_organization":
+            return (str(r.get("iana_organization") or "").casefold(),)
+        if sort_l in ("mfr", "linked_manufacturer"):
+            m = r.get("linked_manufacturer") or {}
+            nm = m.get("name") if isinstance(m, dict) else None
+            return (str(nm or "").casefold(),)
+        if sort_l == "missing_imports":
+            miss = r.get("missing_import_modules") or []
+            return (len(miss) if isinstance(miss, list) else 0,)
+        return (str(r.get("name") or "").casefold(),)
+
+    rows = sorted(rows, key=row_sort_key, reverse=reverse)
+    total = len(rows)
+    page_i = max(1, page)
+    ps = min(max(1, page_size), 200)
+    start = (page_i - 1) * ps
+    page_rows = rows[start : start + ps]
+    return {"items": page_rows, "total": total, "page": page_i, "page_size": ps}
+
+
 def list_enterprise_groups(db: Session, settings: Settings) -> list[dict]:
     disk = mib_disk.list_mib_files(settings)
     topo = _snmp_file_topology(db, settings, disk)

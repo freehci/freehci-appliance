@@ -71,7 +71,9 @@ def test_snmp_mibs_batch_and_detailed() -> None:
 
         det = client.get("/api/v1/snmp/mibs/detailed")
         assert det.status_code == 200
-        by_name = {r["name"]: r for r in det.json()}
+        body = det.json()
+        assert "items" in body and "total" in body
+        by_name = {r["name"]: r for r in body["items"]}
         assert by_name["A.mib"]["enterprise_number"] == 42
         assert by_name["B.mib"]["enterprise_number"] is None
 
@@ -84,6 +86,32 @@ def test_snmp_mibs_batch_and_detailed() -> None:
         for g in body:
             assert "mib_tree" in g
             assert isinstance(g["mib_tree"], list)
+
+
+def test_snmp_mibs_detailed_pagination_and_search() -> None:
+    """Paginering og søk på /mibs/detailed."""
+    app = create_app()
+    with TestClient(app) as client:
+        for name in ("ZZZ-PAGINATION-MIB.mib", "AAA-PAGINATION-MIB.mib", "MMM-PAGINATION-MIB.mib"):
+            up = client.post(
+                "/api/v1/snmp/mibs",
+                files={"file": (name, b"X DEFINITIONS ::= BEGIN\nEND\n", "text/plain")},
+            )
+            assert up.status_code == 200, up.text
+        p1 = client.get("/api/v1/snmp/mibs/detailed?page=1&page_size=2&sort=name&order=asc")
+        assert p1.status_code == 200, p1.text
+        b1 = p1.json()
+        assert b1["total"] >= 3
+        assert len(b1["items"]) == 2
+        assert b1["page"] == 1
+        assert b1["page_size"] == 2
+        names = [x["name"] for x in b1["items"]]
+        assert names == sorted(names)
+        q = client.get("/api/v1/snmp/mibs/detailed?q=ZZZ-PAGINATION")
+        assert q.status_code == 200
+        bq = q.json()
+        assert bq["total"] >= 1
+        assert any("ZZZ-PAGINATION" in x["name"] for x in bq["items"])
 
 
 def test_snmp_mibs_reject_bad_name() -> None:

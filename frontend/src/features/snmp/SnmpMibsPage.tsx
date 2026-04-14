@@ -36,19 +36,87 @@ export function SnmpMibsPage() {
   const [flashMibRow, setFlashMibRow] = useState<string | null>(null);
   const [bgCompileAll, setBgCompileAll] = useState(false);
   const [bgCompilePending, setBgCompilePending] = useState(false);
+  const [mibPage, setMibPage] = useState(1);
+  const [mibPageSize, setMibPageSize] = useState(25);
+  const [mibSort, setMibSort] = useState("name");
+  const [mibOrder, setMibOrder] = useState<"asc" | "desc">("asc");
+  const [mibSearchInput, setMibSearchInput] = useState("");
+  const [mibSearchQ, setMibSearchQ] = useState("");
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bgMibCompile = bgCompileAll || bgCompilePending;
 
+  useEffect(() => {
+    const t = window.setTimeout(() => setMibSearchQ(mibSearchInput.trim()), 400);
+    return () => window.clearTimeout(t);
+  }, [mibSearchInput]);
+
+  useEffect(() => {
+    setMibPage(1);
+  }, [mibSearchQ]);
+
+  useEffect(() => {
+    setMibPage(1);
+  }, [mibPageSize]);
+
   const mibsQ = useQuery({
-    queryKey: ["snmp", "mibs", "detailed"],
-    queryFn: snmpApi.listSnmpMibsDetailed,
+    queryKey: ["snmp", "mibs", "detailed", mibPage, mibPageSize, mibSort, mibOrder, mibSearchQ],
+    queryFn: () =>
+      snmpApi.listSnmpMibsDetailed({
+        page: mibPage,
+        page_size: mibPageSize,
+        sort: mibSort,
+        order: mibOrder,
+        q: mibSearchQ || undefined,
+      }),
     refetchInterval: bgMibCompile ? 4000 : false,
   });
 
-  const pendingMibs = useMemo(
-    () => (mibsQ.data ?? []).filter((m) => m.compile_status === "pending"),
-    [mibsQ.data],
+  const pendingMibsQ = useQuery({
+    queryKey: ["snmp", "mibs", "detailed", "pending-only"],
+    queryFn: () =>
+      snmpApi.listSnmpMibsDetailed({
+        compile_status: "pending",
+        page: 1,
+        page_size: 500,
+        sort: "name",
+        order: "asc",
+      }),
+    refetchInterval: bgMibCompile ? 4000 : false,
+  });
+
+  const mibRows = mibsQ.data?.items ?? [];
+  const mibTotal = mibsQ.data?.total ?? 0;
+  const pendingMibs = pendingMibsQ.data?.items ?? [];
+  const pendingTotal = pendingMibsQ.data?.total ?? 0;
+
+  const handleMibSort = useCallback((column: string) => {
+    setMibPage(1);
+    if (mibSort === column) {
+      setMibOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setMibSort(column);
+      setMibOrder("asc");
+    }
+  }, [mibSort]);
+
+  const mibPageCount = useMemo(
+    () => Math.max(1, Math.ceil(mibTotal / mibPageSize) || 1),
+    [mibTotal, mibPageSize],
   );
+  const mibRangeStart = useMemo(
+    () => (mibTotal === 0 ? 0 : (mibPage - 1) * mibPageSize + 1),
+    [mibTotal, mibPage, mibPageSize],
+  );
+  const mibRangeEnd = useMemo(
+    () => Math.min(mibPage * mibPageSize, mibTotal),
+    [mibPage, mibPageSize, mibTotal],
+  );
+
+  useEffect(() => {
+    if (mibTotal === 0) return;
+    const pc = Math.max(1, Math.ceil(mibTotal / mibPageSize));
+    if (mibPage > pc) setMibPage(pc);
+  }, [mibTotal, mibPageSize, mibPage]);
 
   const mibSourceQ = useQuery({
     queryKey: ["snmp", "mibSource", viewSourceName],
@@ -214,7 +282,7 @@ export function SnmpMibsPage() {
             loading={mibSourceQ.isLoading}
             error={mibSourceErrorText}
             onClose={() => setViewSourceName(null)}
-            allMibs={mibsQ.data ?? []}
+            allMibs={mibRows}
           />
         </Suspense>
       ) : null}
@@ -262,7 +330,7 @@ export function SnmpMibsPage() {
           <button
             type="button"
             className={dcimStyles.btnMuted}
-            disabled={normalizeMibFilenames.isPending || (mibsQ.data?.length ?? 0) === 0}
+            disabled={normalizeMibFilenames.isPending || mibTotal === 0}
             title={t("snmp.mibNormalizeHint")}
             onClick={() => {
               if (!window.confirm(t("snmp.mibNormalizeConfirm"))) return;
@@ -278,7 +346,7 @@ export function SnmpMibsPage() {
             disabled={
               compileAll.isPending ||
               bgCompileAll ||
-              (mibsQ.data?.length ?? 0) === 0
+              mibTotal === 0
             }
             onClick={() => {
               if (!window.confirm(t("snmp.compileAllConfirm"))) return;
@@ -295,11 +363,11 @@ export function SnmpMibsPage() {
         </div>
       </section>
 
-      {pendingMibs.length > 0 ? (
+      {pendingTotal > 0 ? (
         <section className={dcimStyles.mfrDetailSection}>
           <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.pendingMibsTitle")}</h3>
           <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
-            {t("snmp.pendingMibsIntro", { count: String(pendingMibs.length) })}
+            {t("snmp.pendingMibsIntro", { count: String(pendingTotal) })}
           </p>
           <div className={dcimStyles.formRow} style={{ alignItems: "center", marginBottom: "var(--space-2)" }}>
             <button
@@ -308,7 +376,7 @@ export function SnmpMibsPage() {
               disabled={
                 compilePending.isPending ||
                 bgCompilePending ||
-                pendingMibs.length === 0
+                pendingTotal === 0
               }
               title={t("snmp.compilePendingHint")}
               onClick={() => {
@@ -365,24 +433,111 @@ export function SnmpMibsPage() {
 
       <section className={dcimStyles.mfrDetailSection}>
         <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.mibsTableTitle")}</h3>
+        <div className={mibsTableStyles.mibToolbar}>
+          <label style={{ flex: "1 1 16rem", minWidth: "12rem", maxWidth: "28rem" }}>
+            <span className={dcimStyles.muted} style={{ display: "block", marginBottom: "var(--space-1)" }}>
+              {t("snmp.mibsSearchLabel")}
+            </span>
+            <input
+              type="search"
+              value={mibSearchInput}
+              onChange={(e) => setMibSearchInput(e.target.value)}
+              placeholder={t("snmp.mibsSearchPlaceholder")}
+              autoComplete="off"
+              spellCheck={false}
+              style={{
+                width: "100%",
+                padding: "var(--space-2)",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-bg)",
+                color: "var(--color-text)",
+              }}
+            />
+          </label>
+        </div>
         {mibsQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
-        {mibsQ.data && mibsQ.data.length > 0 ? (
-          <div style={{ overflowX: "auto" }}>
-            <table className={dcimStyles.table}>
-              <thead>
-                <tr>
-                  <th>{t("snmp.mibColName")}</th>
-                  <th>{t("snmp.mibColModule")}</th>
-                  <th>{t("snmp.mibColEnterprise")}</th>
-                  <th>{t("snmp.mibColIanaOrg")}</th>
-                  <th>{t("snmp.missingImportsCol")}</th>
-                  <th>{t("snmp.mibColCompile")}</th>
-                  <th>{t("snmp.mibColMfr")}</th>
-                  <th>{t("ipam.ipv4.actionsCol")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mibsQ.data.map((m) => {
+        {mibsQ.data != null && mibTotal > 0 ? (
+          <>
+            <div style={{ overflowX: "auto" }}>
+              <table className={dcimStyles.table}>
+                <thead>
+                  <tr>
+                    <th>
+                      <button
+                        type="button"
+                        className={mibsTableStyles.sortThBtn}
+                        onClick={() => handleMibSort("name")}
+                      >
+                        {t("snmp.mibColName")}
+                        {mibSort === "name" ? (mibOrder === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className={mibsTableStyles.sortThBtn}
+                        onClick={() => handleMibSort("module_name")}
+                      >
+                        {t("snmp.mibColModule")}
+                        {mibSort === "module_name" ? (mibOrder === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className={mibsTableStyles.sortThBtn}
+                        onClick={() => handleMibSort("enterprise_number")}
+                      >
+                        {t("snmp.mibColEnterprise")}
+                        {mibSort === "enterprise_number" ? (mibOrder === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className={mibsTableStyles.sortThBtn}
+                        onClick={() => handleMibSort("iana_organization")}
+                      >
+                        {t("snmp.mibColIanaOrg")}
+                        {mibSort === "iana_organization" ? (mibOrder === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className={mibsTableStyles.sortThBtn}
+                        onClick={() => handleMibSort("missing_imports")}
+                      >
+                        {t("snmp.missingImportsCol")}
+                        {mibSort === "missing_imports" ? (mibOrder === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className={mibsTableStyles.sortThBtn}
+                        onClick={() => handleMibSort("compile_status")}
+                      >
+                        {t("snmp.mibColCompile")}
+                        {mibSort === "compile_status" ? (mibOrder === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className={mibsTableStyles.sortThBtn}
+                        onClick={() => handleMibSort("mfr")}
+                      >
+                        {t("snmp.mibColMfr")}
+                        {mibSort === "mfr" ? (mibOrder === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    </th>
+                    <th>{t("ipam.ipv4.actionsCol")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mibRows.map((m) => {
                   const compilingThis = compilingName === m.name;
                   const statusLabel = compilingThis
                     ? t("snmp.compileStatus.compiling")
@@ -446,7 +601,7 @@ export function SnmpMibsPage() {
                           <div className={dcimStyles.err} style={{ marginTop: 4 }}>
                             <MibCompileErrorBlock
                               raw={m.compile_message}
-                              rows={mibsQ.data ?? []}
+                              rows={mibRows}
                               t={t}
                               onMibRefNavigate={handleMibRefNavigate}
                             />
@@ -491,8 +646,49 @@ export function SnmpMibsPage() {
               </tbody>
             </table>
           </div>
-        ) : mibsQ.data && mibsQ.data.length === 0 && !mibsQ.isLoading ? (
-          <p className={dcimStyles.muted}>{t("snmp.mibsEmpty")}</p>
+            <div className={mibsTableStyles.mibPagination}>
+              <span>
+                {t("ipam.grid.pagination.showing")} {mibRangeStart}–{mibRangeEnd}{" "}
+                {t("ipam.grid.pagination.of")} <strong>{mibTotal}</strong>
+              </span>
+              <label>
+                {t("ipam.grid.pagination.perPage")}{" "}
+                <select
+                  value={String(mibPageSize)}
+                  onChange={(e) => setMibPageSize(Number(e.target.value))}
+                >
+                  {[10, 25, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className={dcimStyles.btnMuted}
+                disabled={mibPage <= 1 || mibsQ.isLoading}
+                onClick={() => setMibPage((p) => Math.max(1, p - 1))}
+              >
+                {t("ipam.grid.pagination.prev")}
+              </button>
+              <span>
+                {mibPage} / {mibPageCount}
+              </span>
+              <button
+                type="button"
+                className={dcimStyles.btnMuted}
+                disabled={mibPage >= mibPageCount || mibsQ.isLoading}
+                onClick={() => setMibPage((p) => Math.min(mibPageCount, p + 1))}
+              >
+                {t("ipam.grid.pagination.next")}
+              </button>
+            </div>
+          </>
+        ) : !mibsQ.isLoading && mibTotal === 0 ? (
+          <p className={dcimStyles.muted}>
+            {mibSearchQ ? t("snmp.mibsEmptySearch") : t("snmp.mibsEmpty")}
+          </p>
         ) : null}
       </section>
 

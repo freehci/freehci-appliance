@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from starlette.responses import Response
@@ -22,6 +22,7 @@ from app.schemas.snmp import (
     SnmpInventoryRequest,
     SnmpMibCompileAllQueuedRead,
     SnmpMibNormalizeRead,
+    SnmpMibDetailPageRead,
     SnmpMibDetailRead,
     SnmpMibFileRead,
     SnmpMibManufacturerBrief,
@@ -43,13 +44,37 @@ router = APIRouter(prefix="/snmp", tags=["snmp"])
 _MAX_BATCH_FILES = 50
 
 
-@router.get("/mibs/detailed", response_model=list[SnmpMibDetailRead])
+@router.get("/mibs/detailed", response_model=SnmpMibDetailPageRead)
 def list_mibs_detailed(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-) -> list[SnmpMibDetailRead]:
-    rows = mib_cat_svc.list_mibs_detailed(db, settings)
-    return [SnmpMibDetailRead.model_validate(r) for r in rows]
+    q: str | None = Query(None, description="Søk i filnavn, modul, IANA, produsent, kompilermelding"),
+    sort: str = Query(
+        "name",
+        description=(
+            "name|module_name|compile_status|modified_at|size_bytes|enterprise_number|"
+            "effective_enterprise_number|iana_organization|mfr|missing_imports"
+        ),
+    ),
+    order: str = Query("asc", description="asc eller desc"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    compile_status: str | None = Query(
+        None,
+        description="Filtrer på kompileringsstatus: pending, ok, error",
+    ),
+) -> SnmpMibDetailPageRead:
+    data = mib_cat_svc.list_mibs_detailed_page(
+        db,
+        settings,
+        q=q,
+        sort=sort,
+        order=order,
+        page=page,
+        page_size=page_size,
+        compile_status=compile_status,
+    )
+    return SnmpMibDetailPageRead.model_validate(data)
 
 
 @router.get("/enterprises", response_model=list[SnmpEnterpriseGroupRead])
