@@ -72,6 +72,16 @@ export function getSnmpMibSource(name: string): Promise<string> {
   return apiGetText(`${P}/mibs/${encodeURIComponent(name)}/source`);
 }
 
+export type SnmpMibNormalizeResult = {
+  moved: Array<Record<string, string>>;
+  skipped: Array<Record<string, string>>;
+  moved_count: number;
+};
+
+export function normalizeSnmpMibFilenames(): Promise<SnmpMibNormalizeResult> {
+  return apiPost(`${P}/mibs/normalize-filenames`, {});
+}
+
 export function listSnmpEnterprises(): Promise<SnmpEnterpriseGroup[]> {
   return apiGet(`${P}/enterprises`);
 }

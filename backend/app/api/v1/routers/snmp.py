@@ -21,6 +21,7 @@ from app.schemas.snmp import (
     SnmpInventoryRead,
     SnmpInventoryRequest,
     SnmpMibCompileAllQueuedRead,
+    SnmpMibNormalizeRead,
     SnmpMibDetailRead,
     SnmpMibFileRead,
     SnmpMibManufacturerBrief,
@@ -78,6 +79,16 @@ def snmp_enterprises_autocreate_dcim(
 def sync_iana_enterprises(db: Session = Depends(get_db)) -> SnmpIanaSyncRead:
     n = mib_cat_svc.sync_iana_enterprises(db)
     return SnmpIanaSyncRead(rows_imported=n)
+
+
+@router.post("/mibs/normalize-filenames", response_model=SnmpMibNormalizeRead)
+def normalize_mib_filenames(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> SnmpMibNormalizeRead:
+    """Døp om eksisterende *.txt/*.my m.m. til *.mib på disk og oppdater metadata. Kjør deretter «kompiler ventende» ved behov."""
+    r = mib_cat_svc.normalize_mib_library_filenames_on_disk(db, settings)
+    return SnmpMibNormalizeRead.model_validate(r)
 
 
 @router.post("/mibs/batch", response_model=list[SnmpMibDetailRead])

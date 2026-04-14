@@ -62,8 +62,7 @@ def test_refresh_missing_after_upload(monkeypatch: pytest.MonkeyPatch, tmp_path:
     get_settings.cache_clear()
     settings = get_settings()
 
-    (mib_root / "child.txt").write_text(
-        """CHILD-MIB DEFINITIONS ::= BEGIN
+    child_src = """CHILD-MIB DEFINITIONS ::= BEGIN
 IMPORTS
     MODULE-IDENTITY FROM SNMPv2-SMI
     rootNode FROM PARENT-MIB;
@@ -74,22 +73,19 @@ c MODULE-IDENTITY
     DESCRIPTION "t"
     ::= { enterprises 42 }
 END
-""",
-        encoding="utf-8",
-    )
-    raw = (mib_root / "child.txt").read_bytes()
-    mib_disk.save_mib_file(settings, "child.txt", raw)
+"""
+    child_saved = mib_disk.save_mib_file(settings, "child.txt", child_src.encode("utf-8"))
+    assert child_saved["name"] == "child.mib"
 
     db = SessionLocal()
     try:
-        upsert_mib_meta(db, settings, "child.txt", raw)
+        upsert_mib_meta(db, settings, child_saved["name"], (mib_root / child_saved["name"]).read_bytes())
         refresh_missing_imports_all(db, settings)
-        meta = db.get(SnmpMibFileMeta, "child.txt")
+        meta = db.get(SnmpMibFileMeta, "child.mib")
         assert meta is not None
         assert json.loads(meta.missing_import_modules_json) == ["PARENT-MIB"]
 
-        (mib_root / "parent.txt").write_text(
-            """PARENT-MIB DEFINITIONS ::= BEGIN
+        parent_src = """PARENT-MIB DEFINITIONS ::= BEGIN
 IMPORTS
     MODULE-IDENTITY FROM SNMPv2-SMI;
 rootNode MODULE-IDENTITY
@@ -99,12 +95,10 @@ rootNode MODULE-IDENTITY
     DESCRIPTION "t"
     ::= { enterprises 42 1 }
 END
-""",
-            encoding="utf-8",
-        )
-        praw = (mib_root / "parent.txt").read_bytes()
-        mib_disk.save_mib_file(settings, "parent.txt", praw)
-        upsert_mib_meta(db, settings, "parent.txt", praw)
+"""
+        parent_saved = mib_disk.save_mib_file(settings, "parent.txt", parent_src.encode("utf-8"))
+        assert parent_saved["name"] == "parent.mib"
+        upsert_mib_meta(db, settings, parent_saved["name"], (mib_root / parent_saved["name"]).read_bytes())
         refresh_missing_imports_all(db, settings)
         db.refresh(meta)
         assert json.loads(meta.missing_import_modules_json) == []

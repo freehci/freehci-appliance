@@ -7,7 +7,10 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from typing import Any
+
+from fastapi import HTTPException
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,7 +23,7 @@ from app.services.snmp_iana import fetch_iana_enterprise_rows
 from app.services.snmp_mib_compile import compile_mib_modules, compile_status_is_success, compiled_py_path
 from app.services.snmp_mib_normalize import normalize_mib_source_text
 from app.services.snmp_mib_dependencies import parse_missing_imports_json, refresh_missing_imports_all
-from app.services.snmp_mib_index import mib_module_to_files_map
+from app.services.snmp_mib_index import mib_module_to_files_map, rebuild_pysmi_mib_index
 from app.services.snmp_mib_parse import guess_module_name, imported_vendor_mib_modules, primary_enterprise_number
 
 logger = logging.getLogger(__name__)
@@ -31,9 +34,8 @@ def _utcnow() -> datetime:
 
 
 def _mib_file_text(settings: Settings, filename: str) -> str:
-    root = settings.mib_root_path.resolve()
-    path = (root / filename).resolve()
-    if not str(path).startswith(str(root)) or not path.is_file():
+    path = mib_disk.try_resolve_mib_disk_path(settings, filename)
+    if path is None:
         return ""
     return path.read_text(encoding="utf-8", errors="replace")
 
@@ -71,9 +73,8 @@ def upsert_mib_meta(db: Session, settings: Settings, filename: str, content: byt
 
 
 def refresh_mib_meta_from_disk(db: Session, settings: Settings, filename: str) -> SnmpMibFileMeta | None:
-    root = settings.mib_root_path.resolve()
-    path = (root / filename).resolve()
-    if not str(path).startswith(str(root.resolve())) or not path.is_file():
+    path = mib_disk.try_resolve_mib_disk_path(settings, filename)
+    if path is None:
         return None
     row = upsert_mib_meta(db, settings, filename, path.read_bytes())
     refresh_missing_imports_all(db, settings)
@@ -390,12 +391,7 @@ def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
 
         raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
 
-    root = settings.mib_root_path.resolve()
-    path = (root / filename).resolve()
-    if not str(path).startswith(str(root)) or not path.is_file():
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
+    path = mib_disk.resolve_mib_disk_path(settings, filename)
 
     text = path.read_text(encoding="utf-8", errors="replace")
     text, mib_normalized = normalize_mib_source_text(text)
@@ -405,8 +401,8 @@ def compile_mib_file(db: Session, settings: Settings, filename: str) -> dict:
     meta.module_name = module
     stem = Path(filename).stem
     hints = list(dict.fromkeys([module, stem]))
-    # pysmi leter etter «stem» + .txt/.mib/.my (f.eks. MBG-SNMP-NTP-DISPLAY.txt), ikke nødvendigvis DEFINITIONS-navnet
-    # (MBG-SNMP-NTP-DISPLAY-MIB.txt). Ulik stem → kompilér med filnavn som frø.
+    # pysmi leter etter «stem» + .txt/.mib/.my (f.eks. MBG-SNMP-NTP-DISPLAY.mib), ikke nødvendigvis DEFINITIONS-navnet
+    # (MBG-SNMP-NTP-DISPLAY-MIB.mib). Ulik stem → kompilér med filnavn som frø.
     compile_seed = stem if stem.casefold() != module.casefold() else module
     results = compile_mib_modules(
         settings,
@@ -516,3 +512,58 @@ def delete_mib_complete(db: Session, settings: Settings, filename: str) -> None:
             pyc = p.with_suffix(".pyc")
             if pyc.is_file():
                 pyc.unlink(missing_ok=True)
+
+
+def _rename_mib_file_meta_row(db: Session, old_filename: str, new_filename: str) -> None:
+    if old_filename == new_filename:
+        return
+    row = db.get(SnmpMibFileMeta, old_filename)
+    if row is None:
+        return
+    if db.get(SnmpMibFileMeta, new_filename) is not None:
+        db.delete(row)
+        return
+    db.execute(
+        update(SnmpMibFileMeta)
+        .where(SnmpMibFileMeta.filename == old_filename)
+        .values(filename=new_filename),
+    )
+
+
+def normalize_mib_library_filenames_on_disk(db: Session, settings: Settings) -> dict[str, Any]:
+    """Døp om *.txt/*.my/*.mib.txt m.m. til kanonisk *.mib; oppdater snmp_mib_file_meta. Hopper over treff der målfil finnes."""
+    root = settings.mib_root_path.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    paths = [
+        p
+        for p in root.iterdir()
+        if p.is_file() and not p.name.startswith(".") and p.name != ".index"
+    ]
+    paths.sort(key=lambda p: (-len(p.name), p.name))
+    moved: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+    for p in paths:
+        try:
+            target = mib_disk.validate_mib_filename(p.name)
+        except HTTPException as e:
+            detail = e.detail if isinstance(e.detail, str) else str(e.detail)
+            skipped.append({"file": p.name, "reason": detail})
+            continue
+        if p.name == target:
+            continue
+        dest = (root / target).resolve()
+        src = p.resolve()
+        if not str(src).startswith(str(root)) or not str(dest).startswith(str(root)):
+            skipped.append({"file": p.name, "reason": "ugyldig sti"})
+            continue
+        if dest.exists():
+            skipped.append({"file": p.name, "to": target, "reason": "målfil finnes allerede"})
+            continue
+        old_name = p.name
+        p.rename(dest)
+        moved.append({"from": old_name, "to": target})
+        _rename_mib_file_meta_row(db, old_name, target)
+    db.commit()
+    rebuild_pysmi_mib_index(root)
+    refresh_missing_imports_all(db, settings)
+    return {"moved": moved, "skipped": skipped, "moved_count": len(moved)}

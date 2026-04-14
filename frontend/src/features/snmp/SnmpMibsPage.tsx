@@ -30,6 +30,7 @@ export function SnmpMibsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
+  const [mibNormalizeReport, setMibNormalizeReport] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [viewSourceName, setViewSourceName] = useState<string | null>(null);
   const [flashMibRow, setFlashMibRow] = useState<string | null>(null);
@@ -54,6 +55,17 @@ export function SnmpMibsPage() {
     queryFn: () => snmpApi.getSnmpMibSource(viewSourceName!),
     enabled: viewSourceName != null,
   });
+
+  const mibSourceErrorText = useMemo(() => {
+    if (!mibSourceQ.isError) return null;
+    if (mibSourceQ.error instanceof ApiError) {
+      if (mibSourceQ.error.status === 404 && viewSourceName != null) {
+        return t("snmp.mibSourceNotFound", { name: viewSourceName });
+      }
+      return mibSourceQ.error.message;
+    }
+    return String(mibSourceQ.error);
+  }, [mibSourceQ.isError, mibSourceQ.error, viewSourceName, t]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["snmp", "mibs"] });
@@ -122,6 +134,26 @@ export function SnmpMibsPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const normalizeMibFilenames = useMutation({
+    mutationFn: () => snmpApi.normalizeSnmpMibFilenames(),
+    onSuccess: (data) => {
+      setErr(null);
+      setMibNormalizeReport(
+        [
+          t("snmp.mibNormalizeDone", { count: String(data.moved_count) }),
+          data.skipped.length > 0
+            ? t("snmp.mibNormalizeSkipped", { count: String(data.skipped.length) })
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+      invalidate();
+      void qc.invalidateQueries({ queryKey: ["snmp", "mibs", "detailed"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const compilingName = compileOne.isPending ? compileOne.variables : undefined;
   const deletingName = delMib.isPending ? delMib.variables : undefined;
 
@@ -180,19 +212,14 @@ export function SnmpMibsPage() {
             filename={viewSourceName}
             content={mibSourceQ.data ?? null}
             loading={mibSourceQ.isLoading}
-            error={
-              mibSourceQ.isError
-                ? mibSourceQ.error instanceof ApiError
-                  ? mibSourceQ.error.message
-                  : String(mibSourceQ.error)
-                : null
-            }
+            error={mibSourceErrorText}
             onClose={() => setViewSourceName(null)}
             allMibs={mibsQ.data ?? []}
           />
         </Suspense>
       ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
+      {mibNormalizeReport ? <p className={dcimStyles.muted}>{mibNormalizeReport}</p> : null}
       {bgCompileAll ? <p className={dcimStyles.muted}>{t("snmp.compileAllStarted")}</p> : null}
       {bgCompilePending ? <p className={dcimStyles.muted}>{t("snmp.compilePendingStarted")}</p> : null}
       <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
@@ -231,6 +258,19 @@ export function SnmpMibsPage() {
             title={t("snmp.ianaSyncHint")}
           >
             {syncIana.isPending ? "…" : t("snmp.ianaSync")}
+          </button>
+          <button
+            type="button"
+            className={dcimStyles.btnMuted}
+            disabled={normalizeMibFilenames.isPending || (mibsQ.data?.length ?? 0) === 0}
+            title={t("snmp.mibNormalizeHint")}
+            onClick={() => {
+              if (!window.confirm(t("snmp.mibNormalizeConfirm"))) return;
+              setMibNormalizeReport(null);
+              normalizeMibFilenames.mutate();
+            }}
+          >
+            {normalizeMibFilenames.isPending ? "…" : t("snmp.mibNormalizeButton")}
           </button>
           <button
             type="button"

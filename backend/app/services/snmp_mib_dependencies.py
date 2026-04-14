@@ -41,9 +41,8 @@ def missing_vendor_import_modules(
 
 
 def _read_mib_text(settings: Settings, filename: str) -> str:
-    root = settings.mib_root_path.resolve()
-    path = (root / filename).resolve()
-    if not str(path).startswith(str(root)) or not path.is_file():
+    path = mib_disk.try_resolve_mib_disk_path(settings, filename)
+    if path is None:
         return ""
     return path.read_text(encoding="utf-8", errors="replace")
 

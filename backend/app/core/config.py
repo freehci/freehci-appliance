@@ -60,7 +60,7 @@ class Settings(BaseSettings):
 
     mib_root: str = Field(
         default="data/mibs",
-        description="Katalog for opplastede SNMP-MIB-filer (.mib/.txt), relativ eller absolutt sti",
+        description="Katalog for opplastede SNMP-MIB-filer (lagres kanonisk som .mib), relativ eller absolutt sti",
     )
 
     mib_compiled_root: str = Field(

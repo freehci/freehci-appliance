@@ -202,7 +202,13 @@ export const nb = {
     "Last opp MIB-kilder, kompiler til PySNMP (kan hente avhengigheter fra nett), og synkroniser IANA for leverandørnavn. Enterprise-grupper og DCIM-kobling:",
   "snmp.mibsUploadTitle": "Last opp MIB-filer",
   "snmp.mibUploadMaxHint":
-    "Maks størrelse per fil er 20 MiB som standard (serverinnstilling MIB_UPLOAD_MAX_BYTES).",
+    "Maks størrelse per fil er 20 MiB som standard (serverinnstilling MIB_UPLOAD_MAX_BYTES). Opplastinger lagres som *.mib (du kan fortsatt velge .txt- eller .my-filer).",
+  "snmp.mibNormalizeButton": "Omdøp bibliotek til .mib",
+  "snmp.mibNormalizeHint":
+    "Døper om eksisterende .txt / .my / dobbeltsuffiks på disk til *.mib og oppdaterer metadata i databasen. Hopper over når målfilnavnet finnes fra før. Kjør «Kompiler ventende» etterpå hvis du bruker kompilerte MIB-er.",
+  "snmp.mibNormalizeConfirm": "Omdøpe MIB-filer i biblioteket til kanonisk .mib-endelse?",
+  "snmp.mibNormalizeDone": "Omdøpte {count} fil(er).",
+  "snmp.mibNormalizeSkipped": "{count} fil(er) hoppet over.",
   "snmp.pendingMibsTitle": "Venter på kompilering",
   "snmp.pendingMibsIntro":
     "{count} MIB-fil(er) har status «pending» og er ikke kjørt gjennom PySMI ennå.",
@@ -259,6 +265,8 @@ export const nb = {
   "snmp.mibDownloadAria": "Last ned MIB",
   "snmp.mibSourceCloseAria": "Lukk viewer",
   "snmp.mibSourceLoading": "Laster editor…",
+  "snmp.mibSourceNotFound":
+    "Fant ikke MIB-kilden for «{name}». Filen kan være slettet, omdøpt, eller ligge under et annet navn på disk.",
   "snmp.mibViewerProblems": "Problemer",
   "snmp.mibViewerProblemLine": "Linje {line}",
   "snmp.mibViewerProblemNoLine": "Ingen linje",

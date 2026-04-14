@@ -198,7 +198,13 @@ export const en = {
     "Upload MIB sources, compile to PySNMP (may fetch dependencies from the network), and sync IANA for vendor names. Enterprise groups and DCIM linking:",
   "snmp.mibsUploadTitle": "Upload MIB files",
   "snmp.mibUploadMaxHint":
-    "Maximum size per file is 20 MiB by default (server setting MIB_UPLOAD_MAX_BYTES).",
+    "Maximum size per file is 20 MiB by default (server setting MIB_UPLOAD_MAX_BYTES). Uploads are stored as *.mib (you can still pick .txt or .my files).",
+  "snmp.mibNormalizeButton": "Rename library to .mib",
+  "snmp.mibNormalizeHint":
+    "Renames existing .txt / .my / double-suffix files on disk to *.mib and updates DB metadata. Skipped when the target filename already exists. Run «Compile pending» afterward if you rely on compiled MIBs.",
+  "snmp.mibNormalizeConfirm": "Rename MIB files in the library to the canonical .mib extension?",
+  "snmp.mibNormalizeDone": "Renamed {count} file(s).",
+  "snmp.mibNormalizeSkipped": "{count} file(s) skipped.",
   "snmp.pendingMibsTitle": "Pending compilation",
   "snmp.pendingMibsIntro":
     "{count} MIB file(s) are still pending compilation (not yet run through PySMI).",
@@ -255,6 +261,8 @@ export const en = {
   "snmp.mibDownloadAria": "Download MIB",
   "snmp.mibSourceCloseAria": "Close viewer",
   "snmp.mibSourceLoading": "Loading editor…",
+  "snmp.mibSourceNotFound":
+    "Could not load MIB source for “{name}”. The file may have been removed, renamed, or stored under a different name on disk.",
   "snmp.mibViewerProblems": "Problems",
   "snmp.mibViewerProblemLine": "Line {line}",
   "snmp.mibViewerProblemNoLine": "No line",

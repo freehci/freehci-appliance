@@ -84,6 +84,14 @@ class SnmpMibCompileAllQueuedRead(BaseModel):
     queued: Literal[True] = True
 
 
+class SnmpMibNormalizeRead(BaseModel):
+    """Resultat av én gangs omdøping av MIB-filer til kanonisk *.mib."""
+
+    moved: list[dict[str, str]] = Field(default_factory=list)
+    skipped: list[dict[str, str]] = Field(default_factory=list)
+    moved_count: int = 0
+
+
 class SnmpProbeRequest(BaseModel):
     host: str = Field(..., min_length=1, max_length=255)
     port: int = Field(161, ge=1, le=65535)

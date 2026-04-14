@@ -13,20 +13,25 @@ from app.services.snmp_mib_index import rebuild_pysmi_mib_index
 from app.services.snmp_mib_normalize import normalize_mib_source_text
 
 _MIB_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
-_ALLOWED_SUFFIX = frozenset({".mib", ".my", ".txt"})
 
 
 def _normalize_mib_filename_base(base: str) -> str:
-    """Fjern dobbel endelse (.mib.txt / .my.txt) → én .txt (pysmi forventer MODUL.txt, ikke MODUL.mib.txt)."""
+    """Kanonisk lagringsnavn: alltid *.mib (pysmi støtter .mib; ett suffiks unngår rare filnavn)."""
     while True:
         lower = base.lower()
         if lower.endswith(".mib.txt"):
-            base = base[: -len(".mib.txt")] + ".txt"
+            base = base[: -len(".mib.txt")] + ".mib"
             continue
         if lower.endswith(".my.txt"):
-            base = base[: -len(".my.txt")] + ".txt"
+            base = base[: -len(".my.txt")] + ".mib"
             continue
         break
+    p = Path(base)
+    suf = p.suffix.lower()
+    if suf == ".txt":
+        return f"{p.stem}.mib"
+    if suf == ".my":
+        return f"{p.stem}.mib"
     return base
 
 
@@ -36,34 +41,72 @@ def _ensure_mib_root(settings: Settings) -> Path:
     return root
 
 
+def _mib_path_candidates(settings: Settings, name: str) -> list[Path]:
+    """Absolutte stier under MIB-root: kanonisk *.mib først, deretter rå basename og vanlige legacy-varianter."""
+    if Path(name).name != name:
+        raise HTTPException(status_code=400, detail="ugyldig MIB-filnavn")
+    raw = Path(name).name
+    root = _ensure_mib_root(settings)
+    rr = root.resolve()
+    safe = validate_mib_filename(name)
+    seq: list[str] = [safe, raw] if raw != safe else [safe]
+    stem = Path(safe).stem
+    if safe.lower().endswith(".mib"):
+        for alt in (f"{stem}.txt", f"{stem}.my", f"{stem}.mib.txt", f"{stem}.my.txt"):
+            if alt not in seq:
+                seq.append(alt)
+    out: list[Path] = []
+    seen_resolved: set[str] = set()
+    for rel in seq:
+        path = (rr / rel).resolve()
+        key = str(path)
+        if key in seen_resolved:
+            continue
+        seen_resolved.add(key)
+        if not str(path).startswith(str(rr)):
+            raise HTTPException(status_code=400, detail="ugyldig sti")
+        out.append(path)
+    return out
+
+
+def try_resolve_mib_disk_path(settings: Settings, name: str) -> Path | None:
+    """Returner første eksisterende MIB-fil under root, eller None."""
+    for path in _mib_path_candidates(settings, name):
+        if path.is_file():
+            return path
+    return None
+
+
+def resolve_mib_disk_path(settings: Settings, name: str) -> Path:
+    """Som try_resolve_mib_disk_path, men 404 hvis ingen fil matcher."""
+    p = try_resolve_mib_disk_path(settings, name)
+    if p is None:
+        raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
+    return p
+
+
 def validate_mib_filename(name: str) -> str:
-    base = Path(name).name
-    base = _normalize_mib_filename_base(base)
+    """Valider inndatafilnavn; returner alltid kanonisk *.mib for lagring/oppslag."""
+    raw_in = Path(name).name
+    if raw_in != name:
+        raise HTTPException(status_code=400, detail="ugyldig MIB-filnavn")
+    suf_in = Path(raw_in).suffix.lower()
+    if suf_in not in {".mib", ".my", ".txt"}:
+        raise HTTPException(
+            status_code=400,
+            detail="kun .mib, .my eller .txt er tillatt som opplastet filnavn",
+        )
+    base = _normalize_mib_filename_base(raw_in)
     if not _MIB_NAME_RE.fullmatch(base):
         raise HTTPException(status_code=400, detail="ugyldig MIB-filnavn")
     suf = Path(base).suffix.lower()
-    if suf not in _ALLOWED_SUFFIX:
-        raise HTTPException(
-            status_code=400,
-            detail="kun .mib, .my eller .txt er tillatt",
-        )
-    stem = Path(base).stem
-    stem_l = stem.lower()
-    # Etter normalisering skal ikke stammen fortsatt ende på .mib/.my før .txt (f.eks. håndtert over).
-    if suf == ".txt" and (stem_l.endswith(".mib") or stem_l.endswith(".my")):
-        raise HTTPException(
-            status_code=400,
-            detail="bruk ett suffiks (.mib, .my eller .txt), ikke .mib.txt eller .my.txt",
-        )
-    if suf == ".mib" and stem_l.endswith(".my"):
+    if suf != ".mib":
+        raise HTTPException(status_code=400, detail="ugyldig MIB-filnavn")
+    stem_l = Path(base).stem.lower()
+    if stem_l.endswith(".my"):
         raise HTTPException(
             status_code=400,
             detail="bruk ett suffiks (.mib, .my eller .txt), ikke .my.mib",
-        )
-    if suf == ".my" and stem_l.endswith(".mib"):
-        raise HTTPException(
-            status_code=400,
-            detail="bruk ett suffiks (.mib, .my eller .txt), ikke .mib.my",
         )
     return base
 
@@ -117,23 +160,11 @@ def save_mib_file(settings: Settings, filename: str, data: bytes) -> dict:
 
 def read_mib_text(settings: Settings, filename: str) -> str:
     """Les dekodet MIB-kildetekst (UTF-8 med feil-erstatning)."""
-    safe = validate_mib_filename(filename)
-    root = _ensure_mib_root(settings)
-    path = (root / safe).resolve()
-    if not str(path).startswith(str(root.resolve())):
-        raise HTTPException(status_code=400, detail="ugyldig sti")
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
+    path = resolve_mib_disk_path(settings, filename)
     return path.read_text(encoding="utf-8", errors="replace")
 
 
 def delete_mib_file(settings: Settings, filename: str) -> None:
-    safe = validate_mib_filename(filename)
-    root = _ensure_mib_root(settings)
-    path = (root / safe).resolve()
-    if not str(path).startswith(str(root.resolve())):
-        raise HTTPException(status_code=400, detail="ugyldig sti")
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="MIB-fil ikke funnet")
+    path = resolve_mib_disk_path(settings, filename)
     path.unlink()
-    rebuild_pysmi_mib_index(root)
+    rebuild_pysmi_mib_index(_ensure_mib_root(settings))
