@@ -1,13 +1,20 @@
 """API-tester for SNMP MIB-lager."""
 
-import os
+import uuid
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from app.main import create_app
 from app.services import snmp_mib_catalog as mib_cat
+
+
+def _mib_root_dir() -> Path:
+    """Samme MIB-katalog som API (etter eventuell cache_clear)."""
+    get_settings.cache_clear()
+    return get_settings().mib_root_path.resolve()
 
 
 def test_snmp_mibs_upload_list_delete() -> None:
@@ -91,15 +98,15 @@ def test_snmp_mibs_reject_bad_name() -> None:
 
 def test_snmp_mibs_source_reads_legacy_mib_txt_filename_on_disk() -> None:
     """Filer som fortsatt heter *.mib.txt på disk skal kunne åpnes når UI/API bruker det navnet."""
-    root = Path(os.environ["MIB_ROOT"])
-    legacy = root / "BROCADE-LLDP-EXT-DOT3-CAPABILITY-MIB.mib.txt"
+    u = uuid.uuid4().hex[:10]
+    legacy_name = f"LEGACY-BROCADE-{u}.mib.txt"
+    root = _mib_root_dir()
+    legacy = root / legacy_name
     legacy.write_text("LEGACY-ON-DISK\n", encoding="utf-8")
     try:
         app = create_app()
         with TestClient(app) as client:
-            src = client.get(
-                "/api/v1/snmp/mibs/BROCADE-LLDP-EXT-DOT3-CAPABILITY-MIB.mib.txt/source",
-            )
+            src = client.get(f"/api/v1/snmp/mibs/{legacy_name}/source")
             assert src.status_code == 200, src.text
             assert "LEGACY-ON-DISK" in src.text
     finally:
@@ -107,15 +114,17 @@ def test_snmp_mibs_source_reads_legacy_mib_txt_filename_on_disk() -> None:
 
 
 def test_snmp_mibs_source_prefers_canonical_mib_when_legacy_double_suffix_exists() -> None:
-    root = Path(os.environ["MIB_ROOT"])
-    norm = root / "DUP-MIB.mib"
-    legacy = root / "DUP-MIB.mib.txt"
+    u = uuid.uuid4().hex[:10]
+    base = f"DUP-MIB-{u}"
+    root = _mib_root_dir()
+    norm = root / f"{base}.mib"
+    legacy = root / f"{base}.mib.txt"
     norm.write_text("from-mib\n", encoding="utf-8")
     legacy.write_text("from-mib-txt\n", encoding="utf-8")
     try:
         app = create_app()
         with TestClient(app) as client:
-            src = client.get("/api/v1/snmp/mibs/DUP-MIB.mib.txt/source")
+            src = client.get(f"/api/v1/snmp/mibs/{base}.mib.txt/source")
             assert src.status_code == 200, src.text
             assert "from-mib" in src.text
             assert "from-mib-txt" not in src.text
@@ -148,8 +157,12 @@ def test_snmp_mibs_normalizes_double_suffix_my_txt() -> None:
 
 
 def test_snmp_mibs_normalize_filenames_endpoint() -> None:
-    root = Path(os.environ["MIB_ROOT"])
-    legacy = root / "ORPHAN-NORM-MIB.txt"
+    u = uuid.uuid4().hex[:10]
+    base = f"ORPHAN-NORM-{u}"
+    legacy_name = f"{base}.txt"
+    canon_name = f"{base}.mib"
+    root = _mib_root_dir()
+    legacy = root / legacy_name
     legacy.write_text("M DEFINITIONS ::= BEGIN END\n", encoding="utf-8")
     try:
         app = create_app()
@@ -157,13 +170,13 @@ def test_snmp_mibs_normalize_filenames_endpoint() -> None:
             r = client.post("/api/v1/snmp/mibs/normalize-filenames")
             assert r.status_code == 200, r.text
             body = r.json()
-            assert body["moved_count"] >= 1
-            assert any(m.get("to") == "ORPHAN-NORM-MIB.mib" for m in body["moved"])
-        assert not (root / "ORPHAN-NORM-MIB.txt").exists()
-        assert (root / "ORPHAN-NORM-MIB.mib").is_file()
+            assert body["moved_count"] >= 1, body
+            assert any(m.get("to") == canon_name for m in body["moved"]), body
+        assert not (root / legacy_name).exists()
+        assert (root / canon_name).is_file()
     finally:
-        (root / "ORPHAN-NORM-MIB.mib").unlink(missing_ok=True)
-        (root / "ORPHAN-NORM-MIB.txt").unlink(missing_ok=True)
+        (root / canon_name).unlink(missing_ok=True)
+        (root / legacy_name).unlink(missing_ok=True)
 
 
 def test_snmp_mibs_compile_pending_returns_202_and_runs_background(monkeypatch: pytest.MonkeyPatch) -> None:

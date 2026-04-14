@@ -553,7 +553,10 @@ def normalize_mib_library_filenames_on_disk(db: Session, settings: Settings) -> 
             continue
         dest = (root / target).resolve()
         src = p.resolve()
-        if not str(src).startswith(str(root)) or not str(dest).startswith(str(root)):
+        if not mib_disk._is_resolved_path_under_root(src, root) or not mib_disk._is_resolved_path_under_root(
+            dest,
+            root,
+        ):
             skipped.append({"file": p.name, "reason": "ugyldig sti"})
             continue
         if dest.exists():
