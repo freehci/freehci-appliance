@@ -63,6 +63,30 @@ def _compiled_dir_mtime(settings: Settings) -> float:
         return 0.0
 
 
+def _oid_and_label_from_get_name(sym_name: str, raw: Any) -> tuple[tuple[int, ...], str] | None:
+    """Normaliser PySNMP getName()-retur til (oid_tuple, label).
+
+    Nyere pysnmp returnerer ofte bare OID-tupelen (1, 3, 6, …). Eldre kode forventet
+    (navn, oid) — da feilet f.eks. MODULE-IDENTITY og modulen ble usynlig i indeksen.
+    """
+    if not isinstance(raw, tuple) or not raw:
+        return None
+    if all(isinstance(x, int) for x in raw):
+        try:
+            return (tuple(int(x) for x in raw), str(sym_name))
+        except Exception:
+            return None
+    if len(raw) >= 2 and isinstance(raw[1], tuple) and raw[1] and all(isinstance(x, int) for x in raw[1]):
+        n = raw[0]
+        try:
+            oid_t = tuple(int(x) for x in raw[1])
+        except Exception:
+            return None
+        label = str(n) if isinstance(n, str) else str(sym_name)
+        return (oid_t, label)
+    return None
+
+
 def _pick_better_symbol(a: BrowserSymbol, b: BrowserSymbol) -> BrowserSymbol:
     """Velg en stabil 'beste' label når flere symboler deler samme OID."""
     # Foretrekk eksplisitt modul/symbol framfor bare numerisk.
@@ -129,17 +153,15 @@ def _build_index(settings: Settings) -> _BrowserIndex:
             if not callable(get_name):
                 continue
             try:
-                n, oid = get_name()
+                raw = get_name()
             except Exception:
                 continue
-            if not isinstance(oid, tuple) or not oid:
+            parsed = _oid_and_label_from_get_name(str(sym_name), raw)
+            if parsed is None:
                 continue
-            # OID er tuple[int,...] i praksis; normaliser defensivt.
-            try:
-                oid_t = tuple(int(x) for x in oid)
-            except Exception:
+            oid_t, label = parsed
+            if not oid_t:
                 continue
-            label = str(n) if isinstance(n, str) else str(sym_name)
             bs = BrowserSymbol(oid=oid_t, label=label, module=str(mod), symbol=str(sym_name))
             prev = best.get(oid_t)
             best[oid_t] = bs if prev is None else _pick_better_symbol(prev, bs)
