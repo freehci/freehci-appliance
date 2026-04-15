@@ -1,0 +1,70 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.12rem 0.28rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: help;
+  border-radius: var(--radius-sm);
+  font-size: 1em;
+  line-height: 1;
+}
+
+.trigger:hover,
+.trigger:focus-visible {
+  color: var(--color-text);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-border);
+}
+
+.card {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 6px);
+  z-index: 60;
+  min-width: 14rem;
+  max-width: min(32rem, calc(100vw - 2rem));
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-panel);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--color-text);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(2px);
+  transition:
+    opacity 0.12s ease,
+    visibility 0.12s,
+    transform 0.12s ease;
+}
+
+.wrap:hover .card,
+.wrap:focus-within .card {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.cardInner p {
+  margin: 0 0 0.5em 0;
+}
+
+.cardInner p:last-child {
+  margin-bottom: 0;
+}

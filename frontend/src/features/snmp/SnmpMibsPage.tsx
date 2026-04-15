@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
+import { HoverHelpCard } from "@/components/ui/HoverHelpCard";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { MibCompileErrorBlock } from "./MibCompileErrorBlock";
 import { mibTableRowDomId } from "./mibCompileDiagnostics";
@@ -290,9 +291,21 @@ export function SnmpMibsPage() {
       {mibNormalizeReport ? <p className={dcimStyles.muted}>{mibNormalizeReport}</p> : null}
       {bgCompileAll ? <p className={dcimStyles.muted}>{t("snmp.compileAllStarted")}</p> : null}
       {bgCompilePending ? <p className={dcimStyles.muted}>{t("snmp.compilePendingStarted")}</p> : null}
-      <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
-        {t("snmp.mibsPageIntro")}{" "}
-        <Link to="/snmp/enterprises">{t("snmp.enterprisesTabLink")}</Link>
+      <p
+        className={dcimStyles.muted}
+        style={{
+          marginTop: 0,
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: "0.35rem",
+        }}
+      >
+        {t("snmp.mibsPageIntroShort")}{" "}
+        <Link to="/snmp/enterprises">{t("snmp.enterprisesTabLinkShort")}</Link>
+        <HoverHelpCard ariaLabel={t("snmp.mibsPageHelpAria")}>
+          <p>{t("snmp.mibsPageIntroHelpBody")}</p>
+        </HoverHelpCard>
       </p>
 
       <section className={dcimStyles.mfrDetailSection}>
@@ -692,7 +705,15 @@ export function SnmpMibsPage() {
         ) : null}
       </section>
 
-      <p className={dcimStyles.muted}>{t("snmp.mibsVendorNote")}</p>
+      <p
+        className={dcimStyles.muted}
+        style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem" }}
+      >
+        <span>{t("snmp.mibsVendorNoteShort")}</span>
+        <HoverHelpCard ariaLabel={t("snmp.mibsVendorHelpAria")}>
+          <p>{t("snmp.mibsVendorNote")}</p>
+        </HoverHelpCard>
+      </p>
     </>
   );
 }

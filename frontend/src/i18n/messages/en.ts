@@ -168,6 +168,7 @@ export const en = {
   "snmp.addDeviceDcimHint":
     "Opens Equipment → Devices with hostname (sysName.0 if present) and snmp_host in attributes. Choose model and save.",
   "snmp.enterprisesTabLink": "Open the Enterprises tab for grouping, tree view, and DCIM linking.",
+  "snmp.enterprisesTabLinkShort": "Enterprises",
   "snmp.enterprisesPageIntro":
     "MIBs are grouped by IANA enterprise (PEN). Extensions without their own PEN appear under the parent MIB in the tree. Link to a DCIM manufacturer or create one from the IANA name.",
   "snmp.enterprisesBulkTitle": "Create DCIM manufacturers",
@@ -197,8 +198,10 @@ export const en = {
   "snmp.mibParentMissingShort": "Missing parent MIB “{module}” in the library.",
   "snmp.mibCompileErrorInTree": "Compile error on this file",
   "snmp.effectivePenShort": "inherited PEN {pen}",
-  "snmp.mibsPageIntro":
-    "Upload MIB sources, compile to PySNMP (may fetch dependencies from the network), and sync IANA for vendor names. Enterprise groups and DCIM linking:",
+  "snmp.mibsPageIntroShort": "Upload, compile, and sync IANA. For grouped MIBs and DCIM:",
+  "snmp.mibsPageIntroHelpBody":
+    "Upload MIB sources, compile to PySNMP (may fetch dependencies from the network), and sync IANA for vendor names. The Enterprises tab shows MIBs grouped by enterprise number, tree view, and lets you link SNMP vendor identity (IANA PEN) to DCIM manufacturers.",
+  "snmp.mibsPageHelpAria": "More about the MIB library page",
   "snmp.mibsUploadTitle": "Upload MIB files",
   "snmp.mibUploadMaxHint":
     "Maximum size per file is 20 MiB by default (server setting MIB_UPLOAD_MAX_BYTES). Uploads are stored as *.mib (you can still pick .txt or .my files).",
@@ -289,6 +292,8 @@ export const en = {
   "snmp.enterpriseActionsAria": "Actions for this enterprise number",
   "snmp.mibsVendorNote":
     "Brand vs vendor: DCIM uses one manufacturer record per vendor; the IANA enterprise number is the SNMP-side identifier. Optional product branding stays on device models/racks as today.",
+  "snmp.mibsVendorNoteShort": "Brand vs vendor",
+  "snmp.mibsVendorHelpAria": "More about brand vs vendor in DCIM",
   "placeholders.jobs.title": "Jobs",
   "placeholders.jobs.desc": "Celery workers, discovery and sync — phase 4.",
 

@@ -172,6 +172,7 @@ export const nb = {
   "snmp.addDeviceDcimHint":
     "Åpner Utstyr → Enheter med vertsnavn (sysName.0 hvis funnet) og snmp_host i attributter. Velg modell og lagre.",
   "snmp.enterprisesTabLink": "Åpne fanen Enterprises for gruppering, tre og DCIM-kobling.",
+  "snmp.enterprisesTabLinkShort": "Enterprises",
   "snmp.enterprisesPageIntro":
     "MIB-er grupperes etter IANA enterprise (PEN). Utvidelser uten egen PEN vises under foreldre-MIB i treet. Koble til DCIM-produsent eller opprett produsent fra IANA-navn.",
   "snmp.enterprisesBulkTitle": "Opprett DCIM-produsenter",
@@ -201,8 +202,10 @@ export const nb = {
   "snmp.mibParentMissingShort": "Mangler forelder-MIB «{module}» i biblioteket.",
   "snmp.mibCompileErrorInTree": "Kompileringsfeil for denne filen",
   "snmp.effectivePenShort": "arvet PEN {pen}",
-  "snmp.mibsPageIntro":
-    "Last opp MIB-kilder, kompiler til PySNMP (kan hente avhengigheter fra nett), og synkroniser IANA for leverandørnavn. Enterprise-grupper og DCIM-kobling:",
+  "snmp.mibsPageIntroShort": "Last opp, kompiler og synk IANA. For grupperte MIB-er og DCIM:",
+  "snmp.mibsPageIntroHelpBody":
+    "Last opp MIB-kilder, kompiler til PySNMP (kan hente avhengigheter fra nett), og synkroniser IANA for leverandørnavn. Fanen Enterprises viser MIB-er gruppert etter enterprise-nummer, trevisning, og lar deg koble SNMP-leverandøridentitet (IANA PEN) til DCIM-produsenter.",
+  "snmp.mibsPageHelpAria": "Mer om MIB-bibliotekssiden",
   "snmp.mibsUploadTitle": "Last opp MIB-filer",
   "snmp.mibUploadMaxHint":
     "Maks størrelse per fil er 20 MiB som standard (serverinnstilling MIB_UPLOAD_MAX_BYTES). Opplastinger lagres som *.mib (du kan fortsatt velge .txt- eller .my-filer).",
@@ -293,6 +296,8 @@ export const nb = {
   "snmp.enterpriseActionsAria": "Handlinger for dette enterprise-nummeret",
   "snmp.mibsVendorNote":
     "Merke vs. leverandør: DCIM bruker én produsentpost per leverandør; IANA enterprise-nummer er SNMP-siden av leverandøridentitet. Valgfritt merke på modell/rack beholdes som i dag.",
+  "snmp.mibsVendorNoteShort": "Merke vs. leverandør",
+  "snmp.mibsVendorHelpAria": "Mer om merke vs. leverandør i DCIM",
 
   "placeholders.jobs.title": "Jobs",
   "placeholders.jobs.desc": "Celery-arbeidere, discovery og synk – fase 4.",
