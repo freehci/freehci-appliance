@@ -8,6 +8,7 @@ import type { DeviceInstance } from "@/features/dcim/types";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import * as snmpApi from "./snmpApi";
 import styles from "./SnmpBrowserPage.module.css";
+import { useNavigate } from "react-router-dom";
 
 type TreeItem = snmpApi.SnmpBrowserNode & { depth: number };
 
@@ -18,6 +19,7 @@ function strAttr(obj: Record<string, unknown> | undefined, key: string): string 
 
 export function SnmpBrowserPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [err, setErr] = useState<string | null>(null);
 
   const [selectedOid, setSelectedOid] = useState<string>("1.3.6.1.2.1"); // mgmt
@@ -145,176 +147,215 @@ export function SnmpBrowserPage() {
     [loadChildren],
   );
 
+  const onClose = useCallback(() => {
+    navigate("/snmp/tools", { replace: true });
+  }, [navigate]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
-    <div className={styles.layout}>
-      <section className={styles.panel}>
-        <h3 className={styles.panelTitle}>{t("snmp.browser.treeTitle")}</h3>
-        <div className={styles.panelBody}>
-          {rootChildrenQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
-          {rootChildrenQ.isError ? (
-            <p className={dcimStyles.err}>{(rootChildrenQ.error as Error).message}</p>
-          ) : null}
-          <div className={styles.tree}>
-            {flatTree.map((n) => {
-              const isActive = n.oid === selectedOid;
-              const pad = `${n.depth * 0.9}rem`;
-              return (
-                <div
-                  key={n.oid}
-                  className={`${styles.treeRow} ${isActive ? styles.treeRowActive : ""}`.trim()}
-                  style={{ paddingLeft: pad }}
-                  onClick={() => void handleRowClick(n)}
-                  title={n.oid}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <span
-                    className={styles.twisty}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleToggle(n);
-                    }}
-                    title={n.has_children ? t("snmp.browser.toggle") : ""}
-                  >
-                    {n.has_children ? (expanded.has(n.oid) ? "▾" : "▸") : "·"}
-                  </span>
-                  <span>{n.label}</span>
-                  <span className={styles.oidMuted}>{n.oid}</span>
+    <div
+      className={styles.backdrop}
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("snmp.tabBrowser")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={styles.header}>
+          <h2 className={styles.title}>{t("snmp.tabBrowser")}</h2>
+          <button type="button" className={dcimStyles.btnMuted} onClick={onClose} aria-label={t("snmp.mibSourceCloseAria")}>
+            ×
+          </button>
+        </div>
+
+        <div className={styles.bodyWrap}>
+          <div className={styles.split}>
+            <section className={styles.pane}>
+              <div className={styles.paneHeader}>{t("snmp.browser.treeTitle")}</div>
+              <div className={styles.paneBody}>
+                {rootChildrenQ.isLoading ? (
+                  <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p>
+                ) : null}
+                {rootChildrenQ.isError ? (
+                  <p className={dcimStyles.err}>{(rootChildrenQ.error as Error).message}</p>
+                ) : null}
+                <div className={styles.tree}>
+                  {flatTree.map((n) => {
+                    const isActive = n.oid === selectedOid;
+                    const pad = `${n.depth * 0.9}rem`;
+                    return (
+                      <div
+                        key={n.oid}
+                        className={`${styles.treeRow} ${isActive ? styles.treeRowActive : ""}`.trim()}
+                        style={{ paddingLeft: pad }}
+                        onClick={() => void handleRowClick(n)}
+                        title={n.oid}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <span
+                          className={styles.twisty}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleToggle(n);
+                          }}
+                          title={n.has_children ? t("snmp.browser.toggle") : ""}
+                        >
+                          {n.has_children ? (expanded.has(n.oid) ? "▾" : "▸") : "·"}
+                        </span>
+                        <span>{n.label}</span>
+                        <span className={styles.oidMuted}>{n.oid}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.panel}>
-        <h3 className={styles.panelTitle}>{t("snmp.browser.editorTitle")}</h3>
-        <div className={styles.panelBody}>
-          {defQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
-          {defQ.isError ? <p className={dcimStyles.err}>{(defQ.error as Error).message}</p> : null}
-          <div className={styles.editorBox}>
-            <SourceCodeEditor
-              value={defQ.data?.text ?? ""}
-              filename={(defQ.data?.module ?? "mib") + ".mib"}
-              path={`inmemory://snmp-mib/${encodeURIComponent(selectedOid)}.mib`}
-              readOnly
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.panel}>
-        <h3 className={styles.panelTitle}>{t("snmp.browser.inspectorTitle")}</h3>
-        <div className={styles.panelBody}>
-          {err ? <p className={dcimStyles.err}>{err}</p> : null}
-
-          <dl className={styles.kv}>
-            <dt>{t("snmp.browser.selected")}</dt>
-            <dd>
-              <code>{selectedOid}</code>
-            </dd>
-            <dt>{t("snmp.browser.module")}</dt>
-            <dd>{defQ.data?.module ?? "—"}</dd>
-            <dt>{t("snmp.browser.symbol")}</dt>
-            <dd>{defQ.data?.symbol ?? "—"}</dd>
-          </dl>
-
-          <div className={dcimStyles.formRow} style={{ alignItems: "flex-end" }}>
-            <label style={{ minWidth: "12rem" }}>
-              {t("snmp.browser.device")}
-              <select
-                className={dcimStyles.controlSelect}
-                value={deviceId}
-                onChange={(e) => setDeviceId(e.target.value)}
-              >
-                <option value="">{t("snmp.browser.deviceNone")}</option>
-                {(devicesQ.data ?? []).map((d) => (
-                  <option key={d.id} value={String(d.id)}>
-                    {d.name} (#{d.id})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={{ minWidth: "12rem" }}>
-              {t("snmp.probeHost")}
-              <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.0.2.10" />
-            </label>
-            <label style={{ minWidth: "10rem" }}>
-              {t("snmp.probeCommunity")}
-              <input value={community} onChange={(e) => setCommunity(e.target.value)} />
-            </label>
-            <label style={{ minWidth: "7rem" }}>
-              {t("snmp.probePort")}
-              <input value={port} onChange={(e) => setPort(e.target.value)} />
-            </label>
-          </div>
-
-          <div className={dcimStyles.formRow} style={{ alignItems: "flex-end" }}>
-            <label style={{ minWidth: "10rem" }}>
-              {t("snmp.browser.indexSuffix")}
-              <input
-                value={indexSuffix}
-                onChange={(e) => setIndexSuffix(e.target.value)}
-                placeholder={t("snmp.browser.indexSuffixPlaceholder")}
-              />
-            </label>
-            <button
-              type="button"
-              className={dcimStyles.btnMuted}
-              disabled={invMut.isPending || host.trim() === ""}
-              onClick={() => invMut.mutate()}
-              title={t("snmp.browser.fetchIfacesHint")}
-            >
-              {invMut.isPending ? "…" : t("snmp.browser.fetchIfaces")}
-            </button>
-            <label style={{ minWidth: "14rem" }}>
-              {t("snmp.browser.iface")}
-              <select
-                className={dcimStyles.controlSelect}
-                value={indexSuffix}
-                onChange={(e) => setIndexSuffix(e.target.value)}
-                disabled={!inventoryIfaces.length}
-              >
-                <option value="">{t("snmp.browser.ifaceNone")}</option>
-                {inventoryIfaces.map((x) => (
-                  <option key={x.if_index} value={String(x.if_index)}>
-                    {x.name} (ifIndex {x.if_index})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className={dcimStyles.formRow} style={{ alignItems: "center" }}>
-            <button
-              type="button"
-              className={dcimStyles.btn}
-              disabled={probeMut.isPending || host.trim() === "" || selectedOid.trim() === ""}
-              onClick={() => probeMut.mutate()}
-            >
-              {probeMut.isPending ? "…" : t("snmp.browser.pollNow")}
-            </button>
-            <span className={dcimStyles.muted}>
-              {t("snmp.browser.effectiveOid")} <code>{effectiveOid}</code>
-            </span>
-          </div>
-
-          {probeMut.data ? (
-            probeMut.data.ok ? (
-              <div className={dcimStyles.codeBlock} style={{ maxWidth: "100%" }}>
-                {(probeMut.data.varbinds ?? []).slice(0, 1).map((vb) => (
-                  <div key={vb.oid}>
-                    <div className={dcimStyles.muted}>{vb.oid}</div>
-                    <div>{vb.value}</div>
-                  </div>
-                ))}
               </div>
-            ) : (
-              <p className={dcimStyles.err}>{probeMut.data.error ?? t("snmp.probeFail")}</p>
-            )
-          ) : null}
+            </section>
+
+            <section className={styles.pane}>
+              <div className={styles.paneHeader}>{t("snmp.browser.editorTitle")}</div>
+              <div className={`${styles.paneBody} ${styles.editorBody}`.trim()}>
+                {defQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
+                {defQ.isError ? <p className={dcimStyles.err}>{(defQ.error as Error).message}</p> : null}
+                <div className={styles.editorBox}>
+                  <SourceCodeEditor
+                    value={defQ.data?.text ?? ""}
+                    filename={(defQ.data?.module ?? "mib") + ".mib"}
+                    path={`inmemory://snmp-mib/${encodeURIComponent(selectedOid)}.mib`}
+                    readOnly
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className={`${styles.pane} ${styles.inspectorPane}`.trim()}>
+              <div className={styles.paneHeader}>{t("snmp.browser.inspectorTitle")}</div>
+              <div className={styles.paneBody}>
+                {err ? <p className={dcimStyles.err}>{err}</p> : null}
+
+                <dl className={styles.kv}>
+                  <dt>{t("snmp.browser.selected")}</dt>
+                  <dd>
+                    <code>{selectedOid}</code>
+                  </dd>
+                  <dt>{t("snmp.browser.module")}</dt>
+                  <dd>{defQ.data?.module ?? "—"}</dd>
+                  <dt>{t("snmp.browser.symbol")}</dt>
+                  <dd>{defQ.data?.symbol ?? "—"}</dd>
+                </dl>
+
+                <div className={dcimStyles.formRow} style={{ alignItems: "flex-end" }}>
+                  <label style={{ minWidth: "12rem" }}>
+                    {t("snmp.browser.device")}
+                    <select
+                      className={dcimStyles.controlSelect}
+                      value={deviceId}
+                      onChange={(e) => setDeviceId(e.target.value)}
+                    >
+                      <option value="">{t("snmp.browser.deviceNone")}</option>
+                      {(devicesQ.data ?? []).map((d) => (
+                        <option key={d.id} value={String(d.id)}>
+                          {d.name} (#{d.id})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ minWidth: "12rem" }}>
+                    {t("snmp.probeHost")}
+                    <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.0.2.10" />
+                  </label>
+                  <label style={{ minWidth: "10rem" }}>
+                    {t("snmp.probeCommunity")}
+                    <input value={community} onChange={(e) => setCommunity(e.target.value)} />
+                  </label>
+                  <label style={{ minWidth: "7rem" }}>
+                    {t("snmp.probePort")}
+                    <input value={port} onChange={(e) => setPort(e.target.value)} />
+                  </label>
+                </div>
+
+                <div className={dcimStyles.formRow} style={{ alignItems: "flex-end" }}>
+                  <label style={{ minWidth: "10rem" }}>
+                    {t("snmp.browser.indexSuffix")}
+                    <input
+                      value={indexSuffix}
+                      onChange={(e) => setIndexSuffix(e.target.value)}
+                      placeholder={t("snmp.browser.indexSuffixPlaceholder")}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className={dcimStyles.btnMuted}
+                    disabled={invMut.isPending || host.trim() === ""}
+                    onClick={() => invMut.mutate()}
+                    title={t("snmp.browser.fetchIfacesHint")}
+                  >
+                    {invMut.isPending ? "…" : t("snmp.browser.fetchIfaces")}
+                  </button>
+                  <label style={{ minWidth: "14rem" }}>
+                    {t("snmp.browser.iface")}
+                    <select
+                      className={dcimStyles.controlSelect}
+                      value={indexSuffix}
+                      onChange={(e) => setIndexSuffix(e.target.value)}
+                      disabled={!inventoryIfaces.length}
+                    >
+                      <option value="">{t("snmp.browser.ifaceNone")}</option>
+                      {inventoryIfaces.map((x) => (
+                        <option key={x.if_index} value={String(x.if_index)}>
+                          {x.name} (ifIndex {x.if_index})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className={dcimStyles.formRow} style={{ alignItems: "center" }}>
+                  <button
+                    type="button"
+                    className={dcimStyles.btn}
+                    disabled={probeMut.isPending || host.trim() === "" || selectedOid.trim() === ""}
+                    onClick={() => probeMut.mutate()}
+                  >
+                    {probeMut.isPending ? "…" : t("snmp.browser.pollNow")}
+                  </button>
+                  <span className={dcimStyles.muted}>
+                    {t("snmp.browser.effectiveOid")} <code>{effectiveOid}</code>
+                  </span>
+                </div>
+
+                {probeMut.data ? (
+                  probeMut.data.ok ? (
+                    <div className={dcimStyles.codeBlock} style={{ maxWidth: "100%" }}>
+                      {(probeMut.data.varbinds ?? []).slice(0, 1).map((vb) => (
+                        <div key={vb.oid}>
+                          <div className={dcimStyles.muted}>{vb.oid}</div>
+                          <div>{vb.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={dcimStyles.err}>{probeMut.data.error ?? t("snmp.probeFail")}</p>
+                  )
+                ) : null}
+              </div>
+            </section>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
