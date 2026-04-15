@@ -95,14 +95,21 @@ def _build_index(settings: Settings) -> _BrowserIndex:
         # Ikke fatal; browsing av lokale kompilerte moduler fungerer ofte uansett.
         pass
 
-    module_names = []
+    module_names: list[str] = []
     if compiled_root.is_dir():
         for p in compiled_root.glob("*.py"):
             if p.name.startswith("_") or p.stem in {"__init__"}:
                 continue
             module_names.append(p.stem)
 
-    # Last alle lokale kompilerte moduler; pysnmp vil også ha sine baseMIBs via packages.
+    # Last alltid noen basis-MIB-er slik at iso/org/dod/... navnesettes.
+    base_modules = ["SNMPv2-SMI", "SNMPv2-MIB", "SNMPv2-TC"]
+    try:
+        mib_builder.loadModules(*base_modules)
+    except Exception:
+        pass
+
+    # Last alle lokale kompilerte moduler (best effort).
     if module_names:
         try:
             mib_builder.loadModules(*module_names)
@@ -136,6 +143,29 @@ def _build_index(settings: Settings) -> _BrowserIndex:
             best[oid_t] = bs if prev is None else _pick_better_symbol(prev, bs)
             parent = oid_t[:-1]
             children.setdefault(parent, set()).add(oid_t)
+
+    # Bootstrap OID-sti slik at treet ikke blir tomt i GUI.
+    bootstrap: list[tuple[str, str]] = [
+        ("1", "iso"),
+        ("1.3", "org"),
+        ("1.3.6", "dod"),
+        ("1.3.6.1", "internet"),
+        ("1.3.6.1.2", "mgmt"),
+        ("1.3.6.1.2.1", "mib-2"),
+        ("1.3.6.1.4", "private"),
+        ("1.3.6.1.4.1", "enterprises"),
+    ]
+    for dotted, label in bootstrap:
+        try:
+            oid = _parse_oid_dotted(dotted)
+        except ValueError:
+            continue
+        if oid not in best:
+            best[oid] = BrowserSymbol(oid=oid, label=label, module="SNMPv2-SMI", symbol=label)
+        if len(oid) > 1:
+            children.setdefault(oid[:-1], set()).add(oid)
+        else:
+            children.setdefault(tuple(), set()).add(oid)
 
     # Legg inn "mellomnoder" slik at treet blir komplett opp til iso.
     for oid_t in list(best.keys()):

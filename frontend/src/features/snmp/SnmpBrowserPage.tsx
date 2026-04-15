@@ -192,13 +192,14 @@ export function SnmpBrowserPage() {
         <div className={styles.panelBody}>
           {defQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
           {defQ.isError ? <p className={dcimStyles.err}>{(defQ.error as Error).message}</p> : null}
-          <SourceCodeEditor
-            value={defQ.data?.text ?? ""}
-            filename={(defQ.data?.module ?? "mib") + ".mib"}
-            path={`inmemory://snmp-mib/${encodeURIComponent(selectedOid)}.mib`}
-            readOnly
-            className={dcimStyles.codeBlock}
-          />
+          <div className={styles.editorBox}>
+            <SourceCodeEditor
+              value={defQ.data?.text ?? ""}
+              filename={(defQ.data?.module ?? "mib") + ".mib"}
+              path={`inmemory://snmp-mib/${encodeURIComponent(selectedOid)}.mib`}
+              readOnly
+            />
+          </div>
         </div>
       </section>
 
