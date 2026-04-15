@@ -79,6 +79,9 @@ export type SnmpBrowserDefinition = {
   module: string | null;
   symbol: string | null;
   text: string;
+  source_filename?: string | null;
+  highlight_start_line?: number | null;
+  highlight_end_line?: number | null;
 };
 
 export type SnmpBrowserLocate = {

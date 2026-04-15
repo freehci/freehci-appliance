@@ -26,6 +26,8 @@ export type SourceCodeEditorProps = {
   problemLineNumbers?: ReadonlySet<number>;
   /** 1-basert linje som skal rulleres til og markeres. */
   focusedLine?: number | null;
+  /** 1-basert inklusivt område (f.eks. valgt ASN.1-blokk i full kildefil). */
+  highlightLineRange?: { start: number; end: number } | null;
   className?: string;
 };
 
@@ -42,6 +44,7 @@ export function SourceCodeEditor({
   path,
   problemLineNumbers,
   focusedLine,
+  highlightLineRange,
   className,
 }: SourceCodeEditorProps) {
   const { theme: appTheme } = useTheme();
@@ -77,15 +80,27 @@ export function SourceCodeEditor({
     const model = ed.getModel();
     if (!model) return;
 
-    const mark = new Map<number, "problem" | "focused" | "both">();
+    const mark = new Map<number, "problem" | "focused" | "both" | "block">();
     if (problemLineNumbers) {
       for (const n of problemLineNumbers) {
         if (n >= 1) mark.set(n, "problem");
       }
     }
+    if (
+      highlightLineRange != null &&
+      highlightLineRange.start >= 1 &&
+      highlightLineRange.end >= highlightLineRange.start
+    ) {
+      for (let ln = highlightLineRange.start; ln <= highlightLineRange.end; ln++) {
+        const prev = mark.get(ln);
+        mark.set(ln, prev === "problem" ? "both" : "block");
+      }
+    }
     if (focusedLine != null && focusedLine >= 1) {
       const prev = mark.get(focusedLine);
-      mark.set(focusedLine, prev === "problem" ? "both" : "focused");
+      if (prev === "block") mark.set(focusedLine, "focused");
+      else if (prev === "problem" || prev === "both") mark.set(focusedLine, "both");
+      else mark.set(focusedLine, "focused");
     }
 
     const decorations: editor.IModelDeltaDecoration[] = [];
@@ -94,6 +109,7 @@ export function SourceCodeEditor({
       let className: string;
       if (kind === "both") className = styles.lineProblemFocused;
       else if (kind === "problem") className = styles.lineProblem;
+      else if (kind === "block") className = styles.lineHighlightBlock;
       else className = styles.lineFocused;
       decorations.push({
         range: new monaco.Range(line, 1, line, lastCol),
@@ -102,14 +118,29 @@ export function SourceCodeEditor({
     }
 
     decoIdsRef.current = ed.deltaDecorations(decoIdsRef.current, decorations);
-  }, [problemLineNumbers, focusedLine, value]);
+  }, [problemLineNumbers, focusedLine, highlightLineRange, value]);
 
   useEffect(() => {
-    if (focusedLine == null || focusedLine < 1) return;
     const ed = editorRef.current;
-    if (!ed) return;
+    const monaco = monacoRef.current;
+    if (!ed || !monaco) return;
+    if (
+      highlightLineRange != null &&
+      highlightLineRange.start >= 1 &&
+      highlightLineRange.end >= highlightLineRange.start
+    ) {
+      const model = ed.getModel();
+      if (!model) return;
+      const end = highlightLineRange.end;
+      const lastCol = Math.max(1, model.getLineMaxColumn(end));
+      ed.revealRangeInCenter(
+        new monaco.Range(highlightLineRange.start, 1, end, lastCol),
+      );
+      return;
+    }
+    if (focusedLine == null || focusedLine < 1) return;
     ed.revealLineInCenter(focusedLine);
-  }, [focusedLine]);
+  }, [focusedLine, highlightLineRange, value]);
 
   useEffect(
     () => () => {

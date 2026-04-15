@@ -340,16 +340,22 @@ def snmp_browser_resolve(
 
 @router.get("/browser/definition", response_model=SnmpBrowserDefinitionRead)
 def snmp_browser_definition(
-    oid: str = Query(..., description="OID (dotted). Hvis modul/symbol finnes, returneres definisjon-snutt."),
+    oid: str = Query(
+        ...,
+        description="OID (dotted). Returnerer hele MIB-kilden for modulen + valgfritt uthevet symbol-blokk.",
+    ),
     settings: Settings = Depends(get_settings),
 ) -> SnmpBrowserDefinitionRead:
     r = mib_browser_svc.resolve_oid(settings, oid)
-    text = mib_browser_svc.definition_snippet(settings, module_name=r.get("module"), symbol=r.get("symbol"))
+    d = mib_browser_svc.definition_for_browser(settings, module_name=r.get("module"), symbol=r.get("symbol"))
     return SnmpBrowserDefinitionRead(
         oid=r.get("oid") or oid,
         module=r.get("module"),
         symbol=r.get("symbol"),
-        text=text,
+        text=d["text"],
+        source_filename=d.get("source_filename"),
+        highlight_start_line=d.get("highlight_start_line"),
+        highlight_end_line=d.get("highlight_end_line"),
     )
 
 

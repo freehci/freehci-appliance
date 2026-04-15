@@ -7,6 +7,10 @@
   background-color: rgba(59, 130, 246, 0.12) !important;
 }
 
+.lineHighlightBlock {
+  background-color: rgba(234, 179, 8, 0.14) !important;
+}
+
 .lineProblemFocused {
   background-color: rgba(217, 119, 87, 0.12) !important;
 }

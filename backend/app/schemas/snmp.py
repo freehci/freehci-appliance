@@ -276,6 +276,9 @@ class SnmpBrowserDefinitionRead(BaseModel):
     module: str | None = None
     symbol: str | None = None
     text: str
+    source_filename: str | None = None
+    highlight_start_line: int | None = None
+    highlight_end_line: int | None = None
 
 
 class SnmpBrowserLocateRead(BaseModel):

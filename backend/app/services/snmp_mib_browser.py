@@ -19,6 +19,16 @@ from app.services.snmp_mib_index import extract_module_name_from_mib_text, mib_m
 
 _OID_RE = re.compile(r"^\s*(?:\d+\.)*\d+\s*$")
 
+_MAX_BROWSER_DEF_CHARS = 3_000_000
+
+# Neste toppnivå-definisjon etter gjeldende symbol (heuristikk for ASN.1-blokk).
+_NEXT_DEF_LINE_RE = re.compile(
+    r"(?m)^\s*[A-Za-z][A-Za-z0-9-]*\s+"
+    r"(?:OBJECT-TYPE|OBJECT\s+IDENTIFIER|OBJECT-IDENTITY|NOTIFICATION-TYPE|"
+    r"TEXTUAL-CONVENTION|MODULE-IDENTITY|OBJECT-GROUP|MODULE-COMPLIANCE|"
+    r"AGENT-CAPABILITIES|TRAP-TYPE)\b"
+)
+
 
 def _parse_oid_dotted(s: str) -> tuple[int, ...]:
     raw = s.strip().strip(".")
@@ -267,41 +277,108 @@ def resolve_oid(settings: Settings, oid_dotted: str) -> dict[str, Any]:
     }
 
 
-def definition_snippet(settings: Settings, *, module_name: str | None, symbol: str | None) -> str:
-    """Returner en best-effort definisjons-snutt fra MIB-kilden.
+def _line_no_at_pos(text: str, pos: int) -> int:
+    if pos <= 0:
+        return 1
+    pos = min(pos, len(text))
+    return text.count("\n", 0, pos) + 1
 
-    Hvis vi ikke klarer å finne definisjonen, returneres hele filen (begrenset av frontend).
-    """
-    if not module_name:
-        return ""
-    module_to_files = mib_module_to_files_map(settings.mib_root_path.resolve())
-    files = module_to_files.get(module_name.upper(), [])
-    if not files:
-        return ""
-    path = (settings.mib_root_path.resolve() / files[0]).resolve()
-    if not path.is_file():
-        return ""
-    text = path.read_text(encoding="utf-8", errors="replace")
-    if not symbol:
-        return text
+
+def _resolve_mib_source_path(settings: Settings, module_name: str | None) -> Path | None:
+    """Finn lokal MIB-kildefil for et ASN.1-modulnavn (DEFINITIONS-navn)."""
+    if not module_name or not str(module_name).strip():
+        return None
+    root = settings.mib_root_path.resolve()
+    if not root.is_dir():
+        return None
+    raw = str(module_name).strip()
+    mu = raw.upper()
+    module_to_files = mib_module_to_files_map(root)
+    for key in {mu, *(v.upper() for v in _module_name_variants(raw))}:
+        for fn in module_to_files.get(key, []):
+            p = (root / fn).resolve()
+            try:
+                p.relative_to(root)
+            except ValueError:
+                continue
+            if p.is_file():
+                return p
+    for p in root.iterdir():
+        if not p.is_file() or p.name.startswith(".") or p.name == ".index":
+            continue
+        if p.suffix.lower() not in {".mib", ".my", ".txt"}:
+            continue
+        try:
+            head = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        mod = extract_module_name_from_mib_text(head)
+        if mod and mod.upper() == mu:
+            return p.resolve()
+    return None
+
+
+def _symbol_block_range_exclusive(text: str, symbol: str) -> tuple[int, int] | None:
+    """Returner [start, end) tegn-posisjoner for symbol-blokk, eller None."""
     sym = re.escape(symbol)
-    # Start på linje som begynner med symbolet.
-    start = re.search(rf"(?m)^\s*{sym}\b", text)
-    if not start:
-        return text
-    # Slutt ved neste definisjon-start (heuristikk), men kun på linjer *etter* første linje
-    # i utdraget — ellers treffer mønsteret på «ib-2 …» når vi søker i after[1:] og vi ender
-    # opp med å slice til ett tegn («m»).
-    after = text[start.start() :]
+    start_m = re.search(rf"(?m)^\s*{sym}\b", text)
+    if not start_m:
+        return None
+    s0 = start_m.start()
+    after = text[s0:]
     first_nl = after.find("\n")
     tail = after[first_nl + 1 :] if first_nl != -1 else ""
-    stop = re.search(
-        r"(?m)^\s*[A-Za-z][A-Za-z0-9-]*\s+(?:OBJECT-TYPE|OBJECT IDENTIFIER|NOTIFICATION-TYPE|TEXTUAL-CONVENTION|MODULE-IDENTITY)\b",
-        tail,
-    )
+    stop = _NEXT_DEF_LINE_RE.search(tail)
     if stop:
-        return (after[: first_nl + 1 + stop.start()] if first_nl != -1 else after[: stop.start()]).rstrip() + "\n"
-    return after.rstrip() + "\n"
+        offset = (first_nl + 1) if first_nl != -1 else 0
+        end_exc = s0 + offset + stop.start()
+    else:
+        end_exc = len(text)
+    return (s0, end_exc)
+
+
+def definition_for_browser(
+    settings: Settings,
+    *,
+    module_name: str | None,
+    symbol: str | None,
+) -> dict[str, Any]:
+    """Hele MIB-kilden for modulen + 1-baserte linjer for utheving av valgt symbol."""
+    path = _resolve_mib_source_path(settings, module_name)
+    if path is None:
+        return {
+            "text": "",
+            "source_filename": None,
+            "highlight_start_line": None,
+            "highlight_end_line": None,
+        }
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {
+            "text": "",
+            "source_filename": path.name,
+            "highlight_start_line": None,
+            "highlight_end_line": None,
+        }
+    if len(raw) > _MAX_BROWSER_DEF_CHARS:
+        raw = raw[:_MAX_BROWSER_DEF_CHARS] + "\n\n-- [avkortet for visning] --\n"
+
+    hl_start: int | None = None
+    hl_end: int | None = None
+    if symbol and str(symbol).strip():
+        br = _symbol_block_range_exclusive(raw, str(symbol).strip())
+        if br:
+            s0, end_exc = br
+            hl_start = _line_no_at_pos(raw, s0)
+            hl_end = _line_no_at_pos(raw, max(s0, end_exc - 1))
+
+    return {
+        "text": raw,
+        "source_filename": path.name,
+        "highlight_start_line": hl_start,
+        "highlight_end_line": hl_end,
+    }
 
 
 def _ancestor_prefixes(oid: tuple[int, ...]) -> list[str]:

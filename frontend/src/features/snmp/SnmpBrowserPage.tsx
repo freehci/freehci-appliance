@@ -180,6 +180,14 @@ export function SnmpBrowserPage() {
     queryFn: () => snmpApi.snmpBrowserDefinition({ oid: selectedOid }),
   });
 
+  const defHighlightRange = useMemo(() => {
+    const d = defQ.data;
+    const a = d?.highlight_start_line;
+    const b = d?.highlight_end_line;
+    if (a == null || b == null || a < 1 || b < a) return null;
+    return { start: a, end: b };
+  }, [defQ.data]);
+
   const effectiveOid = useMemo(() => {
     const idx = indexSuffix.trim();
     if (idx === "") return selectedOid;
@@ -303,8 +311,9 @@ export function SnmpBrowserPage() {
         <div className={styles.editorBox}>
           <SourceCodeEditor
             value={defQ.data?.text ?? ""}
-            filename={(defQ.data?.module ?? "mib") + ".mib"}
+            filename={defQ.data?.source_filename ?? `${defQ.data?.module ?? "mib"}.mib`}
             path={`inmemory://snmp-mib/${encodeURIComponent(selectedOid)}.mib`}
+            highlightLineRange={defHighlightRange}
             readOnly
           />
         </div>
