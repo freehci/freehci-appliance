@@ -214,6 +214,10 @@ export const nb = {
   "snmp.browser.ifaceNone": "—",
   "snmp.browser.pollNow": "Poll nå",
   "snmp.browser.effectiveOid": "Effektiv OID:",
+  "snmp.browser.locateFail": "Fant ikke denne MIB-en i browser-indeksen.",
+  "snmp.browser.splitterLeft": "Endre bredde på trekolonne",
+  "snmp.browser.splitterRight": "Endre bredde på inspector",
+  "snmp.browser.openMibTitle": "Åpne i SNMP browser (OID-tre + definisjon)",
   "snmp.mibExtends": "utvider",
   "snmp.mibParentMissing":
     "Forelder-MIB «{module}» finnes ikke i biblioteket — last opp den modulen for riktig enterprise-gruppe.",

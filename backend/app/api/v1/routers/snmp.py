@@ -33,6 +33,7 @@ from app.schemas.snmp import (
     SnmpBrowserNodeRead,
     SnmpBrowserResolveRead,
     SnmpBrowserDefinitionRead,
+    SnmpBrowserLocateRead,
 )
 from app.services import snmp_interface_import as iface_import_svc
 from app.services import snmp_inventory as inv_svc
@@ -350,3 +351,19 @@ def snmp_browser_definition(
         symbol=r.get("symbol"),
         text=text,
     )
+
+
+@router.get("/browser/locate", response_model=SnmpBrowserLocateRead)
+def snmp_browser_locate(
+    mib: str | None = Query(None, description="MIB-filnavn i biblioteket (f.eks. FOO-MIB.mib)"),
+    module: str | None = Query(None, description="ASN.1 MODULE DEFINITIONS-navn"),
+    settings: Settings = Depends(get_settings),
+) -> SnmpBrowserLocateRead:
+    """Finn en OID i browser-indeksen for en MIB-modul (krever kompilert PySNMP-modul)."""
+    if mib and mib.strip():
+        r = mib_browser_svc.locate_from_mib_filename(settings, mib.strip())
+    elif module and module.strip():
+        r = mib_browser_svc.locate_module_oid(settings, module.strip())
+    else:
+        return SnmpBrowserLocateRead(found=False, error="Oppgi «mib» eller «module».")
+    return SnmpBrowserLocateRead.model_validate(r)

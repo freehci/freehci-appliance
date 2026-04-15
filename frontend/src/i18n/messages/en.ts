@@ -210,6 +210,10 @@ export const en = {
   "snmp.browser.ifaceNone": "—",
   "snmp.browser.pollNow": "Poll now",
   "snmp.browser.effectiveOid": "Effective OID:",
+  "snmp.browser.locateFail": "Could not locate this MIB in the browser index.",
+  "snmp.browser.splitterLeft": "Resize tree column",
+  "snmp.browser.splitterRight": "Resize inspector column",
+  "snmp.browser.openMibTitle": "Open in SNMP browser (OID tree + definition)",
   "snmp.mibExtends": "extends",
   "snmp.mibParentMissing":
     "Parent MIB “{module}” is not in the library — upload that module to place this file under the correct enterprise.",

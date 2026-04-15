@@ -9,10 +9,12 @@ from __future__ import annotations
 import re
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.core.config import Settings
-from app.services.snmp_mib_index import mib_module_to_files_map
+from app.services import snmp_mibs as mib_disk
+from app.services.snmp_mib_index import extract_module_name_from_mib_text, mib_module_to_files_map
 
 
 _OID_RE = re.compile(r"^\s*(?:\d+\.)*\d+\s*$")
@@ -274,3 +276,64 @@ def definition_snippet(settings: Settings, *, module_name: str | None, symbol: s
     if stop:
         return after[: stop.start() + 1].rstrip() + "\n"
     return after.rstrip() + "\n"
+
+
+def _ancestor_prefixes(oid: tuple[int, ...]) -> list[str]:
+    out: list[str] = []
+    for i in range(1, len(oid)):
+        out.append(_oid_to_dotted(oid[:i]))
+    return out
+
+
+def locate_module_oid(settings: Settings, module_name: str) -> dict[str, Any]:
+    """Returner grunnleggende OID for en ASN.1-modul (pysmi-modulnavn), for GUI-fokus i treet."""
+    ensure_index(settings)
+    raw = module_name.strip()
+    if not raw:
+        return {"found": False, "error": "empty module", "module": None, "ancestor_oids": []}
+    mu = raw.upper()
+    candidates: list[tuple[tuple[int, ...], BrowserSymbol]] = []
+    for oid_t, sym in _idx.best_symbol_for_oid.items():
+        if sym.module and sym.module.upper() == mu:
+            candidates.append((oid_t, sym))
+
+    if not candidates:
+        return {
+            "found": False,
+            "error": f"ingen OID funnet for modul «{raw}» (kompiler MIB og prøv igjen)",
+            "module": raw,
+            "ancestor_oids": [],
+        }
+
+    # Grunnleggende valg: grunneste OID i modulen (ofte nær modul-roten i treet).
+    oid_t, sym = min(candidates, key=lambda x: (len(x[0]), x[0]))
+    return {
+        "found": True,
+        "error": None,
+        "module": sym.module,
+        "oid": _oid_to_dotted(oid_t),
+        "label": sym.label,
+        "symbol": sym.symbol,
+        "ancestor_oids": _ancestor_prefixes(oid_t),
+    }
+
+
+def locate_from_mib_filename(settings: Settings, filename: str) -> dict[str, Any]:
+    """Utled modulnavn fra MIB-fil og lokalisér i indeksen."""
+    path = mib_disk.try_resolve_mib_disk_path(settings, filename)
+    if path is None or not path.is_file():
+        return {
+            "found": False,
+            "error": f"fant ikke MIB-fil «{filename}»",
+            "module": None,
+            "ancestor_oids": [],
+        }
+    text = path.read_text(encoding="utf-8", errors="replace")
+    mod = extract_module_name_from_mib_text(text) or Path(filename).stem
+    r = locate_module_oid(settings, mod)
+    if r.get("found"):
+        return r
+    return {
+        **r,
+        "error": r.get("error") or f"fant ikke OID for modul «{mod}» fra «{filename}»",
+    }

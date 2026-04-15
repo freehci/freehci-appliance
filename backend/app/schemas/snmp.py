@@ -278,4 +278,16 @@ class SnmpBrowserDefinitionRead(BaseModel):
     text: str
 
 
+class SnmpBrowserLocateRead(BaseModel):
+    """Finn en representativ OID i treet for en MIB-modul (fra kompilert indeks)."""
+
+    found: bool
+    error: str | None = None
+    module: str | None = None
+    oid: str | None = None
+    label: str | None = None
+    symbol: str | None = None
+    ancestor_oids: list[str] = Field(default_factory=list)
+
+
 SnmpMibTreeNodeRead.model_rebuild()

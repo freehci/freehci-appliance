@@ -81,6 +81,16 @@ export type SnmpBrowserDefinition = {
   text: string;
 };
 
+export type SnmpBrowserLocate = {
+  found: boolean;
+  error: string | null;
+  module: string | null;
+  oid: string | null;
+  label: string | null;
+  symbol: string | null;
+  ancestor_oids: string[];
+};
+
 export function snmpBrowserChildren(params?: { oid?: string }): Promise<SnmpBrowserNode[]> {
   const sp = new URLSearchParams();
   if (params?.oid) sp.set("oid", params.oid);
@@ -92,6 +102,13 @@ export function snmpBrowserDefinition(params: { oid: string }): Promise<SnmpBrow
   const sp = new URLSearchParams();
   sp.set("oid", params.oid);
   return apiGet(`${P}/browser/definition?${sp.toString()}`);
+}
+
+export function snmpBrowserLocate(params: { mib?: string; module?: string }): Promise<SnmpBrowserLocate> {
+  const sp = new URLSearchParams();
+  if (params.mib) sp.set("mib", params.mib);
+  if (params.module) sp.set("module", params.module);
+  return apiGet(`${P}/browser/locate?${sp.toString()}`);
 }
 
 export function listSnmpMibs(): Promise<SnmpMibFile[]> {

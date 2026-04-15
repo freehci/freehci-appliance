@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
@@ -29,6 +29,7 @@ function labelForStoredCompileStatus(status: string, t: (k: MessageKey) => strin
 
 export function SnmpMibsPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
   const [mibNormalizeReport, setMibNormalizeReport] = useState<string | null>(null);
@@ -420,8 +421,10 @@ export function SnmpMibsPage() {
                       <button
                         type="button"
                         className={mibViewStyles.fileNameBtn}
-                        title={t("snmp.mibFilenameOpenHint")}
-                        onClick={() => setViewSourceName(m.name)}
+                        title={t("snmp.browser.openMibTitle")}
+                        onClick={() =>
+                          navigate(`/snmp/browser?mib=${encodeURIComponent(m.name)}`)
+                        }
                       >
                         <code>{m.name}</code>
                       </button>
@@ -573,8 +576,10 @@ export function SnmpMibsPage() {
                         <button
                           type="button"
                           className={mibViewStyles.fileNameBtn}
-                          title={t("snmp.mibFilenameOpenHint")}
-                          onClick={() => setViewSourceName(m.name)}
+                          title={t("snmp.browser.openMibTitle")}
+                          onClick={() =>
+                            navigate(`/snmp/browser?mib=${encodeURIComponent(m.name)}`)
+                          }
                         >
                           <code>{m.name}</code>
                         </button>
