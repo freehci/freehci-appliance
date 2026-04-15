@@ -136,6 +136,8 @@ export function SnmpBrowserPage() {
         if (cancelled) return;
         if (!r.found || !r.oid) {
           setErr(r.error ?? t("snmp.browser.locateFail"));
+          setSelectedOid("1");
+          setExpanded(new Set(["1"]));
           return;
         }
         setSelectedOid(r.oid);

@@ -111,13 +111,13 @@ def _build_index(settings: Settings) -> _BrowserIndex:
     except Exception:
         pass
 
-    # Last alle lokale kompilerte moduler (best effort).
+    # Last lokale kompilerte moduler én og én — én ødelagt .py stopper ikke resten.
     if module_names:
-        try:
-            mib_builder.loadModules(*module_names)
-        except Exception:
-            # Ikke stopp hele indeksen — vi kan fortsatt få delvis tre.
-            pass
+        for mod_name in sorted(set(module_names)):
+            try:
+                mib_builder.loadModules(mod_name)
+            except Exception:
+                continue
 
     # Iterer over eksporterte symboler og samle OID-er.
     children: dict[tuple[int, ...], set[tuple[int, ...]]] = {}
@@ -267,14 +267,18 @@ def definition_snippet(settings: Settings, *, module_name: str | None, symbol: s
     start = re.search(rf"(?m)^\s*{sym}\b", text)
     if not start:
         return text
-    # Slutt ved neste definisjon-start (heuristikk).
+    # Slutt ved neste definisjon-start (heuristikk), men kun på linjer *etter* første linje
+    # i utdraget — ellers treffer mønsteret på «ib-2 …» når vi søker i after[1:] og vi ender
+    # opp med å slice til ett tegn («m»).
     after = text[start.start() :]
+    first_nl = after.find("\n")
+    tail = after[first_nl + 1 :] if first_nl != -1 else ""
     stop = re.search(
         r"(?m)^\s*[A-Za-z][A-Za-z0-9-]*\s+(?:OBJECT-TYPE|OBJECT IDENTIFIER|NOTIFICATION-TYPE|TEXTUAL-CONVENTION|MODULE-IDENTITY)\b",
-        after[1:],
+        tail,
     )
     if stop:
-        return after[: stop.start() + 1].rstrip() + "\n"
+        return (after[: first_nl + 1 + stop.start()] if first_nl != -1 else after[: stop.start()]).rstrip() + "\n"
     return after.rstrip() + "\n"
 
 
@@ -285,16 +289,31 @@ def _ancestor_prefixes(oid: tuple[int, ...]) -> list[str]:
     return out
 
 
+def _module_name_variants(name: str) -> list[str]:
+    """PySNMP/pysmi bruker ofte «FOO-MIB» som modulnavn; noen kilder bruker «FOO_MIB»."""
+    s = name.strip()
+    if not s:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for v in (s, s.replace("-", "_"), s.replace("_", "-")):
+        k = v.upper()
+        if k not in seen:
+            seen.add(k)
+            out.append(v)
+    return out
+
+
 def locate_module_oid(settings: Settings, module_name: str) -> dict[str, Any]:
     """Returner grunnleggende OID for en ASN.1-modul (pysmi-modulnavn), for GUI-fokus i treet."""
     ensure_index(settings)
     raw = module_name.strip()
     if not raw:
         return {"found": False, "error": "empty module", "module": None, "ancestor_oids": []}
-    mu = raw.upper()
+    mu_set = {v.upper() for v in _module_name_variants(raw)}
     candidates: list[tuple[tuple[int, ...], BrowserSymbol]] = []
     for oid_t, sym in _idx.best_symbol_for_oid.items():
-        if sym.module and sym.module.upper() == mu:
+        if sym.module and sym.module.upper() in mu_set:
             candidates.append((oid_t, sym))
 
     if not candidates:

@@ -63,7 +63,7 @@ def list_mibs_detailed(
     ),
     order: str = Query("asc", description="asc eller desc"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
+    page_size: int = Query(25, ge=1, le=500),
     compile_status: str | None = Query(
         None,
         description="Filtrer på kompileringsstatus: pending, ok, error",
