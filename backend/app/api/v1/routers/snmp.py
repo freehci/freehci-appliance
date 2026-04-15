@@ -30,6 +30,9 @@ from app.schemas.snmp import (
     SnmpProbeRequest,
     SnmpScanRead,
     SnmpScanRequest,
+    SnmpBrowserNodeRead,
+    SnmpBrowserResolveRead,
+    SnmpBrowserDefinitionRead,
 )
 from app.services import snmp_interface_import as iface_import_svc
 from app.services import snmp_inventory as inv_svc
@@ -38,6 +41,7 @@ from app.services import snmp_mibs as mib_disk_svc
 from app.services.snmp_mib_dependencies import refresh_missing_imports_all
 from app.services import snmp_scan as scan_svc
 from app.services import snmp_probe as probe_svc
+from app.services import snmp_mib_browser as mib_browser_svc
 
 router = APIRouter(prefix="/snmp", tags=["snmp"])
 
@@ -311,4 +315,38 @@ async def snmp_inventory_apply(
         timeout_sec=data.timeout_sec,
         retries=data.retries,
         max_varbinds=data.max_varbinds,
+    )
+
+
+@router.get("/browser/children", response_model=list[SnmpBrowserNodeRead])
+def snmp_browser_children(
+    oid: str = Query("1", description="Parent OID (dotted), default iso=1"),
+    settings: Settings = Depends(get_settings),
+) -> list[SnmpBrowserNodeRead]:
+    """Lazy-load barn for en OID i browser-treet."""
+    rows = mib_browser_svc.list_children(settings, oid)
+    return [SnmpBrowserNodeRead.model_validate(r) for r in rows]
+
+
+@router.get("/browser/resolve", response_model=SnmpBrowserResolveRead)
+def snmp_browser_resolve(
+    oid: str = Query(..., description="OID (dotted) som skal resolves til (label, modul, symbol)"),
+    settings: Settings = Depends(get_settings),
+) -> SnmpBrowserResolveRead:
+    r = mib_browser_svc.resolve_oid(settings, oid)
+    return SnmpBrowserResolveRead.model_validate(r)
+
+
+@router.get("/browser/definition", response_model=SnmpBrowserDefinitionRead)
+def snmp_browser_definition(
+    oid: str = Query(..., description="OID (dotted). Hvis modul/symbol finnes, returneres definisjon-snutt."),
+    settings: Settings = Depends(get_settings),
+) -> SnmpBrowserDefinitionRead:
+    r = mib_browser_svc.resolve_oid(settings, oid)
+    text = mib_browser_svc.definition_snippet(settings, module_name=r.get("module"), symbol=r.get("symbol"))
+    return SnmpBrowserDefinitionRead(
+        oid=r.get("oid") or oid,
+        module=r.get("module"),
+        symbol=r.get("symbol"),
+        text=text,
     )

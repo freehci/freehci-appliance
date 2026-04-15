@@ -20,6 +20,7 @@ import { SnmpLayout } from "@/features/snmp/SnmpLayout";
 import { SnmpEnterprisesPage } from "@/features/snmp/SnmpEnterprisesPage";
 import { SnmpMibsPage } from "@/features/snmp/SnmpMibsPage";
 import { SnmpToolsPage } from "@/features/snmp/SnmpToolsPage";
+import { SnmpBrowserPage } from "@/features/snmp/SnmpBrowserPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { PluginProvider } from "@/plugins/PluginContext";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -58,6 +59,7 @@ function AppRoutes() {
             <Route path="tools" element={<SnmpToolsPage />} />
             <Route path="mibs" element={<SnmpMibsPage />} />
             <Route path="enterprises" element={<SnmpEnterprisesPage />} />
+            <Route path="browser" element={<SnmpBrowserPage />} />
           </Route>
           <Route path="/jobs" element={<JobsLayout />}>
             <Route index element={<JobsRunsPage />} />

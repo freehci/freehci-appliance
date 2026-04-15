@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type SnmpInnerTabIcon = "tools" | "mibs" | "enterprises";
+export type SnmpInnerTabIcon = "tools" | "mibs" | "enterprises" | "browser";
 
 function Svg({ children }: { children: ReactNode }) {
   return (
@@ -45,6 +45,18 @@ export function SnmpTabIcon({ name }: { name: SnmpInnerTabIcon }) {
           <rect x="14" y="3" width="7" height="5" rx="1" />
           <rect x="14" y="12" width="7" height="9" rx="1" />
           <rect x="3" y="16" width="7" height="5" rx="1" />
+        </Svg>
+      );
+    case "browser":
+      return (
+        <Svg>
+          <path d="M4 6h16" />
+          <path d="M8 6v14" />
+          <path d="M4 10h4" />
+          <path d="M4 14h4" />
+          <path d="M12 10h8" />
+          <path d="M12 14h8" />
+          <path d="M12 18h8" />
         </Svg>
       );
   }

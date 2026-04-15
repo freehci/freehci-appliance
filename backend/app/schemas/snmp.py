@@ -253,4 +253,29 @@ class SnmpInventoryApplyRead(BaseModel):
     poll: SnmpInventoryRead | None = None
 
 
+class SnmpBrowserNodeRead(BaseModel):
+    """Én node i OID-treet (lazy-load)."""
+
+    oid: str
+    label: str
+    has_children: bool
+    module: str | None = None
+    symbol: str | None = None
+
+
+class SnmpBrowserResolveRead(BaseModel):
+    oid: str
+    label: str
+    has_children: bool
+    module: str | None = None
+    symbol: str | None = None
+
+
+class SnmpBrowserDefinitionRead(BaseModel):
+    oid: str
+    module: str | None = None
+    symbol: str | None = None
+    text: str
+
+
 SnmpMibTreeNodeRead.model_rebuild()

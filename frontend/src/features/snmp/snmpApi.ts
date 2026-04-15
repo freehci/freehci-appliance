@@ -66,6 +66,34 @@ export type SnmpProbeResult = {
   varbinds: SnmpVarBind[];
 };
 
+export type SnmpBrowserNode = {
+  oid: string;
+  label: string;
+  has_children: boolean;
+  module: string | null;
+  symbol: string | null;
+};
+
+export type SnmpBrowserDefinition = {
+  oid: string;
+  module: string | null;
+  symbol: string | null;
+  text: string;
+};
+
+export function snmpBrowserChildren(params?: { oid?: string }): Promise<SnmpBrowserNode[]> {
+  const sp = new URLSearchParams();
+  if (params?.oid) sp.set("oid", params.oid);
+  const qs = sp.toString();
+  return apiGet(`${P}/browser/children${qs ? `?${qs}` : ""}`);
+}
+
+export function snmpBrowserDefinition(params: { oid: string }): Promise<SnmpBrowserDefinition> {
+  const sp = new URLSearchParams();
+  sp.set("oid", params.oid);
+  return apiGet(`${P}/browser/definition?${sp.toString()}`);
+}
+
 export function listSnmpMibs(): Promise<SnmpMibFile[]> {
   return apiGet(`${P}/mibs`);
 }

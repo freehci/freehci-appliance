@@ -32,6 +32,12 @@ export function SnmpLayout() {
             </span>
             <span>{t("snmp.tabEnterprises")}</span>
           </NavLink>
+          <NavLink to="/snmp/browser" className={snmpTabClass} role="tab">
+            <span className={dcimTabStyles.iconWrap}>
+              <SnmpTabIcon name="browser" />
+            </span>
+            <span>{t("snmp.tabBrowser")}</span>
+          </NavLink>
         </div>
       </nav>
       <Outlet />
