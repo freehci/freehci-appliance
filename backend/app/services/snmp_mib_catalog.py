@@ -166,36 +166,57 @@ def _snmp_file_topology(db: Session, settings: Settings, disk_rows: list[dict]) 
     # ikke fra DB-felt module_name (kan skille seg fra kilden etter manuell filbytte).
     module_to_files_map = mib_module_to_files_map(settings.mib_root_path.resolve())
 
+    # Én disklesing per MIB + memo — tidligere ble filer lest om og om igjen i effective_pen-kjeden.
+    text_by_fn: dict[str, str] = {row["name"]: _mib_file_text(settings, row["name"]) for row in disk_rows}
+    parent_memo: dict[str, str | None] = {}
+
     def resolve_parent_file(fn: str) -> str | None:
-        text = _mib_file_text(settings, fn)
+        if fn in parent_memo:
+            return parent_memo[fn]
+        text = text_by_fn.get(fn) or ""
         if not text:
+            parent_memo[fn] = None
             return None
         for im in imported_vendor_mib_modules(text):
             for c in module_to_files_map.get(im.upper(), []):
                 if c != fn:
+                    parent_memo[fn] = c
                     return c
+        parent_memo[fn] = None
         return None
 
-    def effective_pen_for(fn: str, visited: frozenset[str]) -> int | None:
-        if fn in visited:
+    eff_memo: dict[str, int | None] = {}
+    eff_visiting: set[str] = set()
+
+    def effective_pen_for(fn: str) -> int | None:
+        if fn in eff_memo:
+            return eff_memo[fn]
+        if fn in eff_visiting:
             return None
-        nvisited = visited | {fn}
-        pen = by_file[fn].get("enterprise_number")
-        if pen is not None:
-            return pen
-        p = resolve_parent_file(fn)
-        if p:
-            return effective_pen_for(p, nvisited)
-        return None
+        eff_visiting.add(fn)
+        try:
+            pen = by_file[fn].get("enterprise_number")
+            if pen is not None:
+                eff_memo[fn] = pen
+                return pen
+            p = resolve_parent_file(fn)
+            if p:
+                r = effective_pen_for(p)
+                eff_memo[fn] = r
+                return r
+            eff_memo[fn] = None
+            return None
+        finally:
+            eff_visiting.discard(fn)
 
     out: dict[str, dict] = {}
     for fn, d in by_file.items():
-        text = _mib_file_text(settings, fn)
+        text = text_by_fn.get(fn) or ""
         vimports = imported_vendor_mib_modules(text) if text else []
         ip = resolve_parent_file(fn)
         pen = d.get("enterprise_number")
         parent_missing = pen is None and len(vimports) > 0 and ip is None
-        eff = effective_pen_for(fn, frozenset())
+        eff = effective_pen_for(fn)
         out[fn] = {
             **d,
             "immediate_parent_file": ip,
@@ -278,6 +299,56 @@ def list_mibs_detailed(db: Session, settings: Settings) -> list[dict]:
     return out
 
 
+def _mib_row_matches_search(row: dict, ql: str) -> bool:
+    """Casefold delstreng-treff mot feltene som MIB-søk bruker."""
+    mfr = row.get("linked_manufacturer") or {}
+    mfr_name = mfr.get("name") if isinstance(mfr, dict) else None
+    miss = row.get("missing_import_modules") or []
+    miss_s = " ".join(str(x) for x in miss) if isinstance(miss, list) else ""
+    parts = [
+        str(row.get("name") or ""),
+        str(row.get("module_name") or ""),
+        str(row.get("iana_organization") or ""),
+        str(mfr_name or ""),
+        str(row.get("compile_message") or ""),
+        miss_s,
+    ]
+    return any(ql in p.casefold() for p in parts)
+
+
+def _list_pending_mibs_paginated(
+    db: Session,
+    settings: Settings,
+    *,
+    q: str | None,
+    page: int,
+    page_size: int,
+) -> dict:
+    """Kun DB + mib_detail_dict — hopper over tung _snmp_file_topology (pending-listen i GUI)."""
+    rows_disk = mib_disk.list_mib_files(settings)
+    disk_by = {r["name"]: r for r in rows_disk}
+    pending_fns = list(
+        db.execute(
+            select(SnmpMibFileMeta.filename).where(SnmpMibFileMeta.compile_status == "pending"),
+        ).scalars().all(),
+    )
+    pending_names = sorted(fn for fn in pending_fns if fn in disk_by)
+    if q and q.strip():
+        ql = q.strip().casefold()
+        pending_names = [
+            fn
+            for fn in pending_names
+            if _mib_row_matches_search(mib_detail_dict(db, settings, disk_by[fn]), ql)
+        ]
+    total = len(pending_names)
+    page_i = max(1, page)
+    ps = min(max(1, page_size), 500)
+    start = (page_i - 1) * ps
+    slice_names = pending_names[start : start + ps]
+    items = [mib_detail_dict(db, settings, disk_by[n]) for n in slice_names]
+    return {"items": items, "total": total, "page": page_i, "page_size": ps}
+
+
 def list_mibs_detailed_page(
     db: Session,
     settings: Settings,
@@ -290,28 +361,14 @@ def list_mibs_detailed_page(
     compile_status: str | None,
 ) -> dict:
     """Som list_mibs_detailed, med valgfritt søk, statusfilter, sortering og paginering (side 1-basert)."""
+    if compile_status == "pending":
+        return _list_pending_mibs_paginated(db, settings, q=q, page=page, page_size=page_size)
     rows = list_mibs_detailed(db, settings)
-    if compile_status is not None and compile_status in ("pending", "ok", "error"):
+    if compile_status is not None and compile_status in ("ok", "error"):
         rows = [r for r in rows if (r.get("compile_status") or "") == compile_status]
     if q and q.strip():
         ql = q.strip().casefold()
-
-        def matches(row: dict) -> bool:
-            mfr = row.get("linked_manufacturer") or {}
-            mfr_name = mfr.get("name") if isinstance(mfr, dict) else None
-            miss = row.get("missing_import_modules") or []
-            miss_s = " ".join(str(x) for x in miss) if isinstance(miss, list) else ""
-            parts = [
-                str(row.get("name") or ""),
-                str(row.get("module_name") or ""),
-                str(row.get("iana_organization") or ""),
-                str(mfr_name or ""),
-                str(row.get("compile_message") or ""),
-                miss_s,
-            ]
-            return any(ql in p.casefold() for p in parts)
-
-        rows = [r for r in rows if matches(r)]
+        rows = [r for r in rows if _mib_row_matches_search(r, ql)]
 
     sort_l = (sort or "name").lower()
     order_l = (order or "asc").lower()
@@ -349,7 +406,7 @@ def list_mibs_detailed_page(
     rows = sorted(rows, key=row_sort_key, reverse=reverse)
     total = len(rows)
     page_i = max(1, page)
-    ps = min(max(1, page_size), 200)
+    ps = min(max(1, page_size), 500)
     start = (page_i - 1) * ps
     page_rows = rows[start : start + ps]
     return {"items": page_rows, "total": total, "page": page_i, "page_size": ps}

@@ -70,6 +70,7 @@ export function SnmpMibsPage() {
         order: mibOrder,
         q: mibSearchQ || undefined,
       }),
+    staleTime: bgMibCompile ? 0 : 60_000,
     refetchInterval: bgMibCompile ? 4000 : false,
   });
 
@@ -83,6 +84,7 @@ export function SnmpMibsPage() {
         sort: "name",
         order: "asc",
       }),
+    staleTime: bgMibCompile ? 0 : 60_000,
     refetchInterval: bgMibCompile ? 4000 : false,
   });
 

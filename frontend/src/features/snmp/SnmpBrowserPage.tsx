@@ -13,6 +13,26 @@ import styles from "./SnmpBrowserPage.module.css";
 
 type TreeItem = snmpApi.SnmpBrowserNode & { depth: number };
 
+function oidAncestorPrefixes(oid: string): string[] {
+  const parts = oid.split(".").filter(Boolean);
+  if (parts.length <= 1) return [];
+  const out: string[] = [];
+  for (let i = 1; i < parts.length; i++) {
+    out.push(parts.slice(0, i).join("."));
+  }
+  return out;
+}
+
+function nodeMatchesTreeQuery(n: snmpApi.SnmpBrowserNode, q: string): boolean {
+  const qf = q.toLowerCase();
+  return (
+    n.oid.toLowerCase().includes(qf) ||
+    n.label.toLowerCase().includes(qf) ||
+    (n.module != null && n.module.toLowerCase().includes(qf)) ||
+    (n.symbol != null && n.symbol.toLowerCase().includes(qf))
+  );
+}
+
 function strAttr(obj: Record<string, unknown> | undefined, key: string): string {
   const v = obj?.[key];
   return typeof v === "string" ? v : "";
@@ -38,6 +58,8 @@ export function SnmpBrowserPage() {
   const dragRef = useRef<{ which: "left" | "right"; startX: number; c1: number; c3: number } | null>(null);
   const [splitterActive, setSplitterActive] = useState<"left" | "right" | null>(null);
   const [compact, setCompact] = useState(false);
+  const [treeFilterInput, setTreeFilterInput] = useState("");
+  const [treeFilterDebounced, setTreeFilterDebounced] = useState("");
 
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: dcimApi.listDevices });
   const [deviceId, setDeviceId] = useState<string>("");
@@ -76,6 +98,11 @@ export function SnmpBrowserPage() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setTreeFilterDebounced(treeFilterInput.trim()), 320);
+    return () => window.clearTimeout(id);
+  }, [treeFilterInput]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -122,6 +149,48 @@ export function SnmpBrowserPage() {
   });
 
   const allRoots = rootChildrenQ.data ?? [];
+
+  useEffect(() => {
+    if (!treeFilterDebounced) return;
+    const q = treeFilterDebounced;
+    let cancelled = false;
+    const collectNodes = (): snmpApi.SnmpBrowserNode[] => {
+      const o: snmpApi.SnmpBrowserNode[] = [...(rootChildrenQ.data ?? [])];
+      for (const kids of childrenRef.current.values()) {
+        o.push(...kids);
+      }
+      return o;
+    };
+    void (async () => {
+      for (let round = 0; round < 5 && !cancelled; round++) {
+        const expandOids = new Set<string>(["1"]);
+        const rawOid = q.replace(/\s/g, "");
+        if (/^[\d.]+$/.test(rawOid)) {
+          const parts = rawOid.split(".").filter(Boolean);
+          for (let i = 1; i < parts.length; i++) {
+            expandOids.add(parts.slice(0, i).join("."));
+          }
+        }
+        for (const n of collectNodes()) {
+          if (nodeMatchesTreeQuery(n, q)) {
+            for (const a of oidAncestorPrefixes(n.oid)) expandOids.add(a);
+          }
+        }
+        const ordered = [...expandOids].sort(
+          (a, b) => a.split(".").length - b.split(".").length || a.localeCompare(b),
+        );
+        for (const o of ordered) {
+          if (cancelled) return;
+          await loadChildren(o);
+        }
+        if (cancelled) return;
+        setExpanded((prev) => new Set([...prev, ...expandOids]));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [treeFilterDebounced, loadChildren, rootChildrenQ.data]);
 
   const mibQ = searchParams.get("mib")?.trim() ?? "";
   const modQ = searchParams.get("module")?.trim() ?? "";
@@ -174,6 +243,23 @@ export function SnmpBrowserPage() {
     for (const n of allRoots) visit(n.oid, 0, n);
     return out;
   }, [allRoots, expanded, childrenByOid]);
+
+  const directMatchOids = useMemo(() => {
+    if (!treeFilterDebounced) return null;
+    const q = treeFilterDebounced;
+    return new Set(flatTree.filter((n) => nodeMatchesTreeQuery(n, q)).map((n) => n.oid));
+  }, [flatTree, treeFilterDebounced]);
+
+  const displayTree = useMemo(() => {
+    if (!treeFilterDebounced) return flatTree;
+    const direct = new Set(flatTree.filter((n) => nodeMatchesTreeQuery(n, treeFilterDebounced)).map((n) => n.oid));
+    const show = new Set<string>();
+    for (const oid of direct) {
+      show.add(oid);
+      for (const a of oidAncestorPrefixes(oid)) show.add(a);
+    }
+    return flatTree.filter((n) => show.has(n.oid));
+  }, [flatTree, treeFilterDebounced]);
 
   const defQ = useQuery({
     queryKey: ["snmp", "browser", "definition", selectedOid],
@@ -262,20 +348,37 @@ export function SnmpBrowserPage() {
 
   const treePane = (
     <section className={styles.pane}>
-      <div className={styles.paneHeader}>{t("snmp.browser.treeTitle")}</div>
+      <div className={`${styles.paneHeader} ${styles.paneHeaderWithSearch}`.trim()}>
+        <span className={styles.paneHeaderTitle}>{t("snmp.browser.treeTitle")}</span>
+        <div className={styles.treeSearchWrap}>
+          <input
+            type="search"
+            className={styles.treeSearchInput}
+            value={treeFilterInput}
+            onChange={(e) => setTreeFilterInput(e.target.value)}
+            placeholder={t("snmp.browser.treeSearchPlaceholder")}
+            aria-label={t("snmp.browser.treeSearchLabel")}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      </div>
       <div className={styles.paneBody}>
         {rootChildrenQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
         {rootChildrenQ.isError ? (
           <p className={dcimStyles.err}>{(rootChildrenQ.error as Error).message}</p>
         ) : null}
         <div className={styles.tree}>
-          {flatTree.map((n) => {
+          {displayTree.map((n) => {
             const isActive = n.oid === selectedOid;
             const pad = `${n.depth * 0.9}rem`;
+            const isMatch = Boolean(treeFilterDebounced && directMatchOids?.has(n.oid));
             return (
               <div
                 key={n.oid}
-                className={`${styles.treeRow} ${isActive ? styles.treeRowActive : ""}`.trim()}
+                className={`${styles.treeRow} ${isActive ? styles.treeRowActive : ""} ${
+                  isMatch ? styles.treeRowMatch : ""
+                }`.trim()}
                 style={{ paddingLeft: pad }}
                 onClick={() => void handleRowClick(n)}
                 title={n.oid}

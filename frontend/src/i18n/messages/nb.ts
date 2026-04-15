@@ -198,6 +198,8 @@ export const nb = {
   "snmp.autocreateSkippedCount": "Hoppet over: {n}",
   "snmp.autocreateNothing": "Ingen endringer.",
   "snmp.browser.treeTitle": "OID-tre",
+  "snmp.browser.treeSearchLabel": "Søk i OID-tre",
+  "snmp.browser.treeSearchPlaceholder": "Navn, OID, modul …",
   "snmp.browser.editorTitle": "MIB-definisjon",
   "snmp.browser.inspectorTitle": "Inspector",
   "snmp.browser.toggle": "Utvid/trekk sammen",

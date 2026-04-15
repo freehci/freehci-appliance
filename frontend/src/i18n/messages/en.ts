@@ -194,6 +194,8 @@ export const en = {
   "snmp.autocreateSkippedCount": "Skipped: {n}",
   "snmp.autocreateNothing": "No changes.",
   "snmp.browser.treeTitle": "OID tree",
+  "snmp.browser.treeSearchLabel": "Search OID tree",
+  "snmp.browser.treeSearchPlaceholder": "Label, OID, module…",
   "snmp.browser.editorTitle": "MIB definition",
   "snmp.browser.inspectorTitle": "Inspector",
   "snmp.browser.toggle": "Expand/collapse",
