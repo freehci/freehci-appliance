@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
+import { HoverHelpCard } from "@/components/ui/HoverHelpCard";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as dcimApi from "@/features/dcim/dcimApi";
@@ -184,8 +185,20 @@ export function SnmpEnterprisesPage() {
 
       <section className={dcimStyles.mfrDetailSection}>
         <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("snmp.enterprisesTitle")}</h3>
-        <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
-          {t("snmp.enterprisesHint")}
+        <p
+          className={dcimStyles.muted}
+          style={{
+            marginTop: 0,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "0.35rem",
+          }}
+        >
+          <span>{t("snmp.enterprisesHintShort")}</span>
+          <HoverHelpCard ariaLabel={t("snmp.enterprisesHelpAria")}>
+            <p>{t("snmp.enterprisesHint")}</p>
+          </HoverHelpCard>
         </p>
         {entQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
         {groups.length > 0 ? (

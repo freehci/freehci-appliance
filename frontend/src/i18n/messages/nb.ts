@@ -280,6 +280,8 @@ export const nb = {
   "snmp.enterprisesTitle": "Enterprises (grupperte MIB-er)",
   "snmp.enterprisesHint":
     "MIB-er grupperes etter detektert private enterprise-nummer (1.3.6.1.4.1.<pen>). Kobling til DCIM-produsent lagrer IANA PEN på produsentposten (standard vendor-id for SNMP).",
+  "snmp.enterprisesHintShort": "Gruppert etter IANA enterprise (PEN)",
+  "snmp.enterprisesHelpAria": "Mer om enterprise-gruppering og DCIM",
   "snmp.mibsTableTitle": "Alle MIB-filer",
   "snmp.mibColModule": "Modul",
   "snmp.mibColEnterprise": "Enterprise",

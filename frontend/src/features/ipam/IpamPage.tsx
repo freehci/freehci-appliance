@@ -888,6 +888,7 @@ export function IpamPage() {
                     <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                       {t("ipam.grid.pagination.perPage")}
                       <select
+                        className={dcimStyles.controlSelect}
                         value={String(gridPageSize)}
                         onChange={(e) => setGridPageSize(Number(e.target.value))}
                       >
@@ -1307,6 +1308,7 @@ export function IpamPage() {
             <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
               {t("ipam.grid.pagination.perPage")}
               <select
+                className={dcimStyles.controlSelect}
                 value={String(prefixListPageSize)}
                 onChange={(e) => setPrefixListPageSize(Number(e.target.value))}
               >

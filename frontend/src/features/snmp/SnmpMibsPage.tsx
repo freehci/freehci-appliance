@@ -667,6 +667,7 @@ export function SnmpMibsPage() {
               <label>
                 {t("ipam.grid.pagination.perPage")}{" "}
                 <select
+                  className={dcimStyles.controlSelect}
                   value={String(mibPageSize)}
                   onChange={(e) => setMibPageSize(Number(e.target.value))}
                 >

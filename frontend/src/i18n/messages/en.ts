@@ -276,6 +276,8 @@ export const en = {
   "snmp.enterprisesTitle": "Enterprises (grouped MIBs)",
   "snmp.enterprisesHint":
     "MIBs are grouped by detected private enterprise number (1.3.6.1.4.1.<pen>). Link a group to a DCIM manufacturer to store the IANA PEN on that manufacturer (standard vendor id for SNMP).",
+  "snmp.enterprisesHintShort": "Grouped by IANA enterprise (PEN)",
+  "snmp.enterprisesHelpAria": "More about enterprise grouping and DCIM",
   "snmp.mibsTableTitle": "All MIB files",
   "snmp.mibColModule": "Module",
   "snmp.mibColEnterprise": "Enterprise",
