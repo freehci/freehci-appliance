@@ -43,6 +43,26 @@ END
     assert imported_vendor_mib_modules(src) == ["CISCO-SMI"]
 
 
+def test_imported_mib_modules_ignores_comments_and_description_strings() -> None:
+    """FROM i -- kommentarer og i DESCRIPTION skal ikke gi falske modulnavn."""
+    src = """
+X-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    a FROM SNMPv2-SMI;
+-- enterprises             FROM COMPAQ-PHANTOM
+Y OBJECT-TYPE
+    SYNTAX OCTET STRING
+    ACCESS read-only
+    STATUS mandatory
+    DESCRIPTION
+        "Try compiling any MIBs from the vendor. Also FROM THE management station."
+    ::= { a 1 }
+END
+"""
+    assert imported_mib_modules(src) == ["SNMPv2-SMI"]
+    assert imported_vendor_mib_modules(src) == []
+
+
 def test_parse_iana_txt_minimal() -> None:
     sample = """Decimal
 | Organization

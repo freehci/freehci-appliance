@@ -24,6 +24,42 @@ def _strip_mib_bom(mib_text: str) -> str:
 
 _FROM_MODULE_RE = re.compile(r"\bFROM\s+([A-Za-z][A-Za-z0-9-]*)\b")
 
+
+def _mib_text_mask_strings_and_comments(mib_text: str) -> str:
+    """Erstatt strenger og linjekommentarer slik at «FROM Modul» kun matches i ekte syntaks.
+
+    Ukommenterte linjer som «-- ... FROM COMPAQ» ga tidligere falske importer. Tekst i
+    hermetegn (f.eks. DESCRIPTION) maskeres slik at ord som «from»/«FROM» i fritekst ikke
+    brukes som modulnavn. ASN.1 bruker «""» som escapet anførselstegn i strenger.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(mib_text)
+    while i < n:
+        c = mib_text[i]
+        if c == '"':
+            out.append(" ")
+            i += 1
+            while i < n:
+                if mib_text[i] == '"' and i + 1 < n and mib_text[i + 1] == '"':
+                    i += 2
+                    continue
+                if mib_text[i] == '"':
+                    i += 1
+                    break
+                i += 1
+            continue
+        if c == "-" and i + 1 < n and mib_text[i + 1] == "-":
+            while i < n and mib_text[i] != "\n":
+                i += 1
+            if i < n:
+                out.append("\n")
+                i += 1
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
 # Vanlige IETF/infra-MIB-moduler — ikke brukt som «vendor-parent» for tre under enterprise.
 _STD_IMPORT_MIBS = frozenset(
     {
@@ -99,9 +135,10 @@ def guess_module_name(filename: str, mib_text: str) -> str:
 def imported_mib_modules(mib_text: str) -> list[str]:
     """Modulnavn fra «FROM Modul» i IMPORTS (rekkefølge bevart, unike)."""
     mib_text = _strip_mib_bom(mib_text)
+    scan = _mib_text_mask_strings_and_comments(mib_text)
     seen: set[str] = set()
     out: list[str] = []
-    for m in _FROM_MODULE_RE.finditer(mib_text):
+    for m in _FROM_MODULE_RE.finditer(scan):
         name = m.group(1)
         if name not in seen:
             seen.add(name)
