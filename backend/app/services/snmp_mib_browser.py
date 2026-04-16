@@ -6,6 +6,7 @@ Den er ment for GUI-browsing (lazy tree loading), ikke som en full MIB-analysato
 
 from __future__ import annotations
 
+import pickle
 import re
 import threading
 from dataclasses import dataclass
@@ -61,6 +62,8 @@ class _BrowserIndex:
 
 _idx = _BrowserIndex()
 _idx_lock = threading.Lock()
+
+_BROWSER_INDEX_CACHE_NAME = ".snmp_browser_index.v1.pkl"
 
 
 def _compiled_dir_mtime(settings: Settings) -> float:
@@ -233,16 +236,84 @@ def _build_index(settings: Settings) -> _BrowserIndex:
     return idx
 
 
+def _browser_index_cache_path(settings: Settings) -> Path:
+    root = settings.mib_compiled_path.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    return root / _BROWSER_INDEX_CACHE_NAME
+
+
+def _try_load_browser_index_cache(settings: Settings, mtime: float) -> _BrowserIndex | None:
+    path = _browser_index_cache_path(settings)
+    if not path.is_file():
+        return None
+    try:
+        with path.open("rb") as f:
+            data = pickle.load(f)
+    except Exception:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return None
+    if not isinstance(data, dict) or data.get("v") != 1:
+        return None
+    cm = data.get("compiled_mtime")
+    if not isinstance(cm, (int, float)) or float(cm) != mtime:
+        return None
+    ch = data.get("children")
+    be = data.get("best_symbol_for_oid")
+    if not isinstance(ch, dict) or not isinstance(be, dict):
+        return None
+    idx = _BrowserIndex()
+    idx.children = ch
+    idx.best_symbol_for_oid = be
+    idx.built_from_compiled_mtime = float(cm)
+    return idx
+
+
+def _save_browser_index_cache(settings: Settings, idx: _BrowserIndex) -> None:
+    path = _browser_index_cache_path(settings)
+    mt = idx.built_from_compiled_mtime
+    if mt is None:
+        return
+    tmp = path.with_suffix(".pkl.tmp")
+    payload = {
+        "v": 1,
+        "compiled_mtime": mt,
+        "children": idx.children,
+        "best_symbol_for_oid": idx.best_symbol_for_oid,
+    }
+    try:
+        with tmp.open("wb") as f:
+            pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
+        tmp.replace(path)
+    except OSError:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def ensure_index(settings: Settings) -> None:
     """Bygg/rebygg indeksen hvis kompilerte MIB-er endrer seg."""
     with _idx_lock:
         mtime = _compiled_dir_mtime(settings)
         if _idx.built_from_compiled_mtime is not None and mtime <= _idx.built_from_compiled_mtime:
             return
+        cached = _try_load_browser_index_cache(settings, mtime)
+        if cached is not None:
+            _idx.children = cached.children
+            _idx.best_symbol_for_oid = cached.best_symbol_for_oid
+            _idx.built_from_compiled_mtime = cached.built_from_compiled_mtime
+            return
         new_idx = _build_index(settings)
         _idx.children = new_idx.children
         _idx.best_symbol_for_oid = new_idx.best_symbol_for_oid
         _idx.built_from_compiled_mtime = new_idx.built_from_compiled_mtime
+        try:
+            _save_browser_index_cache(settings, _idx)
+        except Exception:
+            pass
 
 
 def list_children(settings: Settings, parent_oid_dotted: str) -> list[dict[str, Any]]:

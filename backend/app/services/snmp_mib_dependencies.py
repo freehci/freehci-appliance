@@ -64,6 +64,9 @@ def refresh_missing_imports_all(db: Session, settings: Settings) -> None:
         missing = missing_vendor_import_modules(text, mod, local_mods)
         meta.missing_import_modules_json = json.dumps(missing)
     db.commit()
+    from app.services.snmp_mib_catalog import invalidate_mib_library_list_cache
+
+    invalidate_mib_library_list_cache()
 
 
 def parse_missing_imports_json(raw: str | None) -> list[str]:

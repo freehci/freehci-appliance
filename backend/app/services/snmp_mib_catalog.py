@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -27,6 +28,25 @@ from app.services.snmp_mib_index import mib_module_to_files_map, rebuild_pysmi_m
 from app.services.snmp_mib_parse import guess_module_name, imported_vendor_mib_modules, primary_enterprise_number
 
 logger = logging.getLogger(__name__)
+
+_list_detailed_lock = threading.Lock()
+_list_detailed_key: tuple[tuple[int, float], float] | None = None
+_list_detailed_rows: list[dict] | None = None
+
+
+def invalidate_mib_library_list_cache() -> None:
+    """Tøm prosess-cache for MIB-biblioteklisten (etter disk/DB-endringer som ikke alltid endrer cache-nøkkel)."""
+    global _list_detailed_key, _list_detailed_rows
+    with _list_detailed_lock:
+        _list_detailed_key = None
+        _list_detailed_rows = None
+
+
+def _mib_list_detailed_cache_key(db: Session, settings: Settings) -> tuple[tuple[int, float], float]:
+    n_mt = mib_disk.mib_library_disk_fingerprint(settings)
+    meta_max = db.execute(select(func.max(SnmpMibFileMeta.updated_at))).scalar_one_or_none()
+    meta_ts = meta_max.timestamp() if meta_max else 0.0
+    return n_mt, meta_ts
 
 
 def _utcnow() -> datetime:
@@ -275,7 +295,7 @@ def _build_mib_tree_for_group(group_files: list[str], topo: dict[str, dict], gro
     return [node_dict(r) for r in roots]
 
 
-def list_mibs_detailed(db: Session, settings: Settings) -> list[dict]:
+def _list_mibs_detailed_uncached(db: Session, settings: Settings) -> list[dict]:
     disk = mib_disk.list_mib_files(settings)
     topo = _snmp_file_topology(db, settings, disk)
     out: list[dict] = []
@@ -297,6 +317,21 @@ def list_mibs_detailed(db: Session, settings: Settings) -> list[dict]:
                 d["linked_manufacturer"] = {"id": m.id, "name": m.name}
         out.append(d)
     return out
+
+
+def list_mibs_detailed(db: Session, settings: Settings) -> list[dict]:
+    global _list_detailed_key, _list_detailed_rows
+    key = _mib_list_detailed_cache_key(db, settings)
+    with _list_detailed_lock:
+        if _list_detailed_key == key and _list_detailed_rows is not None:
+            return list(_list_detailed_rows)
+    rows = _list_mibs_detailed_uncached(db, settings)
+    key_after = _mib_list_detailed_cache_key(db, settings)
+    with _list_detailed_lock:
+        if key_after == key:
+            _list_detailed_key = key_after
+            _list_detailed_rows = rows
+    return list(rows)
 
 
 def _mib_row_matches_search(row: dict, ql: str) -> bool:
@@ -451,6 +486,7 @@ def sync_iana_enterprises(db: Session) -> int:
             db.add(SnmpIanaEnterprise(pen=p, organization=org))
         db.commit()
         total += len(chunk)
+    invalidate_mib_library_list_cache()
     return total
 
 

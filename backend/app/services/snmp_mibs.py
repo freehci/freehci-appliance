@@ -119,6 +119,23 @@ def validate_mib_filename(name: str) -> str:
     return base
 
 
+def mib_library_disk_fingerprint(settings: Settings) -> tuple[int, float]:
+    """Antall MIB-filer på disk og største mtime (hurtig fingerprint for liste-cache)."""
+    root = _ensure_mib_root(settings)
+    n = 0
+    max_mtime = 0.0
+    for p in root.iterdir():
+        if not p.is_file() or p.name.startswith("."):
+            continue
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        n += 1
+        max_mtime = max(max_mtime, st.st_mtime)
+    return n, max_mtime
+
+
 def list_mib_files(settings: Settings) -> list[dict]:
     root = _ensure_mib_root(settings)
     out: list[dict] = []
