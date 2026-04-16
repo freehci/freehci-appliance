@@ -4,6 +4,8 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { apiGet, apiPost, apiPostMultipart } from "@/lib/api";
 
+const PLUGIN_INSTALL = "/api/v1/plugin-install";
+
 type InstalledRow = { slug: string; path: string; has_plugin_py: boolean };
 type InstalledResponse = { items: InstalledRow[] };
 type InstallResult = { slug: string; path: string; restart_hint: string };
@@ -23,12 +25,12 @@ export function IntegrationsPage() {
 
   const installedQ = useQuery({
     queryKey: ["plugin-install", "installed"],
-    queryFn: () => apiGet<InstalledResponse>("/plugin-install/installed"),
+    queryFn: () => apiGet<InstalledResponse>(`${PLUGIN_INSTALL}/installed`),
   });
 
   const refsM = useMutation({
     mutationFn: () =>
-      apiPost<GitRefsResponse>("/plugin-install/git/refs", {
+      apiPost<GitRefsResponse>(`${PLUGIN_INSTALL}/git/refs`, {
         git_url: gitUrl.trim(),
         ref: gitRef.trim() || "main",
       }),
@@ -36,7 +38,7 @@ export function IntegrationsPage() {
 
   const scanM = useMutation({
     mutationFn: () =>
-      apiPost<GitScanResponse>("/plugin-install/git/scan", {
+      apiPost<GitScanResponse>(`${PLUGIN_INSTALL}/git/scan`, {
         git_url: gitUrl.trim(),
         ref: gitRef.trim() || "main",
       }),
@@ -49,7 +51,7 @@ export function IntegrationsPage() {
 
   const installGitM = useMutation({
     mutationFn: () =>
-      apiPost<InstallResult>("/plugin-install/git/install", {
+      apiPost<InstallResult>(`${PLUGIN_INSTALL}/git/install`, {
         git_url: gitUrl.trim(),
         ref: gitRef.trim() || "main",
         slug: slugGit.trim(),
@@ -67,7 +69,7 @@ export function IntegrationsPage() {
       const fd = new FormData();
       fd.append("slug", slugZip.trim());
       fd.append("file", file);
-      return apiPostMultipart<InstallResult>("/plugin-install/upload", fd);
+      return apiPostMultipart<InstallResult>(`${PLUGIN_INSTALL}/upload`, fd);
     },
     onSuccess: async (data) => {
       setMessage(data.restart_hint);
