@@ -786,4 +786,31 @@ export const nb = {
   "dcim.equip.pl.openInRack": "Åpne i rack-fremtak",
   "dcim.equip.mountFront": "front",
   "dcim.equip.mountRear": "rear",
+
+  "integrations.title": "Integrasjoner og plugins",
+  "integrations.intro":
+    "Installer valgfrie backend-plugins som ZIP eller fra Git. Hver installasjon må inneholde plugin.py som eksporterer «plugin» (BackendPlugin). Start API-containeren på nytt for å laste inn nye plugins.",
+  "integrations.installedTitle": "Installerte dynamiske plugins",
+  "integrations.installedEmpty": "Ingen mapper under data/plugins/installed ennå.",
+  "integrations.hasPluginPy": "plugin.py funnet",
+  "integrations.missingPluginPy": "mangler plugin.py",
+  "integrations.uploadTitle": "Last opp plugin (.zip)",
+  "integrations.uploadHint":
+    "ZIP kan ha plugin.py i roten, eller én rotmappe som inneholder plugin.py.",
+  "integrations.slugLabel": "Slug (katalognavn under installed/)",
+  "integrations.uploading": "Laster opp…",
+  "integrations.gitTitle": "Installer fra Git",
+  "integrations.gitHint":
+    "List fjern-brancher/tags, skann etter plugin.py, deretter installasjon. Krever git i API-imaget (slått på i Docker).",
+  "integrations.refLabel": "Branch eller tag",
+  "integrations.listRefs": "List fjern-brancher/tags",
+  "integrations.scanPlugins": "Skann repo etter plugin.py",
+  "integrations.refsPreview": "Eksempel på refs",
+  "integrations.foundPluginPy": "Fant plugin.py på:",
+  "integrations.scanNoPluginPy": "Fant ingen plugin.py i denne ref-en (sjekk subpath eller branch).",
+  "integrations.subpathLabel": "plugin_subpath (inne i repo, valgfritt)",
+  "integrations.installFromGit": "Klon og installer",
+  "integrations.idracTitle": "Dell iDRAC (innebygd)",
+  "integrations.idracHint":
+    "Pluginen dell.idrac er alltid lastet. For DCIM-enhet av type server: sett attributes idrac_host (eller bruk primær IPv4), idrac_username, idrac_password. Valgfritt: miljøvariabel IDRAC_REDFISH_TLS_VERIFY=true for streng TLS.",
 } satisfies Record<MessageKey, string>;

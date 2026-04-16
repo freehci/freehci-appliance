@@ -1,6 +1,7 @@
 """FastAPI entrypoint."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +20,9 @@ setup_logging(settings.debug)
 
 def _load_plugins() -> None:
     registry.load_builtin_module("app.plugins_builtin.example")
+    registry.load_builtin_module("app.plugins_builtin.dell_idrac")
     registry.load_entry_points()
+    registry.load_from_installed_directories(Path(settings.plugins_path))
 
 
 @asynccontextmanager

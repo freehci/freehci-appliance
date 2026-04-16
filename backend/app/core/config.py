@@ -33,10 +33,15 @@ class Settings(BaseSettings):
     celery_broker_url: str | None = Field(default=None)
     celery_result_backend: str | None = Field(default=None)
 
-    # Katalog for dynamiske backend-plugins (Python-moduler / pakker)
-    plugins_path: str | None = Field(
-        default=None,
-        description="Valgfri sti hvor ekstra .whl eller pakker kan ligge og importeres.",
+    # Katalog for dynamiske backend-plugins (mapper under installed/ med plugin.py)
+    plugins_path: str = Field(
+        default="data/plugins",
+        description="Rotkatalog: underkatalog installed/<slug>/plugin.py lastes ved oppstart.",
+    )
+
+    idrac_redfish_tls_verify: bool = Field(
+        default=False,
+        description="Verifiser TLS-sertifikat mot iDRAC (slå på i produksjon når CA er på plass).",
     )
 
     # Hemmelighet for enkel API-nøkkel senere; brukes ikke i fase 1 utover struktur

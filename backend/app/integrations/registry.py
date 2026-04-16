@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import logging
+import sys
 from importlib import metadata
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from app.integrations.base.plugin import BackendPlugin, PluginManifest
@@ -59,6 +62,44 @@ class PluginRegistry:
         plugin = getattr(mod, "plugin", None)
         if isinstance(plugin, BackendPlugin):
             self.register(plugin)
+
+    def load_from_installed_directories(self, plugins_root: Path) -> None:
+        """Last dynamiske plugins fra ``<plugins_root>/installed/<slug>/plugin.py``."""
+        installed = plugins_root.expanduser().resolve() / "installed"
+        if not installed.is_dir():
+            return
+        for child in sorted(installed.iterdir()):
+            if not child.is_dir():
+                continue
+            plugin_file = child / "plugin.py"
+            if not plugin_file.is_file():
+                log.debug("Hopper over plugin-mappe uten plugin.py: %s", child)
+                continue
+            modname = f"freehci_dynamic_plugin_{child.name.replace('.', '_').replace('-', '_')}"
+            dir_s = str(child.resolve())
+            inserted = False
+            try:
+                if dir_s not in sys.path:
+                    sys.path.insert(0, dir_s)
+                    inserted = True
+                spec = importlib.util.spec_from_file_location(modname, plugin_file)
+                if spec is None or spec.loader is None:
+                    log.warning("Kunne ikke lage import-spec for %s", plugin_file)
+                    continue
+                mod = importlib.util.module_from_spec(spec)
+                sys.modules[modname] = mod
+                spec.loader.exec_module(mod)
+                plugin = getattr(mod, "plugin", None)
+                if isinstance(plugin, BackendPlugin):
+                    self.register(plugin)
+                    log.info("Lastet dynamisk plugin fra %s", child)
+                else:
+                    log.warning("Fil %s mangler «plugin» av type BackendPlugin", plugin_file)
+            except Exception:
+                log.exception("Feil ved lasting av dynamisk plugin %s", child)
+            finally:
+                if inserted and dir_s in sys.path:
+                    sys.path.remove(dir_s)
 
     def mount_all(self, app: FastAPI, *, api_v1_prefix: str) -> None:
         base = f"{api_v1_prefix.rstrip('/')}/plugins"

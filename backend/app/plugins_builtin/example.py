@@ -15,8 +15,7 @@ class ExamplePlugin(BackendPlugin):
             description="Demonstrerer plugin-API og samspill med React.",
             capabilities=(
                 "demo.ping",
-                # Reserverte kontrakter for DCIM-enhetsdetalj (UI kobles senere)
-                "dcim.device.hardware_view",
+                # OS-kontrakt for DCIM-enhetsdetalj (hardware håndteres av f.eks. dell.idrac)
                 "dcim.device.os_view",
             ),
             frontend_module_url=None,
@@ -30,22 +29,6 @@ class ExamplePlugin(BackendPlugin):
         @router.get("/hello")
         def hello() -> dict[str, str]:
             return {"message": "Hello from freehci.example backend plugin"}
-
-        @router.get("/devices/{device_id}/hardware")
-        def device_hardware(device_id: int) -> dict[str, object]:
-            """Stub: ekte BMC-plugins kan returnere modell, serienummer, minne, CPU, …"""
-            return {
-                "plugin_id": "freehci.example",
-                "device_id": device_id,
-                "kind": "hardware_stub",
-                "message": "Placeholder until a BMC integration (e.g. iDRAC, iLO) is implemented.",
-                "fields": {
-                    "model": None,
-                    "service_tag": None,
-                    "memory_gb": None,
-                    "cpu_summary": None,
-                },
-            }
 
         @router.get("/devices/{device_id}/os")
         def device_os(device_id: int) -> dict[str, object]:

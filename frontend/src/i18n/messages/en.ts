@@ -777,6 +777,33 @@ export const en = {
   "dcim.equip.pl.openInRack": "Open in rack planner",
   "dcim.equip.mountFront": "front",
   "dcim.equip.mountRear": "rear",
+
+  "integrations.title": "Integrations & plugins",
+  "integrations.intro":
+    "Install optional backend plugins as a ZIP or from Git. Each installed folder must contain plugin.py exporting plugin (BackendPlugin). Restart the API container to load new plugins.",
+  "integrations.installedTitle": "Installed dynamic plugins",
+  "integrations.installedEmpty": "No folders under data/plugins/installed yet.",
+  "integrations.hasPluginPy": "plugin.py present",
+  "integrations.missingPluginPy": "missing plugin.py",
+  "integrations.uploadTitle": "Upload plugin (.zip)",
+  "integrations.uploadHint":
+    "ZIP may contain plugin.py at the root, or a single top-level directory that contains plugin.py.",
+  "integrations.slugLabel": "Slug (directory name under installed/)",
+  "integrations.uploading": "Uploading…",
+  "integrations.gitTitle": "Install from Git",
+  "integrations.gitHint":
+    "List remote branches/tags, scan for plugin.py paths, then install. Requires git in the API image (enabled in Docker).",
+  "integrations.refLabel": "Branch or tag",
+  "integrations.listRefs": "List remote branches/tags",
+  "integrations.scanPlugins": "Scan repository for plugin.py",
+  "integrations.refsPreview": "Sample refs",
+  "integrations.foundPluginPy": "Found plugin.py at:",
+  "integrations.scanNoPluginPy": "No plugin.py found in this ref (check subpath or branch).",
+  "integrations.subpathLabel": "plugin_subpath (inside repo, optional)",
+  "integrations.installFromGit": "Clone and install",
+  "integrations.idracTitle": "Dell iDRAC (built-in)",
+  "integrations.idracHint":
+    "The dell.idrac plugin is always loaded. On a server-type DCIM device, set attributes: idrac_host (or use primary IPv4), idrac_username, idrac_password. Optional: env IDRAC_REDFISH_TLS_VERIFY=true for strict TLS.",
 } as const;
 
 export type MessageKey = keyof typeof en;

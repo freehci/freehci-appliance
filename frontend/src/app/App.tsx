@@ -24,6 +24,7 @@ import { SnmpBrowserPage } from "@/features/snmp/SnmpBrowserPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { PluginProvider } from "@/plugins/PluginContext";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { IntegrationsPage } from "@/features/integrations/IntegrationsPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 
 function AppShellLayout() {
@@ -66,15 +67,7 @@ function AppRoutes() {
             <Route path="scheduler" element={<JobsSchedulerPage />} />
             <Route path="templates" element={<JobsTemplatesPage />} />
           </Route>
-          <Route
-            path="/integrations"
-            element={
-              <PlaceholderPage
-                titleKey="placeholders.integrations.title"
-                descriptionKey="placeholders.integrations.desc"
-              />
-            }
-          />
+          <Route path="/integrations" element={<IntegrationsPage />} />
           <Route
             path="/service-catalog"
             element={

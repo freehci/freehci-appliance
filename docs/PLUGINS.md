@@ -11,8 +11,27 @@ Plugins kan utvide **API**, **bakgrunnsjobber** og **React-UI** uten at kjernen 
 
 ### Registrering
 
-1. **Innebygd:** lastes eksplisitt i `app/main.py` via `registry.load_builtin_module("app.plugins_builtin.example")`.
+1. **Innebygd:** lastes eksplisitt i `app/main.py` via `registry.load_builtin_module(...)` (bl.a. `freehci.example`, `dell.idrac`).
 2. **Distribusjon:** setuptools **entry points** i gruppen `freehci.backend_plugins` som peker på et `BackendPlugin`-objekt eller en fabrikk uten argumenter.
+3. **Dynamisk mappe:** ved oppstart leses `PLUGINS_PATH` (standard `data/plugins`) og hver undermappe `installed/<slug>/plugin.py` som eksporterer `plugin: BackendPlugin`.
+
+### Installasjon fra UI eller API
+
+- **Opplasting:** `POST /api/v1/plugin-install/upload` (multipart: `slug`, `file` som `.zip`). ZIP kan ha `plugin.py` i roten eller én enkelt rotmappe som inneholder `plugin.py`.
+- **Git:** `POST /api/v1/plugin-install/git/refs` (lister branch/tag), `POST /api/v1/plugin-install/git/scan` (kloner midlertidig og finner `plugin.py`), `POST /api/v1/plugin-install/git/install` (kloner til `installed/<slug>`). Krever `git` på vert (Dockerfile installerer det).
+- **Liste:** `GET /api/v1/plugin-install/installed`
+- Etter installasjon må **API-prosessen startes på nytt** for at Python skal importere den nye pluginen.
+
+**Sikkerhet:** dynamisk `plugin.py` kjører med samme rettigheter som API-et — kun pålitelige kilder. ZIP avviser `..`-stier.
+
+### Dell iDRAC (innebygd `dell.idrac`)
+
+- Capability: `dcim.device.hardware_view` for `device_type.slug = server`.
+- **Redfish** mot iDRAC: `GET …/devices/{id}/hardware` kaller iDRAC-verts HTTPS og leser `System.Embedded.1` (fallback til første system i `/redfish/v1/Systems`).
+- **Kobling til DCIM:** sett på enhets-`attributes` (JSON):
+  - `idrac_host` (eller `bmc_host` / `ilo_host` / `oob_host`), **eller** primær enhets-IPv4 / IPv4 på grensesnitt med «idrac», «bmc», «ilo», «mgmt» eller «ipmi» i navnet.
+  - `idrac_username` + `idrac_password` (alternativt `bmc_user` / `bmc_password`).
+- **TLS:** miljø `IDRAC_REDFISH_TLS_VERIFY=true` slår på sertifikatverifisering (standard av for selvsignert iDRAC i lab).
 
 ### HTTP
 
@@ -39,10 +58,7 @@ Bruk `device_type_slugs` på manifestet for å begrense hvilke DCIM `device_type
 
 **Modellering:** `device_type` er en *logisk* klasse (f.eks. `server`, `switch`). Produsent og produktserie (PowerEdge, ProLiant, …) hører til **modell** / **produsent**. Ulike styringsplaner (iDRAC, iLO, OME, OneView) er **plugins** som senere kan skille på `manufacturer_id`, modellnavn, `attributes` eller egne slug-er — ikke nødvendigvis én `device_type` per leverandør.
 
-Eksempel-plugin (`freehci.example`) eksponerer stubber:
-
-- `GET /api/v1/plugins/freehci/example/devices/{device_id}/hardware`
-- `GET /api/v1/plugins/freehci/example/devices/{device_id}/os`
+Eksempel-plugin (`freehci.example`) eksponerer bl.a. `GET …/hello` og stub for OS (`…/devices/{id}/os`). Maskinvare-fanen bruker **dell.idrac** (eller annen plugin med `dcim.device.hardware_view`).
 
 Enhetsdetalj i UI henter fra **første** plugin som matcher capability + enhetstype og har `api_route_prefix` i manifest-responsen.
 
