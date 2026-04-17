@@ -24,9 +24,35 @@
   font-weight: 600;
 }
 
+/* Tekstlenke-stil — brukes både som <Link> og som <button type="button"> (f.eks. Remove). */
 .tableLink {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: inherit;
   color: var(--color-accent);
   text-decoration: underline;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.tableLink:hover:not(:disabled) {
+  color: var(--color-accent-hover);
+  opacity: 0.95;
+}
+
+.tableLink:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tableLink:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .rowActions {
