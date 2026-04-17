@@ -46,6 +46,8 @@ def create_user(db: Session, data: UserCreate) -> UserRead:
         phone=data.phone,
         kind=data.kind,
         notes=data.notes,
+        external_subject_id=data.external_subject_id,
+        identity_provider=data.identity_provider,
     )
     db.add(row)
     try:

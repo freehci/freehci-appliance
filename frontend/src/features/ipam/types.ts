@@ -58,6 +58,8 @@ export type User = {
   phone?: string | null;
   kind?: string;
   notes?: string | null;
+  external_subject_id?: string | null;
+  identity_provider?: string | null;
   created_at: string;
 };
 

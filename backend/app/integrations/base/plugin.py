@@ -22,6 +22,8 @@ class PluginManifest:
     name: str
     version: str
     description: str = ""
+    # Kjente capabilities inkl. `iam.directory_provider` for ekstern katalog (AD/LDAP) —
+    # se `app.integrations.iam_directory_provider.IamDirectoryProviderPlugin`.
     capabilities: tuple[str, ...] = ()
     # Hvis satt: last inn frontend via import() / ESM fra denne URL-en i React-shell
     frontend_module_url: str | None = None

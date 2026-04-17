@@ -114,6 +114,8 @@ class UserCreate(BaseModel):
     phone: str | None = Field(None, max_length=64)
     kind: str = Field(default="person", max_length=32)
     notes: str | None = None
+    external_subject_id: str | None = Field(None, max_length=512)
+    identity_provider: str | None = Field(None, max_length=128)
 
     @field_validator("username")
     @classmethod
@@ -134,7 +136,19 @@ class UserRead(BaseModel):
     phone: str | None
     kind: str
     notes: str | None
+    external_subject_id: str | None = None
+    identity_provider: str | None = None
     created_at: dt.datetime
+
+
+class UserPatch(BaseModel):
+    display_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    kind: str | None = Field(None, max_length=32)
+    notes: str | None = None
+    external_subject_id: str | None = Field(None, max_length=512)
+    identity_provider: str | None = Field(None, max_length=128)
 
 
 class Ipv4AddressRead(BaseModel):

@@ -25,6 +25,13 @@ import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { PluginProvider } from "@/plugins/PluginContext";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { IntegrationsPage } from "@/features/integrations/IntegrationsPage";
+import { IamGroupDetailPage } from "@/features/iam/IamGroupDetailPage";
+import { IamGroupsPage } from "@/features/iam/IamGroupsPage";
+import { IamLayout } from "@/features/iam/IamLayout";
+import { IamPersonDetailPage } from "@/features/iam/IamPersonDetailPage";
+import { IamPersonsPage } from "@/features/iam/IamPersonsPage";
+import { IamRoleDetailPage } from "@/features/iam/IamRoleDetailPage";
+import { IamRolesPage } from "@/features/iam/IamRolesPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 
 function AppShellLayout() {
@@ -68,6 +75,15 @@ function AppRoutes() {
             <Route path="templates" element={<JobsTemplatesPage />} />
           </Route>
           <Route path="/integrations" element={<IntegrationsPage />} />
+          <Route path="/iam" element={<IamLayout />}>
+            <Route index element={<Navigate to="persons" replace />} />
+            <Route path="persons" element={<IamPersonsPage />} />
+            <Route path="persons/:personId" element={<IamPersonDetailPage />} />
+            <Route path="roles" element={<IamRolesPage />} />
+            <Route path="roles/:roleId" element={<IamRoleDetailPage />} />
+            <Route path="groups" element={<IamGroupsPage />} />
+            <Route path="groups/:groupId" element={<IamGroupDetailPage />} />
+          </Route>
           <Route
             path="/service-catalog"
             element={

@@ -33,6 +33,21 @@ export function SidebarNav() {
           </li>
         ))}
         <li className={styles.item}>
+          <div className={styles.section}>{t("nav.iamSection")}</div>
+          <ul className={styles.sub}>
+            <li>
+              <NavLink
+                to="/iam"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                {t("nav.iam")}
+              </NavLink>
+            </li>
+          </ul>
+        </li>
+        <li className={styles.item}>
           <div className={styles.section}>{t("nav.dcimSection")}</div>
           <ul className={styles.sub}>
             <li>
