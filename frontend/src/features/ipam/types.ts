@@ -54,6 +54,10 @@ export type User = {
   id: number;
   username: string;
   display_name: string | null;
+  email?: string | null;
+  phone?: string | null;
+  kind?: string;
+  notes?: string | null;
   created_at: string;
 };
 

@@ -5,7 +5,34 @@ export type Site = {
   name: string;
   slug: string;
   description: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  county?: string | null;
+  country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  address_note?: string | null;
   created_at: string;
+};
+
+export type SiteRole = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+};
+
+export type SiteAccessGrant = {
+  id: number;
+  site_id: number;
+  user_id: number;
+  role_id: number;
+  is_contact: boolean;
+  valid_from: string | null;
+  valid_to: string | null;
+  notes: string | null;
 };
 
 export type Room = {

@@ -15,6 +15,15 @@ class SiteCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     slug: str = Field(..., min_length=1, max_length=64)
     description: str | None = None
+    address_line1: str | None = Field(None, max_length=255)
+    address_line2: str | None = Field(None, max_length=255)
+    postal_code: str | None = Field(None, max_length=32)
+    city: str | None = Field(None, max_length=255)
+    county: str | None = Field(None, max_length=255)
+    country: str | None = Field(None, max_length=255)
+    latitude: float | None = None
+    longitude: float | None = None
+    address_note: str | None = None
 
     @field_validator("slug")
     @classmethod
@@ -28,6 +37,15 @@ class SiteCreate(BaseModel):
 class SiteUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
+    address_line1: str | None = Field(None, max_length=255)
+    address_line2: str | None = Field(None, max_length=255)
+    postal_code: str | None = Field(None, max_length=32)
+    city: str | None = Field(None, max_length=255)
+    county: str | None = Field(None, max_length=255)
+    country: str | None = Field(None, max_length=255)
+    latitude: float | None = None
+    longitude: float | None = None
+    address_note: str | None = None
 
 
 class SiteRead(BaseModel):
@@ -37,7 +55,95 @@ class SiteRead(BaseModel):
     name: str
     slug: str
     description: str | None
+    address_line1: str | None
+    address_line2: str | None
+    postal_code: str | None
+    city: str | None
+    county: str | None
+    country: str | None
+    latitude: float | None
+    longitude: float | None
+    address_note: str | None
     created_at: dt.datetime
+
+
+class SiteGeocodeRequest(BaseModel):
+    """Geokod adressefeltene for en site.
+
+    Hvis `query` er satt, brukes den direkte; ellers bygges query fra site-feltene.
+    """
+
+    query: str | None = Field(None, max_length=512)
+    limit: int = Field(default=5, ge=1, le=10)
+
+
+class SiteGeocodeCandidateRead(BaseModel):
+    display_name: str
+    latitude: float
+    longitude: float
+
+
+class SiteGeocodeResponse(BaseModel):
+    query: str
+    candidates: list[SiteGeocodeCandidateRead]
+
+
+class SiteRoleCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class SiteRoleUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+
+
+class SiteRoleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    description: str | None
+
+
+class SiteAccessGrantCreate(BaseModel):
+    user_id: int = Field(..., ge=1)
+    role_id: int = Field(..., ge=1)
+    is_contact: bool = False
+    valid_from: dt.datetime | None = None
+    valid_to: dt.datetime | None = None
+    notes: str | None = None
+
+
+class SiteAccessGrantUpdate(BaseModel):
+    role_id: int | None = Field(None, ge=1)
+    is_contact: bool | None = None
+    valid_from: dt.datetime | None = None
+    valid_to: dt.datetime | None = None
+    notes: str | None = None
+
+
+class SiteAccessGrantRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    user_id: int
+    role_id: int
+    is_contact: bool
+    valid_from: dt.datetime | None
+    valid_to: dt.datetime | None
+    notes: str | None
 
 
 class RoomCreate(BaseModel):

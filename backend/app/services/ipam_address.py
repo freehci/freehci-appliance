@@ -39,7 +39,14 @@ def list_users(db: Session, *, limit: int = 200) -> list[UserRead]:
 
 
 def create_user(db: Session, data: UserCreate) -> UserRead:
-    row = User(username=data.username, display_name=data.display_name)
+    row = User(
+        username=data.username,
+        display_name=data.display_name,
+        email=data.email,
+        phone=data.phone,
+        kind=data.kind,
+        notes=data.notes,
+    )
     db.add(row)
     try:
         db.commit()

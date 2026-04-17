@@ -40,10 +40,19 @@ from app.schemas.dcim import (
     RoomRead,
     RoomUpdate,
     SiteCreate,
+    SiteGeocodeRequest,
+    SiteGeocodeResponse,
+    SiteAccessGrantCreate,
+    SiteAccessGrantRead,
+    SiteAccessGrantUpdate,
+    SiteRoleCreate,
+    SiteRoleRead,
+    SiteRoleUpdate,
     SiteRead,
     SiteUpdate,
 )
 from app.services import dcim as dcim_svc
+from app.services import geocoding as geocode_svc
 
 router = APIRouter(prefix="/dcim", tags=["dcim"])
 
@@ -74,6 +83,104 @@ def update_site(site_id: int, data: SiteUpdate, db: Session = Depends(get_db)) -
     if row is None:
         raise HTTPException(status_code=404, detail="site ikke funnet")
     return dcim_svc.update_site(db, row, data)
+
+
+@router.post("/sites/{site_id}/geocode", response_model=SiteGeocodeResponse)
+def geocode_site(site_id: int, body: SiteGeocodeRequest, db: Session = Depends(get_db)) -> SiteGeocodeResponse:
+    site = dcim_svc.get_site(db, site_id)
+    if site is None:
+        raise HTTPException(status_code=404, detail="site ikke funnet")
+    q = (body.query or "").strip()
+    if not q:
+        q = geocode_svc.build_site_query(
+            {
+                "address_line1": site.address_line1,
+                "address_line2": site.address_line2,
+                "postal_code": site.postal_code,
+                "city": site.city,
+                "county": site.county,
+                "country": site.country,
+            },
+        )
+    if not q.strip():
+        raise HTTPException(status_code=400, detail="Mangler adresse: fyll inn adressefeltene eller send query")
+    try:
+        cand = geocode_svc.geocode_nominatim(q, limit=body.limit)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Geokoding feilet: {e!s}"[:500]) from e
+    return SiteGeocodeResponse(
+        query=q,
+        candidates=[
+            {"display_name": c.display_name, "latitude": c.latitude, "longitude": c.longitude} for c in cand
+        ],
+    )
+
+
+@router.get("/site-roles", response_model=list[SiteRoleRead])
+def list_site_roles(db: Session = Depends(get_db)) -> list[SiteRoleRead]:
+    return dcim_svc.list_site_roles(db)
+
+
+@router.post("/site-roles", response_model=SiteRoleRead)
+def create_site_role(data: SiteRoleCreate, db: Session = Depends(get_db)) -> SiteRoleRead:
+    return dcim_svc.create_site_role(db, data)
+
+
+@router.patch("/site-roles/{role_id}", response_model=SiteRoleRead)
+def update_site_role(role_id: int, data: SiteRoleUpdate, db: Session = Depends(get_db)) -> SiteRoleRead:
+    row = dcim_svc.get_site_role(db, role_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="rolle ikke funnet")
+    return dcim_svc.update_site_role(db, row, data)
+
+
+@router.delete("/site-roles/{role_id}", status_code=204)
+def delete_site_role(role_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_site_role(db, role_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="rolle ikke funnet")
+    dcim_svc.delete_site_role(db, row)
+
+
+@router.get("/sites/{site_id}/access", response_model=list[SiteAccessGrantRead])
+def list_site_access_grants(
+    site_id: int,
+    is_contact: bool | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[SiteAccessGrantRead]:
+    if dcim_svc.get_site(db, site_id) is None:
+        raise HTTPException(status_code=404, detail="site ikke funnet")
+    return dcim_svc.list_site_access_grants(db, site_id=site_id, is_contact=is_contact)
+
+
+@router.post("/sites/{site_id}/access", response_model=SiteAccessGrantRead)
+def create_site_access_grant(
+    site_id: int,
+    data: SiteAccessGrantCreate,
+    db: Session = Depends(get_db),
+) -> SiteAccessGrantRead:
+    return dcim_svc.create_site_access_grant(db, site_id=site_id, data=data)
+
+
+@router.patch("/sites/{site_id}/access/{grant_id}", response_model=SiteAccessGrantRead)
+def update_site_access_grant(
+    site_id: int,
+    grant_id: int,
+    data: SiteAccessGrantUpdate,
+    db: Session = Depends(get_db),
+) -> SiteAccessGrantRead:
+    row = dcim_svc.get_site_access_grant(db, grant_id)
+    if row is None or row.site_id != site_id:
+        raise HTTPException(status_code=404, detail="tilgang ikke funnet")
+    return dcim_svc.update_site_access_grant(db, row, data)
+
+
+@router.delete("/sites/{site_id}/access/{grant_id}", status_code=204)
+def delete_site_access_grant(site_id: int, grant_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_site_access_grant(db, grant_id)
+    if row is None or row.site_id != site_id:
+        raise HTTPException(status_code=404, detail="tilgang ikke funnet")
+    dcim_svc.delete_site_access_grant(db, row)
 
 
 @router.delete("/sites/{site_id}", status_code=204)

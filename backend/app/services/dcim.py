@@ -33,7 +33,10 @@ from app.models.dcim import (
     RackPlacement,
     Room,
     Site,
+    SiteAccessGrant,
+    SiteRole,
 )
+from app.models.iam import User
 from app.models.ipam import IpamIpv4Prefix
 
 from app.schemas.dcim import (
@@ -66,6 +69,12 @@ from app.schemas.dcim import (
     RoomCreate,
     RoomUpdate,
     SiteCreate,
+    SiteAccessGrantCreate,
+    SiteAccessGrantRead,
+    SiteAccessGrantUpdate,
+    SiteRoleCreate,
+    SiteRoleRead,
+    SiteRoleUpdate,
     SiteUpdate,
 )
 
@@ -209,7 +218,20 @@ def list_sites(db: Session) -> list[Site]:
 
 
 def create_site(db: Session, data: SiteCreate) -> Site:
-    row = Site(name=data.name.strip(), slug=data.slug, description=data.description)
+    row = Site(
+        name=data.name.strip(),
+        slug=data.slug,
+        description=data.description,
+        address_line1=data.address_line1,
+        address_line2=data.address_line2,
+        postal_code=data.postal_code,
+        city=data.city,
+        county=data.county,
+        country=data.country,
+        latitude=data.latitude,
+        longitude=data.longitude,
+        address_note=data.address_note,
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -225,6 +247,24 @@ def update_site(db: Session, site: Site, data: SiteUpdate) -> Site:
         site.name = data.name.strip()
     if data.description is not None:
         site.description = data.description
+    if data.address_line1 is not None:
+        site.address_line1 = data.address_line1
+    if data.address_line2 is not None:
+        site.address_line2 = data.address_line2
+    if data.postal_code is not None:
+        site.postal_code = data.postal_code
+    if data.city is not None:
+        site.city = data.city
+    if data.county is not None:
+        site.county = data.county
+    if data.country is not None:
+        site.country = data.country
+    if data.latitude is not None:
+        site.latitude = data.latitude
+    if data.longitude is not None:
+        site.longitude = data.longitude
+    if data.address_note is not None:
+        site.address_note = data.address_note
     db.commit()
     db.refresh(site)
     return site
@@ -232,6 +272,140 @@ def update_site(db: Session, site: Site, data: SiteUpdate) -> Site:
 
 def delete_site(db: Session, site: Site) -> None:
     db.delete(site)
+    db.commit()
+
+
+# --- Site roles & access ---
+
+_DEFAULT_SITE_ROLES: list[tuple[str, str, str | None]] = [
+    ("utleier", "Utleier", None),
+    ("vaktmester", "Vaktmester", None),
+    ("vekter", "Vekter", None),
+    ("tekniker", "Tekniker", None),
+    ("renholder", "Renholder", None),
+    ("drift", "Drift", None),
+    ("leverandor", "Leverandør", None),
+]
+
+
+def _ensure_default_site_roles(db: Session) -> None:
+    n = db.execute(select(SiteRole.id).limit(1)).first()
+    if n is not None:
+        return
+    for slug, name, desc in _DEFAULT_SITE_ROLES:
+        db.add(SiteRole(slug=slug, name=name, description=desc))
+    db.commit()
+
+
+def list_site_roles(db: Session) -> list[SiteRoleRead]:
+    _ensure_default_site_roles(db)
+    rows = list(db.execute(select(SiteRole).order_by(SiteRole.name)).scalars().all())
+    return [SiteRoleRead.model_validate(r) for r in rows]
+
+
+def create_site_role(db: Session, data: SiteRoleCreate) -> SiteRoleRead:
+    row = SiteRole(name=data.name.strip(), slug=data.slug, description=data.description)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="rolle finnes allerede") from None
+    db.refresh(row)
+    return SiteRoleRead.model_validate(row)
+
+
+def get_site_role(db: Session, role_id: int) -> SiteRole | None:
+    return db.get(SiteRole, role_id)
+
+
+def update_site_role(db: Session, row: SiteRole, data: SiteRoleUpdate) -> SiteRoleRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "description" in patch:
+        row.description = patch["description"]
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="rolle finnes allerede") from None
+    db.refresh(row)
+    return SiteRoleRead.model_validate(row)
+
+
+def delete_site_role(db: Session, row: SiteRole) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def list_site_access_grants(db: Session, *, site_id: int, is_contact: bool | None = None) -> list[SiteAccessGrantRead]:
+    q = select(SiteAccessGrant).where(SiteAccessGrant.site_id == site_id).order_by(SiteAccessGrant.id)
+    if is_contact is not None:
+        q = q.where(SiteAccessGrant.is_contact == bool(is_contact))
+    rows = list(db.execute(q).scalars().all())
+    return [SiteAccessGrantRead.model_validate(r) for r in rows]
+
+
+def create_site_access_grant(db: Session, *, site_id: int, data: SiteAccessGrantCreate) -> SiteAccessGrantRead:
+    if get_site(db, site_id) is None:
+        raise HTTPException(status_code=404, detail="site ikke funnet")
+    if db.get(User, data.user_id) is None:
+        raise HTTPException(status_code=404, detail="user ikke funnet")
+    if db.get(SiteRole, data.role_id) is None:
+        raise HTTPException(status_code=404, detail="rolle ikke funnet")
+    row = SiteAccessGrant(
+        site_id=site_id,
+        user_id=int(data.user_id),
+        role_id=int(data.role_id),
+        is_contact=bool(data.is_contact),
+        valid_from=data.valid_from,
+        valid_to=data.valid_to,
+        notes=data.notes,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="tilgang finnes allerede") from None
+    db.refresh(row)
+    return SiteAccessGrantRead.model_validate(row)
+
+
+def get_site_access_grant(db: Session, grant_id: int) -> SiteAccessGrant | None:
+    return db.get(SiteAccessGrant, grant_id)
+
+
+def update_site_access_grant(db: Session, row: SiteAccessGrant, data: SiteAccessGrantUpdate) -> SiteAccessGrantRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "role_id" in patch and patch["role_id"] is not None:
+        if db.get(SiteRole, int(patch["role_id"])) is None:
+            raise HTTPException(status_code=404, detail="rolle ikke funnet")
+        row.role_id = int(patch["role_id"])
+    if "is_contact" in patch and patch["is_contact"] is not None:
+        row.is_contact = bool(patch["is_contact"])
+    if "valid_from" in patch:
+        row.valid_from = patch["valid_from"]
+    if "valid_to" in patch:
+        row.valid_to = patch["valid_to"]
+    if "notes" in patch:
+        row.notes = patch["notes"]
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="tilgang finnes allerede") from None
+    db.refresh(row)
+    return SiteAccessGrantRead.model_validate(row)
+
+
+def delete_site_access_grant(db: Session, row: SiteAccessGrant) -> None:
+    db.delete(row)
     db.commit()
 
 

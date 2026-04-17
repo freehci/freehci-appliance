@@ -12,6 +12,8 @@ import type {
   RackPlacement,
   Room,
   Site,
+  SiteAccessGrant,
+  SiteRole,
 } from "./types";
 
 const P = "/api/v1/dcim";
@@ -22,6 +24,60 @@ export function listSites(): Promise<Site[]> {
 
 export function createSite(body: { name: string; slug: string; description?: string | null }): Promise<Site> {
   return apiPost(`${P}/sites`, body);
+}
+
+export function updateSite(
+  id: number,
+  body: Partial<
+    Pick<
+      Site,
+      | "name"
+      | "description"
+      | "address_line1"
+      | "address_line2"
+      | "postal_code"
+      | "city"
+      | "county"
+      | "country"
+      | "latitude"
+      | "longitude"
+      | "address_note"
+    >
+  >,
+): Promise<Site> {
+  return apiPatch(`${P}/sites/${id}`, body);
+}
+
+export type SiteGeocodeCandidate = { display_name: string; latitude: number; longitude: number };
+export type SiteGeocodeResponse = { query: string; candidates: SiteGeocodeCandidate[] };
+
+export function geocodeSite(
+  id: number,
+  body: { query?: string | null; limit?: number },
+): Promise<SiteGeocodeResponse> {
+  return apiPost(`${P}/sites/${id}/geocode`, body);
+}
+
+export function listSiteRoles(): Promise<SiteRole[]> {
+  return apiGet(`${P}/site-roles`);
+}
+
+export function listSiteAccess(siteId: number, isContact?: boolean): Promise<SiteAccessGrant[]> {
+  const q = isContact != null ? `?is_contact=${encodeURIComponent(String(isContact))}` : "";
+  return apiGet(`${P}/sites/${siteId}/access${q}`);
+}
+
+export function createSiteAccess(siteId: number, body: {
+  user_id: number;
+  role_id: number;
+  is_contact: boolean;
+  notes?: string | null;
+}): Promise<SiteAccessGrant> {
+  return apiPost(`${P}/sites/${siteId}/access`, body);
+}
+
+export function deleteSiteAccess(siteId: number, grantId: number): Promise<void> {
+  return apiDelete(`${P}/sites/${siteId}/access/${grantId}`);
 }
 
 export function listRooms(siteId?: number): Promise<Room[]> {

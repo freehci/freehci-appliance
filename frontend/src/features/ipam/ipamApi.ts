@@ -73,7 +73,14 @@ export function listUsers(limit = 200): Promise<User[]> {
   return apiGet(`${P}/users?limit=${encodeURIComponent(String(limit))}`);
 }
 
-export function createUser(body: { username: string; display_name?: string | null }): Promise<User> {
+export function createUser(body: {
+  username: string;
+  display_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  kind?: string;
+  notes?: string | null;
+}): Promise<User> {
   return apiPost(`${P}/users`, body);
 }
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -17,6 +17,15 @@ class Site(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address_line1: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address_line2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    county: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    address_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -24,6 +33,46 @@ class Site(Base):
     )
 
     rooms: Mapped[list["Room"]] = relationship(back_populates="site", cascade="all, delete-orphan")
+    access_grants: Mapped[list["SiteAccessGrant"]] = relationship(
+        back_populates="site",
+        cascade="all, delete-orphan",
+    )
+
+
+class SiteRole(Base):
+    __tablename__ = "dcim_site_roles"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_dcim_site_role_slug"),
+        UniqueConstraint("name", name="uq_dcim_site_role_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    grants: Mapped[list["SiteAccessGrant"]] = relationship(back_populates="role")
+
+
+class SiteAccessGrant(Base):
+    __tablename__ = "dcim_site_access"
+    __table_args__ = (
+        UniqueConstraint("site_id", "user_id", "role_id", "is_contact", name="uq_dcim_site_access"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role_id: Mapped[int] = mapped_column(ForeignKey("dcim_site_roles.id", ondelete="CASCADE"), nullable=False)
+    is_contact: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    valid_from: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    valid_to: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    site: Mapped["Site"] = relationship(back_populates="access_grants")
+    role: Mapped["SiteRole"] = relationship(back_populates="grants")
+    # relationship til IAM User deklareres som string for å unngå import-syklus.
+    user: Mapped["User"] = relationship("User")  # type: ignore[name-defined]
 
 
 class Room(Base):

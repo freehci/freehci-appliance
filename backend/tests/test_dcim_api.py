@@ -16,6 +16,22 @@ def test_dcim_site_room_rack_device_flow() -> None:
         )
         assert s.status_code == 200
         site_id = s.json()["id"]
+        # Oppdater site med adressefelter (skal være støttet).
+        pu = client.patch(
+            f"/api/v1/dcim/sites/{site_id}",
+            json={
+                "address_line1": "Karl Johans gate 1",
+                "postal_code": "0154",
+                "city": "Oslo",
+                "country": "Norway",
+                "latitude": 59.9139,
+                "longitude": 10.7522,
+            },
+        )
+        assert pu.status_code == 200, pu.text
+        assert pu.json()["address_line1"] == "Karl Johans gate 1"
+        assert pu.json()["city"] == "Oslo"
+        assert pu.json()["latitude"] == 59.9139
 
         r = client.post(
             "/api/v1/dcim/rooms",

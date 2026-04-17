@@ -110,6 +110,10 @@ class SubnetScanDetailRead(SubnetScanRead):
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=1, max_length=128)
     display_name: str | None = Field(None, max_length=255)
+    email: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=64)
+    kind: str = Field(default="person", max_length=32)
+    notes: str | None = None
 
     @field_validator("username")
     @classmethod
@@ -126,6 +130,10 @@ class UserRead(BaseModel):
     id: int
     username: str
     display_name: str | None
+    email: str | None
+    phone: str | None
+    kind: str
+    notes: str | None
     created_at: dt.datetime
 
 
