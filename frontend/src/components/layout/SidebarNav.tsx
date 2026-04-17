@@ -1,25 +1,26 @@
 import { NavLink } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
+import { SidebarNavIcon, type SidebarNavIconName } from "./SidebarNavIcon";
 import styles from "./SidebarNav.module.css";
 
-type MainNavItem = { to: string; label: string; end?: boolean };
+type MainNavItem = { to: string; label: string; end?: boolean; icon: SidebarNavIconName };
 
 export function SidebarNav() {
   const { t } = useI18n();
 
   const mainNav: MainNavItem[] = [
-    { to: "/", label: t("nav.dashboard"), end: true },
-    { to: "/ipam", label: t("nav.ipam") },
-    { to: "/snmp", label: t("nav.snmp") },
-    { to: "/jobs", label: t("nav.jobs") },
-    { to: "/integrations", label: t("nav.integrations") },
-    { to: "/service-catalog", label: t("nav.serviceCatalog") },
+    { to: "/", label: t("nav.dashboard"), end: true, icon: "dashboard" },
+    { to: "/ipam", label: t("nav.ipam"), icon: "ipam" },
+    { to: "/snmp", label: t("nav.snmp"), icon: "snmp" },
+    { to: "/jobs", label: t("nav.jobs"), icon: "jobs" },
+    { to: "/integrations", label: t("nav.integrations"), icon: "integrations" },
+    { to: "/service-catalog", label: t("nav.serviceCatalog"), icon: "serviceCatalog" },
   ];
 
   return (
     <nav className={styles.wrap} aria-label={t("nav.mainAria")}>
       <ul className={styles.list}>
-        {mainNav.map(({ to, label, end }) => (
+        {mainNav.map(({ to, label, end, icon }) => (
           <li key={to} className={styles.item}>
             <NavLink
               to={to}
@@ -28,7 +29,12 @@ export function SidebarNav() {
                 `${styles.link} ${isActive ? styles.active : ""}`.trim()
               }
             >
-              {label}
+              <span className={styles.linkInner}>
+                <span className={styles.navIconWrap}>
+                  <SidebarNavIcon name={icon} />
+                </span>
+                <span>{label}</span>
+              </span>
             </NavLink>
           </li>
         ))}
@@ -42,7 +48,12 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                {t("nav.iam")}
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="iam" size={16} />
+                  </span>
+                  <span>{t("nav.iam")}</span>
+                </span>
               </NavLink>
             </li>
           </ul>
@@ -58,7 +69,12 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                {t("nav.dcimOverview")}
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="dcimOverview" size={16} />
+                  </span>
+                  <span>{t("nav.dcimOverview")}</span>
+                </span>
               </NavLink>
             </li>
             <li>
@@ -68,7 +84,12 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                {t("nav.dcimSites")}
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="dcimSites" size={16} />
+                  </span>
+                  <span>{t("nav.dcimSites")}</span>
+                </span>
               </NavLink>
             </li>
             <li>
@@ -78,7 +99,12 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                {t("nav.dcimRooms")}
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="dcimRooms" size={16} />
+                  </span>
+                  <span>{t("nav.dcimRooms")}</span>
+                </span>
               </NavLink>
             </li>
             <li>
@@ -88,7 +114,12 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                {t("nav.dcimRacks")}
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="dcimRacks" size={16} />
+                  </span>
+                  <span>{t("nav.dcimRacks")}</span>
+                </span>
               </NavLink>
             </li>
             <li>
@@ -98,7 +129,12 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                {t("nav.dcimEquipment")}
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="dcimEquipment" size={16} />
+                  </span>
+                  <span>{t("nav.dcimEquipment")}</span>
+                </span>
               </NavLink>
             </li>
           </ul>
@@ -113,7 +149,12 @@ export function SidebarNav() {
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
               >
-                {t("nav.pluginsExample")}
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="plugins" size={16} />
+                  </span>
+                  <span>{t("nav.pluginsExample")}</span>
+                </span>
               </NavLink>
             </li>
           </ul>

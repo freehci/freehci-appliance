@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -9,9 +9,12 @@ import styles from "./iam.module.css";
 
 export function IamPersonDetailPage() {
   const { t } = useI18n();
+  const loc = useLocation();
   const { personId } = useParams<{ personId: string }>();
   const id = Number(personId);
   const qc = useQueryClient();
+  const fromServiceAccounts = loc.pathname.includes("/iam/service-accounts/");
+  const backTo = fromServiceAccounts ? "/iam/service-accounts" : "/iam/persons";
   const [err, setErr] = useState<string | null>(null);
   const [rolePick, setRolePick] = useState("");
 
@@ -54,7 +57,7 @@ export function IamPersonDetailPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
-      void qc.invalidateQueries({ queryKey: ["iam", "persons"] });
+      void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -65,6 +68,7 @@ export function IamPersonDetailPage() {
       setErr(null);
       setRolePick("");
       void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
+      void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -74,6 +78,7 @@ export function IamPersonDetailPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
+      void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -84,11 +89,12 @@ export function IamPersonDetailPage() {
 
   return (
     <div>
-      <Link className={styles.back} to="/iam/persons">
+      <Link className={styles.back} to={backTo}>
         ← {t("iam.backToList")}
       </Link>
       <h3 className={styles.sectionTitle}>
-        {t("iam.detailPerson")}: {person?.username ?? "…"}
+        {person?.kind === api.IAM_KIND_SERVICE_ACCOUNT ? t("iam.detailServiceAccount") : t("iam.detailPerson")}:{" "}
+        {person?.username ?? "…"}
       </h3>
       {err ? <p className={styles.err}>{err}</p> : null}
 
@@ -100,6 +106,8 @@ export function IamPersonDetailPage() {
           <dl className={styles.dl}>
             <dt>{t("iam.colUsername")}</dt>
             <dd>{person.username}</dd>
+            <dt>{t("iam.colKind")}</dt>
+            <dd>{person.kind ?? api.IAM_KIND_PERSON}</dd>
           </dl>
           <div className={styles.rowActions}>
             <div className={styles.field}>

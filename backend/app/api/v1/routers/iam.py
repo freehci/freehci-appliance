@@ -29,8 +29,12 @@ router = APIRouter(prefix="/iam", tags=["iam"])
 
 
 @router.get("/persons", response_model=list[UserRead])
-def list_persons(limit: int = Query(500, ge=1, le=1000), db: Session = Depends(get_db)) -> list[UserRead]:
-    return iam_svc.list_persons(db, limit=limit)
+def list_persons(
+    limit: int = Query(500, ge=1, le=1000),
+    kind: str | None = Query(None, max_length=32, description="Filtrer på users.kind, f.eks. person eller service_account"),
+    db: Session = Depends(get_db),
+) -> list[UserRead]:
+    return iam_svc.list_persons(db, limit=limit, kind=kind)
 
 
 @router.post("/persons", response_model=UserRead)

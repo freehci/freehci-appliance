@@ -23,6 +23,7 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Vanlige verdier: `person`, `service_account` (for tjeneste-/maskinidentiteter); plugins kan bruke egne prefiks.
     kind: Mapped[str] = mapped_column(String(32), nullable=False, default="person")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Synkronisering fra ekstern IAM (AD/LDAP m.m.); fylles av plugins, ikke hardkodet logikk i kjernen.

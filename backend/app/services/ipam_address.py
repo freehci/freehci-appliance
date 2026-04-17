@@ -33,8 +33,10 @@ def _ipv4_address_read(
     return base.model_copy(update={"interface_name": iname})
 
 
-def list_users(db: Session, *, limit: int = 200) -> list[UserRead]:
+def list_users(db: Session, *, limit: int = 200, kind: str | None = None) -> list[UserRead]:
     q = select(User).order_by(User.username).limit(limit)
+    if kind is not None:
+        q = q.where(User.kind == kind)
     return [UserRead.model_validate(x) for x in db.execute(q).scalars().all()]
 
 

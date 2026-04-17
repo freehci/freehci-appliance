@@ -30,6 +30,7 @@ import { IamGroupsPage } from "@/features/iam/IamGroupsPage";
 import { IamLayout } from "@/features/iam/IamLayout";
 import { IamPersonDetailPage } from "@/features/iam/IamPersonDetailPage";
 import { IamPersonsPage } from "@/features/iam/IamPersonsPage";
+import { IamServiceAccountsPage } from "@/features/iam/IamServiceAccountsPage";
 import { IamRoleDetailPage } from "@/features/iam/IamRoleDetailPage";
 import { IamRolesPage } from "@/features/iam/IamRolesPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -79,6 +80,8 @@ function AppRoutes() {
             <Route index element={<Navigate to="persons" replace />} />
             <Route path="persons" element={<IamPersonsPage />} />
             <Route path="persons/:personId" element={<IamPersonDetailPage />} />
+            <Route path="service-accounts" element={<IamServiceAccountsPage />} />
+            <Route path="service-accounts/:personId" element={<IamPersonDetailPage />} />
             <Route path="roles" element={<IamRolesPage />} />
             <Route path="roles/:roleId" element={<IamRoleDetailPage />} />
             <Route path="groups" element={<IamGroupsPage />} />

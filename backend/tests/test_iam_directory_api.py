@@ -58,6 +58,28 @@ def test_iam_subgroup_cycle_rejected() -> None:
         assert dup.status_code == 409
 
 
+def test_iam_list_persons_filters_by_kind() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        p = client.post("/api/v1/iam/persons", json={"username": f"human-{uuid.uuid4().hex[:6]}", "kind": "person"})
+        assert p.status_code == 200, p.text
+        s = client.post(
+            "/api/v1/iam/persons",
+            json={"username": f"svc-{uuid.uuid4().hex[:6]}", "kind": "service_account"},
+        )
+        assert s.status_code == 200, s.text
+        only_p = client.get("/api/v1/iam/persons?kind=person&limit=500")
+        assert only_p.status_code == 200, only_p.text
+        usernames_p = {x["username"] for x in only_p.json()}
+        assert p.json()["username"] in usernames_p
+        assert s.json()["username"] not in usernames_p
+        only_s = client.get("/api/v1/iam/persons?kind=service_account&limit=500")
+        assert only_s.status_code == 200, only_s.text
+        usernames_s = {x["username"] for x in only_s.json()}
+        assert s.json()["username"] in usernames_s
+        assert p.json()["username"] not in usernames_s
+
+
 def test_iam_roles_assign() -> None:
     app = create_app()
     with TestClient(app) as client:

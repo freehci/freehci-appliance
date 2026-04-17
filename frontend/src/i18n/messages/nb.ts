@@ -35,11 +35,17 @@ export const nb = {
 
   "iam.innerNavAria": "Faner for IAM",
   "iam.tabPersons": "Personer",
+  "iam.tabServiceAccounts": "Servicekontoer",
   "iam.tabRoles": "Roller",
   "iam.tabGroups": "Grupper",
   "iam.title": "Identitet og tilgang",
   "iam.intro":
-    "Personer ligger i den delte brukerkatalogen (samme som IPAM/DCIM). Roller er globale applikasjonsroller. Grupper støtter nestede undergrupper, f.eks. for synkronisering fra Active Directory via en plugin med capability `iam.directory_provider`.",
+    "Personer og servicekontoer deler brukerkatalogen (samme som IPAM/DCIM). Servicekontoer er tekniske identiteter for integrasjoner og jobber. Roller er globale applikasjonsroller. Grupper støtter nestede undergrupper, f.eks. for synkronisering fra Active Directory via en plugin med capability `iam.directory_provider`.",
+  "iam.serviceAccountsHint":
+    "Radene bruker `users.kind = service_account`. Bruk dem til automatisering og tjenestenøkler, ikke som interaktive brukere.",
+  "iam.createServiceAccount": "Opprett servicekonto",
+  "iam.emptyServiceAccounts": "Ingen servicekontoer ennå.",
+  "iam.detailServiceAccount": "Servicekonto",
   "iam.backToList": "Tilbake til liste",
   "iam.colUsername": "Brukernavn",
   "iam.colDisplayName": "Visningsnavn",
@@ -49,6 +55,7 @@ export const nb = {
   "iam.colSlug": "Slug",
   "iam.colName": "Navn",
   "iam.colMembers": "Medlemmer",
+  "iam.colKind": "Type",
   "iam.emptyPersons": "Ingen personer ennå.",
   "iam.emptyRoles": "Ingen roller ennå.",
   "iam.emptyGroups": "Ingen grupper ennå.",

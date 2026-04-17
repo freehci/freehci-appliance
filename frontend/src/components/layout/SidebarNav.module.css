@@ -29,6 +29,22 @@
   transition: background-color 0.2s ease;
 }
 
+.linkInner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.navIconWrap {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.active .navIconWrap {
+  opacity: 1;
+}
+
 .link:hover {
   background: var(--color-sidebar-hover);
 }
@@ -53,6 +69,10 @@
   padding: var(--space-1) var(--space-4);
   font-size: var(--text-xs);
   opacity: 0.95;
+}
+
+.sub .linkInner {
+  gap: var(--space-1);
 }
 
 .section {

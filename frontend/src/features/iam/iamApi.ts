@@ -3,6 +3,11 @@ import type { User } from "@/features/ipam/types";
 
 const P = "/api/v1/iam";
 
+/** Katalograd med `users.kind === "person"` (mennesker). */
+export const IAM_KIND_PERSON = "person";
+/** Tekniske identiteter som kjører integrasjoner og tjenester. */
+export const IAM_KIND_SERVICE_ACCOUNT = "service_account";
+
 export type IamRef = { id: number; name: string; slug: string };
 
 export type PersonDetail = User & {
@@ -41,8 +46,11 @@ export type IamGroupDetail = IamGroup & {
   effective_user_ids: number[];
 };
 
-export function listPersons(limit = 500): Promise<User[]> {
-  return apiGet(`${P}/persons?limit=${encodeURIComponent(String(limit))}`);
+export function listPersons(limit = 500, kind?: string): Promise<User[]> {
+  const q = new URLSearchParams();
+  q.set("limit", String(limit));
+  if (kind != null && kind !== "") q.set("kind", kind);
+  return apiGet(`${P}/persons?${q.toString()}`);
 }
 
 export function getPerson(personId: number): Promise<PersonDetail> {

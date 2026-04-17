@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/api";
 import * as api from "./iamApi";
 import styles from "./iam.module.css";
 
-export function IamPersonsPage() {
+export function IamServiceAccountsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [username, setUsername] = useState("");
@@ -15,15 +15,15 @@ export function IamPersonsPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const q = useQuery({
-    queryKey: ["iam", "directory", "person"],
-    queryFn: () => api.listPersons(500, api.IAM_KIND_PERSON),
+    queryKey: ["iam", "directory", "service_account"],
+    queryFn: () => api.listPersons(500, api.IAM_KIND_SERVICE_ACCOUNT),
   });
   const m = useMutation({
     mutationFn: () =>
       api.createPerson({
         username: username.trim(),
         display_name: displayName.trim() || null,
-        kind: api.IAM_KIND_PERSON,
+        kind: api.IAM_KIND_SERVICE_ACCOUNT,
       }),
     onSuccess: () => {
       setErr(null);
@@ -36,23 +36,24 @@ export function IamPersonsPage() {
 
   return (
     <div>
-      <h3 className={styles.sectionTitle}>{t("iam.tabPersons")}</h3>
+      <h3 className={styles.sectionTitle}>{t("iam.tabServiceAccounts")}</h3>
+      <p className={styles.intro}>{t("iam.serviceAccountsHint")}</p>
       <div className={styles.rowActions}>
         <div className={styles.field}>
-          <label htmlFor="iam-new-username">{t("iam.colUsername")}</label>
+          <label htmlFor="iam-sa-user">{t("iam.colUsername")}</label>
           <input
-            id="iam-new-username"
+            id="iam-sa-user"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="off"
           />
         </div>
         <div className={styles.field}>
-          <label htmlFor="iam-new-dn">{t("iam.colDisplayName")}</label>
-          <input id="iam-new-dn" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          <label htmlFor="iam-sa-dn">{t("iam.colDisplayName")}</label>
+          <input id="iam-sa-dn" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </div>
         <Button type="button" onClick={() => m.mutate()} disabled={!username.trim() || m.isPending}>
-          {t("iam.createPerson")}
+          {t("iam.createServiceAccount")}
         </Button>
       </div>
       {err ? <p className={styles.err}>{err}</p> : null}
@@ -69,7 +70,7 @@ export function IamPersonsPage() {
           {(q.data ?? []).map((u) => (
             <tr key={u.id}>
               <td>
-                <Link className={styles.tableLink} to={`/iam/persons/${u.id}`}>
+                <Link className={styles.tableLink} to={`/iam/service-accounts/${u.id}`}>
                   {u.username}
                 </Link>
               </td>
@@ -79,7 +80,9 @@ export function IamPersonsPage() {
           ))}
         </tbody>
       </table>
-      {!q.isLoading && (q.data?.length ?? 0) === 0 ? <p className={styles.intro}>{t("iam.emptyPersons")}</p> : null}
+      {!q.isLoading && (q.data?.length ?? 0) === 0 ? (
+        <p className={styles.intro}>{t("iam.emptyServiceAccounts")}</p>
+      ) : null}
     </div>
   );
 }

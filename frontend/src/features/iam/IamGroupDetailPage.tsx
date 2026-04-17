@@ -25,7 +25,10 @@ export function IamGroupDetailPage() {
     enabled: Number.isFinite(id),
   });
 
-  const personsQ = useQuery({ queryKey: ["iam", "persons"], queryFn: () => api.listPersons(500) });
+  const personsQ = useQuery({
+    queryKey: ["iam", "directory", "all"],
+    queryFn: () => api.listPersons(500),
+  });
   const groupsQ = useQuery({ queryKey: ["iam", "groups"], queryFn: api.listGroups });
 
   const group = q.data;

@@ -37,8 +37,8 @@ from app.schemas.ipam import UserCreate, UserPatch, UserRead
 from app.services import ipam_address as addr_svc
 
 
-def list_persons(db: Session, *, limit: int = 500) -> list[UserRead]:
-    return addr_svc.list_users(db, limit=limit)
+def list_persons(db: Session, *, limit: int = 500, kind: str | None = None) -> list[UserRead]:
+    return addr_svc.list_users(db, limit=limit, kind=kind)
 
 
 def get_person(db: Session, user_id: int) -> User | None:

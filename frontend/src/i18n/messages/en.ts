@@ -33,11 +33,17 @@ export const en = {
 
   "iam.innerNavAria": "IAM section tabs",
   "iam.tabPersons": "People",
+  "iam.tabServiceAccounts": "Service accounts",
   "iam.tabRoles": "Roles",
   "iam.tabGroups": "Groups",
   "iam.title": "Identity & access",
   "iam.intro":
-    "People are stored in the shared user catalog (also used by IPAM/DCIM). Roles are global application roles. Groups support nested membership for scenarios such as Active Directory sync via an `iam.directory_provider` plugin.",
+    "People and service accounts share the user catalog (also used by IPAM/DCIM). Service accounts are technical identities for running integrations and jobs. Roles are global application roles. Groups support nested membership for scenarios such as Active Directory sync via an `iam.directory_provider` plugin.",
+  "iam.serviceAccountsHint":
+    "These rows use `users.kind = service_account`. Use them for automation and service credentials rather than interactive users.",
+  "iam.createServiceAccount": "Create service account",
+  "iam.emptyServiceAccounts": "No service accounts yet.",
+  "iam.detailServiceAccount": "Service account",
   "iam.backToList": "Back to list",
   "iam.colUsername": "Username",
   "iam.colDisplayName": "Display name",
@@ -47,6 +53,7 @@ export const en = {
   "iam.colSlug": "Slug",
   "iam.colName": "Name",
   "iam.colMembers": "Members",
+  "iam.colKind": "Kind",
   "iam.emptyPersons": "No people yet.",
   "iam.emptyRoles": "No roles yet.",
   "iam.emptyGroups": "No groups yet.",
