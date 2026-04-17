@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Panel } from "@/components/ui/Panel";
+import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { apiGet, apiPost, apiPostMultipart } from "@/lib/api";
 
@@ -110,15 +111,12 @@ export function IntegrationsPage() {
         <p style={{ marginTop: 0, fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
           {t("integrations.uploadHint")}
         </p>
-        <label style={{ display: "block", marginBottom: "0.5rem" }}>
-          {t("integrations.slugLabel")}
-          <input
-            style={{ display: "block", width: "100%", maxWidth: "24rem", marginTop: "0.25rem" }}
-            value={slugZip}
-            onChange={(e) => setSlugZip(e.target.value)}
-            autoComplete="off"
-          />
-        </label>
+        <div className={dcimStyles.formRow}>
+          <label className={dcimStyles.wideField}>
+            {t("integrations.slugLabel")}
+            <input value={slugZip} onChange={(e) => setSlugZip(e.target.value)} autoComplete="off" />
+          </label>
+        </div>
         <input
           type="file"
           accept=".zip"
@@ -136,25 +134,23 @@ export function IntegrationsPage() {
         <p style={{ marginTop: 0, fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
           {t("integrations.gitHint")}
         </p>
-        <label style={{ display: "block", marginBottom: "0.5rem" }}>
-          Git URL
-          <input
-            style={{ display: "block", width: "100%", maxWidth: "36rem", marginTop: "0.25rem" }}
-            value={gitUrl}
-            onChange={(e) => setGitUrl(e.target.value)}
-            placeholder="https://github.com/org/repo.git"
-            autoComplete="off"
-          />
-        </label>
-        <label style={{ display: "block", marginBottom: "0.5rem" }}>
-          {t("integrations.refLabel")}
-          <input
-            style={{ display: "block", width: "100%", maxWidth: "16rem", marginTop: "0.25rem" }}
-            value={gitRef}
-            onChange={(e) => setGitRef(e.target.value)}
-            autoComplete="off"
-          />
-        </label>
+        <div className={dcimStyles.formRow}>
+          <label className={dcimStyles.wideField}>
+            Git URL
+            <input
+              value={gitUrl}
+              onChange={(e) => setGitUrl(e.target.value)}
+              placeholder="https://github.com/org/repo.git"
+              autoComplete="off"
+            />
+          </label>
+        </div>
+        <div className={dcimStyles.formRow}>
+          <label>
+            {t("integrations.refLabel")}
+            <input value={gitRef} onChange={(e) => setGitRef(e.target.value)} autoComplete="off" />
+          </label>
+        </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
           <button type="button" onClick={() => refsM.mutate()} disabled={!gitUrl.trim() || refsM.isPending}>
             {refsM.isPending ? "…" : t("integrations.listRefs")}
@@ -183,25 +179,23 @@ export function IntegrationsPage() {
         ) : scanResult ? (
           <p style={{ color: "var(--color-text-warn, orange)" }}>{t("integrations.scanNoPluginPy")}</p>
         ) : null}
-        <label style={{ display: "block", marginBottom: "0.5rem" }}>
-          {t("integrations.slugLabel")}
-          <input
-            style={{ display: "block", width: "100%", maxWidth: "24rem", marginTop: "0.25rem" }}
-            value={slugGit}
-            onChange={(e) => setSlugGit(e.target.value)}
-            autoComplete="off"
-          />
-        </label>
-        <label style={{ display: "block", marginBottom: "0.75rem" }}>
-          {t("integrations.subpathLabel")}
-          <input
-            style={{ display: "block", width: "100%", maxWidth: "36rem", marginTop: "0.25rem" }}
-            value={subpath}
-            onChange={(e) => setSubpath(e.target.value)}
-            placeholder="(tom hvis plugin.py ligger i rot)"
-            autoComplete="off"
-          />
-        </label>
+        <div className={dcimStyles.formRow}>
+          <label className={dcimStyles.wideField}>
+            {t("integrations.slugLabel")}
+            <input value={slugGit} onChange={(e) => setSlugGit(e.target.value)} autoComplete="off" />
+          </label>
+        </div>
+        <div className={dcimStyles.formRow}>
+          <label className={dcimStyles.wideField}>
+            {t("integrations.subpathLabel")}
+            <input
+              value={subpath}
+              onChange={(e) => setSubpath(e.target.value)}
+              placeholder="(tom hvis plugin.py ligger i rot)"
+              autoComplete="off"
+            />
+          </label>
+        </div>
         <button
           type="button"
           onClick={() => installGitM.mutate()}

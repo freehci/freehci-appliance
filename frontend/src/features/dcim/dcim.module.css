@@ -180,41 +180,20 @@
   color: var(--color-text-muted);
 }
 
-.formRow input,
-.formRow select {
-  min-width: 8rem;
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-input-bg);
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
+/* Label + felt som bruker full radbredde (f.eks. lange URL-er) */
+.formRow label.wideField {
+  flex: 1 1 100%;
+  max-width: 42rem;
 }
 
-.formRow input:focus,
-.formRow select:focus {
-  background: var(--color-input-focus-bg);
-  outline: none;
-  box-shadow: 0 0 0 1px var(--color-button-bg);
+.formRow label.wideField > input,
+.formRow label.wideField > select,
+.formRow label.wideField > textarea {
+  width: 100%;
+  max-width: 100%;
 }
 
-/* Standalone selects (pagination, filters) — match .formRow select */
-.controlSelect {
-  min-width: 8rem;
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-input-bg);
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--text-xs);
-  font-family: inherit;
-  line-height: 1.4;
-}
-
-.controlSelect:focus {
-  background: var(--color-input-focus-bg);
-  outline: none;
-  box-shadow: 0 0 0 1px var(--color-button-bg);
-}
+/* input/select/textarea i .formRow arver globale main-regler (global.css) */
 
 .formRow input[type="file"] {
   padding: var(--space-1) 0;
@@ -257,23 +236,6 @@
 .formRow input[type="file"]::-webkit-file-upload-button:hover {
   border-color: var(--color-text-muted);
   background: var(--color-sidebar-hover);
-}
-
-.formRow textarea {
-  min-width: min(100%, 12rem);
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-input-bg);
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--text-xs);
-  resize: vertical;
-}
-
-.formRow textarea:focus {
-  background: var(--color-input-focus-bg);
-  outline: none;
-  box-shadow: 0 0 0 1px var(--color-button-bg);
 }
 
 .formFullWidth {

@@ -445,7 +445,6 @@ export function SnmpBrowserPage() {
           <label style={{ minWidth: "12rem" }}>
             {t("snmp.browser.device")}
             <select
-              className={dcimStyles.controlSelect}
               value={deviceId}
               onChange={(e) => setDeviceId(e.target.value)}
             >
@@ -492,7 +491,6 @@ export function SnmpBrowserPage() {
           <label style={{ minWidth: "14rem" }}>
             {t("snmp.browser.iface")}
             <select
-              className={dcimStyles.controlSelect}
               value={indexSuffix}
               onChange={(e) => setIndexSuffix(e.target.value)}
               disabled={!inventoryIfaces.length}

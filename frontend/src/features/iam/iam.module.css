@@ -48,17 +48,7 @@
   color: var(--color-text-muted);
 }
 
-.field input,
-.field select,
-.field textarea {
-  font: inherit;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: inherit;
-  min-width: 10rem;
-}
+/* feltstyling: globale main-regler (global.css) */
 
 .dl {
   display: grid;

@@ -56,25 +56,45 @@ button {
   font-size: inherit;
 }
 
-/* Tabellceller med redigerbare felt (f.eks. IPAM) — ligger utenfor .formRow */
-main table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-main table select {
+/*
+ * Globale skjemakontroller i <main> (samme uttrykk som DCIM .formRow / SNMP Panel).
+ * :where(main …) gir spesifisitet 0 slik at f.eks. ui/Input.module.css (.input) fortsatt vinner.
+ */
+:where(main)
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="range"]):not([type="image"]):not([type="submit"]):not([type="reset"]):not([type="button"]),
+:where(main) select,
+:where(main) textarea {
   font-family: inherit;
   font-size: var(--text-xs);
+  line-height: 1.4;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--shell-border);
   background: var(--color-input-bg);
   color: var(--color-text);
+  min-width: 8rem;
   max-width: 100%;
   box-sizing: border-box;
 }
 
-main table input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
-main table select:focus {
+:where(main) textarea {
+  resize: vertical;
+  min-width: min(100%, 12rem);
+}
+
+:where(main)
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="range"]):not([type="image"]):not([type="submit"]):not([type="reset"]):not([type="button"]):focus,
+:where(main) select:focus,
+:where(main) textarea:focus {
   background: var(--color-input-focus-bg);
   outline: none;
   box-shadow: 0 0 0 1px var(--color-button-bg);
+}
+
+/* Monaco editor: la editoren styre egne felt (unntak fra globale skjemaregler) */
+main .monaco-editor input,
+main .monaco-editor textarea {
+  all: revert-layer;
 }
 
 :focus-visible {
