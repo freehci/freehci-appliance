@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.schemas.ipam import (
+    Ipv4AddressBatchRead,
+    Ipv4AddressBatchRequest,
     Ipv4AddressEnsure,
     Ipv4AddressPatch,
     Ipv4AddressRead,
@@ -147,6 +149,11 @@ def patch_ipv4_address(addr_id: int, data: Ipv4AddressPatch, db: Session = Depen
 @router.post("/ipv4-addresses/request", response_model=Ipv4AddressRead)
 def request_ipv4_address(data: Ipv4AddressRequest, db: Session = Depends(get_db)) -> Ipv4AddressRead:
     return addr_svc.request_ipv4_address(db, data)
+
+
+@router.post("/ipv4-addresses/request-batch", response_model=Ipv4AddressBatchRead)
+def request_ipv4_addresses_batch(data: Ipv4AddressBatchRequest, db: Session = Depends(get_db)) -> Ipv4AddressBatchRead:
+    return addr_svc.request_ipv4_addresses_batch(db, data)
 
 
 @router.post("/ipv4-addresses/{addr_id}/release", response_model=Ipv4AddressRead)

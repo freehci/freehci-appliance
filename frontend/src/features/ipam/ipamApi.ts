@@ -39,7 +39,7 @@ export function createIpv4Prefix(body: {
 
 export function updateIpv4Prefix(
   id: number,
-  body: { name?: string; cidr?: string; description?: string | null },
+  body: { name?: string; cidr?: string; description?: string | null; subnet_services?: Record<string, unknown> | null },
 ): Promise<Ipv4Prefix> {
   return apiPatch(`${P}/ipv4-prefixes/${id}`, body);
 }
@@ -130,4 +130,19 @@ export function requestIpv4Address(body: {
   device_id?: number | null;
 }): Promise<Ipv4Address> {
   return apiPost(`${P}/ipv4-addresses/request`, body);
+}
+
+export function requestIpv4AddressBatch(body: {
+  ipv4_prefix_id: number;
+  mode: "reserve" | "assign";
+  count: number;
+  preferred_addresses?: string[];
+  interface_id?: number | null;
+  owner_user_id?: number | null;
+  note?: string | null;
+  device_type_id?: number | null;
+  device_model_id?: number | null;
+  device_id?: number | null;
+}): Promise<{ addresses: Ipv4Address[]; requested_count: number; allocated_count: number }> {
+  return apiPost(`${P}/ipv4-addresses/request-batch`, body);
 }

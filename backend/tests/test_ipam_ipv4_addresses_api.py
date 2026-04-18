@@ -17,6 +17,47 @@ def test_ipam_users_create_and_list() -> None:
         assert any(x["username"] == "alice" for x in li.json())
 
 
+def test_ipam_request_ipv4_batch_preferred_then_auto() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "S-batch", "slug": "s-batch"}).json()["id"]
+        pfx = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": sa, "name": "LAN", "cidr": "10.10.0.0/29"},
+        )
+        assert pfx.status_code == 200, pfx.text
+        pid = pfx.json()["id"]
+
+        r = client.post(
+            "/api/v1/ipam/ipv4-addresses/request-batch",
+            json={
+                "ipv4_prefix_id": pid,
+                "mode": "reserve",
+                "count": 2,
+                "preferred_addresses": ["10.10.0.6", "10.10.0.2"],
+            },
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["requested_count"] == 2
+        assert body["allocated_count"] == 2
+        addrs = {x["address"] for x in body["addresses"]}
+        assert addrs == {"10.10.0.6", "10.10.0.2"}
+
+
+def test_ipam_patch_prefix_subnet_services() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sa = client.post("/api/v1/dcim/sites", json={"name": "S-svc", "slug": "s-svc"}).json()["id"]
+        pfx = client.post("/api/v1/ipam/ipv4-prefixes", json={"site_id": sa, "name": "LAN", "cidr": "10.11.0.0/24"})
+        assert pfx.status_code == 200
+        pid = pfx.json()["id"]
+        svc = {"gateway": "10.11.0.1", "dns": "10.11.0.2", "dhcp_server": "10.11.0.3"}
+        u = client.patch(f"/api/v1/ipam/ipv4-prefixes/{pid}", json={"subnet_services": svc})
+        assert u.status_code == 200, u.text
+        assert u.json()["subnet_services"] == svc
+
+
 def test_ipam_request_ipv4_reserve_next_free() -> None:
     app = create_app()
     with TestClient(app) as client:

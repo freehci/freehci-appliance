@@ -24,6 +24,22 @@ from app.services.ipam_address import _ipv4_address_read
 MAX_GRID_ADDRESSES = scan_svc.MAX_SCAN_HOSTS
 
 
+def _address_role_for(cidr: str, addr_s: str) -> str | None:
+    try:
+        net = ipaddress.ip_network(cidr.strip(), strict=False)
+        ip = ipaddress.ip_address(addr_s.strip())
+    except ValueError:
+        return None
+    if net.version != 4 or not isinstance(ip, ipaddress.IPv4Address) or ip not in net:
+        return None
+    if net.prefixlen <= 30:
+        if ip == net.network_address:
+            return "network"
+        if ip == net.broadcast_address:
+            return "broadcast"
+    return "host"
+
+
 def _candidate_strings_in_prefix(cidr: str) -> list[str]:
     try:
         ips = scan_svc.iter_target_ipv4_addresses(cidr)
@@ -146,6 +162,7 @@ def build_prefix_address_grid(db: Session, prefix_id: int) -> PrefixAddressGridR
         rows_out.append(
             PrefixAddressGridRow(
                 address=addr,
+                address_role=_address_role_for(pfx.cidr, addr),
                 inventory=inv_read,
                 assignment=asn,
                 scan_ping_responded=ping,

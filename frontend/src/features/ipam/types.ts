@@ -7,6 +7,7 @@ export type Ipv4Prefix = {
   created_at: string;
   used_count: number;
   address_total: number;
+  subnet_services?: Record<string, unknown> | null;
 };
 
 export type Ipv4AssignmentInPrefix = {
@@ -85,6 +86,7 @@ export type Ipv4Address = {
 
 export type PrefixAddressGridRow = {
   address: string;
+  address_role?: string | null;
   inventory: Ipv4Address | null;
   assignment: Ipv4AssignmentInPrefix | null;
   scan_ping_responded: boolean | null;

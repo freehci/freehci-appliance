@@ -196,6 +196,7 @@ def ipv4_prefix_read(
         created_at=row.created_at,
         used_count=used,
         address_total=_ipv4_address_total(row.cidr),
+        subnet_services=getattr(row, "subnet_services", None),
     )
 
 
@@ -257,6 +258,8 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         row.description = None if v is None else (str(v).strip() or None)
     if "cidr" in patch and patch["cidr"] is not None:
         row.cidr = _normalize_ipv4_cidr(patch["cidr"])
+    if "subnet_services" in patch:
+        row.subnet_services = patch["subnet_services"]
     try:
         db.commit()
     except IntegrityError:

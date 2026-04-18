@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Ipv4PrefixCreate(BaseModel):
@@ -12,6 +13,7 @@ class Ipv4PrefixCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     cidr: str = Field(..., min_length=1, max_length=32)
     description: str | None = None
+    subnet_services: dict[str, Any] | None = None
 
     @field_validator("cidr")
     @classmethod
@@ -26,6 +28,7 @@ class Ipv4PrefixUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     cidr: str | None = Field(None, min_length=1, max_length=32)
     description: str | None = None
+    subnet_services: dict[str, Any] | None = None
 
     @field_validator("cidr")
     @classmethod
@@ -54,6 +57,10 @@ class Ipv4PrefixRead(BaseModel):
         ),
     )
     address_total: int = Field(description="Totalt antall IPv4-adresser i CIDR (inkl. nettverk/broadcast der relevant)")
+    subnet_services: dict[str, Any] | None = Field(
+        default=None,
+        description="Valgfritt: gateway, DNS, DHCP-server m.m. (JSON for integrasjoner)",
+    )
 
 
 class Ipv4AssignmentInPrefixRead(BaseModel):
@@ -178,6 +185,10 @@ class PrefixAddressGridRow(BaseModel):
     """Én rad i subnett-tabellen: inventory + DCIM-tildeling + siste skann per IP."""
 
     address: str
+    address_role: str | None = Field(
+        default=None,
+        description="network | broadcast | host (IPv4; None for ukjent)",
+    )
     inventory: Ipv4AddressRead | None = None
     assignment: Ipv4AssignmentInPrefixRead | None = None
     scan_ping_responded: bool | None = Field(
@@ -237,3 +248,45 @@ class Ipv4AddressRequest(BaseModel):
         if s not in ("reserve", "assign"):
             raise ValueError("mode må være reserve eller assign")
         return s
+
+
+class Ipv4AddressBatchRequest(BaseModel):
+    """Reserver eller tildel flere adresser; foretrukne prøves først."""
+
+    ipv4_prefix_id: int = Field(..., ge=1)
+    mode: str = Field(..., description="reserve | assign")
+    count: int = Field(1, ge=1, le=256)
+    preferred_addresses: list[str] = Field(default_factory=list)
+    interface_id: int | None = Field(None, ge=1)
+    owner_user_id: int | None = Field(None, ge=1)
+    note: str | None = None
+    device_type_id: int | None = Field(None, ge=1)
+    device_model_id: int | None = Field(None, ge=1)
+    device_id: int | None = Field(None, ge=1)
+
+    @field_validator("mode")
+    @classmethod
+    def mode_valid_batch(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in ("reserve", "assign"):
+            raise ValueError("mode må være reserve eller assign")
+        return s
+
+    @field_validator("preferred_addresses")
+    @classmethod
+    def cap_preferred(cls, v: list[str]) -> list[str]:
+        if len(v) > 256:
+            raise ValueError("høyst 256 foretrukne adresser")
+        return v
+
+    @model_validator(mode="after")
+    def assign_only_one(self) -> Ipv4AddressBatchRequest:
+        if self.mode == "assign" and self.count > 1:
+            raise ValueError("mode=assign støtter bare count=1")
+        return self
+
+
+class Ipv4AddressBatchRead(BaseModel):
+    addresses: list[Ipv4AddressRead]
+    requested_count: int
+    allocated_count: int

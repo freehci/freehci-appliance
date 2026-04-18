@@ -9,6 +9,7 @@ import dcimStyles from "@/features/dcim/dcim.module.css";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "@/features/dcim/interfaceTreeLabels";
 import type { Ipv4Prefix, PrefixAddressGridRow } from "./types";
 import * as ipamApi from "./ipamApi";
+import { IpamIpRequestModal } from "./IpamIpRequestModal";
 
 type ExploreCrumb = { id: number; name: string; cidr: string };
 
@@ -43,13 +44,6 @@ export function IpamPage() {
   const [linkFor, setLinkFor] = useState<string | null>(null);
   const [linkDeviceId, setLinkDeviceId] = useState("");
   const [linkInterfaceId, setLinkInterfaceId] = useState("");
-  const [reqMode, setReqMode] = useState<"reserve" | "assign">("reserve");
-  const [reqOwnerUserId, setReqOwnerUserId] = useState("");
-  const [reqOwnerNewUsername, setReqOwnerNewUsername] = useState("");
-  const [reqOwnerNewDisplay, setReqOwnerNewDisplay] = useState("");
-  const [reqNote, setReqNote] = useState("");
-  const [reqDeviceId, setReqDeviceId] = useState("");
-  const [reqInterfaceId, setReqInterfaceId] = useState("");
   const [addrFilterText, setAddrFilterText] = useState("");
   const [addrFilterStatus, setAddrFilterStatus] = useState("");
   const [addrFilterFreeOnly, setAddrFilterFreeOnly] = useState(false);
@@ -60,6 +54,14 @@ export function IpamPage() {
   const [gridPageSize, setGridPageSize] = useState<number>(50);
   const [prefixListPage, setPrefixListPage] = useState(0);
   const [prefixListPageSize, setPrefixListPageSize] = useState<number>(25);
+  const [ipRequestCtx, setIpRequestCtx] = useState<{
+    prefixId: number;
+    cidr: string;
+    preferred: string;
+  } | null>(null);
+  const [svcGateway, setSvcGateway] = useState("");
+  const [svcDns, setSvcDns] = useState("");
+  const [svcDhcp, setSvcDhcp] = useState("");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
@@ -98,13 +100,6 @@ export function IpamPage() {
     setLinkFor(null);
     setLinkDeviceId("");
     setLinkInterfaceId("");
-    setReqOwnerUserId("");
-    setReqOwnerNewUsername("");
-    setReqOwnerNewDisplay("");
-    setReqNote("");
-    setReqDeviceId("");
-    setReqInterfaceId("");
-    setReqMode("reserve");
     setAddrFilterFreeOnly(false);
     setAddrFilterOwnerUserId("");
     setGridFilterOpen(false);
@@ -351,22 +346,6 @@ export function IpamPage() {
     setPrefixListPage((p) => Math.min(Math.max(0, p), pageCount - 1));
   }, [prefixesQ.data?.length, prefixListPageSize]);
 
-  const deviceIdNum = reqDeviceId === "" ? null : Number(reqDeviceId);
-  const interfacesQ = useQuery({
-    queryKey: ["dcim", "devices", deviceIdNum, "interfaces"],
-    queryFn: () => dcimApi.listDeviceInterfaces(deviceIdNum!),
-    enabled: deviceIdNum != null && deviceIdNum > 0,
-  });
-
-  const reqIfaceDepthById = useMemo(
-    () => interfaceDepthByInterfaceList(interfacesQ.data ?? []),
-    [interfacesQ.data],
-  );
-
-  useEffect(() => {
-    setReqInterfaceId("");
-  }, [reqDeviceId]);
-
   const linkDeviceNum = linkDeviceId === "" ? null : Number(linkDeviceId);
   const interfacesLinkQ = useQuery({
     queryKey: ["dcim", "devices", linkDeviceNum, "interfaces", "ipam-link"],
@@ -383,42 +362,6 @@ export function IpamPage() {
     setLinkInterfaceId("");
   }, [linkDeviceId]);
 
-  const createOwner = useMutation({
-    mutationFn: () =>
-      ipamApi.createUser({
-        username: reqOwnerNewUsername.trim(),
-        display_name: reqOwnerNewDisplay.trim() !== "" ? reqOwnerNewDisplay.trim() : null,
-      }),
-    onSuccess: (u) => {
-      setReqOwnerUserId(String(u.id));
-      setReqOwnerNewUsername("");
-      setReqOwnerNewDisplay("");
-      setErr(null);
-      void qc.invalidateQueries({ queryKey: ["ipam", "users"] });
-    },
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
-  });
-
-  const requestAddr = useMutation({
-    mutationFn: () =>
-      ipamApi.requestIpv4Address({
-        ipv4_prefix_id: exploreId!,
-        mode: reqMode,
-        interface_id: reqMode === "assign" && reqInterfaceId.trim() !== "" ? Number(reqInterfaceId) : null,
-        device_id: reqMode === "assign" && reqDeviceId.trim() !== "" ? Number(reqDeviceId) : null,
-        owner_user_id: reqOwnerUserId.trim() !== "" ? Number(reqOwnerUserId) : null,
-        note: reqNote.trim() !== "" ? reqNote.trim() : null,
-      }),
-    onSuccess: () => {
-      setErr(null);
-      setReqNote("");
-      void qc.invalidateQueries({ queryKey: ["ipam", "explore", exploreId] });
-      void qc.invalidateQueries({ queryKey: ["ipam", "address-grid", exploreId] });
-      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
-    },
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
-  });
-
   const patchAddr = useMutation({
     mutationFn: (args: { id: number; body: { owner_user_id?: number | null; note?: string | null; status?: string } }) =>
       ipamApi.patchIpv4Address(args.id, args.body),
@@ -429,6 +372,50 @@ export function IpamPage() {
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
+
+  const patchSubnetSvc = useMutation({
+    mutationFn: () =>
+      ipamApi.updateIpv4Prefix(exploreId!, {
+        subnet_services: {
+          gateway: svcGateway.trim() || null,
+          dns: svcDns.trim() || null,
+          dhcp_server: svcDhcp.trim() || null,
+        },
+      }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "explore", exploreId] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-prefixes"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const reserveOne = useMutation({
+    mutationFn: async (address: string) => {
+      const row = (gridQ.data?.rows ?? []).find((r) => r.address === address);
+      if (row?.inventory) {
+        await ipamApi.patchIpv4Address(row.inventory.id, { status: "reserved" });
+        return;
+      }
+      const inv = await ipamApi.ensureIpv4Address({ ipv4_prefix_id: exploreId!, address });
+      await ipamApi.patchIpv4Address(inv.id, { status: "reserved" });
+    },
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "explore", exploreId] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "address-grid", exploreId] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  useEffect(() => {
+    const p = exploreQ.data?.prefix;
+    if (!p) return;
+    const s = p.subnet_services;
+    setSvcGateway(typeof s?.gateway === "string" ? s.gateway : "");
+    setSvcDns(typeof s?.dns === "string" ? s.dns : "");
+    setSvcDhcp(typeof s?.dhcp_server === "string" ? s.dhcp_server : "");
+  }, [exploreQ.data?.prefix?.id, exploreQ.data?.prefix?.subnet_services]);
 
   const linkAssign = useMutation({
     mutationFn: async (args: { address: string; deviceId: number; interfaceId: number }) => {
@@ -488,6 +475,20 @@ export function IpamPage() {
 
   return (
     <Panel title={t("ipam.ipv4.title")}>
+      {ipRequestCtx ? (
+        <IpamIpRequestModal
+          open
+          onClose={() => setIpRequestCtx(null)}
+          prefixId={ipRequestCtx.prefixId}
+          prefixCidr={ipRequestCtx.cidr}
+          initialPreferred={ipRequestCtx.preferred}
+          onAllocated={() => {
+            void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-prefixes"] });
+            void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
+            void qc.invalidateQueries({ queryKey: ["ipam", "address-grid"] });
+          }}
+        />
+      ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
       <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
         {t("ipam.ipv4.intro")}
@@ -610,6 +611,37 @@ export function IpamPage() {
               <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
                 {t("ipam.grid.hint")}
               </p>
+
+              <h5 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
+                {t("ipam.subnetSvc.title")}
+              </h5>
+              <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
+                {t("ipam.subnetSvc.intro")}
+              </p>
+              <form
+                className={dcimStyles.formRow}
+                style={{ marginBottom: "var(--space-3)", flexWrap: "wrap" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  patchSubnetSvc.mutate();
+                }}
+              >
+                <label>
+                  {t("ipam.subnetSvc.gateway")}
+                  <input value={svcGateway} onChange={(e) => setSvcGateway(e.target.value)} placeholder="192.168.1.1" />
+                </label>
+                <label>
+                  {t("ipam.subnetSvc.dns")}
+                  <input value={svcDns} onChange={(e) => setSvcDns(e.target.value)} placeholder="192.168.1.2, 192.168.1.3" />
+                </label>
+                <label>
+                  {t("ipam.subnetSvc.dhcp")}
+                  <input value={svcDhcp} onChange={(e) => setSvcDhcp(e.target.value)} placeholder="192.168.1.4" />
+                </label>
+                <button type="submit" className={dcimStyles.btn} disabled={patchSubnetSvc.isPending}>
+                  {patchSubnetSvc.isPending ? "…" : t("ipam.subnetSvc.save")}
+                </button>
+              </form>
 
               <h5 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
                 {t("ipam.scan.title")}
@@ -924,6 +956,7 @@ export function IpamPage() {
                     <thead>
                       <tr>
                         <th>{t("ipam.ipv4.colAddress")}</th>
+                        <th>{t("ipam.grid.colRole")}</th>
                         <th title={t("ipam.grid.reachColHint")}>{t("ipam.grid.reachCol")}</th>
                         <th title={t("ipam.grid.lastSeenColHint")}>{t("ipam.grid.lastSeenCol")}</th>
                         <th>{t("ipam.scan.colMac")}</th>
@@ -1029,6 +1062,13 @@ export function IpamPage() {
                                 </Link>
                               )}
                             </td>
+                            <td className={dcimStyles.muted}>
+                              {row.address_role === "network"
+                                ? t("ipam.grid.role.network")
+                                : row.address_role === "broadcast"
+                                  ? t("ipam.grid.role.broadcast")
+                                  : "—"}
+                            </td>
                             <td>{reach}</td>
                             <td className={dcimStyles.muted} title={lastSeenLabel || undefined}>
                               {lastSeenLabel || "—"}
@@ -1106,6 +1146,35 @@ export function IpamPage() {
                                   type="button"
                                   className={dcimStyles.btn}
                                   style={{ padding: "0.2rem 0.45rem" }}
+                                  disabled={!isGridRowFree(row) || reserveOne.isPending}
+                                  title={t("ipam.grid.action.reserve")}
+                                  onClick={() => reserveOne.mutate(row.address)}
+                                >
+                                  <i className="fas fa-bookmark" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={dcimStyles.btn}
+                                  style={{ padding: "0.2rem 0.45rem" }}
+                                  disabled={row.assignment != null}
+                                  title={t("ipam.addr.openRequestModal")}
+                                  onClick={() => {
+                                    setErr(null);
+                                    const c = exploreStack[exploreStack.length - 1];
+                                    if (c)
+                                      setIpRequestCtx({
+                                        prefixId: c.id,
+                                        cidr: c.cidr,
+                                        preferred: row.address,
+                                      });
+                                  }}
+                                >
+                                  <i className="fas fa-inbox" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={dcimStyles.btn}
+                                  style={{ padding: "0.2rem 0.45rem" }}
                                   disabled={row.assignment != null}
                                   title={t("ipam.grid.action.link")}
                                   onClick={() => {
@@ -1145,97 +1214,19 @@ export function IpamPage() {
             </>
           ) : null}
 
-          <h5 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-2)" }}>
-            {t("ipam.addr.requestTitle")}
-          </h5>
-          <form
-            className={dcimStyles.formRow}
-            onSubmit={(e) => {
-              e.preventDefault();
-              setErr(null);
-              if (reqMode === "assign" && reqDeviceId.trim() === "") {
-                setErr(t("ipam.addr.assignNeedsDevice"));
-                return;
-              }
-              if (reqMode === "assign" && reqInterfaceId.trim() === "") {
-                setErr(t("dcim.equip.ip.chooseIface"));
-                return;
-              }
-              requestAddr.mutate();
-            }}
-          >
-            <label>
-              {t("ipam.addr.mode")}
-              <select value={reqMode} onChange={(e) => setReqMode(e.target.value as "reserve" | "assign")}>
-                <option value="reserve">{t("ipam.addr.mode.reserve")}</option>
-                <option value="assign">{t("ipam.addr.mode.assign")}</option>
-              </select>
-            </label>
-            <label>
-              {t("ipam.addr.interfaceId")}
-              <select
-                value={reqInterfaceId}
-                onChange={(e) => setReqInterfaceId(e.target.value)}
-                disabled={reqMode !== "assign"}
-              >
-                <option value="">{t("dcim.common.choose")}</option>
-                {(interfacesQ.data ?? []).map((x) => (
-                  <option key={x.id} value={String(x.id)}>
-                    #{x.id} · {interfaceIndentedName(x, reqIfaceDepthById)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("ipam.addr.device")}
-              <select value={reqDeviceId} onChange={(e) => setReqDeviceId(e.target.value)} disabled={reqMode !== "assign"}>
-                <option value="">{t("dcim.common.choose")}</option>
-                {(devicesQ.data ?? []).map((d) => (
-                  <option key={d.id} value={String(d.id)}>
-                    #{d.id} · {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("ipam.addr.ownerUserId")}
-              <select value={reqOwnerUserId} onChange={(e) => setReqOwnerUserId(e.target.value)}>
-                <option value="">{t("dcim.common.choose")}</option>
-                {(usersQ.data ?? []).map((u) => (
-                  <option key={u.id} value={String(u.id)}>
-                    #{u.id} · {u.display_name ?? u.username}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("ipam.addr.ownerNew")}
-              <input
-                value={reqOwnerNewUsername}
-                onChange={(e) => setReqOwnerNewUsername(e.target.value)}
-                placeholder="username"
-              />
-            </label>
-            <label>
-              {t("ipam.addr.ownerNewDisplay")}
-              <input value={reqOwnerNewDisplay} onChange={(e) => setReqOwnerNewDisplay(e.target.value)} />
-            </label>
+          <div style={{ marginTop: "var(--space-2)" }}>
             <button
               type="button"
               className={dcimStyles.btn}
-              disabled={createOwner.isPending || reqOwnerNewUsername.trim() === ""}
-              onClick={() => createOwner.mutate()}
+              onClick={() => {
+                setErr(null);
+                const c = exploreStack[exploreStack.length - 1];
+                if (c) setIpRequestCtx({ prefixId: c.id, cidr: c.cidr, preferred: "" });
+              }}
             >
-              {createOwner.isPending ? "…" : t("ipam.addr.ownerNewBtn")}
+              {t("ipam.addr.openRequestModal")}
             </button>
-            <label>
-              {t("ipam.addr.note")}
-              <input value={reqNote} onChange={(e) => setReqNote(e.target.value)} />
-            </label>
-            <button type="submit" className={dcimStyles.btn} disabled={requestAddr.isPending}>
-              {requestAddr.isPending ? "…" : t("ipam.addr.requestBtn")}
-            </button>
-          </form>
+          </div>
         </section>
       ) : null}
 
@@ -1432,6 +1423,16 @@ export function IpamPage() {
                     </span>
                   ) : (
                     <span style={{ display: "inline-flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                      <button
+                        type="button"
+                        className={dcimStyles.btn}
+                        onClick={() => {
+                          setErr(null);
+                          setIpRequestCtx({ prefixId: x.id, cidr: x.cidr, preferred: "" });
+                        }}
+                      >
+                        {t("ipam.ipv4.requestIps")}
+                      </button>
                       <button
                         type="button"
                         className={dcimStyles.btn}
