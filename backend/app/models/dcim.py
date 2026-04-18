@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.iam import User
 
 
 class Site(Base):
@@ -71,8 +75,8 @@ class SiteAccessGrant(Base):
 
     site: Mapped["Site"] = relationship(back_populates="access_grants")
     role: Mapped["SiteRole"] = relationship(back_populates="grants")
-    # relationship til IAM User deklareres som string for å unngå import-syklus.
-    user: Mapped["User"] = relationship("User")  # type: ignore[name-defined]
+    # relationship til IAM User; `User` importeres kun under TYPE_CHECKING (flake8 F821).
+    user: Mapped["User"] = relationship("User")
 
 
 class Room(Base):

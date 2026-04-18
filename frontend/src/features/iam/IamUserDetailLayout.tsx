@@ -4,6 +4,7 @@ import { Panel } from "@/components/ui/Panel";
 import dcimTabStyles from "@/features/dcim/DcimInnerTabs.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import * as api from "./iamApi";
+import { IamUserTabIcon } from "./IamUserTabIcon";
 import styles from "./iam.module.css";
 
 function initials(displayName: string | null | undefined, username: string): string {
@@ -43,57 +44,90 @@ export function IamUserDetailLayout() {
 
   const about = person?.notes?.trim() || "";
 
+  const tabsNav = (
+    <nav className={dcimTabStyles.wrap} aria-label={t("iam.userInnerNavAria")}>
+      <div className={dcimTabStyles.list} role="tablist">
+        <NavLink to="user" className={tabClass} role="tab" end>
+          <span className={dcimTabStyles.iconWrap}>
+            <IamUserTabIcon name="user" />
+          </span>
+          <span>{t("iam.userTabUser")}</span>
+        </NavLink>
+        <NavLink to="login-devices" className={tabClass} role="tab">
+          <span className={dcimTabStyles.iconWrap}>
+            <IamUserTabIcon name="loginDevices" />
+          </span>
+          <span>{t("iam.userTabLoginDevices")}</span>
+        </NavLink>
+        <NavLink to="groups" className={tabClass} role="tab">
+          <span className={dcimTabStyles.iconWrap}>
+            <IamUserTabIcon name="groups" />
+          </span>
+          <span>{t("iam.userTabGroups")}</span>
+        </NavLink>
+        <NavLink to="roles" className={tabClass} role="tab">
+          <span className={dcimTabStyles.iconWrap}>
+            <IamUserTabIcon name="roles" />
+          </span>
+          <span>{t("iam.userTabRoles")}</span>
+        </NavLink>
+        <NavLink to="applications" className={tabClass} role="tab">
+          <span className={dcimTabStyles.iconWrap}>
+            <IamUserTabIcon name="applications" />
+          </span>
+          <span>{t("iam.userTabApplications")}</span>
+        </NavLink>
+        <NavLink to="company" className={tabClass} role="tab">
+          <span className={dcimTabStyles.iconWrap}>
+            <IamUserTabIcon name="company" />
+          </span>
+          <span>{t("iam.userTabCompany")}</span>
+        </NavLink>
+        <NavLink to="log" className={tabClass} role="tab">
+          <span className={dcimTabStyles.iconWrap}>
+            <IamUserTabIcon name="log" />
+          </span>
+          <span>{t("iam.userTabLog")}</span>
+        </NavLink>
+      </div>
+    </nav>
+  );
+
+  const showUserShell = Number.isFinite(id) && !q.isError && (q.isLoading || !!person);
+
   return (
     <Panel title={title}>
       {q.isError ? <p className={styles.err}>{(q.error as Error).message}</p> : null}
-      {!q.isLoading && !person ? <p className={styles.err}>{t("iam.notFound")}</p> : null}
-      {person ? (
-        <div className={styles.userDetailGrid}>
-          <aside className={styles.userDetailSidebar}>
-            <div className={styles.userDetailAvatar} aria-hidden>
-              {initials(person.display_name, person.username)}
+      {!q.isLoading && !person && !q.isError ? <p className={styles.err}>{t("iam.notFound")}</p> : null}
+      {showUserShell ? (
+        <div className={styles.userDetailRoot}>
+          {tabsNav}
+          <div className={styles.userDetailGrid}>
+            <aside className={styles.userDetailSidebar}>
+              {person ? (
+                <>
+                  <div className={styles.userDetailAvatar} aria-hidden>
+                    {initials(person.display_name, person.username)}
+                  </div>
+                  <h2 className={styles.userDetailName}>{person.display_name?.trim() || person.username}</h2>
+                  {person.email ? (
+                    <p className={styles.userDetailMeta}>
+                      <a href={`mailto:${person.email}`}>{person.email}</a>
+                    </p>
+                  ) : null}
+                  <p className={styles.userDetailMeta}>{person.username}</p>
+                  <h3 className={styles.userDetailAboutTitle}>{t("iam.about")}</h3>
+                  <p className={styles.userDetailAbout}>{about || "—"}</p>
+                </>
+              ) : (
+                <p className={styles.userDetailSidebarLoading}>…</p>
+              )}
+            </aside>
+            <div className={styles.userDetailMain}>
+              <Outlet />
             </div>
-            <h2 className={styles.userDetailName}>{person.display_name?.trim() || person.username}</h2>
-            {person.email ? (
-              <p className={styles.userDetailMeta}>
-                <a href={`mailto:${person.email}`}>{person.email}</a>
-              </p>
-            ) : null}
-            <p className={styles.userDetailMeta}>{person.username}</p>
-            <h3 className={styles.userDetailAboutTitle}>{t("iam.about")}</h3>
-            <p className={styles.userDetailAbout}>{about || "—"}</p>
-          </aside>
-          <div className={styles.userDetailMain}>
-            <nav className={`${dcimTabStyles.wrap} ${styles.userDetailTabs}`} aria-label={t("iam.userInnerNavAria")}>
-              <div className={dcimTabStyles.list} role="tablist">
-                <NavLink to="user" className={tabClass} role="tab" end>
-                  {t("iam.userTabUser")}
-                </NavLink>
-                <NavLink to="login-devices" className={tabClass} role="tab">
-                  {t("iam.userTabLoginDevices")}
-                </NavLink>
-                <NavLink to="groups" className={tabClass} role="tab">
-                  {t("iam.userTabGroups")}
-                </NavLink>
-                <NavLink to="roles" className={tabClass} role="tab">
-                  {t("iam.userTabRoles")}
-                </NavLink>
-                <NavLink to="applications" className={tabClass} role="tab">
-                  {t("iam.userTabApplications")}
-                </NavLink>
-                <NavLink to="company" className={tabClass} role="tab">
-                  {t("iam.userTabCompany")}
-                </NavLink>
-                <NavLink to="log" className={tabClass} role="tab">
-                  {t("iam.userTabLog")}
-                </NavLink>
-              </div>
-            </nav>
-            <Outlet />
           </div>
         </div>
-      ) : q.isLoading ? (
-        <p className={styles.intro}>…</p>
       ) : null}
     </Panel>
   );
