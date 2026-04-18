@@ -2,12 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./iamApi";
 import styles from "./iam.module.css";
 
-export function IamPersonsPage() {
+export function IamUsersListPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [username, setUsername] = useState("");
@@ -35,8 +36,8 @@ export function IamPersonsPage() {
   });
 
   return (
-    <div>
-      <h3 className={styles.sectionTitle}>{t("iam.tabPersons")}</h3>
+    <Panel title={t("nav.iamUsers")}>
+      <p className={styles.intro}>{t("iam.introUsersList")}</p>
       <div className={styles.rowActions}>
         <div className={styles.field}>
           <label htmlFor="iam-new-username">{t("iam.colUsername")}</label>
@@ -52,7 +53,7 @@ export function IamPersonsPage() {
           <input id="iam-new-dn" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </div>
         <Button type="button" onClick={() => m.mutate()} disabled={!username.trim() || m.isPending}>
-          {t("iam.createPerson")}
+          {t("iam.createUser")}
         </Button>
       </div>
       {err ? <p className={styles.err}>{err}</p> : null}
@@ -69,7 +70,7 @@ export function IamPersonsPage() {
           {(q.data ?? []).map((u) => (
             <tr key={u.id}>
               <td>
-                <Link className={styles.tableLink} to={`/iam/persons/${u.id}`}>
+                <Link className={styles.tableLink} to={`/iam/users/${u.id}/user`}>
                   {u.username}
                 </Link>
               </td>
@@ -79,7 +80,7 @@ export function IamPersonsPage() {
           ))}
         </tbody>
       </table>
-      {!q.isLoading && (q.data?.length ?? 0) === 0 ? <p className={styles.intro}>{t("iam.emptyPersons")}</p> : null}
-    </div>
+      {!q.isLoading && (q.data?.length ?? 0) === 0 ? <p className={styles.intro}>{t("iam.emptyUsers")}</p> : null}
+    </Panel>
   );
 }

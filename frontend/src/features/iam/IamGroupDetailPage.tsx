@@ -148,7 +148,7 @@ export function IamGroupDetailPage() {
           <ul className={styles.pillList}>
             {group.direct_users.map((u) => (
               <li key={u.user_id}>
-                <Link className={styles.tableLink} to={`/iam/persons/${u.user_id}`}>
+                <Link className={styles.tableLink} to={`/iam/users/${u.user_id}/user`}>
                   {u.display_name ?? u.username}
                 </Link>{" "}
                 <button type="button" className={styles.tableLink} onClick={() => remUserM.mutate(u.user_id)}>

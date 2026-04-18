@@ -96,7 +96,7 @@ export function IamRoleDetailPage() {
           <ul className={styles.pillList}>
             {role.assignees.map((a) => (
               <li key={a.id}>
-                <Link className={styles.tableLink} to={`/iam/persons/${a.id}`}>
+                <Link className={styles.tableLink} to={`/iam/users/${a.id}/user`}>
                   {a.display_name ?? a.username}
                 </Link>
               </li>

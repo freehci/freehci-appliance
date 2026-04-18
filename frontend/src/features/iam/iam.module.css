@@ -138,3 +138,129 @@
   overflow: auto;
   white-space: pre-wrap;
 }
+
+.userDetailGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.userDetailSidebar {
+  flex: 0 0 16rem;
+  max-width: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+}
+
+.userDetailAvatar {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--shell-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.userDetailName {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.userDetailMeta {
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  margin: 0 0 var(--space-1);
+  word-break: break-word;
+}
+
+.userDetailAboutTitle {
+  margin: var(--space-4) 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-button-bg);
+}
+
+.userDetailAbout {
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.userDetailMain {
+  flex: 1 1 22rem;
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+}
+
+.userDetailTabs {
+  margin-bottom: var(--space-3);
+}
+
+.userDetailSectionTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-button-bg);
+}
+
+.userFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.fieldSpan2 {
+  grid-column: 1 / -1;
+}
+
+.userDetailFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--shell-border);
+}
+
+.btnOutline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.btnOutline:hover {
+  background: var(--color-sidebar-hover);
+}
+
+.comingSoon {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .userFormGrid {
+    grid-template-columns: 1fr;
+  }
+}

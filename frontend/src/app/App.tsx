@@ -28,11 +28,17 @@ import { IntegrationsPage } from "@/features/integrations/IntegrationsPage";
 import { IamGroupDetailPage } from "@/features/iam/IamGroupDetailPage";
 import { IamGroupsPage } from "@/features/iam/IamGroupsPage";
 import { IamLayout } from "@/features/iam/IamLayout";
+import { IamLegacyPersonRedirect } from "@/features/iam/IamLegacyPersonRedirect";
 import { IamPersonDetailPage } from "@/features/iam/IamPersonDetailPage";
-import { IamPersonsPage } from "@/features/iam/IamPersonsPage";
 import { IamServiceAccountsPage } from "@/features/iam/IamServiceAccountsPage";
 import { IamRoleDetailPage } from "@/features/iam/IamRoleDetailPage";
 import { IamRolesPage } from "@/features/iam/IamRolesPage";
+import { IamUserComingSoonTab } from "@/features/iam/IamUserComingSoonTab";
+import { IamUserDetailLayout } from "@/features/iam/IamUserDetailLayout";
+import { IamUserGroupsTab } from "@/features/iam/IamUserGroupsTab";
+import { IamUserProfileTab } from "@/features/iam/IamUserProfileTab";
+import { IamUserRolesTab } from "@/features/iam/IamUserRolesTab";
+import { IamUsersListPage } from "@/features/iam/IamUsersListPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 
 function AppShellLayout() {
@@ -77,9 +83,20 @@ function AppRoutes() {
           </Route>
           <Route path="/integrations" element={<IntegrationsPage />} />
           <Route path="/iam" element={<IamLayout />}>
-            <Route index element={<Navigate to="persons" replace />} />
-            <Route path="persons" element={<IamPersonsPage />} />
-            <Route path="persons/:personId" element={<IamPersonDetailPage />} />
+            <Route index element={<Navigate to="users" replace />} />
+            <Route path="persons" element={<Navigate to="/iam/users" replace />} />
+            <Route path="persons/:personId" element={<IamLegacyPersonRedirect />} />
+            <Route path="users" element={<IamUsersListPage />} />
+            <Route path="users/:userId" element={<IamUserDetailLayout />}>
+              <Route index element={<Navigate to="user" replace />} />
+              <Route path="user" element={<IamUserProfileTab />} />
+              <Route path="login-devices" element={<IamUserComingSoonTab />} />
+              <Route path="groups" element={<IamUserGroupsTab />} />
+              <Route path="roles" element={<IamUserRolesTab />} />
+              <Route path="applications" element={<IamUserComingSoonTab />} />
+              <Route path="company" element={<IamUserComingSoonTab />} />
+              <Route path="log" element={<IamUserComingSoonTab />} />
+            </Route>
             <Route path="service-accounts" element={<IamServiceAccountsPage />} />
             <Route path="service-accounts/:personId" element={<IamPersonDetailPage />} />
             <Route path="roles" element={<IamRolesPage />} />

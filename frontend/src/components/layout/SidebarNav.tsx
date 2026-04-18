@@ -43,7 +43,7 @@ export function SidebarNav() {
           <ul className={styles.sub}>
             <li>
               <NavLink
-                to="/iam"
+                to="/iam/users"
                 className={({ isActive }) =>
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
                 }
@@ -52,7 +52,52 @@ export function SidebarNav() {
                   <span className={styles.navIconWrap}>
                     <SidebarNavIcon name="iam" size={16} />
                   </span>
-                  <span>{t("nav.iam")}</span>
+                  <span>{t("nav.iamUsers")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/iam/service-accounts"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="iam" size={16} />
+                  </span>
+                  <span>{t("nav.iamServiceAccountsNav")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/iam/roles"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="iam" size={16} />
+                  </span>
+                  <span>{t("nav.iamRolesNav")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/iam/groups"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="iam" size={16} />
+                  </span>
+                  <span>{t("nav.iamGroupsNav")}</span>
                 </span>
               </NavLink>
             </li>

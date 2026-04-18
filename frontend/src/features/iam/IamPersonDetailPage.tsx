@@ -14,7 +14,7 @@ export function IamPersonDetailPage() {
   const id = Number(personId);
   const qc = useQueryClient();
   const fromServiceAccounts = loc.pathname.includes("/iam/service-accounts/");
-  const backTo = fromServiceAccounts ? "/iam/service-accounts" : "/iam/persons";
+  const backTo = fromServiceAccounts ? "/iam/service-accounts" : "/iam/users";
   const [err, setErr] = useState<string | null>(null);
   const [rolePick, setRolePick] = useState("");
 
