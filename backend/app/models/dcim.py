@@ -6,6 +6,7 @@ import datetime as dt
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -86,6 +87,13 @@ class Room(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    floor: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    floorplan_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    floorplan_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    @hybrid_property
+    def has_floorplan(self) -> bool:
+        return self.floorplan_relpath is not None
 
     site: Mapped["Site"] = relationship(back_populates="rooms")
     racks: Mapped[list["Rack"]] = relationship(back_populates="room", cascade="all, delete-orphan")

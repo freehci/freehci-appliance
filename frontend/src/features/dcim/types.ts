@@ -40,6 +40,8 @@ export type Room = {
   site_id: number;
   name: string;
   description: string | null;
+  floor: string | null;
+  has_floorplan: boolean;
 };
 
 export type Rack = {

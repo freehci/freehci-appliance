@@ -6,6 +6,7 @@ from pathlib import Path
 
 MFR_LOGO_SUBDIR = "dcim/manufacturer_logos"
 DM_IMAGE_SUBDIR = "dcim/device_model_images"
+ROOM_FLOORPLAN_SUBDIR = "dcim/room_floorplans"
 
 MIME_TO_EXT: dict[str, str] = {
     "image/png": "png",
@@ -106,5 +107,42 @@ def delete_device_model_all_images(upload_root: Path, model_id: int) -> None:
 
 
 def resolve_device_model_image_path(upload_root: Path, relpath: str) -> Path | None:
+    p = safe_join_under_upload_root(upload_root, relpath)
+    return p if p.is_file() else None
+
+
+def room_floorplan_relpath(room_id: int, mime: str) -> str:
+    ext = MIME_TO_EXT[mime]
+    return f"{ROOM_FLOORPLAN_SUBDIR}/{room_id}.{ext}"
+
+
+def write_room_floorplan_file(upload_root: Path, room_id: int, content: bytes, mime: str) -> str:
+    """Skriver plantegning til disk; sletter andre filendelser for samme rom-ID."""
+    relpath = room_floorplan_relpath(room_id, mime)
+    dest = safe_join_under_upload_root(upload_root, relpath)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    plan_dir = safe_join_under_upload_root(upload_root, ROOM_FLOORPLAN_SUBDIR)
+    if plan_dir.is_dir():
+        for f in plan_dir.glob(f"{room_id}.*"):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+    dest.write_bytes(content)
+    return relpath
+
+
+def delete_room_floorplan_files(upload_root: Path, room_id: int) -> None:
+    plan_dir = safe_join_under_upload_root(upload_root, ROOM_FLOORPLAN_SUBDIR)
+    if not plan_dir.is_dir():
+        return
+    for f in plan_dir.glob(f"{room_id}.*"):
+        try:
+            f.unlink()
+        except OSError:
+            pass
+
+
+def resolve_room_floorplan_path(upload_root: Path, relpath: str) -> Path | None:
     p = safe_join_under_upload_root(upload_root, relpath)
     return p if p.is_file() else None

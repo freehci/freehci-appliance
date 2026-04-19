@@ -169,11 +169,14 @@ class RoomCreate(BaseModel):
     site_id: int
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
+    floor: str | None = Field(None, max_length=128)
 
 
 class RoomUpdate(BaseModel):
+    site_id: int | None = None
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
+    floor: str | None = Field(None, max_length=128)
 
 
 class RoomRead(BaseModel):
@@ -183,6 +186,8 @@ class RoomRead(BaseModel):
     site_id: int
     name: str
     description: str | None
+    floor: str | None = None
+    has_floorplan: bool
 
 
 class RackCreate(BaseModel):

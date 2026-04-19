@@ -5,6 +5,7 @@ export type DcimInnerTabIcon =
   | "overview"
   | "sites"
   | "rooms"
+  | "floorplan"
   | "rackElevation"
   | "rackAdmin"
   | "manufacturers"
@@ -56,6 +57,13 @@ export function DcimTabIcon({ name }: { name: DcimInnerTabIcon }) {
           <path d="M3 21h18" />
           <path d="M5 21V7l8-4v18" />
           <path d="M19 21V11l-6-4" />
+        </Svg>
+      );
+    case "floorplan":
+      return (
+        <Svg>
+          <rect x="3" y="3" width="18" height="18" rx="1" />
+          <path d="M3 9h18M9 3v18M15 9v12" />
         </Svg>
       );
     case "rackElevation":

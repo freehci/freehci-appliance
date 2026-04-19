@@ -85,8 +85,48 @@ export function listRooms(siteId?: number): Promise<Room[]> {
   return apiGet(`${P}/rooms${q}`);
 }
 
-export function createRoom(body: { site_id: number; name: string; description?: string | null }): Promise<Room> {
+export function getRoom(id: number): Promise<Room> {
+  return apiGet(`${P}/rooms/${id}`);
+}
+
+export function createRoom(body: {
+  site_id: number;
+  name: string;
+  description?: string | null;
+  floor?: string | null;
+}): Promise<Room> {
   return apiPost(`${P}/rooms`, body);
+}
+
+export function updateRoom(
+  id: number,
+  body: {
+    site_id?: number;
+    name?: string;
+    description?: string | null;
+    floor?: string | null;
+  },
+): Promise<Room> {
+  return apiPatch(`${P}/rooms/${id}`, body);
+}
+
+export function deleteRoom(id: number): Promise<void> {
+  return apiDelete(`${P}/rooms/${id}`);
+}
+
+export function roomFloorplanUrl(id: number, version?: string): string {
+  const q = version != null && version !== "" ? `?v=${encodeURIComponent(version)}` : "";
+  return apiUrl(`${P}/rooms/${id}/floorplan${q}`);
+}
+
+export function uploadRoomFloorplan(id: number, file: File): Promise<Room> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/rooms/${id}/floorplan`, fd);
+}
+
+export function deleteRoomFloorplan(id: number): Promise<Room> {
+  return apiDeleteJson(`${P}/rooms/${id}/floorplan`);
 }
 
 export function listRacks(roomId?: number): Promise<Rack[]> {

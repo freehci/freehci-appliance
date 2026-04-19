@@ -13,13 +13,19 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
+LOGO_MAX_BYTES = 512 * 1024
+DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
+
 from app.core.config import get_settings
 from app.core.media_storage import (
     delete_device_model_all_images,
     delete_device_model_image_slot,
     delete_manufacturer_logo_files,
+    delete_room_floorplan_files,
     write_device_model_image_file,
     write_manufacturer_logo_file,
+    write_room_floorplan_file,
 )
 from app.models.dcim import (
     DeviceInstance,
@@ -423,7 +429,14 @@ def create_room(db: Session, data: RoomCreate) -> Room:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="site ikke funnet")
-    row = Room(site_id=data.site_id, name=data.name.strip(), description=data.description)
+    fl = data.floor
+    floor = None if fl is None else (str(fl).strip() or None)
+    row = Room(
+        site_id=data.site_id,
+        name=data.name.strip(),
+        description=data.description,
+        floor=floor,
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -435,16 +448,57 @@ def get_room(db: Session, room_id: int) -> Room | None:
 
 
 def update_room(db: Session, room: Room, data: RoomUpdate) -> Room:
-    if data.name is not None:
-        room.name = data.name.strip()
-    if data.description is not None:
-        room.description = data.description
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "site_id" in patch:
+        sid = patch["site_id"]
+        if sid is None:
+            raise HTTPException(status_code=400, detail="site_id kan ikke fjernes")
+        if get_site(db, sid) is None:
+            raise HTTPException(status_code=404, detail="site ikke funnet")
+        room.site_id = sid
+    if "name" in patch and patch["name"] is not None:
+        room.name = str(patch["name"]).strip()
+    if "description" in patch:
+        v = patch["description"]
+        room.description = None if v is None else (str(v).strip() or None)
+    if "floor" in patch:
+        v = patch["floor"]
+        room.floor = None if v is None else (str(v).strip() or None)
     db.commit()
     db.refresh(room)
     return room
 
 
+def set_room_floorplan(db: Session, room: Room, content: bytes, mime: str) -> None:
+    if len(content) > DM_IMAGE_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="plantegning for stor (maks 2 MiB)")
+    if mime not in ALLOWED_LOGO_MIME:
+        raise HTTPException(
+            status_code=400,
+            detail="plantegning må være PNG, JPEG, WebP eller SVG",
+        )
+    root: Path = get_settings().upload_root_path
+    relpath = write_room_floorplan_file(root, room.id, content, mime)
+    room.floorplan_relpath = relpath
+    room.floorplan_mime_type = mime
+    db.commit()
+    db.refresh(room)
+
+
+def clear_room_floorplan(db: Session, room: Room) -> None:
+    root: Path = get_settings().upload_root_path
+    delete_room_floorplan_files(root, room.id)
+    room.floorplan_relpath = None
+    room.floorplan_mime_type = None
+    db.commit()
+    db.refresh(room)
+
+
 def delete_room(db: Session, room: Room) -> None:
+    root: Path = get_settings().upload_root_path
+    delete_room_floorplan_files(root, room.id)
     db.delete(room)
     db.commit()
 
@@ -548,10 +602,6 @@ def delete_rack(db: Session, rack: Rack) -> None:
 
 
 # --- Manufacturers ---
-
-LOGO_MAX_BYTES = 512 * 1024
-DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
-ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
 
 
 def manufacturer_read(m: Manufacturer) -> ManufacturerRead:

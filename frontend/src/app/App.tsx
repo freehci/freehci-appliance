@@ -12,6 +12,7 @@ import { DcimManufacturerDetailPage } from "@/features/dcim/DcimManufacturerDeta
 import { DcimLayout } from "@/features/dcim/DcimLayout";
 import { DcimOverviewPage } from "@/features/dcim/DcimOverviewPage";
 import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
+import { DcimRoomDetailPage } from "@/features/dcim/DcimRoomDetailPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { IpamPage } from "@/features/ipam/IpamPage";
@@ -65,6 +66,7 @@ function AppRoutes() {
           <Route path="/dcim" element={<DcimLayout />}>
             <Route index element={<DcimOverviewPage />} />
             <Route path="sites" element={<DcimSitesPage />} />
+            <Route path="rooms/:roomId" element={<DcimRoomDetailPage />} />
             <Route path="rooms" element={<DcimRoomsPage />} />
             <Route path="racks" element={<DcimRacksPage />} />
             <Route path="equipment" element={<DcimEquipmentPage />} />

@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.config import get_settings
-from app.core.media_storage import resolve_device_model_image_path, resolve_manufacturer_logo_path
+from app.core.media_storage import (
+    resolve_device_model_image_path,
+    resolve_manufacturer_logo_path,
+    resolve_room_floorplan_path,
+)
 from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
@@ -229,6 +233,41 @@ def delete_room(room_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="room ikke funnet")
     dcim_svc.delete_room(db, row)
+
+
+@router.get("/rooms/{room_id}/floorplan")
+def get_room_floorplan(room_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    row = dcim_svc.get_room(db, room_id)
+    if row is None or not row.floorplan_relpath or not row.floorplan_mime_type:
+        raise HTTPException(status_code=404, detail="plantegning finnes ikke")
+    path = resolve_room_floorplan_path(get_settings().upload_root_path, row.floorplan_relpath)
+    if path is None:
+        raise HTTPException(status_code=404, detail="plantegning finnes ikke")
+    return FileResponse(path, media_type=row.floorplan_mime_type)
+
+
+@router.post("/rooms/{room_id}/floorplan", response_model=RoomRead)
+async def upload_room_floorplan(
+    room_id: int,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+) -> RoomRead:
+    row = dcim_svc.get_room(db, room_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="room ikke funnet")
+    content = await file.read()
+    mime = file.content_type or "application/octet-stream"
+    dcim_svc.set_room_floorplan(db, row, content, mime)
+    return row
+
+
+@router.delete("/rooms/{room_id}/floorplan", response_model=RoomRead)
+def remove_room_floorplan(room_id: int, db: Session = Depends(get_db)) -> RoomRead:
+    row = dcim_svc.get_room(db, room_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="room ikke funnet")
+    dcim_svc.clear_room_floorplan(db, row)
+    return row
 
 
 # --- Racks ---

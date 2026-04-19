@@ -39,6 +39,11 @@ def test_dcim_site_room_rack_device_flow() -> None:
         )
         assert r.status_code == 200, r.text
         room_id = r.json()["id"]
+        assert r.json()["has_floorplan"] is False
+        assert r.json().get("floor") is None
+        pr = client.patch(f"/api/v1/dcim/rooms/{room_id}", json={"floor": "B1"})
+        assert pr.status_code == 200, pr.text
+        assert pr.json()["floor"] == "B1"
 
         k = client.post(
             "/api/v1/dcim/racks",
@@ -70,6 +75,16 @@ def test_dcim_site_room_rack_device_flow() -> None:
             b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
             b"\x00\x00\x05\x00\x01\r\n\x2db\x00\x00\x00\x00IEND\xaeB`\x82"
         )
+        rf = client.post(
+            f"/api/v1/dcim/rooms/{room_id}/floorplan",
+            files={"file": ("plan.png", tiny_png, "image/png")},
+        )
+        assert rf.status_code == 200, rf.text
+        assert rf.json()["has_floorplan"] is True
+        rfg = client.get(f"/api/v1/dcim/rooms/{room_id}/floorplan")
+        assert rfg.status_code == 200
+        assert rfg.content == tiny_png
+
         up = client.post(
             f"/api/v1/dcim/manufacturers/{mid}/logo",
             files={"file": ("x.png", tiny_png, "image/png")},
