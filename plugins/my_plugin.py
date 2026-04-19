@@ -2,6 +2,7 @@
 
 from plugin_interface import PluginInterface
 
+
 class Plugin(PluginInterface):
     def __init__(self, config):
         super().__init__(config)
