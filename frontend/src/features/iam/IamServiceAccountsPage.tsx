@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./iamApi";
+import dcimStyles from "@/features/dcim/dcim.module.css";
 import styles from "./iam.module.css";
 
 export function IamServiceAccountsPage() {
@@ -58,7 +59,7 @@ export function IamServiceAccountsPage() {
       </div>
       {err ? <p className={styles.err}>{err}</p> : null}
 
-      <table className={styles.table}>
+      <table className={dcimStyles.table}>
         <thead>
           <tr>
             <th>{t("iam.colUsername")}</th>
