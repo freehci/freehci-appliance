@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -56,6 +56,8 @@ export function DcimEquipmentPage() {
   const [rackFilter, setRackFilter] = useState<string>("");
   const [devListFilter, setDevListFilter] = useState("");
   const [equipTab, setEquipTab] = useState<EquipTab>("mfr");
+  const [mfrPendingDelete, setMfrPendingDelete] = useState<{ id: number; name: string } | null>(null);
+  const mfrDeleteTitleId = useId();
 
   const manufacturersQ = useQuery({
     queryKey: ["dcim", "manufacturers"],
@@ -183,6 +185,15 @@ export function DcimEquipmentPage() {
       devPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
     );
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!mfrPendingDelete) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMfrPendingDelete(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mfrPendingDelete]);
 
   const createMfr = useMutation({
     mutationFn: () =>
@@ -361,6 +372,7 @@ export function DcimEquipmentPage() {
   });
 
   return (
+    <>
     <Panel title={t("nav.dcimEquipment")}>
       {err ? <p className={styles.err}>{err}</p> : null}
       <p className={styles.muted} style={{ marginTop: 0 }}>
@@ -418,7 +430,9 @@ export function DcimEquipmentPage() {
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.common.name")}</th>
                 <th>{t("dcim.equip.mfr.website")}</th>
-                <th />
+                <th scope="col">
+                  <span className="sr-only">{t("dcim.equip.actionsCol")}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -451,14 +465,18 @@ export function DcimEquipmentPage() {
                     )}
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className={styles.btnDanger}
-                      onClick={() => delMfr.mutate(x.id)}
-                      disabled={delMfr.isPending}
-                    >
-                      {t("dcim.common.delete")}
-                    </button>
+                    <div className={styles.tableIconActions}>
+                      <button
+                        type="button"
+                        className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+                        title={t("dcim.common.delete")}
+                        aria-label={t("dcim.equip.mfr.deleteManufacturerAria", { name: x.name })}
+                        disabled={delMfr.isPending}
+                        onClick={() => setMfrPendingDelete({ id: x.id, name: x.name })}
+                      >
+                        <i className="fas fa-trash-can" aria-hidden />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1101,5 +1119,71 @@ export function DcimEquipmentPage() {
         </>
       ) : null}
     </Panel>
+    {mfrPendingDelete ? (
+      <div
+        role="presentation"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 200,
+          background: "rgba(0,0,0,0.45)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "var(--space-3)",
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setMfrPendingDelete(null);
+        }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={mfrDeleteTitleId}
+          style={{
+            width: "min(28rem, 100%)",
+            maxHeight: "90vh",
+            overflow: "auto",
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--shell-border)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-4)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 id={mfrDeleteTitleId} style={{ marginTop: 0 }}>
+            {t("dcim.equip.mfr.deleteModalTitle", { name: mfrPendingDelete.name })}
+          </h2>
+          <p className={styles.muted} style={{ marginTop: 0 }}>
+            {t("dcim.equip.mfr.deleteModalHint")}
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "var(--space-3)" }}>
+            <button
+              type="button"
+              className={styles.btnDanger}
+              disabled={delMfr.isPending}
+              onClick={() => {
+                const id = mfrPendingDelete.id;
+                delMfr.mutate(id, {
+                  onSettled: () => setMfrPendingDelete(null),
+                });
+              }}
+            >
+              {delMfr.isPending ? "…" : t("dcim.common.delete")}
+            </button>
+            <button
+              type="button"
+              className={styles.btnMuted}
+              onClick={() => setMfrPendingDelete(null)}
+              disabled={delMfr.isPending}
+            >
+              {t("dcim.common.cancel")}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }

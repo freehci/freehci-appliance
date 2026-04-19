@@ -646,6 +646,11 @@ export const nb = {
   "dcim.equip.mfr.dangerZone": "Faresone",
   "dcim.equip.mfr.deleteConfirm":
     "Slette denne produsenten? Modeller beholdes, men produsent-koblingen fjernes.",
+  "dcim.equip.mfr.deleteModalTitle": "Slette {name}?",
+  "dcim.equip.mfr.deleteModalHint":
+    "Enhetsmodeller beholdes, men produsent-koblingen fjernes.",
+  "dcim.equip.mfr.deleteManufacturerAria": "Slett produsent {name}",
+  "dcim.equip.actionsCol": "Handlinger",
   "dcim.equip.dt.title": "Enhetstyper",
   "dcim.equip.dt.hint":
     "Logiske klasser (f.eks. switch, server). Bruk stabile slug-verdier; plugins kan angi hvilke typer de gjelder for.",

@@ -638,6 +638,11 @@ export const en = {
   "dcim.equip.mfr.dangerZone": "Danger zone",
   "dcim.equip.mfr.deleteConfirm":
     "Delete this manufacturer? Device models will remain but their manufacturer link will be cleared.",
+  "dcim.equip.mfr.deleteModalTitle": "Delete {name}?",
+  "dcim.equip.mfr.deleteModalHint":
+    "Device models will remain but their manufacturer link will be cleared.",
+  "dcim.equip.mfr.deleteManufacturerAria": "Delete manufacturer {name}",
+  "dcim.equip.actionsCol": "Actions",
   "dcim.equip.dt.title": "Device types",
   "dcim.equip.dt.hint":
     "Logical classes (e.g. switch, server). Use stable slugs; plugins can declare which types they apply to.",

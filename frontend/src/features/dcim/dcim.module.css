@@ -49,6 +49,49 @@
   opacity: 0.92;
 }
 
+.tableIconActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.tableIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: var(--transition-color);
+}
+
+.tableIconBtn:hover:not(:disabled) {
+  border-color: var(--color-border);
+  background: var(--color-sidebar-hover);
+}
+
+.tableIconBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tableIconBtnDanger {
+  color: var(--color-danger-button-bg);
+}
+
+.tableIconBtnDanger:hover:not(:disabled) {
+  border-color: var(--color-danger-button-bg);
+  background: rgba(248, 113, 113, 0.12);
+}
+
 .mfrLogoCell {
   width: 3rem;
   vertical-align: middle;
