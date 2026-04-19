@@ -26,6 +26,7 @@ export function DcimRoomDetailPage() {
   const [floor, setFloor] = useState("");
   const [description, setDescription] = useState("");
   const [planVersion, setPlanVersion] = useState("");
+  const [floorplanImgUrl, setFloorplanImgUrl] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const hydrated = useRef(false);
 
@@ -56,6 +57,45 @@ export function DcimRoomDetailPage() {
     if (ro.has_floorplan) setPlanVersion(String(Date.now()));
     hydrated.current = true;
   }, [ro]);
+
+  useEffect(() => {
+    if (!ro?.has_floorplan) {
+      setFloorplanImgUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    let cancelled = false;
+    void api
+      .fetchRoomFloorplanBlobUrl(id, planVersion)
+      .then((url) => {
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        setFloorplanImgUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setErr(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+          setFloorplanImgUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+      setFloorplanImgUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [id, ro?.has_floorplan, planVersion]);
 
   const saveMu = useMutation({
     mutationFn: () =>
@@ -263,14 +303,20 @@ export function DcimRoomDetailPage() {
               {t("dcim.rooms.floorplanIntro")}
             </p>
             {ro.has_floorplan ? (
-              <p style={{ marginTop: "var(--space-2)" }}>
-                <img
-                  src={api.roomFloorplanUrl(id, planVersion)}
-                  alt=""
-                  className={styles.mfrLogoThumb}
-                  style={{ maxWidth: "100%", width: "auto", height: "auto", maxHeight: "28rem" }}
-                />
-              </p>
+              floorplanImgUrl ? (
+                <p style={{ marginTop: "var(--space-2)" }}>
+                  <img
+                    src={floorplanImgUrl}
+                    alt=""
+                    className={styles.mfrLogoThumb}
+                    style={{ maxWidth: "100%", width: "auto", height: "auto", maxHeight: "28rem" }}
+                  />
+                </p>
+              ) : (
+                <p className={styles.muted} style={{ marginTop: "var(--space-2)" }}>
+                  {t("dcim.common.loading")}
+                </p>
+              )
             ) : (
               <p className={styles.muted}>{t("dcim.rooms.floorplanEmpty")}</p>
             )}

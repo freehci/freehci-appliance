@@ -55,6 +55,26 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Hent binær ressurs med samme auth som øvrige API-kall.
+ * Brukes når `<img src>` ikke kan brukes (Bearer i localStorage, ikke cookie).
+ * Kall `URL.revokeObjectURL(url)` når blob-URL ikke trengs lenger.
+ */
+export async function fetchAuthedBlobUrl(path: string): Promise<string> {
+  const res = await fetch(apiUrl(path), {
+    method: "GET",
+    credentials: "include",
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) await onUnauthorized(path);
+  if (!res.ok) {
+    const msg = await failMessage(res, `${res.status} ${res.statusText}`);
+    throw new ApiError(res.status, msg);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(apiUrl(path), {
     credentials: "include",

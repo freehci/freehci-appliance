@@ -1,4 +1,13 @@
-import { apiDelete, apiDeleteJson, apiGet, apiPatch, apiPost, apiPostMultipart, apiUrl } from "@/lib/api";
+import {
+  apiDelete,
+  apiDeleteJson,
+  apiGet,
+  apiPatch,
+  apiPost,
+  apiPostMultipart,
+  apiUrl,
+  fetchAuthedBlobUrl,
+} from "@/lib/api";
 import type {
   DeviceInstance,
   DeviceInterface,
@@ -117,6 +126,12 @@ export function deleteRoom(id: number): Promise<void> {
 export function roomFloorplanUrl(id: number, version?: string): string {
   const q = version != null && version !== "" ? `?v=${encodeURIComponent(version)}` : "";
   return apiUrl(`${P}/rooms/${id}/floorplan${q}`);
+}
+
+/** Blob-URL for bruk i `<img src>` når API krever Bearer (må revokeObjectURL ved opprydding). */
+export function fetchRoomFloorplanBlobUrl(id: number, version?: string): Promise<string> {
+  const q = version != null && version !== "" ? `?v=${encodeURIComponent(version)}` : "";
+  return fetchAuthedBlobUrl(`${P}/rooms/${id}/floorplan${q}`);
 }
 
 export function uploadRoomFloorplan(id: number, file: File): Promise<Room> {
