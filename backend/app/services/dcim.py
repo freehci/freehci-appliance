@@ -681,7 +681,12 @@ def get_device_type(db: Session, tid: int) -> DeviceType | None:
 
 
 def create_device_type(db: Session, data: DeviceTypeCreate) -> DeviceType:
-    row = DeviceType(name=data.name.strip(), slug=data.slug, description=data.description)
+    row = DeviceType(
+        name=data.name.strip(),
+        slug=data.slug,
+        description=data.description,
+        fa_icon=data.fa_icon,
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -700,6 +705,8 @@ def update_device_type(db: Session, row: DeviceType, data: DeviceTypeUpdate) -> 
     if "description" in patch:
         v = patch["description"]
         row.description = None if v is None else (str(v).strip() or None)
+    if "fa_icon" in patch:
+        row.fa_icon = patch["fa_icon"]
     db.commit()
     db.refresh(row)
     return row

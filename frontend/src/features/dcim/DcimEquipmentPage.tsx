@@ -8,9 +8,9 @@ import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
-import { deviceTypeFaIconClass } from "./dcimTypeIcons";
+import { deviceTypeResolvedFaIconClass } from "./dcimTypeIcons";
 import { deviceInstanceListThumbSrc, deviceModelListThumbSrc } from "./modelImages";
-import type { DeviceInstance, DeviceModel, Rack, RackPlacement } from "./types";
+import type { DeviceInstance, DeviceModel, DeviceType, Rack, RackPlacement } from "./types";
 
 type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl";
 
@@ -82,8 +82,8 @@ export function DcimEquipmentPage() {
   }, [manufacturersQ.data]);
 
   const deviceTypesById = useMemo(() => {
-    const m = new Map<number, { name: string; slug: string }>();
-    for (const x of deviceTypesQ.data ?? []) m.set(x.id, { name: x.name, slug: x.slug });
+    const m = new Map<number, DeviceType>();
+    for (const x of deviceTypesQ.data ?? []) m.set(x.id, x);
     return m;
   }, [deviceTypesQ.data]);
 
@@ -408,7 +408,7 @@ export function DcimEquipmentPage() {
               {deviceTypesQ.data.map((x) => (
                 <tr key={x.id}>
                   <td className={styles.mfrLogoCell} aria-hidden>
-                    <i className={`fas ${deviceTypeFaIconClass(x.slug)}`} />
+                    <i className={`fas ${deviceTypeResolvedFaIconClass(x.slug, x.fa_icon)}`} />
                   </td>
                   <td>
                     <Link to={`/dcim/equipment/device-types/${x.id}`} className={styles.tableLink}>
@@ -618,7 +618,8 @@ export function DcimEquipmentPage() {
                   const r = pl ? racksById.get(pl.rack_id) : undefined;
                   const roomId = r?.room_id ?? "";
                   const eff = x.effective_device_type_id;
-                  const effSlug = eff != null ? (deviceTypesById.get(eff)?.slug ?? "") : "";
+                  const effDt = eff != null ? deviceTypesById.get(eff) : undefined;
+                  const effSlug = effDt?.slug ?? "";
                   const model = x.device_model_id != null ? modelsById.get(x.device_model_id) : undefined;
                   const thumb = deviceInstanceListThumbSrc(x, model);
                   return (
@@ -627,7 +628,10 @@ export function DcimEquipmentPage() {
                         {thumb ? (
                           <img src={thumb} alt="" className={styles.mfrLogoThumb} />
                         ) : (
-                          <i className={`fas ${deviceTypeFaIconClass(effSlug)}`} aria-hidden />
+                          <i
+                            className={`fas ${deviceTypeResolvedFaIconClass(effSlug, effDt?.fa_icon)}`}
+                            aria-hidden
+                          />
                         )}
                       </td>
                       <td>
@@ -771,7 +775,8 @@ export function DcimEquipmentPage() {
               {placementsQ.data.map((p) => {
                 const devRow = devicesById.get(p.device_id);
                 const eff = devRow?.effective_device_type_id;
-                const effSlug = eff != null ? (deviceTypesById.get(eff)?.slug ?? "") : "";
+                const effDt = eff != null ? deviceTypesById.get(eff) : undefined;
+                const effSlug = effDt?.slug ?? "";
                 const model =
                   devRow?.device_model_id != null ? modelsById.get(devRow.device_model_id) : undefined;
                 const thumb = devRow ? deviceInstanceListThumbSrc(devRow, model) : null;
@@ -782,7 +787,10 @@ export function DcimEquipmentPage() {
                       {thumb ? (
                         <img src={thumb} alt="" className={styles.mfrLogoThumb} />
                       ) : devRow ? (
-                        <i className={`fas ${deviceTypeFaIconClass(effSlug)}`} aria-hidden />
+                        <i
+                          className={`fas ${deviceTypeResolvedFaIconClass(effSlug, effDt?.fa_icon)}`}
+                          aria-hidden
+                        />
                       ) : (
                         <span className={styles.muted}>—</span>
                       )}

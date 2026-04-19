@@ -77,6 +77,8 @@ export type DeviceType = {
   name: string;
   slug: string;
   description: string | null;
+  /** Font Awesome solid-ikonnavn uten «fa-» (f.eks. server); null = heuristikk fra slug. */
+  fa_icon: string | null;
 };
 
 export type DeviceModelBrief = {

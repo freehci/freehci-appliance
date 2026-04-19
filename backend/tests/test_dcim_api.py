@@ -87,6 +87,20 @@ def test_dcim_site_room_rack_device_flow() -> None:
         )
         assert dtp.status_code == 200, dtp.text
         type_id = dtp.json()["id"]
+        assert dtp.json().get("fa_icon") is None
+
+        dt_icon = client.patch(
+            f"/api/v1/dcim/device-types/{type_id}",
+            json={"fa_icon": "fa-print"},
+        )
+        assert dt_icon.status_code == 200, dt_icon.text
+        assert dt_icon.json()["fa_icon"] == "print"
+        dt_get = client.get(f"/api/v1/dcim/device-types/{type_id}")
+        assert dt_get.status_code == 200
+        assert dt_get.json()["fa_icon"] == "print"
+
+        bad_icon = client.patch(f"/api/v1/dcim/device-types/{type_id}", json={"fa_icon": "!!!"})
+        assert bad_icon.status_code == 422
 
         dm = client.post(
             "/api/v1/dcim/device-models",

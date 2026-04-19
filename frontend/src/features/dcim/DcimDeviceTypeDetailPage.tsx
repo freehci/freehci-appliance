@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { deviceTypeResolvedFaIconClass } from "./dcimTypeIcons";
 import styles from "./dcim.module.css";
 
 export function DcimDeviceTypeDetailPage() {
@@ -17,6 +18,7 @@ export function DcimDeviceTypeDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [faIcon, setFaIcon] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const q = useQuery({
@@ -30,6 +32,7 @@ export function DcimDeviceTypeDetailPage() {
     if (!dt) return;
     setName(dt.name);
     setDescription(dt.description ?? "");
+    setFaIcon(dt.fa_icon ?? "");
   }, [dt]);
 
   const saveM = useMutation({
@@ -37,6 +40,7 @@ export function DcimDeviceTypeDetailPage() {
       api.updateDeviceType(id, {
         name: name.trim(),
         description: description.trim() === "" ? null : description.trim(),
+        fa_icon: faIcon.trim() === "" ? null : faIcon.trim(),
       }),
     onSuccess: () => {
       setErr(null);
@@ -125,6 +129,37 @@ export function DcimDeviceTypeDetailPage() {
                 className={styles.mfrTextarea}
               />
             </label>
+            <p className={styles.muted} style={{ marginTop: 0 }}>
+              <a
+                href="https://fontawesome.com/icons?d=gallery&s=solid&m=free"
+                target="_blank"
+                rel="noreferrer"
+                className={styles.tableLink}
+              >
+                {t("dcim.equip.dt.faIconHelpLink")}
+              </a>
+              {" — "}
+              {t("dcim.equip.dt.faIconHelpSuffix")}
+            </p>
+            <div className={styles.formRow} style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
+              <label style={{ flex: "1 1 14rem" }}>
+                {t("dcim.equip.dt.faIcon")}
+                <input
+                  value={faIcon}
+                  onChange={(e) => setFaIcon(e.target.value)}
+                  placeholder={t("dcim.equip.dt.faIconPlaceholder")}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </label>
+              <div
+                className={styles.mfrLogoCell}
+                title={t("dcim.equip.dt.faIconPreview")}
+                style={{ fontSize: "1.35rem", minWidth: "2rem", justifyContent: "center" }}
+              >
+                <i className={`fas ${deviceTypeResolvedFaIconClass(dt.slug, faIcon)}`} aria-hidden />
+              </div>
+            </div>
             <div>
               <button type="submit" className={styles.btn} disabled={saveM.isPending}>
                 {saveM.isPending ? "…" : t("dcim.equip.mfr.save")}

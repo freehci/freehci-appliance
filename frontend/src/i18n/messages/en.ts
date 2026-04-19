@@ -666,6 +666,12 @@ export const en = {
   "dcim.equip.dt.detailTitle": "Device type",
   "dcim.equip.dt.invalidId": "Invalid device type ID.",
   "dcim.equip.dt.iconCol": "Icon",
+  "dcim.equip.dt.faIcon": "Font Awesome icon (optional)",
+  "dcim.equip.dt.faIconPlaceholder": "e.g. server or print",
+  "dcim.equip.dt.faIconPreview": "Preview",
+  "dcim.equip.dt.faIconHelpLink": "Browse free solid icons (Font Awesome)",
+  "dcim.equip.dt.faIconHelpSuffix":
+    "Enter the icon name without the fa- prefix. Leave empty to derive an icon from the slug.",
   "dcim.equip.dm.title": "Device models",
   "dcim.equip.dm.mfr": "Manufacturer",
   "dcim.equip.dm.mfrCol": "Mfr.",

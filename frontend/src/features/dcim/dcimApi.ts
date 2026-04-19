@@ -179,13 +179,14 @@ export function createDeviceType(body: {
   name: string;
   slug: string;
   description?: string | null;
+  fa_icon?: string | null;
 }): Promise<DeviceType> {
   return apiPost(`${P}/device-types`, body);
 }
 
 export function updateDeviceType(
   id: number,
-  body: { name?: string; description?: string | null },
+  body: { name?: string; description?: string | null; fa_icon?: string | null },
 ): Promise<DeviceType> {
   return apiPatch(`${P}/device-types/${id}`, body);
 }

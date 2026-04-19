@@ -138,6 +138,8 @@ class DeviceType(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Ikonnavn for Font Awesome solid (f.eks. «server» → klasse fa-server); NULL = bruk heuristikk ut fra slug.
+    fa_icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class DeviceModel(Base):

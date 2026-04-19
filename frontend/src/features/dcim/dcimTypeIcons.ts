@@ -1,4 +1,6 @@
-/** Font Awesome-klasse for visuell type-ikon (ingen lagring i DB). */
+const FA_ICON_NAME = /^[a-z0-9-]{1,50}$/;
+
+/** Heuristikk ut fra slug når ingen eksplisitt ikon er satt (returnerer «fa-…»-suffiks). */
 export function deviceTypeFaIconClass(slug: string): string {
   const s = slug.toLowerCase();
   if (s.includes("switch")) return "fa-network-wired";
@@ -11,4 +13,15 @@ export function deviceTypeFaIconClass(slug: string): string {
   if (s.includes("printer")) return "fa-print";
   if (s.includes("pdu")) return "fa-plug";
   return "fa-microchip";
+}
+
+/**
+ * Font Awesome solid-klassesuffiks (f.eks. fa-server) for visning.
+ * Bruker lagret `fa_icon` (navn uten fa-) når gyldig; ellers slug-heuristikk.
+ */
+export function deviceTypeResolvedFaIconClass(slug: string, faIcon: string | null | undefined): string {
+  const raw = (faIcon ?? "").trim().toLowerCase();
+  const name = raw.startsWith("fa-") ? raw.slice(3) : raw;
+  if (name !== "" && FA_ICON_NAME.test(name)) return `fa-${name}`;
+  return deviceTypeFaIconClass(slug);
 }

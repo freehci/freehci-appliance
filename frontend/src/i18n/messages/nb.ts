@@ -674,6 +674,12 @@ export const nb = {
   "dcim.equip.dt.detailTitle": "Enhetstype",
   "dcim.equip.dt.invalidId": "Ugyldig enhetstype-ID.",
   "dcim.equip.dt.iconCol": "Ikon",
+  "dcim.equip.dt.faIcon": "Font Awesome-ikon (valgfritt)",
+  "dcim.equip.dt.faIconPlaceholder": "f.eks. server eller print",
+  "dcim.equip.dt.faIconPreview": "Forhåndsvisning",
+  "dcim.equip.dt.faIconHelpLink": "Bla i gratis solide ikoner (Font Awesome)",
+  "dcim.equip.dt.faIconHelpSuffix":
+    "Skriv ikonnavnet uten «fa-»-prefiks. La feltet stå tomt for å velge ikon ut fra slug automatisk.",
   "dcim.equip.dm.title": "Enhetsmodeller",
   "dcim.equip.dm.mfr": "Produsent",
   "dcim.equip.dm.mfrCol": "Prod.",

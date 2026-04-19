@@ -9,6 +9,25 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_FA_ICON_NAME_RE = re.compile(r"^[a-z0-9-]{1,50}$")
+
+
+def normalize_device_type_fa_icon(v: object) -> str | None:
+    """Normaliserer FA solid-ikonnavn (lagres uten «fa-»-prefiks). Tom / ugyldig → None."""
+    if v is None:
+        return None
+    s = str(v).strip().lower()
+    if s in ("", "none", "null", "default", "-"):
+        return None
+    if s.startswith("fa-"):
+        s = s[3:]
+    if s == "":
+        return None
+    if not _FA_ICON_NAME_RE.match(s):
+        raise ValueError(
+            "fa_icon må være 1–50 tegn: små bokstaver, tall og bindestrek (ikonnavn som i Font Awesome, uten fa-)"
+        )
+    return s
 
 
 class SiteCreate(BaseModel):
@@ -241,6 +260,7 @@ class DeviceTypeCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     slug: str = Field(..., min_length=1, max_length=64)
     description: str | None = None
+    fa_icon: str | None = None
 
     @field_validator("slug")
     @classmethod
@@ -250,10 +270,21 @@ class DeviceTypeCreate(BaseModel):
             raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
         return s
 
+    @field_validator("fa_icon", mode="before")
+    @classmethod
+    def fa_icon_create(cls, v: object) -> str | None:
+        return normalize_device_type_fa_icon(v)
+
 
 class DeviceTypeUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
+    fa_icon: str | None = None
+
+    @field_validator("fa_icon", mode="before")
+    @classmethod
+    def fa_icon_update(cls, v: object) -> str | None:
+        return normalize_device_type_fa_icon(v)
 
 
 class DeviceTypeRead(BaseModel):
@@ -263,6 +294,7 @@ class DeviceTypeRead(BaseModel):
     name: str
     slug: str
     description: str | None
+    fa_icon: str | None = None
 
 
 class DeviceModelBrief(BaseModel):
