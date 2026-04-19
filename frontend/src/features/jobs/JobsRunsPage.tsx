@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import * as ipamApi from "@/features/ipam/ipamApi";
@@ -36,6 +37,7 @@ export function JobsRunsPage() {
   const [jobModelId, setJobModelId] = useState("");
   const [jobSnmpCommunity, setJobSnmpCommunity] = useState("");
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  const [jobDeleteId, setJobDeleteId] = useState<number | null>(null);
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const prefixesQ = useQuery({
@@ -268,21 +270,30 @@ export function JobsRunsPage() {
                     {j.hosts_matched}/{j.hosts_scanned}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    <button
-                      type="button"
-                      className={dcimStyles.btnMuted}
-                      onClick={() => setExpandedJobId((x) => (x === j.id ? null : j.id))}
-                    >
-                      {expandedJobId === j.id ? t("netscan.hideResults") : t("netscan.showResults")}
-                    </button>{" "}
-                    <button
-                      type="button"
-                      className={dcimStyles.btnMuted}
-                      onClick={() => delJob.mutate(j.id)}
-                      disabled={delJob.isPending}
-                    >
-                      {t("netscan.deleteJob")}
-                    </button>
+                    <div className={dcimStyles.tableIconActions}>
+                      <button
+                        type="button"
+                        className={dcimStyles.tableIconBtn}
+                        title={expandedJobId === j.id ? t("netscan.hideResults") : t("netscan.showResults")}
+                        aria-label={expandedJobId === j.id ? t("netscan.hideResults") : t("netscan.showResults")}
+                        onClick={() => setExpandedJobId((x) => (x === j.id ? null : j.id))}
+                      >
+                        <i
+                          className={expandedJobId === j.id ? "fas fa-chevron-up" : "fas fa-chevron-down"}
+                          aria-hidden
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${dcimStyles.tableIconBtn} ${dcimStyles.tableIconBtnDanger}`.trim()}
+                        title={t("netscan.deleteJob")}
+                        aria-label={t("netscan.deleteJob")}
+                        disabled={delJob.isPending}
+                        onClick={() => setJobDeleteId(j.id)}
+                      >
+                        <i className="fas fa-trash-can" aria-hidden />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -318,6 +329,22 @@ export function JobsRunsPage() {
           <p className={dcimStyles.muted}>{t("netscan.discoveriesEmpty")}</p>
         )}
       </Panel>
+      <ConfirmModal
+        open={jobDeleteId != null}
+        onClose={() => {
+          if (!delJob.isPending) setJobDeleteId(null);
+        }}
+        title={t("ui.confirmTitle")}
+        message={t("netscan.deleteJobConfirm")}
+        confirmLabel={t("dcim.common.delete")}
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={delJob.isPending}
+        onConfirm={() => {
+          if (jobDeleteId == null) return;
+          delJob.mutate(jobDeleteId, { onSettled: () => setJobDeleteId(null) });
+        }}
+      />
     </>
   );
 }

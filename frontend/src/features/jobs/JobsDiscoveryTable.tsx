@@ -113,25 +113,36 @@ function DiscoveryRow({
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            className={styles.btn}
-            disabled={busy || !mid}
-            onClick={() => {
-              const device_model_id = Number(mid);
-              if (!device_model_id) return;
-              if (src === "custom") {
-                onApprove(d.id, { chosen_name_source: "custom", chosen_name: custom.trim(), device_model_id });
-              } else {
-                onApprove(d.id, { chosen_name_source: src, device_model_id });
-              }
-            }}
-          >
-            {t("netscan.promote")}
-          </button>
-          <button type="button" className={styles.btnMuted} disabled={busy} onClick={() => onReject(d.id)}>
-            {t("netscan.reject")}
-          </button>
+          <div className={styles.tableIconActions}>
+            <button
+              type="button"
+              className={styles.tableIconBtn}
+              disabled={busy || !mid}
+              title={t("netscan.promote")}
+              aria-label={t("netscan.promote")}
+              onClick={() => {
+                const device_model_id = Number(mid);
+                if (!device_model_id) return;
+                if (src === "custom") {
+                  onApprove(d.id, { chosen_name_source: "custom", chosen_name: custom.trim(), device_model_id });
+                } else {
+                  onApprove(d.id, { chosen_name_source: src, device_model_id });
+                }
+              }}
+            >
+              <i className="fas fa-plus-circle" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+              disabled={busy}
+              title={t("netscan.reject")}
+              aria-label={t("netscan.reject")}
+              onClick={() => onReject(d.id)}
+            >
+              <i className="fas fa-xmark" aria-hidden />
+            </button>
+          </div>
         </div>
       </td>
     </tr>

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -35,6 +36,7 @@ export function DcimSitesPage() {
   const [newDisplayName, setNewDisplayName] = useState<string>("");
   const [newEmail, setNewEmail] = useState<string>("");
   const [newPhone, setNewPhone] = useState<string>("");
+  const [grantDeleteId, setGrantDeleteId] = useState<number | null>(null);
 
   const q = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
   const selected = useMemo(() => (q.data ?? []).find((s) => s.id === editId) ?? null, [q.data, editId]);
@@ -436,14 +438,18 @@ export function DcimSitesPage() {
                         <td>{u?.display_name || u?.username || String(g.user_id)}</td>
                         <td>{r?.name || String(g.role_id)}</td>
                         <td>
-                          <button
-                            type="button"
-                            className={styles.btnDanger}
-                            disabled={delGrantM.isPending}
-                            onClick={() => delGrantM.mutate(g.id)}
-                          >
-                            {t("dcim.common.delete")}
-                          </button>
+                          <div className={styles.tableIconActions}>
+                            <button
+                              type="button"
+                              className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+                              title={t("dcim.common.delete")}
+                              aria-label={t("dcim.common.delete")}
+                              disabled={delGrantM.isPending}
+                              onClick={() => setGrantDeleteId(g.id)}
+                            >
+                              <i className="fas fa-trash-can" aria-hidden />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -543,6 +549,22 @@ export function DcimSitesPage() {
       ) : null}
         </>
       ) : null}
+      <ConfirmModal
+        open={grantDeleteId != null}
+        onClose={() => {
+          if (!delGrantM.isPending) setGrantDeleteId(null);
+        }}
+        title={t("ui.confirmTitle")}
+        message={t("dcim.sites.deleteGrantConfirm")}
+        confirmLabel={t("dcim.common.delete")}
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={delGrantM.isPending}
+        onConfirm={() => {
+          if (grantDeleteId == null) return;
+          delGrantM.mutate(grantDeleteId, { onSettled: () => setGrantDeleteId(null) });
+        }}
+      />
     </Panel>
   );
 }

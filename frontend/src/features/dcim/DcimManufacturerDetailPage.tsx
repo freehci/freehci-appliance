@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -21,6 +22,7 @@ export function DcimManufacturerDetailPage() {
   const [description, setDescription] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [logoVersion, setLogoVersion] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const detailQ = useQuery({
     queryKey: ["dcim", "manufacturers", id],
@@ -264,16 +266,31 @@ export function DcimManufacturerDetailPage() {
           <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.mfr.dangerZone")}</h3>
           <button
             type="button"
-            className={styles.btnDanger}
+            className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+            title={t("dcim.common.delete")}
+            aria-label={t("dcim.common.delete")}
             disabled={deleteMu.isPending}
-            onClick={() => {
-              if (window.confirm(t("dcim.equip.mfr.deleteConfirm"))) deleteMu.mutate();
-            }}
+            onClick={() => setDeleteConfirmOpen(true)}
           >
-            {deleteMu.isPending ? "…" : t("dcim.common.delete")}
+            <i className="fas fa-trash-can" aria-hidden />
           </button>
         </section>
       </Panel>
+      <ConfirmModal
+        open={deleteConfirmOpen}
+        onClose={() => {
+          if (!deleteMu.isPending) setDeleteConfirmOpen(false);
+        }}
+        title={t("dcim.equip.mfr.deleteModalTitle", { name: name.trim() || `#${id}` })}
+        message={t("dcim.equip.mfr.deleteConfirm")}
+        confirmLabel={t("dcim.common.delete")}
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={deleteMu.isPending}
+        onConfirm={() => {
+          deleteMu.mutate(undefined, { onSettled: () => setDeleteConfirmOpen(false) });
+        }}
+      />
     </>
   );
 }

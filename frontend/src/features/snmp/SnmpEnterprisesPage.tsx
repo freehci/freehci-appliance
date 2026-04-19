@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { HoverHelpCard } from "@/components/ui/HoverHelpCard";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -61,6 +62,7 @@ export function SnmpEnterprisesPage() {
   const [err, setErr] = useState<string | null>(null);
   const [autocreateMsg, setAutocreateMsg] = useState<string | null>(null);
   const [penInput, setPenInput] = useState("");
+  const [autocreateAllConfirmOpen, setAutocreateAllConfirmOpen] = useState(false);
 
   const entQ = useQuery({ queryKey: ["snmp", "enterprises"], queryFn: snmpApi.listSnmpEnterprises });
   const mfrQ = useQuery({ queryKey: ["dcim", "manufacturers", "all"], queryFn: dcimApi.listManufacturers });
@@ -133,8 +135,7 @@ export function SnmpEnterprisesPage() {
             disabled={autocreateMut.isPending}
             onClick={() => {
               setAutocreateMsg(null);
-              if (!window.confirm(t("snmp.autocreateAllConfirm"))) return;
-              autocreateMut.mutate(null);
+              setAutocreateAllConfirmOpen(true);
             }}
             title={t("snmp.autocreateAllHint")}
           >
@@ -224,6 +225,20 @@ export function SnmpEnterprisesPage() {
           <p className={dcimStyles.muted}>{t("snmp.mibsEmpty")}</p>
         ) : null}
       </section>
+      <ConfirmModal
+        open={autocreateAllConfirmOpen}
+        onClose={() => {
+          if (!autocreateMut.isPending) setAutocreateAllConfirmOpen(false);
+        }}
+        title={t("ui.confirmTitle")}
+        message={t("snmp.autocreateAllConfirm")}
+        confirmLabel={t("ui.confirmProceed")}
+        cancelLabel={t("dcim.common.cancel")}
+        pending={autocreateMut.isPending}
+        onConfirm={() => {
+          autocreateMut.mutate(null, { onSettled: () => setAutocreateAllConfirmOpen(false) });
+        }}
+      />
     </>
   );
 }

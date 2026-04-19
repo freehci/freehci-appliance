@@ -5,6 +5,9 @@ export const en = {
   "nav.snmp": "SNMP",
   "nav.jobs": "Jobs",
 
+  "ui.confirmTitle": "Confirm",
+  "ui.confirmProceed": "Continue",
+
   "jobs.innerNavAria": "Jobs section tabs",
   "jobs.tabJobs": "Jobs",
   "jobs.tabScheduler": "Scheduler",
@@ -456,6 +459,8 @@ export const en = {
   "netscan.showResults": "JSON results",
   "netscan.hideResults": "Hide",
   "netscan.deleteJob": "Delete job",
+  "netscan.deleteJobConfirm": "Delete this scan job? Stored results for the job will be removed.",
+  "netscan.removeBindingConfirm": "Remove this subnet–template binding?",
   "netscan.jobsEmpty": "No jobs yet.",
   "netscan.sectionDiscoveries": "Discovered queue (pending)",
   "netscan.discoveriesHint": "Approve to create a DCIM device; pick PTR, SNMP sysName, IP, or a custom name.",
@@ -539,6 +544,7 @@ export const en = {
   "dcim.sites.accessDisplayNamePh": "display name",
   "dcim.sites.accessEmailPh": "email",
   "dcim.sites.accessPhonePh": "phone",
+  "dcim.sites.deleteGrantConfirm": "Remove this contact or access row?",
 
   "dcim.rooms.title": "Rooms",
   "dcim.rooms.filterSite": "Filter by site ID",
@@ -643,6 +649,15 @@ export const en = {
     "Device models will remain but their manufacturer link will be cleared.",
   "dcim.equip.mfr.deleteManufacturerAria": "Delete manufacturer {name}",
   "dcim.equip.actionsCol": "Actions",
+  "dcim.equip.dt.deleteModalTitle": "Delete device type «{name}»?",
+  "dcim.equip.dt.deleteModalHint":
+    "Device models and plugins may still reference this slug; delete only if you are sure.",
+  "dcim.equip.dt.deleteTypeAria": "Delete device type {name}",
+  "dcim.equip.pl.removeModalTitle": "Remove this rack placement?",
+  "dcim.equip.pl.removeModalHint":
+    "The device stays registered; it will only be removed from this rack position (U and rack link).",
+  "dcim.equip.pl.removePlacementAria": "Remove rack placement #{id}",
+  "dcim.equip.dm.editAria": "Edit device model",
   "dcim.equip.dt.title": "Device types",
   "dcim.equip.dt.hint":
     "Logical classes (e.g. switch, server). Use stable slugs; plugins can declare which types they apply to.",
@@ -708,6 +723,11 @@ export const en = {
   "dcim.equip.dev.filterList": "Filter list",
   "dcim.equip.dev.filterPlaceholder": "Name, id, serial, asset tag, model, type, rack …",
   "dcim.equip.dev.filterNoResults": "No devices match the filter.",
+  "dcim.equip.dev.deleteIfModalTitle": "Delete interface «{name}»?",
+  "dcim.equip.dev.deleteIfModalHint":
+    "This removes the interface and all IP assignments shown under it in this table.",
+  "dcim.equip.dev.deleteIpModalTitle": "Remove IP assignment {address}?",
+  "dcim.equip.dev.deleteIpModalHint": "The address is unlinked from this interface.",
   "dcim.equip.dev.detailTabsAria": "Device sections",
   "dcim.equip.dev.tabOverview": "Overview",
   "dcim.equip.dev.tabNetwork": "Network",
@@ -881,6 +901,8 @@ export const en = {
   "ipam.subnetSvc.dhcp": "DHCP server (IPv4)",
   "ipam.subnetSvc.save": "Save subnet services",
   "ipam.ipv4.requestIps": "Request IPs",
+  "ipam.ipv4.deletePrefixConfirm":
+    "Delete prefix «{name}» ({cidr})? Child prefixes, addresses and related data may be removed.",
   "ipam.grid.colRole": "Role",
   "ipam.grid.role.network": "Network",
   "ipam.grid.role.broadcast": "Broadcast",

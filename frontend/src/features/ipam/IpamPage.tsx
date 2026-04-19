@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -58,6 +59,12 @@ export function IpamPage() {
     prefixId: number;
     cidr: string;
     preferred: string;
+  } | null>(null);
+  const [gridReleaseRow, setGridReleaseRow] = useState<PrefixAddressGridRow | null>(null);
+  const [deletePrefixTarget, setDeletePrefixTarget] = useState<{
+    id: number;
+    name: string;
+    cidr: string;
   } | null>(null);
   const [svcGateway, setSvcGateway] = useState("");
   const [svcDns, setSvcDns] = useState("");
@@ -1191,10 +1198,7 @@ export function IpamPage() {
                                   style={{ padding: "0.2rem 0.45rem" }}
                                   disabled={!canReleaseGridRow(row) || releaseGridRow.isPending}
                                   title={t("ipam.grid.action.release")}
-                                  onClick={() => {
-                                    if (!window.confirm(t("ipam.addr.releaseConfirm"))) return;
-                                    releaseGridRow.mutate(row);
-                                  }}
+                                  onClick={() => setGridReleaseRow(row)}
                                 >
                                   <i className="fas fa-unlink" aria-hidden />
                                 </button>
@@ -1382,22 +1386,28 @@ export function IpamPage() {
                   )}
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className={dcimStyles.btn}
-                    disabled={editingId === x.id}
-                    onClick={() => openExplore(x)}
-                  >
-                    {t("ipam.ipv4.openExplore")}
-                  </button>
+                  <div className={dcimStyles.tableIconActions}>
+                    <button
+                      type="button"
+                      className={dcimStyles.tableIconBtn}
+                      disabled={editingId === x.id}
+                      title={t("ipam.ipv4.openExplore")}
+                      aria-label={t("ipam.ipv4.openExplore")}
+                      onClick={() => openExplore(x)}
+                    >
+                      <i className="fas fa-sitemap" aria-hidden />
+                    </button>
+                  </div>
                 </td>
                 <td>
                   {editingId === x.id ? (
-                    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                    <span className={dcimStyles.tableIconActions}>
                       <button
                         type="button"
-                        className={dcimStyles.btn}
+                        className={dcimStyles.tableIconBtn}
                         disabled={patchPfx.isPending}
+                        title={t("dcim.common.save")}
+                        aria-label={t("dcim.common.save")}
                         onClick={() => {
                           const nm = editName.trim();
                           const cd = editCidr.trim();
@@ -1408,34 +1418,44 @@ export function IpamPage() {
                           patchPfx.mutate({ id: x.id, body: { name: nm, cidr: cd } });
                         }}
                       >
-                        {patchPfx.isPending ? "…" : t("dcim.common.save")}
+                        {patchPfx.isPending ? (
+                          "…"
+                        ) : (
+                          <i className="fas fa-floppy-disk" aria-hidden />
+                        )}
                       </button>
                       <button
                         type="button"
-                        className={dcimStyles.btn}
+                        className={dcimStyles.tableIconBtn}
+                        title={t("ipam.ipv4.cancel")}
+                        aria-label={t("ipam.ipv4.cancel")}
                         onClick={() => {
                           setEditingId(null);
                           setErr(null);
                         }}
                       >
-                        {t("ipam.ipv4.cancel")}
+                        <i className="fas fa-xmark" aria-hidden />
                       </button>
                     </span>
                   ) : (
-                    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                    <span className={dcimStyles.tableIconActions}>
                       <button
                         type="button"
-                        className={dcimStyles.btn}
+                        className={dcimStyles.tableIconBtn}
+                        title={t("ipam.ipv4.requestIps")}
+                        aria-label={t("ipam.ipv4.requestIps")}
                         onClick={() => {
                           setErr(null);
                           setIpRequestCtx({ prefixId: x.id, cidr: x.cidr, preferred: "" });
                         }}
                       >
-                        {t("ipam.ipv4.requestIps")}
+                        <i className="fas fa-inbox" aria-hidden />
                       </button>
                       <button
                         type="button"
-                        className={dcimStyles.btn}
+                        className={dcimStyles.tableIconBtn}
+                        title={t("ipam.ipv4.edit")}
+                        aria-label={t("ipam.ipv4.edit")}
                         onClick={() => {
                           setEditingId(x.id);
                           setEditName(x.name);
@@ -1443,15 +1463,17 @@ export function IpamPage() {
                           setErr(null);
                         }}
                       >
-                        {t("ipam.ipv4.edit")}
+                        <i className="fas fa-pen-to-square" aria-hidden />
                       </button>
                       <button
                         type="button"
-                        className={dcimStyles.btnDanger}
-                        onClick={() => delPfx.mutate(x.id)}
+                        className={`${dcimStyles.tableIconBtn} ${dcimStyles.tableIconBtnDanger}`.trim()}
+                        title={t("dcim.common.delete")}
+                        aria-label={t("dcim.common.delete")}
                         disabled={delPfx.isPending}
+                        onClick={() => setDeletePrefixTarget({ id: x.id, name: x.name, cidr: x.cidr })}
                       >
-                        {t("dcim.common.delete")}
+                        <i className="fas fa-trash-can" aria-hidden />
                       </button>
                     </span>
                   )}
@@ -1464,6 +1486,53 @@ export function IpamPage() {
       ) : (
         !prefixesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.ipv4.empty")}</p>
       )}
+      <ConfirmModal
+        open={gridReleaseRow != null}
+        onClose={() => {
+          if (!releaseGridRow.isPending) setGridReleaseRow(null);
+        }}
+        title={t("ipam.addr.release")}
+        message={
+          gridReleaseRow ? (
+            <>
+              <code>{gridReleaseRow.address}</code>
+              <br />
+              {t("ipam.addr.releaseConfirm")}
+            </>
+          ) : null
+        }
+        confirmLabel={t("ipam.addr.release")}
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={releaseGridRow.isPending}
+        onConfirm={() => {
+          if (!gridReleaseRow) return;
+          releaseGridRow.mutate(gridReleaseRow, { onSettled: () => setGridReleaseRow(null) });
+        }}
+      />
+      <ConfirmModal
+        open={deletePrefixTarget != null}
+        onClose={() => {
+          if (!delPfx.isPending) setDeletePrefixTarget(null);
+        }}
+        title={t("ui.confirmTitle")}
+        message={
+          deletePrefixTarget
+            ? t("ipam.ipv4.deletePrefixConfirm", {
+                name: deletePrefixTarget.name,
+                cidr: deletePrefixTarget.cidr,
+              })
+            : null
+        }
+        confirmLabel={t("dcim.common.delete")}
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={delPfx.isPending}
+        onConfirm={() => {
+          if (!deletePrefixTarget) return;
+          delPfx.mutate(deletePrefixTarget.id, { onSettled: () => setDeletePrefixTarget(null) });
+        }}
+      />
     </Panel>
   );
 }

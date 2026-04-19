@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
 import { ApiError } from "@/lib/api";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { HoverHelpCard } from "@/components/ui/HoverHelpCard";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { MibCompileErrorBlock } from "./MibCompileErrorBlock";
@@ -13,6 +14,12 @@ import mibsTableStyles from "./snmpMibs.module.css";
 import * as snmpApi from "./snmpApi";
 
 const MibSourceModalLazy = lazy(() => import("./MibSourceModal"));
+
+type SnmpMibsConfirm =
+  | { kind: "normalize" }
+  | { kind: "compileAll" }
+  | { kind: "compilePending" }
+  | { kind: "deleteMib"; name: string };
 
 function labelForStoredCompileStatus(status: string, t: (k: MessageKey) => string) {
   switch (status) {
@@ -44,6 +51,7 @@ export function SnmpMibsPage() {
   const [mibOrder, setMibOrder] = useState<"asc" | "desc">("asc");
   const [mibSearchInput, setMibSearchInput] = useState("");
   const [mibSearchQ, setMibSearchQ] = useState("");
+  const [snmpConfirm, setSnmpConfirm] = useState<SnmpMibsConfirm | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bgMibCompile = bgCompileAll || bgCompilePending;
 
@@ -229,6 +237,47 @@ export function SnmpMibsPage() {
   const compilingName = compileOne.isPending ? compileOne.variables : undefined;
   const deletingName = delMib.isPending ? delMib.variables : undefined;
 
+  const snmpConfirmBusy =
+    normalizeMibFilenames.isPending || compileAll.isPending || compilePending.isPending || delMib.isPending;
+
+  const snmpConfirmMessage = useMemo(() => {
+    if (!snmpConfirm) return null;
+    switch (snmpConfirm.kind) {
+      case "normalize":
+        return t("snmp.mibNormalizeConfirm");
+      case "compileAll":
+        return t("snmp.compileAllConfirm");
+      case "compilePending":
+        return t("snmp.compilePendingConfirm");
+      case "deleteMib":
+        return `${t("snmp.mibDeleteConfirm")} (${snmpConfirm.name})`;
+      default:
+        return null;
+    }
+  }, [snmpConfirm, t]);
+
+  const snmpConfirmDanger = snmpConfirm?.kind === "deleteMib";
+  const snmpConfirmLabel =
+    snmpConfirm?.kind === "deleteMib" ? t("dcim.common.delete") : t("ui.confirmProceed");
+
+  const runSnmpConfirm = () => {
+    if (!snmpConfirm) return;
+    if (snmpConfirm.kind === "normalize") {
+      setMibNormalizeReport(null);
+      normalizeMibFilenames.mutate(undefined, { onSettled: () => setSnmpConfirm(null) });
+      return;
+    }
+    if (snmpConfirm.kind === "compileAll") {
+      compileAll.mutate(undefined, { onSettled: () => setSnmpConfirm(null) });
+      return;
+    }
+    if (snmpConfirm.kind === "compilePending") {
+      compilePending.mutate(undefined, { onSettled: () => setSnmpConfirm(null) });
+      return;
+    }
+    delMib.mutate(snmpConfirm.name, { onSettled: () => setSnmpConfirm(null) });
+  };
+
   const handleMibRefNavigate = useCallback((filename: string) => {
     if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
     setFlashMibRow(filename);
@@ -348,11 +397,7 @@ export function SnmpMibsPage() {
             className={dcimStyles.btnMuted}
             disabled={normalizeMibFilenames.isPending || mibTotal === 0}
             title={t("snmp.mibNormalizeHint")}
-            onClick={() => {
-              if (!window.confirm(t("snmp.mibNormalizeConfirm"))) return;
-              setMibNormalizeReport(null);
-              normalizeMibFilenames.mutate();
-            }}
+            onClick={() => setSnmpConfirm({ kind: "normalize" })}
           >
             {normalizeMibFilenames.isPending ? "…" : t("snmp.mibNormalizeButton")}
           </button>
@@ -364,10 +409,7 @@ export function SnmpMibsPage() {
               bgCompileAll ||
               mibTotal === 0
             }
-            onClick={() => {
-              if (!window.confirm(t("snmp.compileAllConfirm"))) return;
-              compileAll.mutate();
-            }}
+            onClick={() => setSnmpConfirm({ kind: "compileAll" })}
             title={t("snmp.compileAllHint")}
           >
             {compileAll.isPending
@@ -395,10 +437,7 @@ export function SnmpMibsPage() {
                 pendingTotal === 0
               }
               title={t("snmp.compilePendingHint")}
-              onClick={() => {
-                if (!window.confirm(t("snmp.compilePendingConfirm"))) return;
-                compilePending.mutate();
-              }}
+              onClick={() => setSnmpConfirm({ kind: "compilePending" })}
             >
               {compilePending.isPending
                 ? "…"
@@ -651,10 +690,7 @@ export function SnmpMibsPage() {
                             disabled={
                               delMib.isPending || (compilingName != null && compilingName === m.name)
                             }
-                            onClick={() => {
-                              if (!window.confirm(t("snmp.mibDeleteConfirm"))) return;
-                              delMib.mutate(m.name);
-                            }}
+                            onClick={() => setSnmpConfirm({ kind: "deleteMib", name: m.name })}
                           >
                             <i className="fas fa-trash-can" aria-hidden />
                           </button>
@@ -721,6 +757,19 @@ export function SnmpMibsPage() {
           <p>{t("snmp.mibsVendorNote")}</p>
         </HoverHelpCard>
       </p>
+      <ConfirmModal
+        open={snmpConfirm != null}
+        onClose={() => {
+          if (!snmpConfirmBusy) setSnmpConfirm(null);
+        }}
+        title={t("ui.confirmTitle")}
+        message={snmpConfirmMessage}
+        confirmLabel={snmpConfirmLabel}
+        cancelLabel={t("dcim.common.cancel")}
+        danger={snmpConfirmDanger}
+        pending={snmpConfirmBusy}
+        onConfirm={runSnmpConfirm}
+      />
     </>
   );
 }

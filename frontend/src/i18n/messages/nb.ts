@@ -7,6 +7,9 @@ export const nb = {
   "nav.snmp": "SNMP",
   "nav.jobs": "Jobs",
 
+  "ui.confirmTitle": "Bekreft",
+  "ui.confirmProceed": "Fortsett",
+
   "jobs.innerNavAria": "Faner for jobber",
   "jobs.tabJobs": "Jobber",
   "jobs.tabScheduler": "Planlegger",
@@ -461,6 +464,8 @@ export const nb = {
   "netscan.showResults": "JSON-resultat",
   "netscan.hideResults": "Skjul",
   "netscan.deleteJob": "Slett jobb",
+  "netscan.deleteJobConfirm": "Slette denne skannejobben? Lagrede resultater for jobben fjernes.",
+  "netscan.removeBindingConfirm": "Fjerne denne subnet–mal-koblingen?",
   "netscan.jobsEmpty": "Ingen jobber ennå.",
   "netscan.sectionDiscoveries": "Oppdaget kø (venter)",
   "netscan.discoveriesHint": "Godkjenn for å opprette DCIM-enhet; velg PTR, SNMP sysName, IP eller eget navn.",
@@ -545,6 +550,7 @@ export const nb = {
   "dcim.sites.accessDisplayNamePh": "visningsnavn",
   "dcim.sites.accessEmailPh": "epost",
   "dcim.sites.accessPhonePh": "telefon",
+  "dcim.sites.deleteGrantConfirm": "Fjerne denne kontakt- eller tilgangs-raden?",
 
   "dcim.rooms.title": "Rom",
   "dcim.rooms.filterSite": "Filtrer på site-ID",
@@ -651,6 +657,15 @@ export const nb = {
     "Enhetsmodeller beholdes, men produsent-koblingen fjernes.",
   "dcim.equip.mfr.deleteManufacturerAria": "Slett produsent {name}",
   "dcim.equip.actionsCol": "Handlinger",
+  "dcim.equip.dt.deleteModalTitle": "Slette enhetstypen «{name}»?",
+  "dcim.equip.dt.deleteModalHint":
+    "Enhetsmodeller og plugins kan fortsatt referere til denne slug-en; slett bare hvis du er sikker.",
+  "dcim.equip.dt.deleteTypeAria": "Slett enhetstype {name}",
+  "dcim.equip.pl.removeModalTitle": "Fjerne denne rack-plasseringen?",
+  "dcim.equip.pl.removeModalHint":
+    "Enheten blir stående registrert; den fjernes bare fra denne rack-posisjonen (U og rack-kobling).",
+  "dcim.equip.pl.removePlacementAria": "Fjern rack-plassering #{id}",
+  "dcim.equip.dm.editAria": "Rediger enhetsmodell",
   "dcim.equip.dt.title": "Enhetstyper",
   "dcim.equip.dt.hint":
     "Logiske klasser (f.eks. switch, server). Bruk stabile slug-verdier; plugins kan angi hvilke typer de gjelder for.",
@@ -716,6 +731,11 @@ export const nb = {
   "dcim.equip.dev.filterList": "Filtrer liste",
   "dcim.equip.dev.filterPlaceholder": "Navn, id, serienummer, asset, modell, type, rack …",
   "dcim.equip.dev.filterNoResults": "Ingen enheter matcher filteret.",
+  "dcim.equip.dev.deleteIfModalTitle": "Slette grensesnitt «{name}»?",
+  "dcim.equip.dev.deleteIfModalHint":
+    "Dette fjerner grensesnittet og alle IP-tildelinger som vises under det i tabellen.",
+  "dcim.equip.dev.deleteIpModalTitle": "Fjerne IP-tildeling {address}?",
+  "dcim.equip.dev.deleteIpModalHint": "Adressen kobles fra dette grensesnittet.",
   "dcim.equip.dev.detailTabsAria": "Enhetsseksjoner",
   "dcim.equip.dev.tabOverview": "Oversikt",
   "dcim.equip.dev.tabNetwork": "Nettverk",
@@ -890,6 +910,8 @@ export const nb = {
   "ipam.subnetSvc.dhcp": "DHCP-server (IPv4)",
   "ipam.subnetSvc.save": "Lagre subnet-tjenester",
   "ipam.ipv4.requestIps": "Request IP",
+  "ipam.ipv4.deletePrefixConfirm":
+    "Slette prefiks «{name}» ({cidr})? Underprefiks, adresser og relaterte data kan bli fjernet.",
   "ipam.grid.colRole": "Rolle",
   "ipam.grid.role.network": "Nettverk",
   "ipam.grid.role.broadcast": "Broadcast",

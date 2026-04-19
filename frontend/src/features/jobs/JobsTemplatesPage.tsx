@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import * as ipamApi from "@/features/ipam/ipamApi";
@@ -18,6 +19,7 @@ export function JobsTemplatesPage() {
   const [customSlug, setCustomSlug] = useState("");
   const [customName, setCustomName] = useState("");
   const [customPorts, setCustomPorts] = useState("1883,502,22");
+  const [bindingDeleteId, setBindingDeleteId] = useState<number | null>(null);
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const prefixesQ = useQuery({
@@ -209,14 +211,18 @@ export function JobsTemplatesPage() {
                     {(templatesQ.data ?? []).find((tpl) => tpl.id === b.template_id)?.name ?? `#${b.template_id}`}
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className={dcimStyles.btnMuted}
-                      onClick={() => delBinding.mutate(b.id)}
-                      disabled={delBinding.isPending}
-                    >
-                      {t("netscan.removeBinding")}
-                    </button>
+                    <div className={dcimStyles.tableIconActions}>
+                      <button
+                        type="button"
+                        className={`${dcimStyles.tableIconBtn} ${dcimStyles.tableIconBtnDanger}`.trim()}
+                        title={t("netscan.removeBinding")}
+                        aria-label={t("netscan.removeBinding")}
+                        disabled={delBinding.isPending}
+                        onClick={() => setBindingDeleteId(b.id)}
+                      >
+                        <i className="fas fa-link-slash" aria-hidden />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -226,6 +232,22 @@ export function JobsTemplatesPage() {
           <p className={dcimStyles.muted}>{t("netscan.bindingsEmpty")}</p>
         )}
       </Panel>
+      <ConfirmModal
+        open={bindingDeleteId != null}
+        onClose={() => {
+          if (!delBinding.isPending) setBindingDeleteId(null);
+        }}
+        title={t("ui.confirmTitle")}
+        message={t("netscan.removeBindingConfirm")}
+        confirmLabel={t("netscan.removeBinding")}
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={delBinding.isPending}
+        onConfirm={() => {
+          if (bindingDeleteId == null) return;
+          delBinding.mutate(bindingDeleteId, { onSettled: () => setBindingDeleteId(null) });
+        }}
+      />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -57,7 +58,8 @@ export function DcimEquipmentPage() {
   const [devListFilter, setDevListFilter] = useState("");
   const [equipTab, setEquipTab] = useState<EquipTab>("mfr");
   const [mfrPendingDelete, setMfrPendingDelete] = useState<{ id: number; name: string } | null>(null);
-  const mfrDeleteTitleId = useId();
+  const [dtPendingDelete, setDtPendingDelete] = useState<{ id: number; name: string } | null>(null);
+  const [plPendingRemove, setPlPendingRemove] = useState<RackPlacement | null>(null);
 
   const manufacturersQ = useQuery({
     queryKey: ["dcim", "manufacturers"],
@@ -185,15 +187,6 @@ export function DcimEquipmentPage() {
       devPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
     );
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!mfrPendingDelete) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMfrPendingDelete(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [mfrPendingDelete]);
 
   const createMfr = useMutation({
     mutationFn: () =>
@@ -531,7 +524,9 @@ export function DcimEquipmentPage() {
                 <th>{t("dcim.common.id")}</th>
                 <th>{t("dcim.common.name")}</th>
                 <th>{t("dcim.equip.dt.slug")}</th>
-                <th />
+                <th scope="col">
+                  <span className="sr-only">{t("dcim.equip.actionsCol")}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -543,14 +538,18 @@ export function DcimEquipmentPage() {
                     <code>{x.slug}</code>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className={styles.btnDanger}
-                      onClick={() => delDt.mutate(x.id)}
-                      disabled={delDt.isPending}
-                    >
-                      {t("dcim.common.delete")}
-                    </button>
+                    <div className={styles.tableIconActions}>
+                      <button
+                        type="button"
+                        className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+                        title={t("dcim.common.delete")}
+                        aria-label={t("dcim.equip.dt.deleteTypeAria", { name: x.name })}
+                        disabled={delDt.isPending}
+                        onClick={() => setDtPendingDelete({ id: x.id, name: x.name })}
+                      >
+                        <i className="fas fa-trash-can" aria-hidden />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -849,21 +848,25 @@ export function DcimEquipmentPage() {
                     <td>{x.u_height}</td>
                     <td title={pfx || undefined}>{pfxShort !== "" ? <code>{pfxShort}</code> : "—"}</td>
                     <td>
-                      <button
-                        type="button"
-                        className={styles.btn}
-                        onClick={() => {
-                          setErr(null);
-                          setDmEditId(x.id);
-                          setDmEditName(x.name);
-                          setDmEditU(String(x.u_height));
-                          setDmEditMfr(x.manufacturer_id != null ? String(x.manufacturer_id) : "");
-                          setDmEditDt(x.device_type_id != null ? String(x.device_type_id) : "");
-                          setDmEditSnmp(x.snmp_sys_object_id_prefix ?? "");
-                        }}
-                      >
-                        {t("dcim.equip.dm.edit")}
-                      </button>
+                      <div className={styles.tableIconActions}>
+                        <button
+                          type="button"
+                          className={styles.tableIconBtn}
+                          title={t("dcim.equip.dm.edit")}
+                          aria-label={t("dcim.equip.dm.editAria")}
+                          onClick={() => {
+                            setErr(null);
+                            setDmEditId(x.id);
+                            setDmEditName(x.name);
+                            setDmEditU(String(x.u_height));
+                            setDmEditMfr(x.manufacturer_id != null ? String(x.manufacturer_id) : "");
+                            setDmEditDt(x.device_type_id != null ? String(x.device_type_id) : "");
+                            setDmEditSnmp(x.snmp_sys_object_id_prefix ?? "");
+                          }}
+                        >
+                          <i className="fas fa-pen-to-square" aria-hidden />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1100,14 +1103,18 @@ export function DcimEquipmentPage() {
                     </Link>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className={styles.btnDanger}
-                      onClick={() => delPl.mutate(p.id)}
-                      disabled={delPl.isPending}
-                    >
-                      {t("dcim.common.remove")}
-                    </button>
+                    <div className={styles.tableIconActions}>
+                      <button
+                        type="button"
+                        className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+                        title={t("dcim.common.remove")}
+                        aria-label={t("dcim.equip.pl.removePlacementAria", { id: String(p.id) })}
+                        disabled={delPl.isPending}
+                        onClick={() => setPlPendingRemove(p)}
+                      >
+                        <i className="fas fa-link-slash" aria-hidden />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1119,71 +1126,54 @@ export function DcimEquipmentPage() {
         </>
       ) : null}
     </Panel>
-    {mfrPendingDelete ? (
-      <div
-        role="presentation"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 200,
-          background: "rgba(0,0,0,0.45)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "var(--space-3)",
-        }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setMfrPendingDelete(null);
-        }}
-      >
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={mfrDeleteTitleId}
-          style={{
-            width: "min(28rem, 100%)",
-            maxHeight: "90vh",
-            overflow: "auto",
-            background: "var(--color-bg-elevated)",
-            border: "1px solid var(--shell-border)",
-            borderRadius: "var(--radius-md)",
-            padding: "var(--space-4)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <h2 id={mfrDeleteTitleId} style={{ marginTop: 0 }}>
-            {t("dcim.equip.mfr.deleteModalTitle", { name: mfrPendingDelete.name })}
-          </h2>
-          <p className={styles.muted} style={{ marginTop: 0 }}>
-            {t("dcim.equip.mfr.deleteModalHint")}
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "var(--space-3)" }}>
-            <button
-              type="button"
-              className={styles.btnDanger}
-              disabled={delMfr.isPending}
-              onClick={() => {
-                const id = mfrPendingDelete.id;
-                delMfr.mutate(id, {
-                  onSettled: () => setMfrPendingDelete(null),
-                });
-              }}
-            >
-              {delMfr.isPending ? "…" : t("dcim.common.delete")}
-            </button>
-            <button
-              type="button"
-              className={styles.btnMuted}
-              onClick={() => setMfrPendingDelete(null)}
-              disabled={delMfr.isPending}
-            >
-              {t("dcim.common.cancel")}
-            </button>
-          </div>
-        </div>
-      </div>
-    ) : null}
+    <ConfirmModal
+      open={mfrPendingDelete != null}
+      onClose={() => {
+        if (!delMfr.isPending) setMfrPendingDelete(null);
+      }}
+      title={mfrPendingDelete ? t("dcim.equip.mfr.deleteModalTitle", { name: mfrPendingDelete.name }) : ""}
+      message={t("dcim.equip.mfr.deleteModalHint")}
+      confirmLabel={t("dcim.common.delete")}
+      cancelLabel={t("dcim.common.cancel")}
+      danger
+      pending={delMfr.isPending}
+      onConfirm={() => {
+        if (!mfrPendingDelete) return;
+        delMfr.mutate(mfrPendingDelete.id, { onSettled: () => setMfrPendingDelete(null) });
+      }}
+    />
+    <ConfirmModal
+      open={dtPendingDelete != null}
+      onClose={() => {
+        if (!delDt.isPending) setDtPendingDelete(null);
+      }}
+      title={dtPendingDelete ? t("dcim.equip.dt.deleteModalTitle", { name: dtPendingDelete.name }) : ""}
+      message={t("dcim.equip.dt.deleteModalHint")}
+      confirmLabel={t("dcim.common.delete")}
+      cancelLabel={t("dcim.common.cancel")}
+      danger
+      pending={delDt.isPending}
+      onConfirm={() => {
+        if (!dtPendingDelete) return;
+        delDt.mutate(dtPendingDelete.id, { onSettled: () => setDtPendingDelete(null) });
+      }}
+    />
+    <ConfirmModal
+      open={plPendingRemove != null}
+      onClose={() => {
+        if (!delPl.isPending) setPlPendingRemove(null);
+      }}
+      title={t("dcim.equip.pl.removeModalTitle")}
+      message={t("dcim.equip.pl.removeModalHint")}
+      confirmLabel={t("dcim.common.remove")}
+      cancelLabel={t("dcim.common.cancel")}
+      danger
+      pending={delPl.isPending}
+      onConfirm={() => {
+        if (!plPendingRemove) return;
+        delPl.mutate(plPendingRemove.id, { onSettled: () => setPlPendingRemove(null) });
+      }}
+    />
     </>
   );
 }

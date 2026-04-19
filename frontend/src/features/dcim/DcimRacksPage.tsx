@@ -544,9 +544,17 @@ export function DcimRacksPage() {
                     <td>{k.brand ?? "—"}</td>
                     <td>{formatDimsMm(k)}</td>
                     <td>
-                      <button type="button" className={styles.btnLink} onClick={() => beginEdit(k)}>
-                        {t("dcim.racks.edit")}
-                      </button>
+                      <div className={styles.tableIconActions}>
+                        <button
+                          type="button"
+                          className={styles.tableIconBtn}
+                          title={t("dcim.racks.edit")}
+                          aria-label={t("dcim.racks.edit")}
+                          onClick={() => beginEdit(k)}
+                        >
+                          <i className="fas fa-pen-to-square" aria-hidden />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

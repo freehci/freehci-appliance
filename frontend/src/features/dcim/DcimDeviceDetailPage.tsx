@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError, apiGet } from "@/lib/api";
@@ -28,6 +29,10 @@ function formatSnmpExtra(attrs: Record<string, unknown>): string {
 
 const DEVICE_DETAIL_TABS = new Set(["overview", "network", "hardware", "os"]);
 type DeviceDetailTab = "overview" | "network" | "hardware" | "os";
+
+type DeviceNetDeleteConfirm =
+  | { kind: "interface"; iid: number; name: string }
+  | { kind: "ip"; iid: number; aid: number; address: string };
 
 export function DcimDeviceDetailPage() {
   const { t } = useI18n();
@@ -80,6 +85,7 @@ export function DcimDeviceDetailPage() {
   const [devIpPrimary, setDevIpPrimary] = useState(false);
   const [devIpPrefix, setDevIpPrefix] = useState("");
   const [devIpPrefixDraft, setDevIpPrefixDraft] = useState<Record<number, string>>({});
+  const [netDeleteConfirm, setNetDeleteConfirm] = useState<DeviceNetDeleteConfirm | null>(null);
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -474,6 +480,8 @@ export function DcimDeviceDetailPage() {
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
+
+  const netDeleteBusy = delIf.isPending || delIp.isPending;
 
   const setPrimaryIp = useMutation({
     mutationFn: ({ iid, aid }: { iid: number; aid: number }) =>
@@ -1137,8 +1145,10 @@ export function DcimDeviceDetailPage() {
                       </select>
                       <button
                         type="button"
-                        className={styles.btn}
+                        className={styles.tableIconBtn}
                         disabled={patchParent.isPending}
+                        title={t("dcim.common.save")}
+                        aria-label={t("dcim.common.save")}
                         onClick={() => {
                           setErr(null);
                           const raw = (
@@ -1150,7 +1160,7 @@ export function DcimDeviceDetailPage() {
                           patchParent.mutate({ iid: x.id, parent_interface_id });
                         }}
                       >
-                        {patchParent.isPending ? "…" : t("dcim.common.save")}
+                        {patchParent.isPending ? "…" : <i className="fas fa-floppy-disk" aria-hidden />}
                       </button>
                     </div>
                   </td>
@@ -1170,8 +1180,10 @@ export function DcimDeviceDetailPage() {
                       />
                       <button
                         type="button"
-                        className={styles.btn}
+                        className={styles.tableIconBtn}
                         disabled={patchVlan.isPending}
+                        title={t("dcim.common.save")}
+                        aria-label={t("dcim.common.save")}
                         onClick={() => {
                           setErr(null);
                           const raw = (
@@ -1189,18 +1201,24 @@ export function DcimDeviceDetailPage() {
                           patchVlan.mutate({ iid: x.id, vlan_id });
                         }}
                       >
-                        {patchVlan.isPending ? "…" : t("dcim.common.save")}
+                        {patchVlan.isPending ? "…" : <i className="fas fa-floppy-disk" aria-hidden />}
                       </button>
                     </div>
                   </td>
                   <td>
                     <button
                       type="button"
-                      className={styles.btn}
+                      className={styles.tableIconBtn}
+                      title={x.enabled ? t("dcim.equip.if.disable") : t("dcim.equip.if.enable")}
+                      aria-label={x.enabled ? t("dcim.equip.if.disable") : t("dcim.equip.if.enable")}
                       onClick={() => toggleIf.mutate({ iid: x.id, enabled: !x.enabled })}
                       disabled={toggleIf.isPending}
                     >
-                      {x.enabled ? t("dcim.equip.if.disable") : t("dcim.equip.if.enable")}
+                      {toggleIf.isPending ? (
+                        "…"
+                      ) : (
+                        <i className={x.enabled ? "fas fa-toggle-on" : "fas fa-toggle-off"} aria-hidden />
+                      )}
                     </button>
                   </td>
                   <td>{x.description ?? "—"}</td>
@@ -1246,9 +1264,10 @@ export function DcimDeviceDetailPage() {
                               </select>
                               <button
                                 type="button"
-                                className={styles.btn}
-                                style={{ fontSize: "var(--text-xs)", padding: "0.15rem 0.45rem" }}
+                                className={styles.tableIconBtn}
                                 disabled={patchIpPrefix.isPending}
+                                title={t("dcim.common.save")}
+                                aria-label={t("dcim.common.save")}
                                 onClick={() => {
                                   setErr(null);
                                   const raw = (
@@ -1264,7 +1283,7 @@ export function DcimDeviceDetailPage() {
                                   patchIpPrefix.mutate({ iid: x.id, aid: ip.id, ipv4_prefix_id });
                                 }}
                               >
-                                {patchIpPrefix.isPending ? "…" : t("dcim.common.save")}
+                                {patchIpPrefix.isPending ? "…" : <i className="fas fa-floppy-disk" aria-hidden />}
                               </button>
                             </span>
                           ) : null}
@@ -1299,11 +1318,13 @@ export function DcimDeviceDetailPage() {
                   <td>
                     <button
                       type="button"
-                      className={styles.btnDanger}
-                      onClick={() => delIf.mutate(x.id)}
+                      className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+                      title={t("dcim.common.delete")}
+                      aria-label={t("dcim.common.delete")}
+                      onClick={() => setNetDeleteConfirm({ kind: "interface", iid: x.id, name: x.name })}
                       disabled={delIf.isPending}
                     >
-                      {t("dcim.common.delete")}
+                      <i className="fas fa-trash-can" aria-hidden />
                     </button>
                   </td>
                 </tr>
@@ -1317,6 +1338,43 @@ export function DcimDeviceDetailPage() {
           </>
         ) : null}
       </Panel>
+      <ConfirmModal
+        open={netDeleteConfirm != null}
+        onClose={() => {
+          if (!netDeleteBusy) setNetDeleteConfirm(null);
+        }}
+        title={
+          netDeleteConfirm?.kind === "interface"
+            ? t("dcim.equip.dev.deleteIfModalTitle", { name: netDeleteConfirm.name })
+            : netDeleteConfirm?.kind === "ip"
+              ? t("dcim.equip.dev.deleteIpModalTitle", { address: netDeleteConfirm.address })
+              : ""
+        }
+        message={
+          netDeleteConfirm?.kind === "interface"
+            ? t("dcim.equip.dev.deleteIfModalHint")
+            : netDeleteConfirm?.kind === "ip"
+              ? t("dcim.equip.dev.deleteIpModalHint")
+              : null
+        }
+        confirmLabel={
+          netDeleteConfirm?.kind === "ip" ? t("dcim.common.remove") : t("dcim.common.delete")
+        }
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={netDeleteBusy}
+        onConfirm={() => {
+          if (!netDeleteConfirm) return;
+          if (netDeleteConfirm.kind === "interface") {
+            delIf.mutate(netDeleteConfirm.iid, { onSettled: () => setNetDeleteConfirm(null) });
+            return;
+          }
+          delIp.mutate(
+            { iid: netDeleteConfirm.iid, aid: netDeleteConfirm.aid },
+            { onSettled: () => setNetDeleteConfirm(null) },
+          );
+        }}
+      />
     </>
   );
 }
