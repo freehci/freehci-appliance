@@ -130,7 +130,7 @@ export function DcimManufacturerDetailPage() {
           ← {t("dcim.equip.mfr.backToList")}
         </Link>
         {" · "}
-        <Link to={`/dcim/equipment?prefillManufacturer=${id}`} className={styles.tableLink}>
+        <Link to={`/dcim/equipment/device-models/new?prefillManufacturer=${id}`} className={styles.tableLink}>
           {t("dcim.equip.mfr.addModel")}
         </Link>
       </p>

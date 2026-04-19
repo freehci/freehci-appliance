@@ -171,6 +171,10 @@ export function listDeviceTypes(): Promise<DeviceType[]> {
   return apiGet(`${P}/device-types`);
 }
 
+export function getDeviceType(id: number): Promise<DeviceType> {
+  return apiGet(`${P}/device-types/${id}`);
+}
+
 export function createDeviceType(body: {
   name: string;
   slug: string;
@@ -179,12 +183,23 @@ export function createDeviceType(body: {
   return apiPost(`${P}/device-types`, body);
 }
 
+export function updateDeviceType(
+  id: number,
+  body: { name?: string; description?: string | null },
+): Promise<DeviceType> {
+  return apiPatch(`${P}/device-types/${id}`, body);
+}
+
 export function deleteDeviceType(id: number): Promise<void> {
   return apiDelete(`${P}/device-types/${id}`);
 }
 
 export function listDeviceModels(): Promise<DeviceModel[]> {
   return apiGet(`${P}/device-models`);
+}
+
+export function getDeviceModel(id: number): Promise<DeviceModel> {
+  return apiGet(`${P}/device-models/${id}`);
 }
 
 export function createDeviceModel(body: {
@@ -221,6 +236,10 @@ export function updateDeviceModel(
 export function matchDeviceModelsBySnmpOid(numericOid: string): Promise<DeviceModel[]> {
   const q = `?numeric_oid=${encodeURIComponent(numericOid)}`;
   return apiGet(`${P}/device-models/match-snmp${q}`);
+}
+
+export function deleteDeviceModel(id: number): Promise<void> {
+  return apiDelete(`${P}/device-models/${id}`);
 }
 
 export function uploadDeviceModelImageFront(id: number, file: File): Promise<DeviceModel> {

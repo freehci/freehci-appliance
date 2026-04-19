@@ -1,5 +1,5 @@
 import { apiUrl } from "@/lib/api";
-import type { DeviceModel } from "./types";
+import type { DeviceInstance, DeviceModel } from "./types";
 
 const P = "/api/v1/dcim";
 
@@ -46,4 +46,18 @@ export function deviceModelRackFaceSrc(m: DeviceModel, version?: string): string
 /** Modelltabell / katalog: produktfoto først, deretter klassisk front/bak. */
 export function deviceModelListThumbSrc(m: DeviceModel, version?: string): string | null {
   return deviceModelProductSrc(m, version) ?? deviceModelFrontSrc(m, version) ?? deviceModelBackSrc(m, version);
+}
+
+/** Valgfritt bilde-URL i enhets-attributter; overstyrer modell-miniatyr i lister. */
+export const DCIM_DEVICE_ICON_URL_ATTR = "dcim_icon_url";
+
+/** Liste-/katalogvisning: eget ikon-URL, ellers modell-miniatyr. */
+export function deviceInstanceListThumbSrc(
+  dev: DeviceInstance,
+  model: DeviceModel | null | undefined,
+): string | null {
+  const raw = dev.attributes?.[DCIM_DEVICE_ICON_URL_ATTR];
+  if (typeof raw === "string" && raw.trim() !== "") return raw.trim();
+  if (model) return deviceModelListThumbSrc(model);
+  return null;
 }

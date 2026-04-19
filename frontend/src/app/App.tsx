@@ -4,6 +4,9 @@ import { ChangePasswordPage } from "@/features/auth/ChangePasswordPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RequireAuth } from "@/features/auth/RequireAuth";
 import { DcimDeviceDetailPage } from "@/features/dcim/DcimDeviceDetailPage";
+import { DcimDeviceModelDetailPage } from "@/features/dcim/DcimDeviceModelDetailPage";
+import { DcimDeviceNewPage } from "@/features/dcim/DcimDeviceNewPage";
+import { DcimDeviceTypeDetailPage } from "@/features/dcim/DcimDeviceTypeDetailPage";
 import { DcimEquipmentPage } from "@/features/dcim/DcimEquipmentPage";
 import { DcimManufacturerDetailPage } from "@/features/dcim/DcimManufacturerDetailPage";
 import { DcimLayout } from "@/features/dcim/DcimLayout";
@@ -65,7 +68,10 @@ function AppRoutes() {
             <Route path="rooms" element={<DcimRoomsPage />} />
             <Route path="racks" element={<DcimRacksPage />} />
             <Route path="equipment" element={<DcimEquipmentPage />} />
+            <Route path="equipment/devices/new" element={<DcimDeviceNewPage />} />
             <Route path="equipment/devices/:deviceId" element={<DcimDeviceDetailPage />} />
+            <Route path="equipment/device-types/:deviceTypeId" element={<DcimDeviceTypeDetailPage />} />
+            <Route path="equipment/device-models/:deviceModelId" element={<DcimDeviceModelDetailPage />} />
             <Route path="equipment/manufacturers/:manufacturerId" element={<DcimManufacturerDetailPage />} />
           </Route>
           <Route path="/ipam" element={<IpamPage />} />

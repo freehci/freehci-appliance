@@ -87,7 +87,7 @@ export function SnmpToolsPage() {
 
   const dcimEquipmentHref =
     dcimPrefillName !== "" && probeHost.trim() !== ""
-      ? `/dcim/equipment?prefillDeviceName=${encodeURIComponent(dcimPrefillName)}&snmpHost=${encodeURIComponent(probeHost.trim())}`
+      ? `/dcim/equipment/devices/new?prefillDeviceName=${encodeURIComponent(dcimPrefillName)}&snmpHost=${encodeURIComponent(probeHost.trim())}`
       : null;
 
   const dcimFromDiscoveryHref = useMemo(() => {
@@ -98,7 +98,7 @@ export function SnmpToolsPage() {
     params.set("snmpHost", probeHost.trim());
     const m = discoveryResult.linked_manufacturer;
     if (m) params.set("prefillManufacturer", String(m.id));
-    return `/dcim/equipment?${params.toString()}`;
+    return `/dcim/equipment/devices/new?${params.toString()}`;
   }, [discoveryResult, probeHost]);
 
   const discoveryField = (label: string, value: string | null | undefined) => (

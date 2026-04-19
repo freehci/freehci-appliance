@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError, apiGet } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
+import { DCIM_DEVICE_ICON_URL_ATTR } from "./modelImages";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
 import type { DeviceInterface, DeviceIpAssignment } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
@@ -78,6 +79,7 @@ export function DcimDeviceDetailPage() {
   const [typeEdit, setTypeEdit] = useState("");
   const [serialDraft, setSerialDraft] = useState("");
   const [assetDraft, setAssetDraft] = useState("");
+  const [iconUrlDraft, setIconUrlDraft] = useState("");
   const [snmpReadDraft, setSnmpReadDraft] = useState("public");
   const [snmpWriteDraft, setSnmpWriteDraft] = useState("");
   const [snmpExtraDraft, setSnmpExtraDraft] = useState("");
@@ -272,6 +274,7 @@ export function DcimDeviceDetailPage() {
     setSerialDraft(d.serial_number ?? "");
     setAssetDraft(d.asset_tag ?? "");
     const a = d.attributes ?? {};
+    setIconUrlDraft(strAttr(a[DCIM_DEVICE_ICON_URL_ATTR]));
     const read = strAttr(a.snmp_community_read) || strAttr(a.snmp_community);
     setSnmpReadDraft(read !== "" ? read : "public");
     setSnmpWriteDraft(strAttr(a.snmp_community_write));
@@ -302,11 +305,18 @@ export function DcimDeviceDetailPage() {
   });
 
   const patchIdentity = useMutation({
-    mutationFn: () =>
-      api.updateDevice(id, {
+    mutationFn: () => {
+      const prev = deviceQ.data?.attributes ?? {};
+      const next: Record<string, unknown> = { ...prev };
+      const u = iconUrlDraft.trim();
+      if (u !== "") next[DCIM_DEVICE_ICON_URL_ATTR] = u;
+      else delete next[DCIM_DEVICE_ICON_URL_ATTR];
+      return api.updateDevice(id, {
         serial_number: serialDraft.trim() === "" ? null : serialDraft.trim(),
         asset_tag: assetDraft.trim() === "" ? null : assetDraft.trim(),
-      }),
+        attributes: next,
+      });
+    },
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
@@ -648,6 +658,15 @@ export function DcimDeviceDetailPage() {
                 <label>
                   {t("dcim.equip.dev.assetTag")}
                   <input value={assetDraft} onChange={(e) => setAssetDraft(e.target.value)} />
+                </label>
+                <label style={{ flex: "1 1 18rem" }} title={t("dcim.equip.dev.iconUrlHint")}>
+                  {t("dcim.equip.dev.iconUrl")}
+                  <input
+                    type="url"
+                    value={iconUrlDraft}
+                    onChange={(e) => setIconUrlDraft(e.target.value)}
+                    placeholder="https://"
+                  />
                 </label>
                 <button
                   type="button"
