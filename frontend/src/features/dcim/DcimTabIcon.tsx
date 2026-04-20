@@ -15,7 +15,10 @@ export type DcimInnerTabIcon =
   | "placements"
   | "deviceNetwork"
   | "deviceHardware"
-  | "deviceOs";
+  | "deviceOs"
+  | "accessSurveillance"
+  | "powerCooling"
+  | "fireSafety";
 
 function Svg({ children }: { children: ReactNode }) {
   return (
@@ -158,6 +161,29 @@ export function DcimTabIcon({ name }: { name: DcimInnerTabIcon }) {
           <rect x="2" y="3" width="20" height="14" rx="2" />
           <line x1="8" y1="21" x2="16" y2="21" />
           <line x1="12" y1="17" x2="12" y2="21" />
+        </Svg>
+      );
+    case "accessSurveillance":
+      return (
+        <Svg>
+          <path d="M3 21h18M5 21V8a2 2 0 012-2h10a2 2 0 012 2v13" />
+          <circle cx="12" cy="14" r="1.75" />
+          <path d="M17 8h.01" />
+          <rect x="15" y="4" width="6" height="4" rx="1" />
+          <path d="M17 6h2" />
+        </Svg>
+      );
+    case "powerCooling":
+      return (
+        <Svg>
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </Svg>
+      );
+    case "fireSafety":
+      return (
+        <Svg>
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.72-2.42 1.4-4 1.4-4S8 4 8 8c0 2 0 3.5-2 4.5" />
+          <path d="M12 22c-4.97 0-9-2.69-9-6 0-2.09 1.5-4 4-5" />
         </Svg>
       );
   }

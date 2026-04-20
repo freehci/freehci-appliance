@@ -7,9 +7,12 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import { DcimInnerTabs } from "./DcimInnerTabs";
+import { RoomAccessSurveillanceSection } from "./roomDemo/RoomAccessSurveillanceSection";
+import { RoomFireSafetySection } from "./roomDemo/RoomFireSafetySection";
+import { RoomPowerEnvironmentSection } from "./roomDemo/RoomPowerEnvironmentSection";
 import styles from "./dcim.module.css";
 
-type RoomTab = "overview" | "floorplan";
+type RoomTab = "overview" | "floorplan" | "accessSurveillance" | "powerCooling" | "fireSafety";
 
 export function DcimRoomDetailPage() {
   const { t } = useI18n();
@@ -190,6 +193,9 @@ export function DcimRoomDetailPage() {
           tabs={[
             { id: "overview", label: t("dcim.rooms.tabOverview"), icon: "overview" },
             { id: "floorplan", label: t("dcim.rooms.tabFloorplan"), icon: "floorplan" },
+            { id: "accessSurveillance", label: t("dcim.rooms.tabAccessSurveillance"), icon: "accessSurveillance" },
+            { id: "powerCooling", label: t("dcim.rooms.tabPowerCooling"), icon: "powerCooling" },
+            { id: "fireSafety", label: t("dcim.rooms.tabFireSafety"), icon: "fireSafety" },
           ]}
           activeId={tab}
           onChange={(tid) => setTab(tid as RoomTab)}
@@ -295,6 +301,12 @@ export function DcimRoomDetailPage() {
             </section>
           </>
         ) : null}
+
+        {tab === "accessSurveillance" ? <RoomAccessSurveillanceSection /> : null}
+
+        {tab === "powerCooling" ? <RoomPowerEnvironmentSection roomId={id} /> : null}
+
+        {tab === "fireSafety" ? <RoomFireSafetySection roomId={id} /> : null}
 
         {tab === "floorplan" ? (
           <section className={styles.mfrDetailSection}>
