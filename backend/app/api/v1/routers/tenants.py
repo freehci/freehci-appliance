@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.models.iam import User
 from app.schemas.tenant import (
     TenantCreate,
     TenantDcimGrantCreate,
@@ -15,11 +16,22 @@ from app.schemas.tenant import (
     TenantUpdate,
     TenantUserMembershipCreate,
     TenantUserMembershipRead,
+    UserAccessibleSitesRead,
 )
 from app.services import tenant as tenant_svc
 from app.services import tenant_access as tenant_access_svc
+from app.services import tenant_access_policy as tenant_access_policy_svc
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
+
+
+@router.get("/users/{user_id}/accessible-site-ids", response_model=UserAccessibleSitesRead)
+def get_user_accessible_site_ids(user_id: int, db: Session = Depends(get_db)) -> UserAccessibleSitesRead:
+    """Hvilke DCIM-sites en bruker når via site-grants, tenant-eierskap eller tenant DCIM-grants."""
+    if db.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="bruker ikke funnet")
+    ids = tenant_access_policy_svc.list_accessible_site_ids_for_user(db, user_id)
+    return UserAccessibleSitesRead(user_id=user_id, site_ids=ids)
 
 
 @router.get("", response_model=list[TenantRead])

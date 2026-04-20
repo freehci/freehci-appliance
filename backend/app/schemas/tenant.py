@@ -74,3 +74,10 @@ class TenantDcimGrantRead(BaseModel):
     scope_id: int
     access: str
     created_at: dt.datetime
+
+
+class UserAccessibleSitesRead(BaseModel):
+    """Effektive DCIM-site-id-er for en IAM-bruker (policy-aggregering)."""
+
+    user_id: int
+    site_ids: list[int]
