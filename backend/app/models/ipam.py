@@ -7,11 +7,15 @@ med identisk adresseplan. Unikhet er (site_id, cidr), ikke globalt på CIDR alen
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.tenant import Tenant
 
 
 class IpamIpv4Prefix(Base):
@@ -142,3 +146,107 @@ class IpamIpv4Address(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class IpamVrf(Base):
+    """L3-VRF (rutekontekst) per site — navn unikt innenfor site."""
+
+    __tablename__ = "ipam_vrfs"
+    __table_args__ = (UniqueConstraint("site_id", "name", name="uq_ipam_vrf_site_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    route_distinguisher: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    vlans: Mapped[list["IpamVlan"]] = relationship(back_populates="vrf")
+
+
+class IpamVlan(Base):
+    """802.1Q VLAN per site; valgfritt koblet til VRF for L3-kontekst."""
+
+    __tablename__ = "ipam_vlans"
+    __table_args__ = (UniqueConstraint("site_id", "vid", name="uq_ipam_vlan_site_vid"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vid: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vrf_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    vrf: Mapped["IpamVrf | None"] = relationship(back_populates="vlans")
+
+
+class IpamCircuit(Base):
+    """Samband (fiber, VPN, radiolinje, leid krets m.m.) — eies av tenant."""
+
+    __tablename__ = "ipam_circuits"
+    __table_args__ = (UniqueConstraint("tenant_id", "circuit_number", name="uq_ipam_circuit_tenant_number"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    circuit_number: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    circuit_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    is_leased: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    provider_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    established_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    contract_end_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="circuits")
+    terminations: Mapped[list["IpamCircuitTermination"]] = relationship(
+        back_populates="circuit",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamCircuitTermination(Base):
+    """Endepunkt A eller Z på samband; kan peke på DCIM-grensesnitt."""
+
+    __tablename__ = "ipam_circuit_terminations"
+    __table_args__ = (UniqueConstraint("circuit_id", "endpoint", name="uq_ipam_circuit_term_endpoint"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    circuit_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_circuits.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    endpoint: Mapped[str] = mapped_column(String(1), nullable=False)
+    interface_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    circuit: Mapped["IpamCircuit"] = relationship(back_populates="terminations")

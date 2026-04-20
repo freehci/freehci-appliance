@@ -29,7 +29,7 @@ function formatInventoryTimestamp(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
-export function IpamPage() {
+export function IpamPrefixesPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);

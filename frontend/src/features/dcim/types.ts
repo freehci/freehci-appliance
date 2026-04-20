@@ -2,6 +2,7 @@
 
 export type Site = {
   id: number;
+  tenant_id: number;
   name: string;
   slug: string;
   description: string | null;

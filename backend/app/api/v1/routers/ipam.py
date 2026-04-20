@@ -1,6 +1,7 @@
 """IPAM REST API (IPv4 prefiks per site)."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -21,9 +22,19 @@ from app.schemas.ipam import (
     SubnetScanRead,
     UserCreate,
     UserRead,
+    IpamCircuitCreate,
+    IpamCircuitRead,
+    IpamCircuitTerminationCreate,
+    IpamCircuitTerminationRead,
+    IpamCircuitUpdate,
+    IpamVlanCreate,
+    IpamVlanRead,
+    IpamVrfCreate,
+    IpamVrfRead,
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
+from app.services import ipam_facilities as fac_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 
@@ -162,3 +173,125 @@ def release_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> Ipv4Add
     if row is None:
         raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
     return addr_svc.release_ipv4_address(db, row)
+
+
+# --- VRF / VLAN / samband ---
+
+
+@router.get("/vrfs", response_model=list[IpamVrfRead])
+def list_ipam_vrfs(
+    site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamVrfRead]:
+    return [fac_svc.vrf_to_read(r) for r in fac_svc.list_vrfs(db, site_id=site_id)]
+
+
+@router.post("/vrfs", response_model=IpamVrfRead)
+def create_ipam_vrf(data: IpamVrfCreate, db: Session = Depends(get_db)) -> IpamVrfRead:
+    try:
+        row = fac_svc.create_vrf(db, data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="VRF med samme navn finnes på denne siten") from e
+    return fac_svc.vrf_to_read(row)
+
+
+@router.delete("/vrfs/{vrf_id}", status_code=204)
+def delete_ipam_vrf(vrf_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_vrf(db, vrf_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VRF ikke funnet")
+    fac_svc.delete_vrf(db, row)
+
+
+@router.get("/vlans", response_model=list[IpamVlanRead])
+def list_ipam_vlans(
+    site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamVlanRead]:
+    return [fac_svc.vlan_to_read(r) for r in fac_svc.list_vlans(db, site_id=site_id)]
+
+
+@router.post("/vlans", response_model=IpamVlanRead)
+def create_ipam_vlan(data: IpamVlanCreate, db: Session = Depends(get_db)) -> IpamVlanRead:
+    try:
+        row = fac_svc.create_vlan(db, data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="VLAN-ID finnes allerede på denne siten") from e
+    return fac_svc.vlan_to_read(row)
+
+
+@router.delete("/vlans/{vlan_id}", status_code=204)
+def delete_ipam_vlan(vlan_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_vlan(db, vlan_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VLAN ikke funnet")
+    fac_svc.delete_vlan(db, row)
+
+
+@router.get("/circuits", response_model=list[IpamCircuitRead])
+def list_ipam_circuits(
+    tenant_id: int | None = Query(None, description="Filtrer på tenant-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamCircuitRead]:
+    return [fac_svc.circuit_to_read(r) for r in fac_svc.list_circuits(db, tenant_id=tenant_id)]
+
+
+@router.post("/circuits", response_model=IpamCircuitRead)
+def create_ipam_circuit(data: IpamCircuitCreate, db: Session = Depends(get_db)) -> IpamCircuitRead:
+    try:
+        row = fac_svc.create_circuit(db, data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="sambandsnummer finnes allerede for denne tenanten") from e
+    return fac_svc.circuit_to_read(row)
+
+
+@router.patch("/circuits/{circuit_id}", response_model=IpamCircuitRead)
+def patch_ipam_circuit(
+    circuit_id: int,
+    data: IpamCircuitUpdate,
+    db: Session = Depends(get_db),
+) -> IpamCircuitRead:
+    row = fac_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="samband ikke funnet")
+    return fac_svc.circuit_to_read(fac_svc.update_circuit(db, row, data))
+
+
+@router.delete("/circuits/{circuit_id}", status_code=204)
+def delete_ipam_circuit(circuit_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="samband ikke funnet")
+    fac_svc.delete_circuit(db, row)
+
+
+@router.get("/circuits/{circuit_id}/terminations", response_model=list[IpamCircuitTerminationRead])
+def list_circuit_terminations(circuit_id: int, db: Session = Depends(get_db)) -> list[IpamCircuitTerminationRead]:
+    row = fac_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="samband ikke funnet")
+    return [fac_svc.termination_to_read(t) for t in fac_svc.list_circuit_terminations(db, circuit_id)]
+
+
+@router.post("/circuits/{circuit_id}/terminations", response_model=IpamCircuitTerminationRead)
+def upsert_circuit_termination(
+    circuit_id: int,
+    data: IpamCircuitTerminationCreate,
+    db: Session = Depends(get_db),
+) -> IpamCircuitTerminationRead:
+    row = fac_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="samband ikke funnet")
+    try:
+        t = fac_svc.upsert_circuit_termination(db, row, data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="kunne ikke lagre terminering") from e
+    return fac_svc.termination_to_read(t)

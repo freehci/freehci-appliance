@@ -22,6 +22,7 @@ export function DcimSitesPage() {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [newTenantId, setNewTenantId] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState("main");
   const [editId, setEditId] = useState<number | null>(null);
@@ -39,6 +40,7 @@ export function DcimSitesPage() {
   const [grantDeleteId, setGrantDeleteId] = useState<number | null>(null);
 
   const q = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
+  const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: api.listTenants });
   const selected = useMemo(() => (q.data ?? []).find((s) => s.id === editId) ?? null, [q.data, editId]);
   const rolesQ = useQuery({ queryKey: ["dcim", "site-roles"], queryFn: api.listSiteRoles });
   const usersQ = useQuery({ queryKey: ["ipam", "users"], queryFn: () => ipamApi.listUsers(500) });
@@ -55,11 +57,17 @@ export function DcimSitesPage() {
     return { lat, lon };
   }, [edit.latitude, edit.longitude]);
   const m = useMutation({
-    mutationFn: () => api.createSite({ name: name.trim(), slug: slug.trim().toLowerCase() }),
+    mutationFn: () =>
+      api.createSite({
+        name: name.trim(),
+        slug: slug.trim().toLowerCase(),
+        tenant_id: newTenantId === "" ? undefined : Number(newTenantId),
+      }),
     onSuccess: () => {
       setErr(null);
       setName("");
       setSlug("");
+      setNewTenantId("");
       void qc.invalidateQueries({ queryKey: ["dcim", "sites"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -68,6 +76,7 @@ export function DcimSitesPage() {
   const um = useMutation({
     mutationFn: () =>
       api.updateSite(editId!, {
+        tenant_id: edit.tenant_id?.trim() ? Number(edit.tenant_id) : undefined,
         name: edit.name?.trim() || undefined,
         description: edit.description?.trim() || null,
         address_line1: edit.address_line1?.trim() || null,
@@ -186,6 +195,17 @@ export function DcimSitesPage() {
             title={t("dcim.sites.slugPatternTitle")}
           />
         </label>
+        <label>
+          {t("dcim.sites.tenant")}
+          <select value={newTenantId} onChange={(e) => setNewTenantId(e.target.value)}>
+            <option value="">{t("dcim.sites.tenantDefault")}</option>
+            {(tenantsQ.data ?? []).map((tn) => (
+              <option key={tn.id} value={String(tn.id)}>
+                {tn.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="submit" className={styles.btn} disabled={m.isPending}>
           {m.isPending ? t("dcim.common.creating") : t("dcim.common.create")}
         </button>
@@ -202,6 +222,7 @@ export function DcimSitesPage() {
           <thead>
             <tr>
               <th>{t("dcim.common.id")}</th>
+              <th>{t("dcim.sites.tenant")}</th>
               <th>{t("dcim.common.name")}</th>
               <th>{t("dcim.common.slug")}</th>
               <th>{t("dcim.common.actions")}</th>
@@ -211,6 +232,9 @@ export function DcimSitesPage() {
             {q.data.map((s) => (
               <tr key={s.id}>
                 <td>{s.id}</td>
+                <td>
+                  {(tenantsQ.data ?? []).find((tn) => tn.id === s.tenant_id)?.name ?? `#${s.tenant_id}`}
+                </td>
                 <td>{s.name}</td>
                 <td>{s.slug}</td>
                 <td>
@@ -230,6 +254,7 @@ export function DcimSitesPage() {
                       setNewEmail("");
                       setNewPhone("");
                       setEdit({
+                        tenant_id: String(s.tenant_id),
                         name: s.name ?? "",
                         description: s.description ?? "",
                         address_line1: (s.address_line1 ?? "") as string,
@@ -268,6 +293,19 @@ export function DcimSitesPage() {
             <label>
               {t("dcim.common.name")}
               <input value={edit.name ?? ""} onChange={(e) => setEdit((x) => ({ ...x, name: e.target.value }))} />
+            </label>
+            <label>
+              {t("dcim.sites.tenant")}
+              <select
+                value={edit.tenant_id ?? ""}
+                onChange={(e) => setEdit((x) => ({ ...x, tenant_id: e.target.value }))}
+              >
+                {(tenantsQ.data ?? []).map((tn) => (
+                  <option key={tn.id} value={String(tn.id)}>
+                    {tn.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               {t("dcim.common.description")}

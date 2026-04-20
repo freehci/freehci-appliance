@@ -13,12 +13,18 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.iam import User
+    from app.models.tenant import Tenant
 
 
 class Site(Base):
     __tablename__ = "dcim_sites"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -37,6 +43,7 @@ class Site(Base):
         nullable=False,
     )
 
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="sites")
     rooms: Mapped[list["Room"]] = relationship(back_populates="site", cascade="all, delete-orphan")
     access_grants: Mapped[list["SiteAccessGrant"]] = relationship(
         back_populates="site",

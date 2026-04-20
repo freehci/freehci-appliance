@@ -10,7 +10,6 @@ export function SidebarNav() {
 
   const mainNav: MainNavItem[] = [
     { to: "/", label: t("nav.dashboard"), end: true, icon: "dashboard" },
-    { to: "/ipam", label: t("nav.ipam"), icon: "ipam" },
     { to: "/snmp", label: t("nav.snmp"), icon: "snmp" },
     { to: "/jobs", label: t("nav.jobs"), icon: "jobs" },
     { to: "/integrations", label: t("nav.integrations"), icon: "integrations" },
@@ -38,6 +37,71 @@ export function SidebarNav() {
             </NavLink>
           </li>
         ))}
+        <li className={styles.item}>
+          <div className={styles.section}>{t("nav.ipamSection")}</div>
+          <ul className={styles.sub}>
+            <li>
+              <NavLink
+                to="/ipam/prefixes"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="ipam" size={16} />
+                  </span>
+                  <span>{t("ipam.tabPrefixes")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/ipam/vlans"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="ipam" size={16} />
+                  </span>
+                  <span>{t("ipam.tabVlans")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/ipam/vrfs"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="ipam" size={16} />
+                  </span>
+                  <span>{t("ipam.tabVrfs")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/ipam/circuits"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="ipam" size={16} />
+                  </span>
+                  <span>{t("ipam.tabCircuits")}</span>
+                </span>
+              </NavLink>
+            </li>
+          </ul>
+        </li>
         <li className={styles.item}>
           <div className={styles.section}>{t("nav.iamSection")}</div>
           <ul className={styles.sub}>

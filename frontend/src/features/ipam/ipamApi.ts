@@ -3,6 +3,10 @@ import type {
   Ipv4Address,
   Ipv4Prefix,
   Ipv4PrefixExplore,
+  IpamCircuit,
+  IpamCircuitTermination,
+  IpamVlan,
+  IpamVrf,
   PrefixAddressGridRead,
   SubnetScan,
   SubnetScanDetail,
@@ -130,6 +134,92 @@ export function requestIpv4Address(body: {
   device_id?: number | null;
 }): Promise<Ipv4Address> {
   return apiPost(`${P}/ipv4-addresses/request`, body);
+}
+
+export function listIpamVrfs(siteId?: number): Promise<IpamVrf[]> {
+  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
+  return apiGet(`${P}/vrfs${q}`);
+}
+
+export function createIpamVrf(body: {
+  site_id: number;
+  name: string;
+  route_distinguisher?: string | null;
+  description?: string | null;
+}): Promise<IpamVrf> {
+  return apiPost(`${P}/vrfs`, body);
+}
+
+export function deleteIpamVrf(id: number): Promise<void> {
+  return apiDelete(`${P}/vrfs/${id}`);
+}
+
+export function listIpamVlans(siteId?: number): Promise<IpamVlan[]> {
+  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
+  return apiGet(`${P}/vlans${q}`);
+}
+
+export function createIpamVlan(body: {
+  site_id: number;
+  vid: number;
+  name: string;
+  vrf_id?: number | null;
+  description?: string | null;
+}): Promise<IpamVlan> {
+  return apiPost(`${P}/vlans`, body);
+}
+
+export function deleteIpamVlan(id: number): Promise<void> {
+  return apiDelete(`${P}/vlans/${id}`);
+}
+
+export function listIpamCircuits(tenantId?: number): Promise<IpamCircuit[]> {
+  const q = tenantId != null ? `?tenant_id=${encodeURIComponent(String(tenantId))}` : "";
+  return apiGet(`${P}/circuits${q}`);
+}
+
+export function createIpamCircuit(body: {
+  tenant_id: number;
+  circuit_number: string;
+  name: string;
+  circuit_type: string;
+  description?: string | null;
+  is_leased?: boolean;
+  provider_name?: string | null;
+  established_on?: string | null;
+  contract_end_on?: string | null;
+}): Promise<IpamCircuit> {
+  return apiPost(`${P}/circuits`, body);
+}
+
+export function patchIpamCircuit(
+  id: number,
+  body: Partial<{
+    name: string;
+    description: string | null;
+    circuit_type: string;
+    is_leased: boolean;
+    provider_name: string | null;
+    established_on: string | null;
+    contract_end_on: string | null;
+  }>,
+): Promise<IpamCircuit> {
+  return apiPatch(`${P}/circuits/${id}`, body);
+}
+
+export function deleteIpamCircuit(id: number): Promise<void> {
+  return apiDelete(`${P}/circuits/${id}`);
+}
+
+export function listCircuitTerminations(circuitId: number): Promise<IpamCircuitTermination[]> {
+  return apiGet(`${P}/circuits/${circuitId}/terminations`);
+}
+
+export function upsertCircuitTermination(
+  circuitId: number,
+  body: { endpoint: "a" | "z"; interface_id?: number | null; label?: string | null },
+): Promise<IpamCircuitTermination> {
+  return apiPost(`${P}/circuits/${circuitId}/terminations`, body);
 }
 
 export function requestIpv4AddressBatch(body: {

@@ -99,3 +99,44 @@ export type PrefixAddressGridRead = {
   active_scan: SubnetScan | null;
   rows: PrefixAddressGridRow[];
 };
+
+export type IpamVrf = {
+  id: number;
+  site_id: number;
+  name: string;
+  route_distinguisher: string | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamVlan = {
+  id: number;
+  site_id: number;
+  vid: number;
+  name: string;
+  vrf_id: number | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamCircuit = {
+  id: number;
+  tenant_id: number;
+  circuit_number: string;
+  name: string;
+  description: string | null;
+  circuit_type: string;
+  is_leased: boolean;
+  provider_name: string | null;
+  established_on: string | null;
+  contract_end_on: string | null;
+  created_at: string;
+};
+
+export type IpamCircuitTermination = {
+  id: number;
+  circuit_id: number;
+  endpoint: string;
+  interface_id: number | null;
+  label: string | null;
+};

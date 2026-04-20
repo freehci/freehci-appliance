@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+_CIRCUIT_TYPES = frozenset({"fiber", "vpn", "radio", "leased_line", "other"})
 
 
 class Ipv4PrefixCreate(BaseModel):
@@ -290,3 +292,116 @@ class Ipv4AddressBatchRead(BaseModel):
     addresses: list[Ipv4AddressRead]
     requested_count: int
     allocated_count: int
+
+
+# --- VRF / VLAN / samband (circuits) ---
+
+
+class IpamVrfCreate(BaseModel):
+    site_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=128)
+    route_distinguisher: str | None = Field(None, max_length=64)
+    description: str | None = None
+
+
+class IpamVrfRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    name: str
+    route_distinguisher: str | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamVlanCreate(BaseModel):
+    site_id: int = Field(..., ge=1)
+    vid: int = Field(..., ge=1, le=4094)
+    name: str = Field(..., min_length=1, max_length=255)
+    vrf_id: int | None = None
+    description: str | None = None
+
+
+class IpamVlanRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    vid: int
+    name: str
+    vrf_id: int | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamCircuitCreate(BaseModel):
+    tenant_id: int = Field(..., ge=1)
+    circuit_number: str = Field(..., min_length=1, max_length=128)
+    name: str = Field(..., min_length=1, max_length=255)
+    circuit_type: str = Field(..., min_length=1, max_length=32)
+    description: str | None = None
+    is_leased: bool = False
+    provider_name: str | None = Field(None, max_length=255)
+    established_on: dt.date | None = None
+    contract_end_on: dt.date | None = None
+
+    @field_validator("circuit_type")
+    @classmethod
+    def circuit_type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in _CIRCUIT_TYPES:
+            raise ValueError(f"circuit_type må være en av: {', '.join(sorted(_CIRCUIT_TYPES))}")
+        return s
+
+
+class IpamCircuitUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    circuit_type: str | None = Field(None, min_length=1, max_length=32)
+    is_leased: bool | None = None
+    provider_name: str | None = Field(None, max_length=255)
+    established_on: dt.date | None = None
+    contract_end_on: dt.date | None = None
+
+    @field_validator("circuit_type")
+    @classmethod
+    def circuit_type_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in _CIRCUIT_TYPES:
+            raise ValueError(f"circuit_type må være en av: {', '.join(sorted(_CIRCUIT_TYPES))}")
+        return s
+
+
+class IpamCircuitRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tenant_id: int
+    circuit_number: str
+    name: str
+    description: str | None
+    circuit_type: str
+    is_leased: bool
+    provider_name: str | None
+    established_on: dt.date | None
+    contract_end_on: dt.date | None
+    created_at: dt.datetime
+
+
+class IpamCircuitTerminationCreate(BaseModel):
+    endpoint: Literal["a", "z"]
+    interface_id: int | None = Field(None, ge=1)
+    label: str | None = Field(None, max_length=255)
+
+
+class IpamCircuitTerminationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    circuit_id: int
+    endpoint: str
+    interface_id: int | None
+    label: str | None

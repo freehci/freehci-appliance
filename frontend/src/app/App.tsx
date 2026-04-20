@@ -15,7 +15,11 @@ import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomDetailPage } from "@/features/dcim/DcimRoomDetailPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
-import { IpamPage } from "@/features/ipam/IpamPage";
+import { IpamCircuitsPage } from "@/features/ipam/IpamCircuitsPage";
+import { IpamLayout } from "@/features/ipam/IpamLayout";
+import { IpamPrefixesPage } from "@/features/ipam/IpamPrefixesPage";
+import { IpamVlansPage } from "@/features/ipam/IpamVlansPage";
+import { IpamVrfsPage } from "@/features/ipam/IpamVrfsPage";
 import { JobsLayout } from "@/features/jobs/JobsLayout";
 import { JobsRunsPage } from "@/features/jobs/JobsRunsPage";
 import { JobsSchedulerPage } from "@/features/jobs/JobsSchedulerPage";
@@ -76,7 +80,13 @@ function AppRoutes() {
             <Route path="equipment/device-models/:deviceModelId" element={<DcimDeviceModelDetailPage />} />
             <Route path="equipment/manufacturers/:manufacturerId" element={<DcimManufacturerDetailPage />} />
           </Route>
-          <Route path="/ipam" element={<IpamPage />} />
+          <Route path="/ipam" element={<IpamLayout />}>
+            <Route index element={<Navigate to="prefixes" replace />} />
+            <Route path="prefixes" element={<IpamPrefixesPage />} />
+            <Route path="vlans" element={<IpamVlansPage />} />
+            <Route path="vrfs" element={<IpamVrfsPage />} />
+            <Route path="circuits" element={<IpamCircuitsPage />} />
+          </Route>
           <Route path="/snmp" element={<SnmpLayout />}>
             <Route index element={<Navigate to="tools" replace />} />
             <Route path="tools" element={<SnmpToolsPage />} />

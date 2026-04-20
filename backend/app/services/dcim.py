@@ -45,6 +45,8 @@ from app.models.dcim import (
 from app.models.iam import User
 from app.models.ipam import IpamIpv4Prefix
 
+from app.services import tenant as tenant_svc
+
 from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceRead,
@@ -224,7 +226,14 @@ def list_sites(db: Session) -> list[Site]:
 
 
 def create_site(db: Session, data: SiteCreate) -> Site:
+    if data.tenant_id is not None:
+        if tenant_svc.get_tenant(db, data.tenant_id) is None:
+            raise HTTPException(status_code=404, detail="tenant ikke funnet")
+        tid = data.tenant_id
+    else:
+        tid = tenant_svc.ensure_default_tenant(db)
     row = Site(
+        tenant_id=tid,
         name=data.name.strip(),
         slug=data.slug,
         description=data.description,
@@ -249,6 +258,10 @@ def get_site(db: Session, site_id: int) -> Site | None:
 
 
 def update_site(db: Session, site: Site, data: SiteUpdate) -> Site:
+    if data.tenant_id is not None:
+        if tenant_svc.get_tenant(db, data.tenant_id) is None:
+            raise HTTPException(status_code=404, detail="tenant ikke funnet")
+        site.tenant_id = data.tenant_id
     if data.name is not None:
         site.name = data.name.strip()
     if data.description is not None:

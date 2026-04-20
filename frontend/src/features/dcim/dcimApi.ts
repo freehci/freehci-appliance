@@ -31,7 +31,12 @@ export function listSites(): Promise<Site[]> {
   return apiGet(`${P}/sites`);
 }
 
-export function createSite(body: { name: string; slug: string; description?: string | null }): Promise<Site> {
+export function createSite(body: {
+  name: string;
+  slug: string;
+  description?: string | null;
+  tenant_id?: number | null;
+}): Promise<Site> {
   return apiPost(`${P}/sites`, body);
 }
 
@@ -40,6 +45,7 @@ export function updateSite(
   body: Partial<
     Pick<
       Site,
+      | "tenant_id"
       | "name"
       | "description"
       | "address_line1"
@@ -55,6 +61,24 @@ export function updateSite(
   >,
 ): Promise<Site> {
   return apiPatch(`${P}/sites/${id}`, body);
+}
+
+const PT = "/api/v1/tenants";
+
+export type Tenant = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+};
+
+export function listTenants(): Promise<Tenant[]> {
+  return apiGet(PT);
+}
+
+export function createTenant(body: { name: string; slug: string; description?: string | null }): Promise<Tenant> {
+  return apiPost(PT, body);
 }
 
 export type SiteGeocodeCandidate = { display_name: string; latitude: number; longitude: number };

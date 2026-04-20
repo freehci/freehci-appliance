@@ -31,6 +31,7 @@ def normalize_device_type_fa_icon(v: object) -> str | None:
 
 
 class SiteCreate(BaseModel):
+    tenant_id: int | None = Field(None, ge=1, description="Utelates → default-tenant")
     name: str = Field(..., min_length=1, max_length=255)
     slug: str = Field(..., min_length=1, max_length=64)
     description: str | None = None
@@ -54,6 +55,7 @@ class SiteCreate(BaseModel):
 
 
 class SiteUpdate(BaseModel):
+    tenant_id: int | None = Field(None, ge=1)
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     address_line1: str | None = Field(None, max_length=255)
@@ -71,6 +73,7 @@ class SiteRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    tenant_id: int
     name: str
     slug: str
     description: str | None
