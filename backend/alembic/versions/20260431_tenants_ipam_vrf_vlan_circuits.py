@@ -81,7 +81,8 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("circuit_type", sa.String(length=32), nullable=False),
-        sa.Column("is_leased", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        # PostgreSQL: boolean default må være false/true, ikke 0/1 (SQLite-vennlig 0 feiler på PG).
+        sa.Column("is_leased", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("provider_name", sa.String(length=255), nullable=True),
         sa.Column("established_on", sa.Date(), nullable=True),
         sa.Column("contract_end_on", sa.Date(), nullable=True),
