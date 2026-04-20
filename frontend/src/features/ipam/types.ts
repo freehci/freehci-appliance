@@ -1,6 +1,7 @@
 export type Ipv4Prefix = {
   id: number;
   site_id: number;
+  tenant_id?: number | null;
   name: string;
   cidr: string;
   description: string | null;
@@ -112,6 +113,7 @@ export type IpamVrf = {
 export type IpamVlan = {
   id: number;
   site_id: number;
+  tenant_id?: number | null;
   vid: number;
   name: string;
   vrf_id: number | null;

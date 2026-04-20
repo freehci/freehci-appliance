@@ -34,12 +34,15 @@ export function IpamPrefixesPage() {
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
   const [filterSite, setFilterSite] = useState<string>("");
+  const [filterTenant, setFilterTenant] = useState<string>("");
   const [newSite, setNewSite] = useState("");
   const [newName, setNewName] = useState("");
   const [newCidr, setNewCidr] = useState("");
+  const [newPrefixTenant, setNewPrefixTenant] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editCidr, setEditCidr] = useState("");
+  const [editTenantId, setEditTenantId] = useState("");
   const [exploreStack, setExploreStack] = useState<ExploreCrumb[]>([]);
   const [showScanHistory, setShowScanHistory] = useState(false);
   const [linkFor, setLinkFor] = useState<string | null>(null);
@@ -71,11 +74,13 @@ export function IpamPrefixesPage() {
   const [svcDhcp, setSvcDhcp] = useState("");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
+  const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
+  const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
 
   const prefixesQ = useQuery({
-    queryKey: ["ipam", "ipv4-prefixes", siteIdFilter ?? "all"],
-    queryFn: () => ipamApi.listIpv4Prefixes(siteIdFilter),
+    queryKey: ["ipam", "ipv4-prefixes", siteIdFilter ?? "all", tenantIdFilter ?? "all"],
+    queryFn: () => ipamApi.listIpv4Prefixes(siteIdFilter, tenantIdFilter),
   });
 
   const exploreId = exploreStack.length > 0 ? exploreStack[exploreStack.length - 1].id : null;
@@ -119,6 +124,10 @@ export function IpamPrefixesPage() {
 
   useEffect(() => {
     setPrefixListPage(0);
+  }, [tenantIdFilter]);
+
+  useEffect(() => {
+    setPrefixListPage(0);
   }, [prefixListPageSize]);
 
   useEffect(() => {
@@ -152,6 +161,12 @@ export function IpamPrefixesPage() {
     return m;
   }, [sitesQ.data]);
 
+  const tenantNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const tn of tenantsQ.data ?? []) m.set(tn.id, tn.name);
+    return m;
+  }, [tenantsQ.data]);
+
   const invalidateIpam = () => {
     void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-prefixes"] });
     void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
@@ -174,10 +189,12 @@ export function IpamPrefixesPage() {
         site_id: Number(newSite),
         name: newName.trim(),
         cidr: newCidr.trim(),
+        tenant_id: newPrefixTenant === "" ? undefined : Number(newPrefixTenant),
       }),
     onSuccess: () => {
       setNewName("");
       setNewCidr("");
+      setNewPrefixTenant("");
       setErr(null);
       invalidateIpam();
     },
@@ -196,8 +213,13 @@ export function IpamPrefixesPage() {
   });
 
   const patchPfx = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: { name: string; cidr: string } }) =>
-      ipamApi.updateIpv4Prefix(id, body),
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: { name: string; cidr: string; tenant_id: number | null };
+    }) => ipamApi.updateIpv4Prefix(id, body),
     onSuccess: () => {
       setEditingId(null);
       setErr(null);
@@ -511,6 +533,17 @@ export function IpamPrefixesPage() {
               {(sitesQ.data ?? []).map((s) => (
                 <option key={s.id} value={String(s.id)}>
                   {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.ipv4.filterTenant")}
+            <select value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)}>
+              <option value="">{t("ipam.ipv4.allTenants")}</option>
+              {(tenantsQ.data ?? []).map((tn) => (
+                <option key={tn.id} value={String(tn.id)}>
+                  {tn.name}
                 </option>
               ))}
             </select>
@@ -1267,6 +1300,17 @@ export function IpamPrefixesPage() {
             {t("ipam.ipv4.cidr")}
             <input value={newCidr} onChange={(e) => setNewCidr(e.target.value)} placeholder="192.168.1.0/24" required />
           </label>
+          <label>
+            {t("ipam.ipv4.coloTenant")}
+            <select value={newPrefixTenant} onChange={(e) => setNewPrefixTenant(e.target.value)}>
+              <option value="">{t("dcim.common.none")}</option>
+              {(tenantsQ.data ?? []).map((tn) => (
+                <option key={tn.id} value={String(tn.id)}>
+                  {tn.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="submit" className={dcimStyles.btn} disabled={createPfx.isPending}>
             {createPfx.isPending ? "…" : t("dcim.common.add")}
           </button>
@@ -1352,6 +1396,26 @@ export function IpamPrefixesPage() {
                 <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
                 <td>
                   {editingId === x.id ? (
+                    <select
+                      value={editTenantId}
+                      onChange={(e) => setEditTenantId(e.target.value)}
+                      aria-label={t("ipam.ipv4.tenantCol")}
+                    >
+                      <option value="">{t("dcim.common.none")}</option>
+                      {(tenantsQ.data ?? []).map((tn) => (
+                        <option key={tn.id} value={String(tn.id)}>
+                          {tn.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : x.tenant_id != null && x.tenant_id > 0 ? (
+                    tenantNameById.get(x.tenant_id) ?? `#${x.tenant_id}`
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {editingId === x.id ? (
                     <input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
@@ -1415,7 +1479,20 @@ export function IpamPrefixesPage() {
                             setErr(t("ipam.ipv4.addMissing"));
                             return;
                           }
-                          patchPfx.mutate({ id: x.id, body: { name: nm, cidr: cd } });
+                          const tid =
+                            editTenantId === "" ? null : Number(editTenantId);
+                          if (editTenantId !== "" && (!Number.isFinite(tid) || (tid as number) < 1)) {
+                            setErr(t("ipam.ipv4.addMissing"));
+                            return;
+                          }
+                          patchPfx.mutate({
+                            id: x.id,
+                            body: {
+                              name: nm,
+                              cidr: cd,
+                              tenant_id: tid,
+                            },
+                          });
                         }}
                       >
                         {patchPfx.isPending ? (
@@ -1460,6 +1537,9 @@ export function IpamPrefixesPage() {
                           setEditingId(x.id);
                           setEditName(x.name);
                           setEditCidr(x.cidr);
+                          setEditTenantId(
+                            x.tenant_id != null && x.tenant_id > 0 ? String(x.tenant_id) : "",
+                          );
                           setErr(null);
                         }}
                       >

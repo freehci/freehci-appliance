@@ -48,6 +48,7 @@ export type Room = {
 export type Rack = {
   id: number;
   room_id: number;
+  tenant_id?: number | null;
   name: string;
   u_height: number;
   sort_order: number;

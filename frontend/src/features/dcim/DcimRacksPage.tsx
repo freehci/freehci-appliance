@@ -50,6 +50,7 @@ function parseAttributesJson(
 }
 
 type RackExtraForm = {
+  tenantId: string;
   heightMm: string;
   widthMm: string;
   depthMm: string;
@@ -61,6 +62,7 @@ type RackExtraForm = {
 };
 
 const emptyExtra = (): RackExtraForm => ({
+  tenantId: "",
   heightMm: "",
   widthMm: "",
   depthMm: "",
@@ -73,6 +75,7 @@ const emptyExtra = (): RackExtraForm => ({
 
 function rackToExtra(k: Rack): RackExtraForm {
   return {
+    tenantId: k.tenant_id != null && k.tenant_id > 0 ? String(k.tenant_id) : "",
     heightMm: k.height_mm != null ? String(k.height_mm) : "",
     widthMm: k.width_mm != null ? String(k.width_mm) : "",
     depthMm: k.depth_mm != null ? String(k.depth_mm) : "",
@@ -147,6 +150,7 @@ export function DcimRacksPage() {
   const [editExtra, setEditExtra] = useState<RackExtraForm>(emptyExtra());
 
   const roomsQ = useQuery({ queryKey: ["dcim", "rooms", "all"], queryFn: () => api.listRooms() });
+  const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: api.listTenants });
   const filterNum = useMemo(() => {
     const n = Number(roomFilter);
     return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -202,6 +206,9 @@ export function DcimRacksPage() {
       if (cd !== "empty") body.commissioned_date = cd;
       if (createExtra.notes.trim()) body.notes = createExtra.notes.trim();
       if (attr.value !== undefined) body.attributes = attr.value;
+      if (createExtra.tenantId.trim() !== "") {
+        body.tenant_id = Number(createExtra.tenantId);
+      }
 
       return api.createRack(body);
     },
@@ -246,6 +253,7 @@ export function DcimRacksPage() {
       body.commissioned_date = cd === "empty" ? null : cd;
       body.notes = editExtra.notes.trim() ? editExtra.notes.trim() : null;
       if (attr.value !== undefined) body.attributes = attr.value;
+      body.tenant_id = editExtra.tenantId.trim() === "" ? null : Number(editExtra.tenantId);
 
       return api.updateRack(editId, body);
     },
@@ -258,6 +266,12 @@ export function DcimRacksPage() {
   });
 
   const racks = racksQ.data ?? [];
+
+  const tenantNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const tn of tenantsQ.data ?? []) m.set(tn.id, tn.name);
+    return m;
+  }, [tenantsQ.data]);
 
   return (
     <Panel title={t("nav.dcimRacks")}>
@@ -307,6 +321,20 @@ export function DcimRacksPage() {
                 {(roomsQ.data ?? []).map((r) => (
                   <option key={r.id} value={String(r.id)}>
                     #{r.id} — {r.name} (site {r.site_id})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("dcim.racks.tenantOptional")}
+              <select
+                value={createExtra.tenantId}
+                onChange={(e) => setCreateExtra((x) => ({ ...x, tenantId: e.target.value }))}
+              >
+                <option value="">{t("dcim.common.none")}</option>
+                {(tenantsQ.data ?? []).map((tn) => (
+                  <option key={tn.id} value={String(tn.id)}>
+                    {tn.name}
                   </option>
                 ))}
               </select>
@@ -412,6 +440,20 @@ export function DcimRacksPage() {
               <label>
                 {t("dcim.common.name")}
                 <input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              </label>
+              <label>
+                {t("dcim.racks.tenantOptional")}
+                <select
+                  value={editExtra.tenantId}
+                  onChange={(e) => setEditExtra((x) => ({ ...x, tenantId: e.target.value }))}
+                >
+                  <option value="">{t("dcim.common.none")}</option>
+                  {(tenantsQ.data ?? []).map((tn) => (
+                    <option key={tn.id} value={String(tn.id)}>
+                      {tn.name}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label>
                 {t("dcim.racks.uHeight")}
@@ -527,6 +569,7 @@ export function DcimRacksPage() {
                 <tr>
                   <th>{t("dcim.common.id")}</th>
                   <th>{t("dcim.racks.tableRoom")}</th>
+                  <th>{t("ipam.ipv4.tenantCol")}</th>
                   <th>{t("dcim.common.name")}</th>
                   <th>{t("dcim.racks.uHeight")}</th>
                   <th>{t("dcim.racks.tableBrand")}</th>
@@ -539,6 +582,11 @@ export function DcimRacksPage() {
                   <tr key={k.id}>
                     <td>{k.id}</td>
                     <td>{k.room_id}</td>
+                    <td>
+                      {k.tenant_id != null && k.tenant_id > 0
+                        ? tenantNameById.get(k.tenant_id) ?? `#${k.tenant_id}`
+                        : "—"}
+                    </td>
                     <td>{k.name}</td>
                     <td>{k.u_height}</td>
                     <td>{k.brand ?? "—"}</td>

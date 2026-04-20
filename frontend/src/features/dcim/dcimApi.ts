@@ -81,6 +81,53 @@ export function createTenant(body: { name: string; slug: string; description?: s
   return apiPost(PT, body);
 }
 
+export type TenantUserMembership = {
+  id: number;
+  tenant_id: number;
+  user_id: number;
+  role: string;
+  created_at: string;
+};
+
+export type TenantDcimGrant = {
+  id: number;
+  tenant_id: number;
+  scope_type: string;
+  scope_id: number;
+  access: string;
+  created_at: string;
+};
+
+export function listTenantMembers(tenantId: number): Promise<TenantUserMembership[]> {
+  return apiGet(`${PT}/${tenantId}/members`);
+}
+
+export function addTenantMember(
+  tenantId: number,
+  body: { user_id: number; role?: string },
+): Promise<TenantUserMembership> {
+  return apiPost(`${PT}/${tenantId}/members`, body);
+}
+
+export function removeTenantMember(tenantId: number, userId: number): Promise<void> {
+  return apiDelete(`${PT}/${tenantId}/members/${userId}`);
+}
+
+export function listTenantDcimGrants(tenantId: number): Promise<TenantDcimGrant[]> {
+  return apiGet(`${PT}/${tenantId}/dcim-grants`);
+}
+
+export function addTenantDcimGrant(
+  tenantId: number,
+  body: { scope_type: "site" | "room" | "rack"; scope_id: number; access?: "view" | "manage" },
+): Promise<TenantDcimGrant> {
+  return apiPost(`${PT}/${tenantId}/dcim-grants`, body);
+}
+
+export function removeTenantDcimGrant(tenantId: number, grantId: number): Promise<void> {
+  return apiDelete(`${PT}/${tenantId}/dcim-grants/${grantId}`);
+}
+
 export type SiteGeocodeCandidate = { display_name: string; latitude: number; longitude: number };
 export type SiteGeocodeResponse = { query: string; candidates: SiteGeocodeCandidate[] };
 
@@ -174,6 +221,7 @@ export function listRacks(roomId?: number): Promise<Rack[]> {
 }
 
 export type RackWriteFields = {
+  tenant_id?: number | null;
   u_height?: number;
   sort_order?: number;
   height_mm?: number | null;

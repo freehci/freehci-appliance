@@ -16,9 +16,11 @@ export function IpamVlansPage() {
   const [vid, setVid] = useState("");
   const [name, setName] = useState("");
   const [vrfId, setVrfId] = useState("");
+  const [vlanTenantId, setVlanTenantId] = useState("");
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
+  const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
   const vlansQ = useQuery({
     queryKey: ["ipam", "vlans", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listIpamVlans(siteIdFilter),
@@ -33,6 +35,12 @@ export function IpamVlansPage() {
     for (const s of sitesQ.data ?? []) m.set(s.id, s.name);
     return m;
   }, [sitesQ.data]);
+
+  const tenantNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const tn of tenantsQ.data ?? []) m.set(tn.id, tn.name);
+    return m;
+  }, [tenantsQ.data]);
 
   const allVrfsQ = useQuery({
     queryKey: ["ipam", "vrfs", "all-names"],
@@ -52,12 +60,14 @@ export function IpamVlansPage() {
         vid: Number(vid),
         name: name.trim(),
         vrf_id: vrfId === "" ? null : Number(vrfId),
+        tenant_id: vlanTenantId === "" ? undefined : Number(vlanTenantId),
       }),
     onSuccess: () => {
       setErr(null);
       setVid("");
       setName("");
       setVrfId("");
+      setVlanTenantId("");
       void qc.invalidateQueries({ queryKey: ["ipam", "vlans"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -145,6 +155,17 @@ export function IpamVlansPage() {
             ))}
           </select>
         </label>
+        <label>
+          {t("ipam.vlan.tenantOptional")}
+          <select value={vlanTenantId} onChange={(e) => setVlanTenantId(e.target.value)}>
+            <option value="">{t("dcim.common.none")}</option>
+            {(tenantsQ.data ?? []).map((tn) => (
+              <option key={tn.id} value={String(tn.id)}>
+                {tn.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="submit" className={dcimStyles.btn} disabled={createM.isPending}>
           {createM.isPending ? "…" : t("ipam.vlan.create")}
         </button>
@@ -158,6 +179,7 @@ export function IpamVlansPage() {
           <thead>
             <tr>
               <th>{t("ipam.ipv4.site")}</th>
+              <th>{t("ipam.ipv4.tenantCol")}</th>
               <th>VLAN</th>
               <th>{t("ipam.ipv4.name")}</th>
               <th>VRF</th>
@@ -168,6 +190,11 @@ export function IpamVlansPage() {
             {vlansQ.data.map((v) => (
               <tr key={v.id}>
                 <td>{siteNameById.get(v.site_id) ?? v.site_id}</td>
+                <td>
+                  {v.tenant_id != null && v.tenant_id > 0
+                    ? tenantNameById.get(v.tenant_id) ?? `#${v.tenant_id}`
+                    : "—"}
+                </td>
                 <td>{v.vid}</td>
                 <td>{v.name}</td>
                 <td>{v.vrf_id != null ? vrfNameById.get(v.vrf_id) ?? `#${v.vrf_id}` : "—"}</td>

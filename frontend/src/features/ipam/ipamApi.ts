@@ -15,9 +15,12 @@ import type {
 
 const P = "/api/v1/ipam";
 
-export function listIpv4Prefixes(siteId?: number): Promise<Ipv4Prefix[]> {
-  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
-  return apiGet(`${P}/ipv4-prefixes${q}`);
+export function listIpv4Prefixes(siteId?: number, tenantId?: number): Promise<Ipv4Prefix[]> {
+  const params = new URLSearchParams();
+  if (siteId != null) params.set("site_id", String(siteId));
+  if (tenantId != null) params.set("tenant_id", String(tenantId));
+  const s = params.toString();
+  return apiGet(`${P}/ipv4-prefixes${s ? `?${s}` : ""}`);
 }
 
 export function getIpv4PrefixExplore(prefixId: number): Promise<Ipv4PrefixExplore> {
@@ -37,13 +40,20 @@ export function createIpv4Prefix(body: {
   name: string;
   cidr: string;
   description?: string | null;
+  tenant_id?: number | null;
 }): Promise<Ipv4Prefix> {
   return apiPost(`${P}/ipv4-prefixes`, body);
 }
 
 export function updateIpv4Prefix(
   id: number,
-  body: { name?: string; cidr?: string; description?: string | null; subnet_services?: Record<string, unknown> | null },
+  body: {
+    name?: string;
+    cidr?: string;
+    description?: string | null;
+    subnet_services?: Record<string, unknown> | null;
+    tenant_id?: number | null;
+  },
 ): Promise<Ipv4Prefix> {
   return apiPatch(`${P}/ipv4-prefixes/${id}`, body);
 }
@@ -165,6 +175,7 @@ export function createIpamVlan(body: {
   name: string;
   vrf_id?: number | null;
   description?: string | null;
+  tenant_id?: number | null;
 }): Promise<IpamVlan> {
   return apiPost(`${P}/vlans`, body);
 }

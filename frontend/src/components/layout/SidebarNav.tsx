@@ -203,6 +203,21 @@ export function SidebarNav() {
             </li>
             <li>
               <NavLink
+                to="/dcim/tenants"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="dcimTenants" size={16} />
+                  </span>
+                  <span>{t("nav.dcimTenants")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
                 to="/dcim/rooms"
                 className={({ isActive }) =>
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()
