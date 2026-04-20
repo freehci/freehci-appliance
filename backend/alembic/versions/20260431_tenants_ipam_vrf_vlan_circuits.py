@@ -1,7 +1,7 @@
 """Tenants, site.tenant_id, IPAM VRF/VLAN og samband (circuits).
 
 Revision ID: 20260431_tenant_ipam
-Revises: 20260430_dcim_enh
+Revises: dcim_room_floorplan
 """
 
 from typing import Sequence, Union
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "20260431_tenant_ipam"
-down_revision: Union[str, Sequence[str], None] = "20260430_dcim_enh"
+down_revision: Union[str, Sequence[str], None] = "dcim_room_floorplan"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
