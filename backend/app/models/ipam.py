@@ -27,6 +27,10 @@ class IpamIpv4Prefix(Base):
         ForeignKey("dcim_sites.id", ondelete="CASCADE"),
         nullable=False,
     )
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Kanonisk IPv4 CIDR-streng, f.eks. 192.168.1.0/24 (normaliseres i tjenestelaget).
@@ -181,6 +185,10 @@ class IpamVlan(Base):
     site_id: Mapped[int] = mapped_column(
         ForeignKey("dcim_sites.id", ondelete="CASCADE"),
         nullable=False,
+    )
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
     )
     vid: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)

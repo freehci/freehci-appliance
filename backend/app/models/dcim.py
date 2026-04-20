@@ -111,6 +111,10 @@ class Rack(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     room_id: Mapped[int] = mapped_column(ForeignKey("dcim_rooms.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     u_height: Mapped[int] = mapped_column(Integer, nullable=False, default=42)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

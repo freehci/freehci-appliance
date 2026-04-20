@@ -24,3 +24,13 @@ class Tenant(Base):
 
     sites: Mapped[list["Site"]] = relationship("Site", back_populates="tenant")
     circuits: Mapped[list["IpamCircuit"]] = relationship("IpamCircuit", back_populates="tenant")
+    user_memberships: Mapped[list["TenantUserMembership"]] = relationship(
+        "TenantUserMembership",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+    )
+    dcim_grants: Mapped[list["TenantDcimGrant"]] = relationship(
+        "TenantDcimGrant",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+    )

@@ -7,8 +7,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.schemas.tenant import TenantCreate, TenantRead, TenantUpdate
+from app.schemas.tenant import (
+    TenantCreate,
+    TenantDcimGrantCreate,
+    TenantDcimGrantRead,
+    TenantRead,
+    TenantUpdate,
+    TenantUserMembershipCreate,
+    TenantUserMembershipRead,
+)
 from app.services import tenant as tenant_svc
+from app.services import tenant_access as tenant_access_svc
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -45,3 +54,49 @@ def patch_tenant(
     if row is None:
         raise HTTPException(status_code=404, detail="tenant ikke funnet")
     return TenantRead.model_validate(tenant_svc.update_tenant(db, row, data))
+
+
+@router.get("/{tenant_id}/members", response_model=list[TenantUserMembershipRead])
+def list_tenant_members(tenant_id: int, db: Session = Depends(get_db)) -> list[TenantUserMembershipRead]:
+    tenant_access_svc.ensure_tenant_exists(db, tenant_id)
+    return [TenantUserMembershipRead.model_validate(r) for r in tenant_access_svc.list_tenant_members(db, tenant_id)]
+
+
+@router.post("/{tenant_id}/members", response_model=TenantUserMembershipRead)
+def add_tenant_member(
+    tenant_id: int,
+    data: TenantUserMembershipCreate,
+    db: Session = Depends(get_db),
+) -> TenantUserMembershipRead:
+    tenant = tenant_access_svc.ensure_tenant_exists(db, tenant_id)
+    row = tenant_access_svc.add_tenant_member(db, tenant, data)
+    return TenantUserMembershipRead.model_validate(row)
+
+
+@router.delete("/{tenant_id}/members/{user_id}", status_code=204, response_model=None)
+def remove_tenant_member(tenant_id: int, user_id: int, db: Session = Depends(get_db)) -> None:
+    tenant_access_svc.ensure_tenant_exists(db, tenant_id)
+    tenant_access_svc.remove_tenant_member(db, tenant_id, user_id)
+
+
+@router.get("/{tenant_id}/dcim-grants", response_model=list[TenantDcimGrantRead])
+def list_tenant_dcim_grants(tenant_id: int, db: Session = Depends(get_db)) -> list[TenantDcimGrantRead]:
+    tenant_access_svc.ensure_tenant_exists(db, tenant_id)
+    return [TenantDcimGrantRead.model_validate(r) for r in tenant_access_svc.list_tenant_dcim_grants(db, tenant_id)]
+
+
+@router.post("/{tenant_id}/dcim-grants", response_model=TenantDcimGrantRead)
+def add_tenant_dcim_grant(
+    tenant_id: int,
+    data: TenantDcimGrantCreate,
+    db: Session = Depends(get_db),
+) -> TenantDcimGrantRead:
+    tenant = tenant_access_svc.ensure_tenant_exists(db, tenant_id)
+    row = tenant_access_svc.add_tenant_dcim_grant(db, tenant, data)
+    return TenantDcimGrantRead.model_validate(row)
+
+
+@router.delete("/{tenant_id}/dcim-grants/{grant_id}", status_code=204, response_model=None)
+def remove_tenant_dcim_grant(tenant_id: int, grant_id: int, db: Session = Depends(get_db)) -> None:
+    tenant_access_svc.ensure_tenant_exists(db, tenant_id)
+    tenant_access_svc.remove_tenant_dcim_grant(db, tenant_id, grant_id)

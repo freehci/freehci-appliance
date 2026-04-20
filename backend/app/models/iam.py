@@ -35,6 +35,11 @@ class User(Base):
         nullable=False,
     )
 
+    tenant_memberships: Mapped[list["TenantUserMembership"]] = relationship(
+        "TenantUserMembership",
+        back_populates="user",
+    )
+
 
 class IamRole(Base):
     """Global applikasjonsrolle (utenfor DCIM site-spesifikke roller)."""

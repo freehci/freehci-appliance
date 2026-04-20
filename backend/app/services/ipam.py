@@ -26,6 +26,7 @@ from app.schemas.ipam import (
     Ipv4PrefixUpdate,
 )
 from app.services import dcim as dcim_svc
+from app.services import tenant as tenant_svc
 
 
 def _ipv4_address_total(cidr: str) -> int:
@@ -190,6 +191,7 @@ def ipv4_prefix_read(
     return Ipv4PrefixRead(
         id=row.id,
         site_id=row.site_id,
+        tenant_id=row.tenant_id,
         name=row.name,
         cidr=row.cidr,
         description=row.description,
@@ -210,10 +212,12 @@ def _normalize_ipv4_cidr(raw: str) -> str:
     return f"{net.network_address}/{net.prefixlen}"
 
 
-def list_ipv4_prefixes(db: Session, *, site_id: int | None) -> list[Ipv4PrefixRead]:
+def list_ipv4_prefixes(db: Session, *, site_id: int | None, tenant_id: int | None = None) -> list[Ipv4PrefixRead]:
     q = select(IpamIpv4Prefix).order_by(IpamIpv4Prefix.site_id, IpamIpv4Prefix.cidr)
     if site_id is not None:
         q = q.where(IpamIpv4Prefix.site_id == site_id)
+    if tenant_id is not None:
+        q = q.where(IpamIpv4Prefix.tenant_id == tenant_id)
     rows = list(db.execute(q).scalars().all())
     rows.sort(key=_prefix_sort_key)
     cache = _ipv4_assignments_with_site(db)
@@ -227,9 +231,12 @@ def get_ipv4_prefix(db: Session, prefix_id: int) -> IpamIpv4Prefix | None:
 def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
     if dcim_svc.get_site(db, data.site_id) is None:
         raise HTTPException(status_code=404, detail="site ikke funnet")
+    if data.tenant_id is not None and tenant_svc.get_tenant(db, data.tenant_id) is None:
+        raise HTTPException(status_code=404, detail="tenant ikke funnet")
     cidr = _normalize_ipv4_cidr(data.cidr)
     row = IpamIpv4Prefix(
         site_id=data.site_id,
+        tenant_id=data.tenant_id,
         name=data.name.strip(),
         cidr=cidr,
         description=data.description,
@@ -260,6 +267,11 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         row.cidr = _normalize_ipv4_cidr(patch["cidr"])
     if "subnet_services" in patch:
         row.subnet_services = patch["subnet_services"]
+    if "tenant_id" in patch:
+        tid = patch["tenant_id"]
+        if tid is not None and tenant_svc.get_tenant(db, int(tid)) is None:
+            raise HTTPException(status_code=404, detail="tenant ikke funnet")
+        row.tenant_id = tid
     try:
         db.commit()
     except IntegrityError:

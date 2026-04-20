@@ -90,8 +90,12 @@ def create_vlan(db: Session, data: IpamVlanCreate) -> IpamVlan:
         if vrf is None or vrf.site_id != data.site_id:
             raise ValueError("vrf ikke funnet eller tilhører ikke samme site")
 
+    if data.tenant_id is not None:
+        _require_tenant(db, data.tenant_id)
+
     row = IpamVlan(
         site_id=data.site_id,
+        tenant_id=data.tenant_id,
         vid=data.vid,
         name=data.name.strip(),
         description=data.description,

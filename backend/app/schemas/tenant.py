@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -36,4 +37,40 @@ class TenantRead(BaseModel):
     name: str
     slug: str
     description: str | None
+    created_at: dt.datetime
+
+
+TenantDcimScopeType = Literal["site", "room", "rack"]
+TenantDcimAccess = Literal["view", "manage"]
+
+
+class TenantUserMembershipCreate(BaseModel):
+    user_id: int = Field(..., ge=1)
+    role: str = Field("member", min_length=1, max_length=64)
+
+
+class TenantUserMembershipRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tenant_id: int
+    user_id: int
+    role: str
+    created_at: dt.datetime
+
+
+class TenantDcimGrantCreate(BaseModel):
+    scope_type: TenantDcimScopeType
+    scope_id: int = Field(..., ge=1)
+    access: TenantDcimAccess = "view"
+
+
+class TenantDcimGrantRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tenant_id: int
+    scope_type: str
+    scope_id: int
+    access: str
     created_at: dt.datetime

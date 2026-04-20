@@ -16,6 +16,7 @@ class Ipv4PrefixCreate(BaseModel):
     cidr: str = Field(..., min_length=1, max_length=32)
     description: str | None = None
     subnet_services: dict[str, Any] | None = None
+    tenant_id: int | None = Field(None, ge=1, description="Valgfritt: kunde-/colo-tenant for prefikset")
 
     @field_validator("cidr")
     @classmethod
@@ -31,6 +32,7 @@ class Ipv4PrefixUpdate(BaseModel):
     cidr: str | None = Field(None, min_length=1, max_length=32)
     description: str | None = None
     subnet_services: dict[str, Any] | None = None
+    tenant_id: int | None = None
 
     @field_validator("cidr")
     @classmethod
@@ -48,6 +50,7 @@ class Ipv4PrefixRead(BaseModel):
 
     id: int
     site_id: int
+    tenant_id: int | None = None
     name: str
     cidr: str
     description: str | None
@@ -321,6 +324,7 @@ class IpamVlanCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     vrf_id: int | None = None
     description: str | None = None
+    tenant_id: int | None = Field(None, ge=1)
 
 
 class IpamVlanRead(BaseModel):
@@ -328,6 +332,7 @@ class IpamVlanRead(BaseModel):
 
     id: int
     site_id: int
+    tenant_id: int | None = None
     vid: int
     name: str
     vrf_id: int | None

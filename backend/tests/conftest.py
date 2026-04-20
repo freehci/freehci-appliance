@@ -23,6 +23,8 @@ import pytest  # noqa: E402
 import app.models.admin_account  # noqa: E402, F401
 import app.models.tenant  # noqa: E402, F401
 import app.models.dcim  # noqa: E402, F401
+import app.models.iam  # noqa: E402, F401 — users + grupper (FK fra IPAM/DCIM)
+import app.models.tenant_access  # noqa: E402, F401
 import app.models.ipam  # noqa: E402, F401 — tabeller for IPAM + FK fra DCIM
 import app.models.snmp_catalog  # noqa: E402, F401 — SNMP MIB-metadata + IANA
 import app.models.network_scan  # noqa: E402, F401 — nettverksskann

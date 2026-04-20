@@ -527,11 +527,12 @@ def list_racks(db: Session, *, room_id: int | None = None) -> list[Rack]:
 
 def create_rack(db: Session, data: RackCreate) -> Rack:
     if get_room(db, data.room_id) is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="room ikke funnet")
+    if data.tenant_id is not None and tenant_svc.get_tenant(db, data.tenant_id) is None:
+        raise HTTPException(status_code=404, detail="tenant ikke funnet")
     row = Rack(
         room_id=data.room_id,
+        tenant_id=data.tenant_id,
         name=data.name.strip(),
         u_height=data.u_height,
         sort_order=data.sort_order,
@@ -603,6 +604,12 @@ def update_rack(db: Session, rack: Rack, data: RackUpdate) -> Rack:
 
     if "attributes" in payload:
         rack.attributes = payload["attributes"]
+
+    if "tenant_id" in payload:
+        tid = payload["tenant_id"]
+        if tid is not None and tenant_svc.get_tenant(db, int(tid)) is None:
+            raise HTTPException(status_code=404, detail="tenant ikke funnet")
+        rack.tenant_id = tid
 
     db.commit()
     db.refresh(rack)

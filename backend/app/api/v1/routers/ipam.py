@@ -44,9 +44,10 @@ router = APIRouter(prefix="/ipam", tags=["ipam"])
 @router.get("/ipv4-prefixes", response_model=list[Ipv4PrefixRead])
 def list_ipv4_prefixes(
     site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    tenant_id: int | None = Query(None, description="Filtrer på tenant-id (colo/kunde)"),
     db: Session = Depends(get_db),
 ) -> list[Ipv4PrefixRead]:
-    return ipam_svc.list_ipv4_prefixes(db, site_id=site_id)
+    return ipam_svc.list_ipv4_prefixes(db, site_id=site_id, tenant_id=tenant_id)
 
 
 @router.post("/ipv4-prefixes", response_model=Ipv4PrefixRead)

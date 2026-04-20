@@ -195,6 +195,7 @@ class RoomRead(BaseModel):
 
 class RackCreate(BaseModel):
     room_id: int
+    tenant_id: int | None = Field(None, ge=1, description="Valgfritt: colo-/kunde-tenant for rack")
     name: str = Field(..., min_length=1, max_length=255)
     u_height: int = Field(42, ge=1, le=64)
     sort_order: int = 0
@@ -209,6 +210,7 @@ class RackCreate(BaseModel):
 
 
 class RackUpdate(BaseModel):
+    tenant_id: int | None = None
     name: str | None = Field(None, min_length=1, max_length=255)
     u_height: int | None = Field(None, ge=1, le=64)
     sort_order: int | None = None
@@ -227,6 +229,7 @@ class RackRead(BaseModel):
 
     id: int
     room_id: int
+    tenant_id: int | None = None
     name: str
     u_height: int
     sort_order: int
