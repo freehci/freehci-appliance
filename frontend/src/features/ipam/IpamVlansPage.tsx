@@ -25,6 +25,10 @@ export function IpamVlansPage() {
     queryKey: ["ipam", "vlans", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listIpamVlans(siteIdFilter),
   });
+  const prefixesQ = useQuery({
+    queryKey: ["ipam", "ipv4-prefixes", "for-vlans", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listIpv4Prefixes(siteIdFilter),
+  });
   const vrfsQ = useQuery({
     queryKey: ["ipam", "vrfs", siteId === "" ? "all" : Number(siteId)],
     queryFn: () => ipamApi.listIpamVrfs(siteId === "" ? undefined : Number(siteId)),
@@ -52,6 +56,15 @@ export function IpamVlansPage() {
     for (const v of allVrfsQ.data ?? []) m.set(v.id, v.name);
     return m;
   }, [allVrfsQ.data]);
+
+  const prefixesByVlanId = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const p of prefixesQ.data ?? []) {
+      const vid = p.vlan_id;
+      if (vid != null && vid > 0) m.set(vid, (m.get(vid) ?? 0) + 1);
+    }
+    return m;
+  }, [prefixesQ.data]);
 
   const createM = useMutation({
     mutationFn: () =>
@@ -182,6 +195,7 @@ export function IpamVlansPage() {
               <th>{t("ipam.ipv4.tenantCol")}</th>
               <th>VLAN</th>
               <th>{t("ipam.ipv4.name")}</th>
+              <th>Subnets</th>
               <th>VRF</th>
               <th>{t("ipam.ipv4.actionsCol")}</th>
             </tr>
@@ -197,6 +211,7 @@ export function IpamVlansPage() {
                 </td>
                 <td>{v.vid}</td>
                 <td>{v.name}</td>
+                <td className={dcimStyles.muted}>{prefixesByVlanId.get(v.id) ?? 0}</td>
                 <td>{v.vrf_id != null ? vrfNameById.get(v.vrf_id) ?? `#${v.vrf_id}` : "—"}</td>
                 <td>
                   <button

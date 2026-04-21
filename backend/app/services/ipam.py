@@ -255,12 +255,20 @@ def _require_no_partial_overlap(
         )
 
 
-def list_ipv4_prefixes(db: Session, *, site_id: int | None, tenant_id: int | None = None) -> list[Ipv4PrefixRead]:
+def list_ipv4_prefixes(
+    db: Session,
+    *,
+    site_id: int | None,
+    tenant_id: int | None = None,
+    vlan_id: int | None = None,
+) -> list[Ipv4PrefixRead]:
     q = select(IpamIpv4Prefix).order_by(IpamIpv4Prefix.site_id, IpamIpv4Prefix.cidr)
     if site_id is not None:
         q = q.where(IpamIpv4Prefix.site_id == site_id)
     if tenant_id is not None:
         q = q.where(IpamIpv4Prefix.tenant_id == tenant_id)
+    if vlan_id is not None:
+        q = q.where(IpamIpv4Prefix.vlan_id == vlan_id)
     rows = list(db.execute(q).scalars().all())
     rows.sort(key=_prefix_sort_key)
     cache = _ipv4_assignments_with_site(db)

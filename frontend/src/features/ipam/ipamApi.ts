@@ -15,10 +15,11 @@ import type {
 
 const P = "/api/v1/ipam";
 
-export function listIpv4Prefixes(siteId?: number, tenantId?: number): Promise<Ipv4Prefix[]> {
+export function listIpv4Prefixes(siteId?: number, tenantId?: number, vlanId?: number): Promise<Ipv4Prefix[]> {
   const params = new URLSearchParams();
   if (siteId != null) params.set("site_id", String(siteId));
   if (tenantId != null) params.set("tenant_id", String(tenantId));
+  if (vlanId != null) params.set("vlan_id", String(vlanId));
   const s = params.toString();
   return apiGet(`${P}/ipv4-prefixes${s ? `?${s}` : ""}`);
 }
