@@ -89,6 +89,10 @@ export function IpamPrefixesPage() {
   const [splitTarget, setSplitTarget] = useState<Ipv4Prefix | null>(null);
   const [splitNameLo, setSplitNameLo] = useState("");
   const [splitNameHi, setSplitNameHi] = useState("");
+  const [splitCidrLo, setSplitCidrLo] = useState("");
+  const [splitCidrHi, setSplitCidrHi] = useState("");
+  const [splitMigrateInventory, setSplitMigrateInventory] = useState(true);
+  const [splitAckBroadcast, setSplitAckBroadcast] = useState(false);
   const [splitErr, setSplitErr] = useState<string | null>(null);
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -450,62 +454,110 @@ export function IpamPrefixesPage() {
     setPrefixListPage((p) => Math.min(Math.max(0, p), pageCount - 1));
   }, [prefixTreeIndex.roots.length, prefixListPageSize]);
 
-  const splitHalves = useMemo(() => (splitTarget ? splitIpv4IntoHalves(splitTarget.cidr) : null), [splitTarget]);
-
   useEffect(() => {
     if (!splitTarget) {
       setSplitNameLo("");
       setSplitNameHi("");
+      setSplitCidrLo("");
+      setSplitCidrHi("");
+      setSplitMigrateInventory(true);
+      setSplitAckBroadcast(false);
       setSplitErr(null);
       return;
     }
     const base = splitTarget.name.trim() || splitTarget.cidr;
     setSplitNameLo(`${base} · 1`);
     setSplitNameHi(`${base} · 2`);
+    const h = splitIpv4IntoHalves(splitTarget.cidr);
+    if (h) {
+      setSplitCidrLo(h[0]);
+      setSplitCidrHi(h[1]);
+    } else {
+      setSplitCidrLo("");
+      setSplitCidrHi("");
+    }
+    setSplitMigrateInventory(true);
+    setSplitAckBroadcast(false);
     setSplitErr(null);
   }, [splitTarget]);
 
-  const createSplitChildren = useMutation({
-    mutationFn: async () => {
-      if (!splitTarget || !splitHalves) throw new Error("split");
-      const [lo, hi] = splitHalves;
-      const nlo = splitNameLo.trim();
-      const nhi = splitNameHi.trim();
-      if (!nlo || !nhi) throw new Error(t("ipam.ipv4.splitMissingNames"));
-      await ipamApi.createIpv4Prefix({
-        site_id: splitTarget.site_id,
-        name: nlo,
-        cidr: lo,
-        tenant_id: splitTarget.tenant_id ?? undefined,
-        vlan_id: splitTarget.vlan_id ?? undefined,
-        vrf_id: splitTarget.vrf_id ?? undefined,
-      });
-      await ipamApi.createIpv4Prefix({
-        site_id: splitTarget.site_id,
-        name: nhi,
-        cidr: hi,
-        tenant_id: splitTarget.tenant_id ?? undefined,
-        vlan_id: splitTarget.vlan_id ?? undefined,
-        vrf_id: splitTarget.vrf_id ?? undefined,
-      });
-    },
+  useEffect(() => {
+    setSplitAckBroadcast(false);
+  }, [splitCidrLo, splitCidrHi, splitMigrateInventory]);
+
+  const splitPreviewEnabled =
+    splitTarget != null &&
+    splitNameLo.trim() !== "" &&
+    splitNameHi.trim() !== "" &&
+    splitCidrLo.trim() !== "" &&
+    splitCidrHi.trim() !== "";
+
+  const splitPreviewQ = useQuery({
+    queryKey: [
+      "ipam",
+      "split-preview",
+      splitTarget?.id,
+      splitCidrLo,
+      splitCidrHi,
+      splitNameLo,
+      splitNameHi,
+      splitMigrateInventory,
+    ],
+    queryFn: () =>
+      ipamApi.ipv4PrefixSplit(splitTarget!.id, {
+        first: { name: splitNameLo.trim(), cidr: splitCidrLo.trim() },
+        second: { name: splitNameHi.trim(), cidr: splitCidrHi.trim() },
+        dry_run: true,
+        migrate_inventory: splitMigrateInventory,
+        acknowledge_network_broadcast: false,
+      }),
+    enabled: splitPreviewEnabled,
+    staleTime: 3_000,
+  });
+
+  const executeSplitMutation = useMutation({
+    mutationFn: () =>
+      ipamApi.ipv4PrefixSplit(splitTarget!.id, {
+        first: { name: splitNameLo.trim(), cidr: splitCidrLo.trim() },
+        second: { name: splitNameHi.trim(), cidr: splitCidrHi.trim() },
+        dry_run: false,
+        migrate_inventory: splitMigrateInventory,
+        acknowledge_network_broadcast: splitAckBroadcast,
+      }),
     onMutate: () => setSplitErr(null),
     onSuccess: () => {
       setSplitTarget(null);
       setSplitErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "split-preview"] });
       invalidateIpam();
     },
     onError: (e: Error) => setSplitErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const splitPv = splitPreviewQ.data;
+  const splitNeedsAck = (splitPv?.conflicts?.length ?? 0) > 0;
+  const splitBlockingCount =
+    (splitPv?.ipam_inventory_on_parent ?? 0) +
+    (splitPv?.dcim_iface_on_parent ?? 0) +
+    (splitPv?.dcim_device_on_parent ?? 0);
+  const splitMustMigrate = splitBlockingCount > 0 && !splitMigrateInventory;
+  const splitCanExecute =
+    splitPreviewEnabled &&
+    splitPv != null &&
+    !splitPv.has_child_prefixes &&
+    splitPv.partition_ok &&
+    !splitMustMigrate &&
+    (!splitNeedsAck || splitAckBroadcast) &&
+    !executeSplitMutation.isPending;
+
   useEffect(() => {
     if (!splitTarget) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !createSplitChildren.isPending) setSplitTarget(null);
+      if (e.key === "Escape" && !executeSplitMutation.isPending) setSplitTarget(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [splitTarget, createSplitChildren.isPending]);
+  }, [splitTarget, executeSplitMutation.isPending]);
 
   const linkDeviceNum = linkDeviceId === "" ? null : Number(linkDeviceId);
   const interfacesLinkQ = useQuery({
@@ -1554,7 +1606,8 @@ export function IpamPrefixesPage() {
             {visiblePrefixRows.map((row) => {
               const x = row.prefix;
               const plen = parseIpv4Cidr(x.cidr)?.prefixLen;
-              const canSplit = plen != null && plen < 32;
+              const childCount = prefixTreeIndex.childrenByParentId.get(x.id)?.length ?? 0;
+              const canSplit = plen != null && plen < 32 && childCount === 0;
               return (
               <tr key={x.id}>
                 <td
@@ -1832,7 +1885,7 @@ export function IpamPrefixesPage() {
       ) : (
         !prefixesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.ipv4.empty")}</p>
       )}
-      {splitTarget != null && splitHalves != null ? (
+      {splitTarget != null ? (
         <div
           role="presentation"
           style={{
@@ -1846,7 +1899,7 @@ export function IpamPrefixesPage() {
             padding: "var(--space-3)",
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget && !createSplitChildren.isPending) setSplitTarget(null);
+            if (e.target === e.currentTarget && !executeSplitMutation.isPending) setSplitTarget(null);
           }}
         >
           <div
@@ -1854,7 +1907,7 @@ export function IpamPrefixesPage() {
             aria-modal="true"
             aria-labelledby={splitDialogTitleId}
             style={{
-              width: "min(28rem, 100%)",
+              width: "min(32rem, 100%)",
               maxHeight: "90vh",
               overflow: "auto",
               background: "var(--color-bg-elevated)",
@@ -1869,14 +1922,40 @@ export function IpamPrefixesPage() {
               {t("ipam.ipv4.splitTitle")}
             </h2>
             <p className={dcimStyles.muted}>{t("ipam.ipv4.splitIntro", { cidr: splitTarget.cidr })}</p>
-            <ul>
-              <li>
-                <code>{splitHalves[0]}</code>
-              </li>
-              <li>
-                <code>{splitHalves[1]}</code>
-              </li>
-            </ul>
+            <p className={dcimStyles.muted}>{t("ipam.ipv4.splitCidrHint")}</p>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-2)" }}>
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                onClick={() => {
+                  const h = splitIpv4IntoHalves(splitTarget.cidr);
+                  if (h) {
+                    setSplitCidrLo(h[0]);
+                    setSplitCidrHi(h[1]);
+                  }
+                }}
+              >
+                {t("ipam.ipv4.splitResetHalves")}
+              </button>
+            </div>
+            <label style={{ display: "block", marginTop: "var(--space-2)" }}>
+              {t("ipam.ipv4.splitCidrLo")}
+              <input
+                value={splitCidrLo}
+                onChange={(e) => setSplitCidrLo(e.target.value)}
+                style={{ display: "block", width: "100%", marginTop: "0.25rem", fontFamily: "monospace" }}
+                autoComplete="off"
+              />
+            </label>
+            <label style={{ display: "block", marginTop: "var(--space-2)" }}>
+              {t("ipam.ipv4.splitCidrHi")}
+              <input
+                value={splitCidrHi}
+                onChange={(e) => setSplitCidrHi(e.target.value)}
+                style={{ display: "block", width: "100%", marginTop: "0.25rem", fontFamily: "monospace" }}
+                autoComplete="off"
+              />
+            </label>
             <label style={{ display: "block", marginTop: "var(--space-2)" }}>
               {t("ipam.ipv4.splitNameLo")}
               <input
@@ -1895,24 +1974,72 @@ export function IpamPrefixesPage() {
                 autoComplete="off"
               />
             </label>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "var(--space-3)" }}>
+              <input
+                type="checkbox"
+                checked={splitMigrateInventory}
+                onChange={(e) => setSplitMigrateInventory(e.target.checked)}
+              />
+              <span>{t("ipam.ipv4.splitMigrateLabel")}</span>
+            </label>
+            {splitPreviewQ.isFetching ? <p className={dcimStyles.muted}>{t("ipam.ipv4.splitPreviewLoading")}</p> : null}
+            {splitPreviewQ.isError ? (
+              <p className={dcimStyles.err}>{(splitPreviewQ.error as Error).message}</p>
+            ) : null}
+            {splitPv != null ? (
+              <div style={{ marginTop: "var(--space-2)" }}>
+                {splitPv.has_child_prefixes ? (
+                  <p className={dcimStyles.err}>{splitPv.detail ?? t("ipam.ipv4.splitHasChildren")}</p>
+                ) : null}
+                {!splitPv.partition_ok && splitPv.detail ? (
+                  <p className={dcimStyles.err}>{splitPv.detail}</p>
+                ) : null}
+                {splitPv.partition_ok && !splitPv.has_child_prefixes ? (
+                  <p className={dcimStyles.muted}>
+                    {t("ipam.ipv4.splitSummary", {
+                      inv: String(splitPv.ipam_inventory_on_parent),
+                      iface: String(splitPv.dcim_iface_on_parent),
+                      dev: String(splitPv.dcim_device_on_parent),
+                    })}
+                  </p>
+                ) : null}
+                {splitPv.conflicts.length > 0 ? (
+                  <div style={{ marginTop: "var(--space-2)" }}>
+                    <p className={dcimStyles.err}>{t("ipam.ipv4.splitConflictsTitle")}</p>
+                    <ul className={dcimStyles.muted} style={{ marginTop: 0 }}>
+                      {splitPv.conflicts.map((c, i) => (
+                        <li key={`${c.address}-${i}`}>
+                          <code>{c.address}</code> — {c.message}
+                        </li>
+                      ))}
+                    </ul>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "var(--space-2)" }}>
+                      <input
+                        type="checkbox"
+                        checked={splitAckBroadcast}
+                        onChange={(e) => setSplitAckBroadcast(e.target.checked)}
+                      />
+                      <span>{t("ipam.ipv4.splitAckBroadcast")}</span>
+                    </label>
+                  </div>
+                ) : null}
+                {splitMustMigrate ? <p className={dcimStyles.err}>{t("ipam.ipv4.splitMustMigrate")}</p> : null}
+              </div>
+            ) : null}
             {splitErr ? <p className={dcimStyles.err}>{splitErr}</p> : null}
             <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap" }}>
               <button
                 type="button"
                 className={dcimStyles.btn}
-                disabled={
-                  createSplitChildren.isPending ||
-                  splitNameLo.trim() === "" ||
-                  splitNameHi.trim() === ""
-                }
-                onClick={() => createSplitChildren.mutate()}
+                disabled={!splitCanExecute}
+                onClick={() => executeSplitMutation.mutate()}
               >
-                {createSplitChildren.isPending ? "…" : t("ipam.ipv4.splitCreate")}
+                {executeSplitMutation.isPending ? "…" : t("ipam.ipv4.splitCreate")}
               </button>
               <button
                 type="button"
                 className={dcimStyles.btn}
-                disabled={createSplitChildren.isPending}
+                disabled={executeSplitMutation.isPending}
                 onClick={() => setSplitTarget(null)}
               >
                 {t("ipam.ipv4.splitCancel")}

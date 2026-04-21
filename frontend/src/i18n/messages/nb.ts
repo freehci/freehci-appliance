@@ -1051,7 +1051,20 @@ export const nb = {
   "ipam.ipv4.splitSubnet": "Del i to halvdeler (/n+1)",
   "ipam.ipv4.splitTitle": "Del prefiks",
   "ipam.ipv4.splitIntro":
-    "Oppretter to nye prefiks som hver dekker halvparten av {cidr}. Site, tenant, VLAN og VRF kopieres fra forelder. Det opprinnelige prefikset beholdes.",
+    "Oppretter to nye prefiks som til sammen dekker hele {cidr} (uten hull). Du kan redigere CIDR-ene under; de må partisjonere forelderen eksakt. Site, tenant, VLAN og VRF kopieres fra forelder. Det opprinnelige prefikset beholdes.",
+  "ipam.ipv4.splitCidrHint":
+    "Vanlig tilfelle: to like halvdeler (/n+1). Andre gyldige par er tillatt så lenge de partisjonerer forelderen uten overlapp og uten ubrukt plass.",
+  "ipam.ipv4.splitCidrLo": "Første subnett (CIDR)",
+  "ipam.ipv4.splitCidrHi": "Andre subnett (CIDR)",
+  "ipam.ipv4.splitResetHalves": "Tilbakestill til like halvdeler",
+  "ipam.ipv4.splitPreviewLoading": "Sjekker deling …",
+  "ipam.ipv4.splitMigrateLabel": "Flytt IPAM-inventory og DCIM IP-tildelinger til riktig barn-prefiks",
+  "ipam.ipv4.splitSummary":
+    "På dette prefikset: {inv} IPAM-adresserad(er), {iface} DCIM grensesnitt-tildeling(er), {dev} DCIM enhets-tildeling(er).",
+  "ipam.ipv4.splitConflictsTitle": "Disse adressene havner på nettverks- eller broadcast-adresse i et barn-subnett etter deling:",
+  "ipam.ipv4.splitAckBroadcast": "Jeg forstår — kjør likevel og migrer disse radene",
+  "ipam.ipv4.splitMustMigrate": "Det finnes reservasjoner eller DCIM-koblinger på prefikset — slå på migrering eller rydd før deling.",
+  "ipam.ipv4.splitHasChildren": "Prefikset har allerede registrerte underprefiks; deling er ikke tillatt.",
   "ipam.ipv4.splitNameLo": "Navn (første halvdel)",
   "ipam.ipv4.splitNameHi": "Navn (andre halvdel)",
   "ipam.ipv4.splitCreate": "Opprett begge",

@@ -3,6 +3,7 @@ import type {
   Ipv4Address,
   Ipv4Prefix,
   Ipv4PrefixExplore,
+  Ipv4PrefixSplitResponse,
   IpamCircuit,
   IpamCircuitTermination,
   IpamVlan,
@@ -65,6 +66,19 @@ export function updateIpv4Prefix(
 
 export function deleteIpv4Prefix(id: number): Promise<void> {
   return apiDelete(`${P}/ipv4-prefixes/${id}`);
+}
+
+export function ipv4PrefixSplit(
+  prefixId: number,
+  body: {
+    first: { name: string; cidr: string };
+    second: { name: string; cidr: string };
+    migrate_inventory: boolean;
+    acknowledge_network_broadcast: boolean;
+    dry_run: boolean;
+  },
+): Promise<Ipv4PrefixSplitResponse> {
+  return apiPost(`${P}/ipv4-prefixes/${prefixId}/split`, body);
 }
 
 export function listSubnetScans(params?: {

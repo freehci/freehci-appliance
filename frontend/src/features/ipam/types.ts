@@ -29,6 +29,30 @@ export type Ipv4PrefixExplore = {
   assignments: Ipv4AssignmentInPrefix[];
 };
 
+export type Ipv4PrefixSplitConflict = {
+  address: string;
+  role: "network" | "broadcast";
+  child: "first" | "second";
+  message: string;
+};
+
+export type Ipv4PrefixSplitResponse = {
+  dry_run: boolean;
+  has_child_prefixes: boolean;
+  partition_ok: boolean;
+  detail: string | null;
+  first_cidr: string | null;
+  second_cidr: string | null;
+  ipam_inventory_on_parent: number;
+  ipam_migrate_left: number;
+  ipam_migrate_right: number;
+  dcim_iface_on_parent: number;
+  dcim_device_on_parent: number;
+  conflicts: Ipv4PrefixSplitConflict[];
+  first_prefix: Ipv4Prefix | null;
+  second_prefix: Ipv4Prefix | null;
+};
+
 export type SubnetScanHost = {
   id: number;
   address: string;

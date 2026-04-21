@@ -416,3 +416,56 @@ class IpamCircuitTerminationRead(BaseModel):
     endpoint: str
     interface_id: int | None
     label: str | None
+
+
+class Ipv4PrefixSplitHalfIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    cidr: str = Field(..., min_length=1, max_length=32)
+
+    @field_validator("cidr")
+    @classmethod
+    def cidr_strip(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("cidr kan ikke være tom")
+        return s
+
+
+class Ipv4PrefixSplitRequest(BaseModel):
+    """Del et IPv4-prefiks i to undernett som til sammen dekker hele forelderen (ingen hull)."""
+
+    first: Ipv4PrefixSplitHalfIn
+    second: Ipv4PrefixSplitHalfIn
+    migrate_inventory: bool = Field(
+        True,
+        description="Flytt IPAM-inventory og DCIM-tildelinger som peker på forelderen, til riktig barn-prefiks",
+    )
+    acknowledge_network_broadcast: bool = Field(
+        False,
+        description="Påkrevd når en eksisterende adresse faller på nettverks- eller broadcast-adresse i et av barna",
+    )
+    dry_run: bool = Field(True, description="True = kun validering og oppsummering, ingen DB-endring")
+
+
+class Ipv4PrefixSplitConflictRead(BaseModel):
+    address: str
+    role: Literal["network", "broadcast"]
+    child: Literal["first", "second"]
+    message: str
+
+
+class Ipv4PrefixSplitResponse(BaseModel):
+    dry_run: bool
+    has_child_prefixes: bool
+    partition_ok: bool
+    detail: str | None = Field(None, description="Valideringsfeil eller kort status")
+    first_cidr: str | None = None
+    second_cidr: str | None = None
+    ipam_inventory_on_parent: int = 0
+    ipam_migrate_left: int = 0
+    ipam_migrate_right: int = 0
+    dcim_iface_on_parent: int = 0
+    dcim_device_on_parent: int = 0
+    conflicts: list[Ipv4PrefixSplitConflictRead] = Field(default_factory=list)
+    first_prefix: Ipv4PrefixRead | None = None
+    second_prefix: Ipv4PrefixRead | None = None

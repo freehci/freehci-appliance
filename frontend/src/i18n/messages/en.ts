@@ -1041,7 +1041,20 @@ export const en = {
   "ipam.ipv4.splitSubnet": "Split into two halves (/n+1)",
   "ipam.ipv4.splitTitle": "Split prefix",
   "ipam.ipv4.splitIntro":
-    "Creates two new prefixes that each cover half of {cidr}. Site, tenant, VLAN and VRF are copied from the parent. The parent prefix is kept.",
+    "Creates two new prefixes that together cover all of {cidr} (no gaps). You can edit the CIDRs below; they must partition the parent exactly. Site, tenant, VLAN and VRF are copied from the parent. The parent prefix is kept.",
+  "ipam.ipv4.splitCidrHint":
+    "Typical case: two equal halves (/n+1). You can also use other valid pairs as long as they partition the parent with no overlap and no unused space.",
+  "ipam.ipv4.splitCidrLo": "First subnet (CIDR)",
+  "ipam.ipv4.splitCidrHi": "Second subnet (CIDR)",
+  "ipam.ipv4.splitResetHalves": "Reset to equal halves",
+  "ipam.ipv4.splitPreviewLoading": "Checking split…",
+  "ipam.ipv4.splitMigrateLabel": "Move IPAM inventory and DCIM IP assignments to the matching child prefix",
+  "ipam.ipv4.splitSummary":
+    "On this prefix: {inv} IPAM address row(s), {iface} DCIM interface assignment(s), {dev} DCIM device assignment(s).",
+  "ipam.ipv4.splitConflictsTitle": "These addresses fall on a network or broadcast address in a child subnet after split:",
+  "ipam.ipv4.splitAckBroadcast": "I understand — proceed anyway and migrate these rows",
+  "ipam.ipv4.splitMustMigrate": "There are reservations or DCIM links on this prefix — enable migration or clear them before splitting.",
+  "ipam.ipv4.splitHasChildren": "This prefix already has child prefixes registered; split is not allowed.",
   "ipam.ipv4.splitNameLo": "Name (first half)",
   "ipam.ipv4.splitNameHi": "Name (second half)",
   "ipam.ipv4.splitCreate": "Create both",

@@ -15,6 +15,8 @@ from app.schemas.ipam import (
     Ipv4PrefixCreate,
     Ipv4PrefixExploreRead,
     Ipv4PrefixRead,
+    Ipv4PrefixSplitRequest,
+    Ipv4PrefixSplitResponse,
     Ipv4PrefixUpdate,
     PrefixAddressGridRead,
     SubnetScanCreate,
@@ -34,6 +36,7 @@ from app.schemas.ipam import (
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
+from app.services import ipam_prefix_split as split_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
@@ -92,6 +95,15 @@ def delete_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="prefiks ikke funnet")
     ipam_svc.delete_ipv4_prefix(db, row)
+
+
+@router.post("/ipv4-prefixes/{prefix_id}/split", response_model=Ipv4PrefixSplitResponse)
+def split_ipv4_prefix(
+    prefix_id: int,
+    data: Ipv4PrefixSplitRequest,
+    db: Session = Depends(get_db),
+) -> Ipv4PrefixSplitResponse:
+    return split_svc.ipv4_prefix_split(db, prefix_id, data)
 
 
 @router.post("/subnet-scans", response_model=SubnetScanRead)
