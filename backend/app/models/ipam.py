@@ -31,6 +31,10 @@ class IpamIpv4Prefix(Base):
         ForeignKey("tenants.id", ondelete="SET NULL"),
         nullable=True,
     )
+    vlan_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vlans.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Kanonisk IPv4 CIDR-streng, f.eks. 192.168.1.0/24 (normaliseres i tjenestelaget).

@@ -2,6 +2,7 @@ export type Ipv4Prefix = {
   id: number;
   site_id: number;
   tenant_id?: number | null;
+  vlan_id?: number | null;
   name: string;
   cidr: string;
   description: string | null;

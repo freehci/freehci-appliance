@@ -27,6 +27,7 @@ from app.schemas.ipam import (
 )
 from app.services import dcim as dcim_svc
 from app.services import tenant as tenant_svc
+from app.services import ipam_facilities as fac_svc
 
 
 def _ipv4_address_total(cidr: str) -> int:
@@ -192,6 +193,7 @@ def ipv4_prefix_read(
         id=row.id,
         site_id=row.site_id,
         tenant_id=row.tenant_id,
+        vlan_id=getattr(row, "vlan_id", None),
         name=row.name,
         cidr=row.cidr,
         description=row.description,
@@ -233,10 +235,17 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
         raise HTTPException(status_code=404, detail="site ikke funnet")
     if data.tenant_id is not None and tenant_svc.get_tenant(db, data.tenant_id) is None:
         raise HTTPException(status_code=404, detail="tenant ikke funnet")
+    if data.vlan_id is not None:
+        v = fac_svc.get_vlan(db, int(data.vlan_id))
+        if v is None:
+            raise HTTPException(status_code=404, detail="vlan ikke funnet")
+        if v.site_id != data.site_id:
+            raise HTTPException(status_code=400, detail="vlan tilhører ikke samme site")
     cidr = _normalize_ipv4_cidr(data.cidr)
     row = IpamIpv4Prefix(
         site_id=data.site_id,
         tenant_id=data.tenant_id,
+        vlan_id=data.vlan_id,
         name=data.name.strip(),
         cidr=cidr,
         description=data.description,
@@ -272,6 +281,17 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         if tid is not None and tenant_svc.get_tenant(db, int(tid)) is None:
             raise HTTPException(status_code=404, detail="tenant ikke funnet")
         row.tenant_id = tid
+    if "vlan_id" in patch:
+        vid = patch["vlan_id"]
+        if vid is None:
+            row.vlan_id = None
+        else:
+            v = fac_svc.get_vlan(db, int(vid))
+            if v is None:
+                raise HTTPException(status_code=404, detail="vlan ikke funnet")
+            if v.site_id != row.site_id:
+                raise HTTPException(status_code=400, detail="vlan tilhører ikke samme site")
+            row.vlan_id = int(vid)
     try:
         db.commit()
     except IntegrityError:

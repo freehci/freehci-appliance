@@ -56,6 +56,7 @@ def test_tenant_member_and_dcim_grant_and_prefix_tenant() -> None:
                 "name": "Kunde",
                 "cidr": "10.40.0.0/24",
                 "tenant_id": tid,
+                "vlan_id": None,
             },
         )
         assert pfx.status_code == 200, pfx.text

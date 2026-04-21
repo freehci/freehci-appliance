@@ -17,6 +17,7 @@ class Ipv4PrefixCreate(BaseModel):
     description: str | None = None
     subnet_services: dict[str, Any] | None = None
     tenant_id: int | None = Field(None, ge=1, description="Valgfritt: kunde-/colo-tenant for prefikset")
+    vlan_id: int | None = Field(None, ge=1, description="Valgfritt: VLAN (må tilhøre samme site)")
 
     @field_validator("cidr")
     @classmethod
@@ -33,6 +34,7 @@ class Ipv4PrefixUpdate(BaseModel):
     description: str | None = None
     subnet_services: dict[str, Any] | None = None
     tenant_id: int | None = None
+    vlan_id: int | None = None
 
     @field_validator("cidr")
     @classmethod
@@ -51,6 +53,7 @@ class Ipv4PrefixRead(BaseModel):
     id: int
     site_id: int
     tenant_id: int | None = None
+    vlan_id: int | None = None
     name: str
     cidr: str
     description: str | None

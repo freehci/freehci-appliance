@@ -39,10 +39,12 @@ export function IpamPrefixesPage() {
   const [newName, setNewName] = useState("");
   const [newCidr, setNewCidr] = useState("");
   const [newPrefixTenant, setNewPrefixTenant] = useState("");
+  const [newPrefixVlan, setNewPrefixVlan] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editCidr, setEditCidr] = useState("");
   const [editTenantId, setEditTenantId] = useState("");
+  const [editVlanId, setEditVlanId] = useState("");
   const [exploreStack, setExploreStack] = useState<ExploreCrumb[]>([]);
   const [showScanHistory, setShowScanHistory] = useState(false);
   const [linkFor, setLinkFor] = useState<string | null>(null);
@@ -75,6 +77,10 @@ export function IpamPrefixesPage() {
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
+  const vlansQ = useQuery({
+    queryKey: ["ipam", "vlans", "all-for-prefixes"],
+    queryFn: () => ipamApi.listIpamVlans(),
+  });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
 
@@ -167,6 +173,19 @@ export function IpamPrefixesPage() {
     return m;
   }, [tenantsQ.data]);
 
+  const vlanLabelById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const v of vlansQ.data ?? []) m.set(v.id, `VLAN ${v.vid} — ${v.name} (site ${v.site_id})`);
+    return m;
+  }, [vlansQ.data]);
+
+  const vlanOptionsForNewSite = useMemo(() => {
+    const all = vlansQ.data ?? [];
+    const siteNum = newSite.trim() ? Number(newSite) : null;
+    if (siteNum == null || !Number.isFinite(siteNum) || siteNum < 1) return [];
+    return all.filter((v) => v.site_id === siteNum);
+  }, [vlansQ.data, newSite]);
+
   const invalidateIpam = () => {
     void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-prefixes"] });
     void qc.invalidateQueries({ queryKey: ["ipam", "explore"] });
@@ -190,11 +209,13 @@ export function IpamPrefixesPage() {
         name: newName.trim(),
         cidr: newCidr.trim(),
         tenant_id: newPrefixTenant === "" ? undefined : Number(newPrefixTenant),
+        vlan_id: newPrefixVlan === "" ? undefined : Number(newPrefixVlan),
       }),
     onSuccess: () => {
       setNewName("");
       setNewCidr("");
       setNewPrefixTenant("");
+      setNewPrefixVlan("");
       setErr(null);
       invalidateIpam();
     },
@@ -218,7 +239,7 @@ export function IpamPrefixesPage() {
       body,
     }: {
       id: number;
-      body: { name: string; cidr: string; tenant_id: number | null };
+      body: { name: string; cidr: string; tenant_id: number | null; vlan_id: number | null };
     }) => ipamApi.updateIpv4Prefix(id, body),
     onSuccess: () => {
       setEditingId(null);
@@ -1311,6 +1332,17 @@ export function IpamPrefixesPage() {
               ))}
             </select>
           </label>
+          <label>
+            VLAN (valgfritt)
+            <select value={newPrefixVlan} onChange={(e) => setNewPrefixVlan(e.target.value)}>
+              <option value="">{t("dcim.common.none")}</option>
+              {vlanOptionsForNewSite.map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  VLAN {v.vid} — {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="submit" className={dcimStyles.btn} disabled={createPfx.isPending}>
             {createPfx.isPending ? "…" : t("dcim.common.add")}
           </button>
@@ -1382,6 +1414,8 @@ export function IpamPrefixesPage() {
             <tr>
               <th>{t("dcim.common.id")}</th>
               <th>{t("ipam.ipv4.site")}</th>
+              <th>VLAN</th>
+              <th>{t("ipam.ipv4.tenantCol")}</th>
               <th>{t("ipam.ipv4.name")}</th>
               <th>{t("ipam.ipv4.cidr")}</th>
               <th>{t("ipam.ipv4.usageCol")}</th>
@@ -1394,6 +1428,24 @@ export function IpamPrefixesPage() {
               <tr key={x.id}>
                 <td>{x.id}</td>
                 <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
+                <td>
+                  {editingId === x.id ? (
+                    <select value={editVlanId} onChange={(e) => setEditVlanId(e.target.value)} aria-label="VLAN">
+                      <option value="">{t("dcim.common.none")}</option>
+                      {(vlansQ.data ?? [])
+                        .filter((v) => v.site_id === x.site_id)
+                        .map((v) => (
+                          <option key={v.id} value={String(v.id)}>
+                            VLAN {v.vid} — {v.name}
+                          </option>
+                        ))}
+                    </select>
+                  ) : x.vlan_id != null && x.vlan_id > 0 ? (
+                    vlanLabelById.get(x.vlan_id) ?? `#${x.vlan_id}`
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>
                   {editingId === x.id ? (
                     <select
@@ -1485,12 +1537,18 @@ export function IpamPrefixesPage() {
                             setErr(t("ipam.ipv4.addMissing"));
                             return;
                           }
+                          const vid = editVlanId === "" ? null : Number(editVlanId);
+                          if (editVlanId !== "" && (!Number.isFinite(vid) || (vid as number) < 1)) {
+                            setErr(t("ipam.ipv4.addMissing"));
+                            return;
+                          }
                           patchPfx.mutate({
                             id: x.id,
                             body: {
                               name: nm,
                               cidr: cd,
                               tenant_id: tid,
+                              vlan_id: vid,
                             },
                           });
                         }}
@@ -1540,6 +1598,7 @@ export function IpamPrefixesPage() {
                           setEditTenantId(
                             x.tenant_id != null && x.tenant_id > 0 ? String(x.tenant_id) : "",
                           );
+                          setEditVlanId(x.vlan_id != null && x.vlan_id > 0 ? String(x.vlan_id) : "");
                           setErr(null);
                         }}
                       >

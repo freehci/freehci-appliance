@@ -30,6 +30,7 @@ def test_default_tenant_on_site_create_and_vrf_vlan_circuit() -> None:
             json={"site_id": site["id"], "vid": 100, "name": "Servers", "vrf_id": vrf_id},
         )
         assert vlan.status_code == 200, vlan.text
+        vlan_id = int(vlan.json()["id"])
 
         circ = client.post(
             "/api/v1/ipam/circuits",
@@ -54,3 +55,10 @@ def test_default_tenant_on_site_create_and_vrf_vlan_circuit() -> None:
         li = client.get(f"/api/v1/ipam/circuits/{cid}/terminations")
         assert li.status_code == 200
         assert len(li.json()) == 1
+
+        pfx = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site["id"], "name": "LAN", "cidr": "10.99.0.0/24", "vlan_id": vlan_id},
+        )
+        assert pfx.status_code == 200, pfx.text
+        assert pfx.json().get("vlan_id") == vlan_id
