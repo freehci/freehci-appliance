@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./iamApi";
@@ -84,18 +85,22 @@ export function IamPersonDetailPage() {
   });
 
   if (!Number.isFinite(id)) {
-    return <p className={styles.err}>{t("iam.invalidId")}</p>;
+    return (
+      <Panel title={t("iam.invalidId")}>
+        <p className={styles.err}>{t("iam.invalidId")}</p>
+      </Panel>
+    );
   }
 
+  const detailKindLabel =
+    person?.kind === api.IAM_KIND_SERVICE_ACCOUNT ? t("iam.detailServiceAccount") : t("iam.detailPerson");
+  const panelTitle = `${detailKindLabel}: ${person?.username ?? "…"}`;
+
   return (
-    <div>
+    <Panel title={panelTitle}>
       <Link className={styles.back} to={backTo}>
         ← {t("iam.backToList")}
       </Link>
-      <h3 className={styles.sectionTitle}>
-        {person?.kind === api.IAM_KIND_SERVICE_ACCOUNT ? t("iam.detailServiceAccount") : t("iam.detailPerson")}:{" "}
-        {person?.username ?? "…"}
-      </h3>
       {err ? <p className={styles.err}>{err}</p> : null}
 
       {q.isLoading ? (
@@ -200,6 +205,6 @@ export function IamPersonDetailPage() {
       ) : (
         <p className={styles.err}>{t("iam.notFound")}</p>
       )}
-    </div>
+    </Panel>
   );
 }

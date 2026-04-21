@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./iamApi";
@@ -28,8 +29,7 @@ export function IamRolesPage() {
   });
 
   return (
-    <div>
-      <h3 className={styles.sectionTitle}>{t("iam.tabRoles")}</h3>
+    <Panel title={t("nav.iamRolesNav")}>
       <p className={styles.intro}>{t("iam.slugHint")}</p>
       <div className={styles.rowActions}>
         <div className={styles.field}>
@@ -69,6 +69,6 @@ export function IamRolesPage() {
         </tbody>
       </table>
       {!q.isLoading && (q.data?.length ?? 0) === 0 ? <p className={styles.intro}>{t("iam.emptyRoles")}</p> : null}
-    </div>
+    </Panel>
   );
 }

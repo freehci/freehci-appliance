@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./iamApi";
@@ -50,17 +51,20 @@ export function IamRoleDetailPage() {
   });
 
   if (!Number.isFinite(id)) {
-    return <p className={styles.err}>{t("iam.invalidId")}</p>;
+    return (
+      <Panel title={t("iam.invalidId")}>
+        <p className={styles.err}>{t("iam.invalidId")}</p>
+      </Panel>
+    );
   }
 
+  const panelTitle = `${t("iam.detailRole")}: ${role?.name ?? "…"}`;
+
   return (
-    <div>
+    <Panel title={panelTitle}>
       <Link className={styles.back} to="/iam/roles">
         ← {t("iam.backToList")}
       </Link>
-      <h3 className={styles.sectionTitle}>
-        {t("iam.detailRole")}: {role?.name ?? "…"}
-      </h3>
       {err ? <p className={styles.err}>{err}</p> : null}
 
       {q.isLoading ? (
@@ -107,6 +111,6 @@ export function IamRoleDetailPage() {
       ) : (
         <p className={styles.err}>{t("iam.notFound")}</p>
       )}
-    </div>
+    </Panel>
   );
 }
