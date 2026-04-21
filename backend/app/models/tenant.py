@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
+
 from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.dcim import Site
+    from app.models.ipam import IpamCircuit
+    from app.models.tenant_access import TenantDcimGrant, TenantUserMembership
 
 
 class Tenant(Base):

@@ -154,15 +154,16 @@ run_compose version >/dev/null
 
 echo "==> Cloning or updating repository..."
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
-  git -C "${INSTALL_DIR}" fetch origin "${GIT_BRANCH}" --depth 1 || git -C "${INSTALL_DIR}" fetch origin "${GIT_BRANCH}"
-  git -C "${INSTALL_DIR}" checkout "${GIT_BRANCH}"
-  if git -C "${INSTALL_DIR}" pull --ff-only origin "${GIT_BRANCH}"; then
-    :
-  elif [[ "${GIT_RESET_HARD:-1}" == "1" ]]; then
-    echo "warning: could not fast-forward ${GIT_BRANCH} (diverged history or force-push). Resetting to origin/${GIT_BRANCH} — local commits in this clone are discarded."
-    git -C "${INSTALL_DIR}" reset --hard "origin/${GIT_BRANCH}"
+  # Installer bør være idempotent og minst mulig "skummel" ved history rewrite/force-push.
+  # Vi bruker fetch+reset i stedet for pull --ff-only for å unngå fatal/FF-støy.
+  git -C "${INSTALL_DIR}" fetch origin "${GIT_BRANCH}" --depth 1 >/dev/null 2>&1 || git -C "${INSTALL_DIR}" fetch origin "${GIT_BRANCH}" >/dev/null 2>&1
+  git -C "${INSTALL_DIR}" checkout -f "${GIT_BRANCH}" >/dev/null 2>&1 || git -C "${INSTALL_DIR}" checkout -B "${GIT_BRANCH}" "origin/${GIT_BRANCH}" >/dev/null 2>&1
+  if [[ "${GIT_RESET_HARD:-1}" == "1" ]]; then
+    git -C "${INSTALL_DIR}" reset --hard "origin/${GIT_BRANCH}" >/dev/null 2>&1
   else
-    die "git pull --ff-only failed. Resolve conflicts manually or rerun with GIT_RESET_HARD=1"
+    # Faller tilbake til "pull --ff-only" om man eksplisitt vil unngå hard reset.
+    git -C "${INSTALL_DIR}" pull --ff-only origin "${GIT_BRANCH}" >/dev/null 2>&1 \
+      || die "git pull --ff-only failed. Rerun with GIT_RESET_HARD=1 for a clean update"
   fi
 else
   mkdir -p "$(dirname "${INSTALL_DIR}")"
