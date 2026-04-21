@@ -1089,6 +1089,8 @@ export const nb = {
   "ipam.grid.filter.ownerAll": "Alle eiere",
   "ipam.grid.filter.reset": "Nullstill filter",
   "ipam.grid.pagination.showing": "Viser",
+  "ipam.vlan.showSubnets": "Subnets",
+  "ipam.vlan.hideSubnets": "Lukk",
   "ipam.grid.pagination.of": "av",
   "ipam.grid.pagination.perPage": "Per side",
   "ipam.grid.pagination.all": "Alle",

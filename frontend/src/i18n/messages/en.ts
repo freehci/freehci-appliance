@@ -1079,6 +1079,8 @@ export const en = {
   "ipam.grid.filter.ownerAll": "All owners",
   "ipam.grid.filter.reset": "Clear filters",
   "ipam.grid.pagination.showing": "Showing",
+  "ipam.vlan.showSubnets": "Subnets",
+  "ipam.vlan.hideSubnets": "Close",
   "ipam.grid.pagination.of": "of",
   "ipam.grid.pagination.perPage": "Per page",
   "ipam.grid.pagination.all": "All",

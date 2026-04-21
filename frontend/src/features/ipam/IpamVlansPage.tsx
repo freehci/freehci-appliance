@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
@@ -11,6 +11,7 @@ export function IpamVlansPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
+  const [expandVlanId, setExpandVlanId] = useState<number | null>(null);
   const [filterSite, setFilterSite] = useState("");
   const [siteId, setSiteId] = useState("");
   const [vid, setVid] = useState("");
@@ -28,6 +29,11 @@ export function IpamVlansPage() {
   const prefixesQ = useQuery({
     queryKey: ["ipam", "ipv4-prefixes", "for-vlans", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listIpv4Prefixes(siteIdFilter),
+  });
+  const expandedPrefixesQ = useQuery({
+    queryKey: ["ipam", "ipv4-prefixes", "by-vlan", expandVlanId ?? "none", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listIpv4Prefixes(siteIdFilter, undefined, expandVlanId!),
+    enabled: expandVlanId != null && expandVlanId > 0,
   });
   const vrfsQ = useQuery({
     queryKey: ["ipam", "vrfs", siteId === "" ? "all" : Number(siteId)],
@@ -202,28 +208,80 @@ export function IpamVlansPage() {
           </thead>
           <tbody>
             {vlansQ.data.map((v) => (
-              <tr key={v.id}>
-                <td>{siteNameById.get(v.site_id) ?? v.site_id}</td>
-                <td>
-                  {v.tenant_id != null && v.tenant_id > 0
-                    ? tenantNameById.get(v.tenant_id) ?? `#${v.tenant_id}`
-                    : "—"}
-                </td>
-                <td>{v.vid}</td>
-                <td>{v.name}</td>
-                <td className={dcimStyles.muted}>{prefixesByVlanId.get(v.id) ?? 0}</td>
-                <td>{v.vrf_id != null ? vrfNameById.get(v.vrf_id) ?? `#${v.vrf_id}` : "—"}</td>
-                <td>
-                  <button
-                    type="button"
-                    className={dcimStyles.btnLink}
-                    disabled={delM.isPending}
-                    onClick={() => delM.mutate(v.id)}
-                  >
-                    {t("dcim.common.delete")}
-                  </button>
-                </td>
-              </tr>
+              <Fragment key={v.id}>
+                <tr key={v.id}>
+                  <td>{siteNameById.get(v.site_id) ?? v.site_id}</td>
+                  <td>
+                    {v.tenant_id != null && v.tenant_id > 0
+                      ? tenantNameById.get(v.tenant_id) ?? `#${v.tenant_id}`
+                      : "—"}
+                  </td>
+                  <td>{v.vid}</td>
+                  <td>{v.name}</td>
+                  <td className={dcimStyles.muted}>
+                    <button
+                      type="button"
+                      className={dcimStyles.btnLink}
+                      onClick={() => setExpandVlanId((cur) => (cur === v.id ? null : v.id))}
+                    >
+                      {prefixesByVlanId.get(v.id) ?? 0}
+                    </button>
+                  </td>
+                  <td>{v.vrf_id != null ? vrfNameById.get(v.vrf_id) ?? `#${v.vrf_id}` : "—"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className={dcimStyles.btnLink}
+                      disabled={delM.isPending}
+                      onClick={() => delM.mutate(v.id)}
+                    >
+                      {t("dcim.common.delete")}
+                    </button>
+                  </td>
+                </tr>
+                {expandVlanId === v.id ? (
+                  <tr key={`${v.id}-subnets`}>
+                    <td colSpan={7} style={{ paddingTop: "0.25rem" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <strong>{t("ipam.vlan.showSubnets")}</strong>
+                        <button type="button" className={dcimStyles.btnLink} onClick={() => setExpandVlanId(null)}>
+                          {t("ipam.vlan.hideSubnets")}
+                        </button>
+                      </div>
+                      {expandedPrefixesQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
+                      {expandedPrefixesQ.isError ? (
+                        <p className={dcimStyles.err}>{(expandedPrefixesQ.error as Error).message}</p>
+                      ) : null}
+                      {expandedPrefixesQ.data && expandedPrefixesQ.data.length > 0 ? (
+                        <table className={dcimStyles.table} style={{ marginTop: "0.5rem" }}>
+                          <thead>
+                            <tr>
+                              <th>{t("ipam.ipv4.name")}</th>
+                              <th>{t("ipam.ipv4.cidr")}</th>
+                              <th>{t("ipam.ipv4.site")}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expandedPrefixesQ.data.map((p) => (
+                              <tr key={p.id}>
+                                <td>{p.name}</td>
+                                <td>
+                                  <code>{p.cidr}</code>
+                                </td>
+                                <td className={dcimStyles.muted}>
+                                  {siteNameById.get(p.site_id) ?? `#${p.site_id}`}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        !expandedPrefixesQ.isLoading && <p className={dcimStyles.muted}>—</p>
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>
