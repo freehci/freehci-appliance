@@ -58,7 +58,14 @@ def test_default_tenant_on_site_create_and_vrf_vlan_circuit() -> None:
 
         pfx = client.post(
             "/api/v1/ipam/ipv4-prefixes",
-            json={"site_id": site["id"], "name": "LAN", "cidr": "10.99.0.0/24", "vlan_id": vlan_id},
+            json={
+                "site_id": site["id"],
+                "name": "LAN",
+                "cidr": "10.99.0.0/24",
+                "vlan_id": vlan_id,
+                "vrf_id": vrf_id,
+            },
         )
         assert pfx.status_code == 200, pfx.text
         assert pfx.json().get("vlan_id") == vlan_id
+        assert pfx.json().get("vrf_id") == vrf_id

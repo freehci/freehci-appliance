@@ -41,11 +41,13 @@ export function IpamPrefixesPage() {
   const [newCidr, setNewCidr] = useState("");
   const [newPrefixTenant, setNewPrefixTenant] = useState("");
   const [newPrefixVlan, setNewPrefixVlan] = useState("");
+  const [newPrefixVrf, setNewPrefixVrf] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editCidr, setEditCidr] = useState("");
   const [editTenantId, setEditTenantId] = useState("");
   const [editVlanId, setEditVlanId] = useState("");
+  const [editVrfId, setEditVrfId] = useState("");
   const [exploreStack, setExploreStack] = useState<ExploreCrumb[]>([]);
   const [showScanHistory, setShowScanHistory] = useState(false);
   const [linkFor, setLinkFor] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export function IpamPrefixesPage() {
     queryKey: ["ipam", "vlans", "all-for-prefixes"],
     queryFn: () => ipamApi.listIpamVlans(),
   });
+  const vrfsQ = useQuery({ queryKey: ["ipam", "vrfs", "all-for-prefixes"], queryFn: () => ipamApi.listIpamVrfs() });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
 
@@ -180,12 +183,25 @@ export function IpamPrefixesPage() {
     return m;
   }, [vlansQ.data]);
 
+  const vrfLabelById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const v of vrfsQ.data ?? []) m.set(v.id, `${v.name} (site ${v.site_id})`);
+    return m;
+  }, [vrfsQ.data]);
+
   const vlanOptionsForNewSite = useMemo(() => {
     const all = vlansQ.data ?? [];
     const siteNum = newSite.trim() ? Number(newSite) : null;
     if (siteNum == null || !Number.isFinite(siteNum) || siteNum < 1) return [];
     return all.filter((v) => v.site_id === siteNum);
   }, [vlansQ.data, newSite]);
+
+  const vrfOptionsForNewSite = useMemo(() => {
+    const all = vrfsQ.data ?? [];
+    const siteNum = newSite.trim() ? Number(newSite) : null;
+    if (siteNum == null || !Number.isFinite(siteNum) || siteNum < 1) return [];
+    return all.filter((v) => v.site_id === siteNum);
+  }, [vrfsQ.data, newSite]);
 
   const invalidateIpam = () => {
     void qc.invalidateQueries({ queryKey: ["ipam", "ipv4-prefixes"] });
@@ -211,12 +227,14 @@ export function IpamPrefixesPage() {
         cidr: newCidr.trim(),
         tenant_id: newPrefixTenant === "" ? undefined : Number(newPrefixTenant),
         vlan_id: newPrefixVlan === "" ? undefined : Number(newPrefixVlan),
+        vrf_id: newPrefixVrf === "" ? undefined : Number(newPrefixVrf),
       }),
     onSuccess: () => {
       setNewName("");
       setNewCidr("");
       setNewPrefixTenant("");
       setNewPrefixVlan("");
+      setNewPrefixVrf("");
       setErr(null);
       invalidateIpam();
     },
@@ -240,7 +258,7 @@ export function IpamPrefixesPage() {
       body,
     }: {
       id: number;
-      body: { name: string; cidr: string; tenant_id: number | null; vlan_id: number | null };
+      body: { name: string; cidr: string; tenant_id: number | null; vlan_id: number | null; vrf_id: number | null };
     }) => ipamApi.updateIpv4Prefix(id, body),
     onSuccess: () => {
       setEditingId(null);
@@ -1344,6 +1362,17 @@ export function IpamPrefixesPage() {
               ))}
             </select>
           </label>
+          <label>
+            VRF (valgfritt)
+            <select value={newPrefixVrf} onChange={(e) => setNewPrefixVrf(e.target.value)}>
+              <option value="">{t("dcim.common.none")}</option>
+              {vrfOptionsForNewSite.map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="submit" className={dcimStyles.btn} disabled={createPfx.isPending}>
             {createPfx.isPending ? "…" : t("dcim.common.add")}
           </button>
@@ -1415,6 +1444,7 @@ export function IpamPrefixesPage() {
             <tr>
               <th>{t("dcim.common.id")}</th>
               <th>{t("ipam.ipv4.site")}</th>
+              <th>VRF</th>
               <th>VLAN</th>
               <th>{t("ipam.ipv4.tenantCol")}</th>
               <th>{t("ipam.ipv4.name")}</th>
@@ -1429,6 +1459,24 @@ export function IpamPrefixesPage() {
               <tr key={x.id}>
                 <td>{x.id}</td>
                 <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
+                <td>
+                  {editingId === x.id ? (
+                    <select value={editVrfId} onChange={(e) => setEditVrfId(e.target.value)} aria-label="VRF">
+                      <option value="">{t("dcim.common.none")}</option>
+                      {(vrfsQ.data ?? [])
+                        .filter((v) => v.site_id === x.site_id)
+                        .map((v) => (
+                          <option key={v.id} value={String(v.id)}>
+                            {v.name}
+                          </option>
+                        ))}
+                    </select>
+                  ) : x.vrf_id != null && x.vrf_id > 0 ? (
+                    vrfLabelById.get(x.vrf_id) ?? `#${x.vrf_id}`
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>
                   {editingId === x.id ? (
                     <select value={editVlanId} onChange={(e) => setEditVlanId(e.target.value)} aria-label="VLAN">
@@ -1550,6 +1598,11 @@ export function IpamPrefixesPage() {
                             setErr(t("ipam.ipv4.addMissing"));
                             return;
                           }
+                          const vrfId = editVrfId === "" ? null : Number(editVrfId);
+                          if (editVrfId !== "" && (!Number.isFinite(vrfId) || (vrfId as number) < 1)) {
+                            setErr(t("ipam.ipv4.addMissing"));
+                            return;
+                          }
                           patchPfx.mutate({
                             id: x.id,
                             body: {
@@ -1557,6 +1610,7 @@ export function IpamPrefixesPage() {
                               cidr: cd,
                               tenant_id: tid,
                               vlan_id: vid,
+                              vrf_id: vrfId,
                             },
                           });
                         }}
@@ -1607,6 +1661,7 @@ export function IpamPrefixesPage() {
                             x.tenant_id != null && x.tenant_id > 0 ? String(x.tenant_id) : "",
                           );
                           setEditVlanId(x.vlan_id != null && x.vlan_id > 0 ? String(x.vlan_id) : "");
+                          setEditVrfId(x.vrf_id != null && x.vrf_id > 0 ? String(x.vrf_id) : "");
                           setErr(null);
                         }}
                       >

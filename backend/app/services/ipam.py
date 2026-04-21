@@ -194,6 +194,7 @@ def ipv4_prefix_read(
         site_id=row.site_id,
         tenant_id=row.tenant_id,
         vlan_id=getattr(row, "vlan_id", None),
+        vrf_id=getattr(row, "vrf_id", None),
         name=row.name,
         cidr=row.cidr,
         description=row.description,
@@ -290,12 +291,19 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
             raise HTTPException(status_code=404, detail="vlan ikke funnet")
         if v.site_id != data.site_id:
             raise HTTPException(status_code=400, detail="vlan tilhører ikke samme site")
+    if data.vrf_id is not None:
+        vrf = fac_svc.get_vrf(db, int(data.vrf_id))
+        if vrf is None:
+            raise HTTPException(status_code=404, detail="vrf ikke funnet")
+        if vrf.site_id != data.site_id:
+            raise HTTPException(status_code=400, detail="vrf tilhører ikke samme site")
     cidr = _normalize_ipv4_cidr(data.cidr)
     _require_no_partial_overlap(db, site_id=data.site_id, cidr=cidr)
     row = IpamIpv4Prefix(
         site_id=data.site_id,
         tenant_id=data.tenant_id,
         vlan_id=data.vlan_id,
+        vrf_id=data.vrf_id,
         name=data.name.strip(),
         cidr=cidr,
         description=data.description,
@@ -344,6 +352,17 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
             if v.site_id != row.site_id:
                 raise HTTPException(status_code=400, detail="vlan tilhører ikke samme site")
             row.vlan_id = int(vid)
+    if "vrf_id" in patch:
+        vrf_id = patch["vrf_id"]
+        if vrf_id is None:
+            row.vrf_id = None
+        else:
+            vrf = fac_svc.get_vrf(db, int(vrf_id))
+            if vrf is None:
+                raise HTTPException(status_code=404, detail="vrf ikke funnet")
+            if vrf.site_id != row.site_id:
+                raise HTTPException(status_code=400, detail="vrf tilhører ikke samme site")
+            row.vrf_id = int(vrf_id)
     try:
         db.commit()
     except IntegrityError:

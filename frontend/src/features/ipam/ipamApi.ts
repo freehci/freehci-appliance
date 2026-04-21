@@ -43,6 +43,7 @@ export function createIpv4Prefix(body: {
   description?: string | null;
   tenant_id?: number | null;
   vlan_id?: number | null;
+  vrf_id?: number | null;
 }): Promise<Ipv4Prefix> {
   return apiPost(`${P}/ipv4-prefixes`, body);
 }
@@ -56,6 +57,7 @@ export function updateIpv4Prefix(
     subnet_services?: Record<string, unknown> | null;
     tenant_id?: number | null;
     vlan_id?: number | null;
+    vrf_id?: number | null;
   },
 ): Promise<Ipv4Prefix> {
   return apiPatch(`${P}/ipv4-prefixes/${id}`, body);
