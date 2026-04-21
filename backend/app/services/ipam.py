@@ -65,31 +65,45 @@ def _prefix_sort_key(row: IpamIpv4Prefix) -> tuple[int, str]:
     return (net.prefixlen, str(net.network_address))
 
 
+def _immediate_parent_row(child: IpamIpv4Prefix, same_site_rows: list[IpamIpv4Prefix]) -> IpamIpv4Prefix | None:
+    """Nærmeste «omsluttende» prefiks på samme site (strammeste supernett i databasen)."""
+    try:
+        child_net = ipaddress.ip_network(child.cidr, strict=False)
+    except ValueError:
+        return None
+    if child_net.version != 4:
+        return None
+    best: IpamIpv4Prefix | None = None
+    best_pl = -1
+    for p in same_site_rows:
+        if p.id == child.id:
+            continue
+        try:
+            p_net = ipaddress.ip_network(p.cidr, strict=False)
+        except ValueError:
+            continue
+        if p_net.version != 4:
+            continue
+        if not child_net.subnet_of(p_net) or child_net.prefixlen <= p_net.prefixlen:
+            continue
+        if p_net.prefixlen > best_pl:
+            best_pl = p_net.prefixlen
+            best = p
+    return best
+
+
 def _child_prefix_orms(
     parent: IpamIpv4Prefix,
     same_site_rows: list[IpamIpv4Prefix],
 ) -> list[IpamIpv4Prefix]:
-    """Andre prefiks på samme site som er strengere delnett av parent."""
-    try:
-        parent_net = ipaddress.ip_network(parent.cidr, strict=False)
-    except ValueError:
-        return []
-    if parent_net.version != 4:
-        return []
+    """Direkte underprefiks: strengere CIDR der nærmeste forelder i DB er `parent`."""
     out: list[IpamIpv4Prefix] = []
-    for o in same_site_rows:
-        if o.id == parent.id:
+    for c in same_site_rows:
+        if c.id == parent.id:
             continue
-        try:
-            on = ipaddress.ip_network(o.cidr, strict=False)
-        except ValueError:
-            continue
-        if on.version != 4:
-            continue
-        if on.prefixlen <= parent_net.prefixlen:
-            continue
-        if on.subnet_of(parent_net):
-            out.append(o)
+        ipar = _immediate_parent_row(c, same_site_rows)
+        if ipar is not None and ipar.id == parent.id:
+            out.append(c)
     out.sort(key=_prefix_sort_key)
     return out
 

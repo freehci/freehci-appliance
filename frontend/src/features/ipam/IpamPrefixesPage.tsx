@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
@@ -9,6 +9,12 @@ import * as dcimApi from "@/features/dcim/dcimApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "@/features/dcim/interfaceTreeLabels";
 import type { Ipv4Prefix, PrefixAddressGridRow } from "./types";
+import {
+  buildPrefixTreeIndex,
+  flattenVisiblePrefixTree,
+  parseIpv4Cidr,
+  splitIpv4IntoHalves,
+} from "./ipv4PrefixTree";
 import * as ipamApi from "./ipamApi";
 import { IpamIpRequestModal } from "./IpamIpRequestModal";
 
@@ -31,6 +37,7 @@ function formatInventoryTimestamp(iso: string | null | undefined): string {
 
 export function IpamPrefixesPage() {
   const { t } = useI18n();
+  const splitDialogTitleId = useId();
   const qc = useQueryClient();
   const nav = useNavigate();
   const [err, setErr] = useState<string | null>(null);
@@ -77,6 +84,12 @@ export function IpamPrefixesPage() {
   const [svcGateway, setSvcGateway] = useState("");
   const [svcDns, setSvcDns] = useState("");
   const [svcDhcp, setSvcDhcp] = useState("");
+  const [expandedPrefixIds, setExpandedPrefixIds] = useState<Set<number>>(() => new Set());
+  const rootIdsKeyRef = useRef<string>("");
+  const [splitTarget, setSplitTarget] = useState<Ipv4Prefix | null>(null);
+  const [splitNameLo, setSplitNameLo] = useState("");
+  const [splitNameHi, setSplitNameHi] = useState("");
+  const [splitErr, setSplitErr] = useState<string | null>(null);
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
@@ -389,16 +402,18 @@ export function IpamPrefixesPage() {
     };
   }, [filteredGridRows, gridPage, gridPageSize]);
 
-  const prefixListSlice = useMemo(() => {
-    const all = prefixesQ.data ?? [];
-    const total = all.length;
+  const prefixTreeIndex = useMemo(() => buildPrefixTreeIndex(prefixesQ.data ?? []), [prefixesQ.data]);
+
+  const prefixRootsSlice = useMemo(() => {
+    const roots = prefixTreeIndex.roots;
+    const total = roots.length;
     const size = prefixListPageSize === 0 ? Math.max(total, 1) : prefixListPageSize;
     const pageCount = Math.max(1, Math.ceil(total / size));
     const safePage = Math.min(Math.max(0, prefixListPage), pageCount - 1);
     const start = safePage * size;
     const end = prefixListPageSize === 0 ? total : Math.min(start + size, total);
     return {
-      rows: all.slice(start, end),
+      rows: roots.slice(start, end),
       total,
       size,
       pageCount,
@@ -406,14 +421,91 @@ export function IpamPrefixesPage() {
       rangeStart: total === 0 ? 0 : start + 1,
       rangeEnd: end,
     };
-  }, [prefixesQ.data, prefixListPage, prefixListPageSize]);
+  }, [prefixTreeIndex.roots, prefixListPage, prefixListPageSize]);
+
+  const visiblePrefixRows = useMemo(
+    () =>
+      flattenVisiblePrefixTree(
+        prefixRootsSlice.rows,
+        prefixTreeIndex.childrenByParentId,
+        expandedPrefixIds,
+      ),
+    [prefixRootsSlice.rows, prefixTreeIndex.childrenByParentId, expandedPrefixIds],
+  );
 
   useEffect(() => {
-    const total = prefixesQ.data?.length ?? 0;
+    const key = prefixTreeIndex.roots
+      .map((r) => r.id)
+      .sort((a, b) => a - b)
+      .join(",");
+    if (key === rootIdsKeyRef.current) return;
+    rootIdsKeyRef.current = key;
+    setExpandedPrefixIds(new Set(prefixTreeIndex.roots.map((r) => r.id)));
+  }, [prefixTreeIndex.roots]);
+
+  useEffect(() => {
+    const total = prefixTreeIndex.roots.length;
     const size = prefixListPageSize === 0 ? Math.max(total, 1) : prefixListPageSize;
     const pageCount = Math.max(1, Math.ceil(total / size));
     setPrefixListPage((p) => Math.min(Math.max(0, p), pageCount - 1));
-  }, [prefixesQ.data?.length, prefixListPageSize]);
+  }, [prefixTreeIndex.roots.length, prefixListPageSize]);
+
+  const splitHalves = useMemo(() => (splitTarget ? splitIpv4IntoHalves(splitTarget.cidr) : null), [splitTarget]);
+
+  useEffect(() => {
+    if (!splitTarget) {
+      setSplitNameLo("");
+      setSplitNameHi("");
+      setSplitErr(null);
+      return;
+    }
+    const base = splitTarget.name.trim() || splitTarget.cidr;
+    setSplitNameLo(`${base} · 1`);
+    setSplitNameHi(`${base} · 2`);
+    setSplitErr(null);
+  }, [splitTarget]);
+
+  const createSplitChildren = useMutation({
+    mutationFn: async () => {
+      if (!splitTarget || !splitHalves) throw new Error("split");
+      const [lo, hi] = splitHalves;
+      const nlo = splitNameLo.trim();
+      const nhi = splitNameHi.trim();
+      if (!nlo || !nhi) throw new Error(t("ipam.ipv4.splitMissingNames"));
+      await ipamApi.createIpv4Prefix({
+        site_id: splitTarget.site_id,
+        name: nlo,
+        cidr: lo,
+        tenant_id: splitTarget.tenant_id ?? undefined,
+        vlan_id: splitTarget.vlan_id ?? undefined,
+        vrf_id: splitTarget.vrf_id ?? undefined,
+      });
+      await ipamApi.createIpv4Prefix({
+        site_id: splitTarget.site_id,
+        name: nhi,
+        cidr: hi,
+        tenant_id: splitTarget.tenant_id ?? undefined,
+        vlan_id: splitTarget.vlan_id ?? undefined,
+        vrf_id: splitTarget.vrf_id ?? undefined,
+      });
+    },
+    onMutate: () => setSplitErr(null),
+    onSuccess: () => {
+      setSplitTarget(null);
+      setSplitErr(null);
+      invalidateIpam();
+    },
+    onError: (e: Error) => setSplitErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  useEffect(() => {
+    if (!splitTarget) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !createSplitChildren.isPending) setSplitTarget(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [splitTarget, createSplitChildren.isPending]);
 
   const linkDeviceNum = linkDeviceId === "" ? null : Number(linkDeviceId);
   const interfacesLinkQ = useQuery({
@@ -1400,10 +1492,10 @@ export function IpamPrefixesPage() {
             <span>
               {t("ipam.grid.pagination.showing")}{" "}
               <strong>
-                {prefixListSlice.rangeStart}–{prefixListSlice.rangeEnd}
+                {prefixRootsSlice.rangeStart}–{prefixRootsSlice.rangeEnd}
               </strong>{" "}
               {t("ipam.grid.pagination.of")}{" "}
-              <strong>{prefixListSlice.total}</strong>
+              <strong>{prefixRootsSlice.total}</strong>
             </span>
             <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
               {t("ipam.grid.pagination.perPage")}
@@ -1422,7 +1514,7 @@ export function IpamPrefixesPage() {
               <button
                 type="button"
                 className={dcimStyles.btn}
-                disabled={prefixListSlice.safePage <= 0}
+                disabled={prefixRootsSlice.safePage <= 0}
                 onClick={() => setPrefixListPage((p) => Math.max(0, p - 1))}
               >
                 {t("ipam.grid.pagination.prev")}
@@ -1430,18 +1522,22 @@ export function IpamPrefixesPage() {
               <button
                 type="button"
                 className={dcimStyles.btn}
-                disabled={prefixListSlice.safePage >= prefixListSlice.pageCount - 1}
+                disabled={prefixRootsSlice.safePage >= prefixRootsSlice.pageCount - 1}
                 onClick={() =>
-                  setPrefixListPage((p) => Math.min(p + 1, prefixListSlice.pageCount - 1))
+                  setPrefixListPage((p) => Math.min(p + 1, prefixRootsSlice.pageCount - 1))
                 }
               >
                 {t("ipam.grid.pagination.next")}
               </button>
             </span>
           </div>
+          <p className={dcimStyles.muted} style={{ marginTop: "-0.25rem", marginBottom: "var(--space-2)" }}>
+            {t("ipam.ipv4.paginationRootsHint")}
+          </p>
           <table className={dcimStyles.table}>
           <thead>
             <tr>
+              <th style={{ width: "2.25rem" }} aria-label={t("ipam.ipv4.treeColAria")} />
               <th>{t("dcim.common.id")}</th>
               <th>{t("ipam.ipv4.site")}</th>
               <th>VRF</th>
@@ -1455,8 +1551,41 @@ export function IpamPrefixesPage() {
             </tr>
           </thead>
           <tbody>
-            {prefixListSlice.rows.map((x) => (
+            {visiblePrefixRows.map((row) => {
+              const x = row.prefix;
+              const plen = parseIpv4Cidr(x.cidr)?.prefixLen;
+              const canSplit = plen != null && plen < 32;
+              return (
               <tr key={x.id}>
+                <td
+                  style={{
+                    paddingLeft: `calc(${row.depth} * 0.65rem)`,
+                    verticalAlign: "middle",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {row.hasChildren ? (
+                    <button
+                      type="button"
+                      className={dcimStyles.btnLink}
+                      style={{ padding: "0 0.15rem", minWidth: "1.25rem" }}
+                      aria-expanded={expandedPrefixIds.has(x.id)}
+                      title={expandedPrefixIds.has(x.id) ? t("ipam.ipv4.treeCollapse") : t("ipam.ipv4.treeExpand")}
+                      onClick={() => {
+                        setExpandedPrefixIds((prev) => {
+                          const n = new Set(prev);
+                          if (n.has(x.id)) n.delete(x.id);
+                          else n.add(x.id);
+                          return n;
+                        });
+                      }}
+                    >
+                      {expandedPrefixIds.has(x.id) ? "▼" : "▶"}
+                    </button>
+                  ) : (
+                    <span style={{ display: "inline-block", width: "1.25rem" }} aria-hidden />
+                  )}
+                </td>
                 <td>{x.id}</td>
                 <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
                 <td>
@@ -1636,6 +1765,20 @@ export function IpamPrefixesPage() {
                     </span>
                   ) : (
                     <span className={dcimStyles.tableIconActions}>
+                      {canSplit ? (
+                        <button
+                          type="button"
+                          className={dcimStyles.tableIconBtn}
+                          title={t("ipam.ipv4.splitSubnet")}
+                          aria-label={t("ipam.ipv4.splitSubnet")}
+                          onClick={() => {
+                            setErr(null);
+                            setSplitTarget(x);
+                          }}
+                        >
+                          <i className="fas fa-scissors" aria-hidden />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className={dcimStyles.tableIconBtn}
@@ -1681,13 +1824,103 @@ export function IpamPrefixesPage() {
                   )}
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
         </>
       ) : (
         !prefixesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.ipv4.empty")}</p>
       )}
+      {splitTarget != null && splitHalves != null ? (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "var(--space-3)",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !createSplitChildren.isPending) setSplitTarget(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={splitDialogTitleId}
+            style={{
+              width: "min(28rem, 100%)",
+              maxHeight: "90vh",
+              overflow: "auto",
+              background: "var(--color-bg-elevated)",
+              border: "1px solid var(--shell-border)",
+              borderRadius: "var(--radius-md)",
+              padding: "var(--space-4)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id={splitDialogTitleId} style={{ marginTop: 0 }}>
+              {t("ipam.ipv4.splitTitle")}
+            </h2>
+            <p className={dcimStyles.muted}>{t("ipam.ipv4.splitIntro", { cidr: splitTarget.cidr })}</p>
+            <ul>
+              <li>
+                <code>{splitHalves[0]}</code>
+              </li>
+              <li>
+                <code>{splitHalves[1]}</code>
+              </li>
+            </ul>
+            <label style={{ display: "block", marginTop: "var(--space-2)" }}>
+              {t("ipam.ipv4.splitNameLo")}
+              <input
+                value={splitNameLo}
+                onChange={(e) => setSplitNameLo(e.target.value)}
+                style={{ display: "block", width: "100%", marginTop: "0.25rem" }}
+                autoComplete="off"
+              />
+            </label>
+            <label style={{ display: "block", marginTop: "var(--space-2)" }}>
+              {t("ipam.ipv4.splitNameHi")}
+              <input
+                value={splitNameHi}
+                onChange={(e) => setSplitNameHi(e.target.value)}
+                style={{ display: "block", width: "100%", marginTop: "0.25rem" }}
+                autoComplete="off"
+              />
+            </label>
+            {splitErr ? <p className={dcimStyles.err}>{splitErr}</p> : null}
+            <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                disabled={
+                  createSplitChildren.isPending ||
+                  splitNameLo.trim() === "" ||
+                  splitNameHi.trim() === ""
+                }
+                onClick={() => createSplitChildren.mutate()}
+              >
+                {createSplitChildren.isPending ? "…" : t("ipam.ipv4.splitCreate")}
+              </button>
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                disabled={createSplitChildren.isPending}
+                onClick={() => setSplitTarget(null)}
+              >
+                {t("ipam.ipv4.splitCancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <ConfirmModal
         open={gridReleaseRow != null}
         onClose={() => {
