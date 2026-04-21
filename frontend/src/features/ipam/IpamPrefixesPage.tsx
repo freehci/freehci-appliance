@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -32,6 +32,7 @@ function formatInventoryTimestamp(iso: string | null | undefined): string {
 export function IpamPrefixesPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [err, setErr] = useState<string | null>(null);
   const [filterSite, setFilterSite] = useState<string>("");
   const [filterTenant, setFilterTenant] = useState<string>("");
@@ -1441,7 +1442,14 @@ export function IpamPrefixesPage() {
                         ))}
                     </select>
                   ) : x.vlan_id != null && x.vlan_id > 0 ? (
-                    vlanLabelById.get(x.vlan_id) ?? `#${x.vlan_id}`
+                    <button
+                      type="button"
+                      className={dcimStyles.btnLink}
+                      title="Åpne VLAN"
+                      onClick={() => nav(`/ipam/vlans?site=${encodeURIComponent(String(x.site_id))}&vlan=${encodeURIComponent(String(x.vlan_id))}`)}
+                    >
+                      {vlanLabelById.get(x.vlan_id) ?? `#${x.vlan_id}`}
+                    </button>
                   ) : (
                     "—"
                   )}

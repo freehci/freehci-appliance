@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
@@ -10,6 +11,7 @@ import * as ipamApi from "./ipamApi";
 export function IpamVlansPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [err, setErr] = useState<string | null>(null);
   const [expandVlanId, setExpandVlanId] = useState<number | null>(null);
   const [filterSite, setFilterSite] = useState("");
@@ -72,6 +74,27 @@ export function IpamVlansPage() {
     return m;
   }, [prefixesQ.data]);
 
+  useEffect(() => {
+    const rawVlan = searchParams.get("vlan");
+    const rawSite = searchParams.get("site");
+    const v = rawVlan != null && rawVlan !== "" ? Number(rawVlan) : null;
+    const s = rawSite != null && rawSite !== "" ? Number(rawSite) : null;
+    if (s != null && Number.isFinite(s) && s > 0) setFilterSite(String(s));
+    if (v != null && Number.isFinite(v) && v > 0) setExpandVlanId(v);
+  }, []); // kun init fra URL
+
+  const toggleExpand = (id: number, siteId: number) => {
+    setExpandVlanId((cur) => {
+      const next = cur === id ? null : id;
+      const sp = new URLSearchParams(searchParams);
+      if (next == null) sp.delete("vlan");
+      else sp.set("vlan", String(next));
+      sp.set("site", String(siteId));
+      setSearchParams(sp, { replace: true });
+      return next;
+    });
+  };
+
   const createM = useMutation({
     mutationFn: () =>
       ipamApi.createIpamVlan({
@@ -108,7 +131,18 @@ export function IpamVlansPage() {
       <div className={dcimStyles.formRow} style={{ marginTop: "var(--space-2)", flexWrap: "wrap" }}>
         <label>
           {t("ipam.ipv4.filterSite")}
-          <select value={filterSite} onChange={(e) => setFilterSite(e.target.value)}>
+          <select
+            value={filterSite}
+            onChange={(e) => {
+              setFilterSite(e.target.value);
+              setExpandVlanId(null);
+              const sp = new URLSearchParams(searchParams);
+              if (e.target.value === "") sp.delete("site");
+              else sp.set("site", e.target.value);
+              sp.delete("vlan");
+              setSearchParams(sp, { replace: true });
+            }}
+          >
             <option value="">{t("ipam.ipv4.allSites")}</option>
             {(sitesQ.data ?? []).map((s) => (
               <option key={s.id} value={String(s.id)}>
@@ -222,7 +256,7 @@ export function IpamVlansPage() {
                     <button
                       type="button"
                       className={dcimStyles.btnLink}
-                      onClick={() => setExpandVlanId((cur) => (cur === v.id ? null : v.id))}
+                      onClick={() => toggleExpand(v.id, v.site_id)}
                     >
                       {prefixesByVlanId.get(v.id) ?? 0}
                     </button>
