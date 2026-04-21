@@ -214,6 +214,47 @@ def _normalize_ipv4_cidr(raw: str) -> str:
     return f"{net.network_address}/{net.prefixlen}"
 
 
+def _require_no_partial_overlap(
+    db: Session,
+    *,
+    site_id: int,
+    cidr: str,
+    exclude_prefix_id: int | None = None,
+) -> None:
+    """Sikrer at et nytt/oppdatert prefiks ikke delvis overlapper andre prefiks på samme site.
+
+    Hierarki (parent/child) er tillatt: én nett kan inneholde den andre.
+    Det som stoppes er delvis overlapp der ingen inneholder den andre.
+    """
+    try:
+        new_net = ipaddress.ip_network(cidr, strict=False)
+    except ValueError:
+        # CIDR er allerede normalisert/validert tidligere.
+        return
+    if new_net.version != 4:
+        return
+
+    q = select(IpamIpv4Prefix).where(IpamIpv4Prefix.site_id == site_id)
+    if exclude_prefix_id is not None:
+        q = q.where(IpamIpv4Prefix.id != exclude_prefix_id)
+    rows = db.execute(q).scalars().all()
+    for r in rows:
+        try:
+            other = ipaddress.ip_network(r.cidr, strict=False)
+        except ValueError:
+            continue
+        if other.version != 4:
+            continue
+        if not new_net.overlaps(other):
+            continue
+        if new_net.subnet_of(other) or other.subnet_of(new_net):
+            continue
+        raise HTTPException(
+            status_code=409,
+            detail=f"prefiks {cidr} overlapper delvis med eksisterende prefiks {r.cidr} (id={r.id}) på samme site",
+        )
+
+
 def list_ipv4_prefixes(db: Session, *, site_id: int | None, tenant_id: int | None = None) -> list[Ipv4PrefixRead]:
     q = select(IpamIpv4Prefix).order_by(IpamIpv4Prefix.site_id, IpamIpv4Prefix.cidr)
     if site_id is not None:
@@ -242,6 +283,7 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
         if v.site_id != data.site_id:
             raise HTTPException(status_code=400, detail="vlan tilhører ikke samme site")
     cidr = _normalize_ipv4_cidr(data.cidr)
+    _require_no_partial_overlap(db, site_id=data.site_id, cidr=cidr)
     row = IpamIpv4Prefix(
         site_id=data.site_id,
         tenant_id=data.tenant_id,
@@ -273,7 +315,9 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         v = patch["description"]
         row.description = None if v is None else (str(v).strip() or None)
     if "cidr" in patch and patch["cidr"] is not None:
-        row.cidr = _normalize_ipv4_cidr(patch["cidr"])
+        new_cidr = _normalize_ipv4_cidr(patch["cidr"])
+        _require_no_partial_overlap(db, site_id=row.site_id, cidr=new_cidr, exclude_prefix_id=row.id)
+        row.cidr = new_cidr
     if "subnet_services" in patch:
         row.subnet_services = patch["subnet_services"]
     if "tenant_id" in patch:
