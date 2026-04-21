@@ -145,3 +145,90 @@ def test_split_network_address_conflict_requires_ack() -> None:
         )
         assert ok.status_code == 200, ok.text
         assert ok.json()["first_prefix"] is not None
+
+
+def test_split_equal_dry_run_quarters() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        site_id = client.post("/api/v1/dcim/sites", json={"name": "S-eq1", "slug": "s-eq1"}).json()["id"]
+        p = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site_id, "name": "R", "cidr": "10.44.0.0/24"},
+        )
+        assert p.status_code == 200, p.text
+        pid = int(p.json()["id"])
+
+        r = client.post(
+            f"/api/v1/ipam/ipv4-prefixes/{pid}/split-equal",
+            json={
+                "new_prefix_len": 26,
+                "dry_run": True,
+                "migrate_inventory": True,
+                "acknowledge_network_broadcast": False,
+            },
+        )
+        assert r.status_code == 200, r.text
+        j = r.json()
+        assert j["subnet_count"] == 4
+        assert j["partition_ok"] is True
+        assert len(j["planned"]) == 4
+        assert j["planned"][0]["cidr"] == j["planned"][0]["suggested_name"]
+
+
+def test_split_equal_too_many_subnets_returns_400() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        site_id = client.post("/api/v1/dcim/sites", json={"name": "S-eq2", "slug": "s-eq2"}).json()["id"]
+        p = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site_id, "name": "R", "cidr": "10.45.0.0/16"},
+        )
+        assert p.status_code == 200, p.text
+        pid = int(p.json()["id"])
+
+        r = client.post(
+            f"/api/v1/ipam/ipv4-prefixes/{pid}/split-equal",
+            json={
+                "new_prefix_len": 25,
+                "dry_run": True,
+                "migrate_inventory": True,
+                "acknowledge_network_broadcast": False,
+            },
+        )
+        assert r.status_code == 400, r.text
+
+
+def test_split_equal_execute_migrates_inventory() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        site_id = client.post("/api/v1/dcim/sites", json={"name": "S-eq3", "slug": "s-eq3"}).json()["id"]
+        p = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site_id, "name": "R", "cidr": "10.46.0.0/24"},
+        )
+        assert p.status_code == 200, p.text
+        pid = int(p.json()["id"])
+        e = client.post(
+            "/api/v1/ipam/ipv4-addresses/ensure",
+            json={"ipv4_prefix_id": pid, "address": "10.46.0.200"},
+        )
+        assert e.status_code == 200, e.text
+        aid = int(e.json()["id"])
+
+        r = client.post(
+            f"/api/v1/ipam/ipv4-prefixes/{pid}/split-equal",
+            json={
+                "new_prefix_len": 25,
+                "dry_run": False,
+                "migrate_inventory": True,
+                "acknowledge_network_broadcast": False,
+            },
+        )
+        assert r.status_code == 200, r.text
+        created = r.json()["created_prefixes"]
+        assert len(created) == 2
+        hi = next(x for x in created if x["cidr"] == "10.46.0.128/25")
+        row = client.get(f"/api/v1/ipam/ipv4-addresses?site_id={site_id}&limit=50").json()
+        inv = next(x for x in row if int(x["id"]) == aid)
+        assert int(inv["ipv4_prefix_id"]) == int(hi["id"])
+        assert inv["address"] == "10.46.0.200"

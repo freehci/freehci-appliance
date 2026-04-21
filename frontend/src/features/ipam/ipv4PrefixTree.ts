@@ -164,3 +164,28 @@ export function splitIpv4IntoHalves(cidr: string): [string, string] | null {
   const firstHigh = (p.first + step) >>> 0;
   return [formatIpv4Cidr(firstLow, newLen), formatIpv4Cidr(firstHigh, newLen)];
 }
+
+/** Mulige «like delinger» av et prefiks: barn med samme prefikslengde som dekker hele forelderen (maks `maxSubnets` barn). */
+export type EqualSplitOption = {
+  newPrefixLen: number;
+  subnetCount: number;
+  label: string;
+  rfc3021: boolean;
+};
+
+export function ipv4EqualSplitOptions(cidr: string, maxSubnets = 256): EqualSplitOption[] {
+  const p = parseIpv4Cidr(cidr);
+  if (!p || p.prefixLen >= 32) return [];
+  const out: EqualSplitOption[] = [];
+  let subnetCount = 1;
+  for (let newLen = p.prefixLen + 1; newLen <= 32; newLen++) {
+    subnetCount *= 2;
+    if (subnetCount > maxSubnets) break;
+    const rfc3021 = newLen === 31;
+    const label = rfc3021
+      ? `/${String(newLen)} — ${String(subnetCount)}× (RFC 3021 punkt-til-punkt)`
+      : `/${String(newLen)} — ${String(subnetCount)}×`;
+    out.push({ newPrefixLen: newLen, subnetCount, label, rfc3021 });
+  }
+  return out;
+}

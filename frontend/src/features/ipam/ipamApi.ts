@@ -3,6 +3,7 @@ import type {
   Ipv4Address,
   Ipv4Prefix,
   Ipv4PrefixExplore,
+  Ipv4PrefixSplitEqualResponse,
   Ipv4PrefixSplitResponse,
   IpamCircuit,
   IpamCircuitTermination,
@@ -79,6 +80,19 @@ export function ipv4PrefixSplit(
   },
 ): Promise<Ipv4PrefixSplitResponse> {
   return apiPost(`${P}/ipv4-prefixes/${prefixId}/split`, body);
+}
+
+export function ipv4PrefixSplitEqual(
+  prefixId: number,
+  body: {
+    new_prefix_len: number;
+    migrate_inventory: boolean;
+    acknowledge_network_broadcast: boolean;
+    dry_run: boolean;
+    names_by_cidr?: Record<string, string> | null;
+  },
+): Promise<Ipv4PrefixSplitEqualResponse> {
+  return apiPost(`${P}/ipv4-prefixes/${prefixId}/split-equal`, body);
 }
 
 export function listSubnetScans(params?: {

@@ -15,6 +15,8 @@ from app.schemas.ipam import (
     Ipv4PrefixCreate,
     Ipv4PrefixExploreRead,
     Ipv4PrefixRead,
+    Ipv4PrefixSplitEqualRequest,
+    Ipv4PrefixSplitEqualResponse,
     Ipv4PrefixSplitRequest,
     Ipv4PrefixSplitResponse,
     Ipv4PrefixUpdate,
@@ -104,6 +106,15 @@ def split_ipv4_prefix(
     db: Session = Depends(get_db),
 ) -> Ipv4PrefixSplitResponse:
     return split_svc.ipv4_prefix_split(db, prefix_id, data)
+
+
+@router.post("/ipv4-prefixes/{prefix_id}/split-equal", response_model=Ipv4PrefixSplitEqualResponse)
+def split_ipv4_prefix_equal(
+    prefix_id: int,
+    data: Ipv4PrefixSplitEqualRequest,
+    db: Session = Depends(get_db),
+) -> Ipv4PrefixSplitEqualResponse:
+    return split_svc.ipv4_prefix_split_equal(db, prefix_id, data)
 
 
 @router.post("/subnet-scans", response_model=SubnetScanRead)

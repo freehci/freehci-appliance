@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildPrefixTreeIndex, immediateParentFor, splitIpv4IntoHalves } from "./ipv4PrefixTree";
+import {
+  buildPrefixTreeIndex,
+  immediateParentFor,
+  ipv4EqualSplitOptions,
+  splitIpv4IntoHalves,
+} from "./ipv4PrefixTree";
 import type { Ipv4Prefix } from "./types";
 
 function p(
@@ -34,6 +39,22 @@ describe("splitIpv4IntoHalves", () => {
 
   it("returns null for /32", () => {
     expect(splitIpv4IntoHalves("10.0.0.1/32")).toBeNull();
+  });
+});
+
+describe("ipv4EqualSplitOptions", () => {
+  it("lists /25 through /32 for /24 and caps at 256 subnets", () => {
+    const o = ipv4EqualSplitOptions("10.0.0.0/24");
+    expect(o[0]).toMatchObject({ newPrefixLen: 25, subnetCount: 2 });
+    expect(o[o.length - 1]).toMatchObject({ newPrefixLen: 32, subnetCount: 256 });
+    expect(o).toHaveLength(8);
+    const m = o.find((x) => x.newPrefixLen === 31);
+    expect(m?.rfc3021).toBe(true);
+    expect(m?.label).toContain("RFC 3021");
+  });
+
+  it("returns empty for /32", () => {
+    expect(ipv4EqualSplitOptions("10.0.0.1/32")).toEqual([]);
   });
 });
 

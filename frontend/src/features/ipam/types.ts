@@ -32,8 +32,8 @@ export type Ipv4PrefixExplore = {
 export type Ipv4PrefixSplitConflict = {
   address: string;
   role: "network" | "broadcast";
-  child: "first" | "second";
   message: string;
+  subnet_cidr: string;
 };
 
 export type Ipv4PrefixSplitResponse = {
@@ -51,6 +51,27 @@ export type Ipv4PrefixSplitResponse = {
   conflicts: Ipv4PrefixSplitConflict[];
   first_prefix: Ipv4Prefix | null;
   second_prefix: Ipv4Prefix | null;
+};
+
+export type Ipv4PrefixSplitEqualPlanned = {
+  cidr: string;
+  suggested_name: string;
+};
+
+export type Ipv4PrefixSplitEqualResponse = {
+  dry_run: boolean;
+  has_child_prefixes: boolean;
+  parent_cidr: string;
+  new_prefix_len: number;
+  subnet_count: number;
+  partition_ok: boolean;
+  detail: string | null;
+  planned: Ipv4PrefixSplitEqualPlanned[];
+  ipam_inventory_on_parent: number;
+  dcim_iface_on_parent: number;
+  dcim_device_on_parent: number;
+  conflicts: Ipv4PrefixSplitConflict[];
+  created_prefixes: Ipv4Prefix[];
 };
 
 export type SubnetScanHost = {

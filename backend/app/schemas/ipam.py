@@ -450,8 +450,42 @@ class Ipv4PrefixSplitRequest(BaseModel):
 class Ipv4PrefixSplitConflictRead(BaseModel):
     address: str
     role: Literal["network", "broadcast"]
-    child: Literal["first", "second"]
     message: str
+    subnet_cidr: str = Field(..., description="Barn-prefiks der adressen treffer som nettverk/broadcast")
+
+
+class Ipv4PrefixSplitEqualPlannedRead(BaseModel):
+    cidr: str
+    suggested_name: str
+
+
+class Ipv4PrefixSplitEqualRequest(BaseModel):
+    """Lik inndeling: `parent` deles i `2^(new_prefix_len - parent_len)` like barn."""
+
+    new_prefix_len: int = Field(..., ge=1, le=32)
+    migrate_inventory: bool = True
+    acknowledge_network_broadcast: bool = False
+    dry_run: bool = True
+    names_by_cidr: dict[str, str] | None = Field(
+        default=None,
+        description="Valgfritt: kanonisk CIDR-streng → visningsnavn; ellers brukes CIDR som navn",
+    )
+
+
+class Ipv4PrefixSplitEqualResponse(BaseModel):
+    dry_run: bool
+    has_child_prefixes: bool
+    parent_cidr: str
+    new_prefix_len: int
+    subnet_count: int
+    partition_ok: bool
+    detail: str | None = None
+    planned: list[Ipv4PrefixSplitEqualPlannedRead] = Field(default_factory=list)
+    ipam_inventory_on_parent: int = 0
+    dcim_iface_on_parent: int = 0
+    dcim_device_on_parent: int = 0
+    conflicts: list[Ipv4PrefixSplitConflictRead] = Field(default_factory=list)
+    created_prefixes: list[Ipv4PrefixRead] = Field(default_factory=list)
 
 
 class Ipv4PrefixSplitResponse(BaseModel):
