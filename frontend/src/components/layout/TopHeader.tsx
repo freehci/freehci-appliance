@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { fetchMe } from "@/features/auth/authApi";
 import { useAuth } from "@/features/auth/AuthContext";
 import * as systemApi from "@/features/system/systemApi";
 import { useI18n } from "@/i18n/I18nProvider";
+import { ApiError } from "@/lib/api";
 import { useTheme } from "@/theme/ThemeProvider";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import styles from "./TopHeader.module.css";
@@ -24,9 +25,18 @@ export function TopHeader() {
     staleTime: 60_000,
   });
 
+  const adminUi = Boolean(token && me?.username);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updateErr, setUpdateErr] = useState<string | null>(null);
   const updateEnabled = Boolean(token) && updateOpen;
+
+  const updateCheckQ = useQuery({
+    queryKey: ["system", "update-check", token],
+    queryFn: () => systemApi.updateCheck(),
+    enabled: adminUi,
+    staleTime: 30_000,
+    refetchInterval: adminUi ? 60_000 : false,
+  });
 
   const updateStatusQ = useQuery({
     queryKey: ["system", "update-status", token],
@@ -37,10 +47,31 @@ export function TopHeader() {
   });
 
   const logText = useMemo(() => (updateStatusQ.data?.log_tail ?? []).join("\n"), [updateStatusQ.data?.log_tail]);
+  const updateRunning = updateStatusQ.data?.running === true;
+  const updateAvailable = updateCheckQ.data?.update_available === true;
+  const prevUpdateRunningRef = useRef(false);
 
   useEffect(() => {
     if (!updateOpen) setUpdateErr(null);
   }, [updateOpen]);
+
+  useEffect(() => {
+    if (!updateOpen) return;
+    void updateCheckQ.refetch();
+  }, [updateOpen, updateCheckQ.refetch]);
+
+  useEffect(() => {
+    if (!updateOpen) {
+      prevUpdateRunningRef.current = false;
+      return;
+    }
+    const d = updateStatusQ.data;
+    const running = d?.running === true;
+    if (prevUpdateRunningRef.current && !running && d?.exit_code === 0) {
+      void updateCheckQ.refetch();
+    }
+    prevUpdateRunningRef.current = running;
+  }, [updateOpen, updateStatusQ.data, updateCheckQ.refetch]);
 
   useEffect(() => {
     if (!updateOpen) return;
@@ -103,15 +134,24 @@ export function TopHeader() {
           <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"}`} />
         </button>
         {me?.username ? (
-          <button
-            type="button"
-            className={styles.iconBtn}
-            title={t("header.updateNow")}
-            aria-label={t("header.updateNow")}
-            onClick={() => setUpdateOpen(true)}
-          >
-            <i className="fas fa-arrows-rotate" aria-hidden />
-          </button>
+          <span className={styles.iconBtnWrap}>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              title={updateAvailable ? t("header.updateNowNewVersion") : t("header.updateNow")}
+              aria-label={
+                updateAvailable
+                  ? `${t("header.updateNow")} — ${t("header.updateBadgeAria")}`
+                  : t("header.updateNow")
+              }
+              onClick={() => setUpdateOpen(true)}
+            >
+              <i className="fas fa-arrows-rotate" aria-hidden />
+            </button>
+            {updateAvailable ? (
+              <span className={styles.updateBadgeDot} aria-hidden title={t("header.updateBadgeAria")} />
+            ) : null}
+          </span>
         ) : null}
         {me?.username ? (
           <span className={styles.userName} title={me.username}>
@@ -176,6 +216,29 @@ export function TopHeader() {
             <h2 id={updateTitleId} style={{ marginTop: 0, marginBottom: "0.25rem" }}>
               {t("system.updateTitle")}
             </h2>
+            {updateCheckQ.isFetching && !updateCheckQ.data ? (
+              <p className={dcimStyles.muted} style={{ marginBottom: "var(--space-2)" }}>
+                {t("system.updateCheckLoading")}
+              </p>
+            ) : updateCheckQ.data?.remote_error ? (
+              <p className={dcimStyles.err} style={{ marginBottom: "var(--space-2)" }}>
+                {t("system.updateRemoteError", { msg: updateCheckQ.data.remote_error })}
+              </p>
+            ) : updateCheckQ.data?.update_available ? (
+              <p style={{ marginBottom: "var(--space-2)", fontWeight: 600 }}>
+                {t("system.updateAvailablePrompt", {
+                  version: updateCheckQ.data.remote_version ?? "—",
+                  local: updateCheckQ.data.local_version,
+                })}
+              </p>
+            ) : updateCheckQ.data?.remote_version != null ? (
+              <p className={dcimStyles.muted} style={{ marginBottom: "var(--space-2)" }}>
+                {t("system.updateUpToDate", {
+                  local: updateCheckQ.data.local_version,
+                  remote: updateCheckQ.data.remote_version,
+                })}
+              </p>
+            ) : null}
             <p className={dcimStyles.muted} style={{ marginBottom: "var(--space-2)" }}>
               {t("system.updateIntro")}
             </p>
@@ -203,7 +266,11 @@ export function TopHeader() {
                   {t("system.updateStatus")}
                 </span>
                 <span style={{ fontFamily: "monospace", fontSize: "var(--text-xs)" }}>
-                  {updateStatusQ.data?.running ? t("system.updateRunning") : updateStatusQ.data?.detail ?? "—"}
+                  {updateRunning
+                    ? t("system.updateRunning")
+                    : updateStatusQ.data?.detail && updateStatusQ.data.detail.trim() !== ""
+                      ? updateStatusQ.data.detail
+                      : t("system.updateIdle")}
                   {updateStatusQ.data?.exit_code != null ? ` (exit ${String(updateStatusQ.data.exit_code)})` : ""}
                 </span>
               </div>
@@ -211,18 +278,27 @@ export function TopHeader() {
                 <button
                   type="button"
                   className={dcimStyles.btn}
-                  disabled={updateStatusQ.data?.running === true}
+                  disabled={updateRunning}
                   onClick={async () => {
                     setUpdateErr(null);
                     try {
                       await systemApi.updateNow();
                       void updateStatusQ.refetch();
                     } catch (e) {
+                      if (e instanceof ApiError && e.status === 409) {
+                        const s = await updateStatusQ.refetch();
+                        if (!s.data?.running) {
+                          setUpdateErr(t("system.updateConflictStale"));
+                          return;
+                        }
+                        setUpdateErr(t("system.updateConflictRunning"));
+                        return;
+                      }
                       setUpdateErr(e instanceof Error ? e.message : String(e));
                     }
                   }}
                 >
-                  {updateStatusQ.data?.running ? "…" : t("system.updateNowBtn")}
+                  {updateRunning ? t("system.updateRunning") : t("system.updateNowBtn")}
                 </button>
                 <button type="button" className={dcimStyles.btnMuted} onClick={() => setUpdateOpen(false)}>
                   {t("system.close")}

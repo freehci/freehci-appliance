@@ -23,8 +23,8 @@ services:
 
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     # Must run as root so /docker-entrypoint.sh can chown UPLOAD_ROOT and drop to `freehci` via runuser.
     ports:
       - "8000:8000"
@@ -63,8 +63,8 @@ services:
 
   worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     command:
       [
         "celery",

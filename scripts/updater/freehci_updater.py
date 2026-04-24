@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -23,6 +24,11 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None  # type: ignore[assignment, misc]
 
 
 HOST = os.environ.get("FREEHCI_UPDATER_HOST", "127.0.0.1")
@@ -101,8 +107,30 @@ class _JobState:
 
 STATE = _JobState()
 
+# Åpen fil med advisory flock (Linux). Låsen slippes automatisk når fd lukkes / prosess dør.
+_lock_fp: Any = None
+
 
 def _try_acquire_lock() -> bool:
+    global _lock_fp
+    _ensure_dirs()
+    if fcntl is not None:
+        try:
+            fp = open(LOCK_PATH, "a+", encoding="utf-8")
+        except OSError:
+            return False
+        try:
+            fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            fp.close()
+            return False
+        fp.seek(0)
+        fp.truncate()
+        fp.write(f"{os.getpid()}\n")
+        fp.flush()
+        _lock_fp = fp
+        return True
+
     try:
         fd = os.open(str(LOCK_PATH), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
     except FileExistsError:
@@ -115,10 +143,88 @@ def _try_acquire_lock() -> bool:
 
 
 def _release_lock() -> None:
+    global _lock_fp
+    if fcntl is not None and _lock_fp is not None:
+        try:
+            fcntl.flock(_lock_fp.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            _lock_fp.close()
+        except OSError:
+            pass
+        _lock_fp = None
+        try:
+            LOCK_PATH.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            try:
+                _append_log(f"!! lock unlink failed: {e!r}")
+            except Exception:
+                pass
+        return
+
     try:
         LOCK_PATH.unlink()
     except FileNotFoundError:
         return
+
+
+def _reconcile_stale_lock() -> None:
+    """Fjern gjenværende lock-fil når ingen holder flock (etter crash/kill -9)."""
+    _ensure_dirs()
+    if fcntl is not None:
+        if not LOCK_PATH.exists():
+            return
+        try:
+            fp = open(LOCK_PATH, "a+", encoding="utf-8")
+        except OSError:
+            return
+        try:
+            fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            fp.close()
+            return
+        try:
+            fp.close()
+        except OSError:
+            pass
+        try:
+            LOCK_PATH.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            try:
+                _append_log(f"!! stale lock cleanup unlink failed: {e!r}")
+            except Exception:
+                pass
+        return
+
+    # Ikke-Unix: eksisterende O_EXCL-fil — slett hvis ingen kjent jobb (best effort).
+    if not LOCK_PATH.is_file():
+        return
+    try:
+        raw = LOCK_PATH.read_text(encoding="utf-8", errors="replace").strip().splitlines()
+    except OSError:
+        return
+    if not raw:
+        _release_lock()
+        return
+    token = raw[0].strip()
+    if not token.isdigit():
+        _release_lock()
+        return
+    pid = int(token, 10)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        return
+    else:
+        return
+    _release_lock()
 
 
 def _append_log(line: str) -> None:
@@ -133,6 +239,7 @@ def _run_update_job(job_id: str) -> None:
     _append_log(f"==> [{job_id}] update started at {started}")
     _append_log(f"==> [{job_id}] cmd: {INSTALL_CMD}")
 
+    p: subprocess.Popen[str] | None = None
     try:
         p = subprocess.Popen(
             ["bash", "-lc", INSTALL_CMD],
@@ -140,6 +247,7 @@ def _run_update_job(job_id: str) -> None:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            start_new_session=True,
         )
     except Exception as e:
         finished = _utcnow().isoformat()
@@ -148,26 +256,37 @@ def _run_update_job(job_id: str) -> None:
         _release_lock()
         return
 
-    assert p.stdout is not None
     try:
-        for line in p.stdout:
-            _append_log(line.rstrip("\n"))
-    finally:
+        assert p.stdout is not None
         try:
-            p.stdout.close()
+            for line in p.stdout:
+                _append_log(line.rstrip("\n"))
+        finally:
+            try:
+                p.stdout.close()
+            except Exception:
+                pass
+
+        rc = p.wait()
+        finished = _utcnow().isoformat()
+        _append_log(f"==> [{job_id}] update finished at {finished} (exit_code={rc})")
+        STATE._set(
+            running=False,
+            finished_at=finished,
+            exit_code=int(rc),
+            detail="ok" if rc == 0 else "feilet",
+        )
+    except Exception as e:
+        finished = _utcnow().isoformat()
+        _append_log(f"!! [{job_id}] unexpected error while running update: {e!r}")
+        try:
+            if p is not None and p.poll() is None:
+                p.send_signal(signal.SIGTERM)
         except Exception:
             pass
-
-    rc = p.wait()
-    finished = _utcnow().isoformat()
-    _append_log(f"==> [{job_id}] update finished at {finished} (exit_code={rc})")
-    STATE._set(
-        running=False,
-        finished_at=finished,
-        exit_code=int(rc),
-        detail="ok" if rc == 0 else "feilet",
-    )
-    _release_lock()
+        STATE._set(running=False, finished_at=finished, exit_code=127, detail="feilet (uventet avbrudd)")
+    finally:
+        _release_lock()
 
 
 def start_update() -> tuple[bool, str | None]:
@@ -221,6 +340,8 @@ def main() -> None:
             STATE._persist()
     except Exception:
         pass
+
+    _reconcile_stale_lock()
 
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     _append_log(f"==> updater listening on http://{HOST}:{PORT} (pid={os.getpid()})")

@@ -130,12 +130,24 @@ export const en = {
   "header.changePassword": "Change password",
   "header.logout": "Sign out",
   "header.updateNow": "Update now",
+  "header.updateNowNewVersion": "Update available — open updater",
+  "header.updateBadgeAria": "New version available",
 
   "system.updateTitle": "Update FreeHCI",
   "system.updateIntro":
     "Starts an in-place update on the host (Debian) and restarts the stack. The UI may disconnect briefly while containers restart.",
   "system.updateNowBtn": "Update now",
   "system.updateRunning": "Updating…",
+  "system.updateIdle": "Idle",
+  "system.updateCheckLoading": "Checking version against GitHub…",
+  "system.updateAvailablePrompt":
+    "Version {version} is available on GitHub. You are running {local}. Do you want to update now?",
+  "system.updateUpToDate":
+    "You are on the latest known version ({local}). GitHub main reports {remote}.",
+  "system.updateRemoteError": "Could not read version from GitHub: {msg}",
+  "system.updateConflictRunning": "An update is already running (according to the host updater).",
+  "system.updateConflictStale":
+    "The host updater reported “already running”, but status shows no active job. Try again; if it persists, restart freehci-updater and remove any stale lock under /run/freehci-updater/.",
   "system.updateStatus": "Status / log",
   "system.close": "Close",
   "system.updateFallback":

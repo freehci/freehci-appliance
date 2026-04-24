@@ -132,27 +132,47 @@ export function IamUserDetailLayout() {
             <aside className={styles.userDetailSidebar}>
               {person ? (
                 <>
-                  <button
-                    type="button"
-                    className={`${styles.userDetailAvatar} ${styles.userDetailAvatarBtn}`.trim()}
-                    title={t("iam.avatarClickToUpload")}
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    {avatarImgOk && person.avatar_file ? (
-                      <img
-                        className={styles.userDetailAvatarImg}
-                        src={api.avatarUrl(person.id, avatarBust || person.avatar_file)}
-                        alt={t("iam.avatarAlt")}
-                        onError={() => setAvatarImgOk(false)}
-                      />
+                  <div className={styles.userDetailAvatarWrap}>
+                    <button
+                      type="button"
+                      className={`${styles.userDetailAvatar} ${styles.userDetailAvatarBtn}`.trim()}
+                      title={t("iam.avatarClickToUpload")}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      {avatarImgOk && person.avatar_file ? (
+                        <img
+                          className={styles.userDetailAvatarImg}
+                          src={api.avatarUrl(person.id, avatarBust || person.avatar_file)}
+                          alt={t("iam.avatarAlt")}
+                          onError={() => setAvatarImgOk(false)}
+                        />
+                      ) : null}
+                      {!(avatarImgOk && person.avatar_file) ? (
+                        <span className={styles.userDetailAvatarInitials} aria-hidden>
+                          {initials(person.display_name, person.username)}
+                        </span>
+                      ) : null}
+                      <span className={styles.userDetailAvatarOverlay} aria-hidden>
+                        <i className="fas fa-camera" />
+                      </span>
+                    </button>
+                    {person.avatar_file ? (
+                      <button
+                        type="button"
+                        className={styles.userDetailAvatarRemove}
+                        title={t("iam.avatarRemove")}
+                        aria-label={t("iam.avatarRemove")}
+                        disabled={deleteAvatarM.isPending}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteAvatarM.mutate();
+                        }}
+                      >
+                        <i className="fas fa-trash-can" aria-hidden />
+                      </button>
                     ) : null}
-                    <span className={styles.userDetailAvatarInitials} aria-hidden>
-                      {initials(person.display_name, person.username)}
-                    </span>
-                    <span className={styles.userDetailAvatarOverlay} aria-hidden>
-                      <i className="fas fa-camera" />
-                    </span>
-                  </button>
+                  </div>
                   <input
                     ref={fileRef}
                     type="file"
@@ -165,17 +185,6 @@ export function IamUserDetailLayout() {
                       uploadAvatarM.mutate(f);
                     }}
                   />
-                  {person.avatar_file ? (
-                    <button
-                      type="button"
-                      className={styles.btnOutline}
-                      style={{ width: "100%", marginBottom: "var(--space-2)" }}
-                      disabled={deleteAvatarM.isPending}
-                      onClick={() => deleteAvatarM.mutate()}
-                    >
-                      {t("iam.avatarRemove")}
-                    </button>
-                  ) : null}
                   <h2 className={styles.userDetailName}>{person.display_name?.trim() || person.username}</h2>
                   {person.email ? (
                     <p className={styles.userDetailMeta}>

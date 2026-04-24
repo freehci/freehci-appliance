@@ -14,11 +14,22 @@ export type UpdateStatusResponse = {
   log_tail: string[];
 };
 
+export type UpdateCheckResponse = {
+  local_version: string;
+  remote_version: string | null;
+  update_available: boolean;
+  remote_error: string | null;
+};
+
 export function updateNow(): Promise<UpdateStartResponse> {
   return apiPost(`${P}/update-now`, {});
 }
 
 export function updateStatus(): Promise<UpdateStatusResponse> {
   return apiGet(`${P}/update-status`);
+}
+
+export function updateCheck(): Promise<UpdateCheckResponse> {
+  return apiGet(`${P}/update-check`);
 }
 

@@ -1,0 +1,10 @@
+# Docker build context = repo root (backend image)
+.git
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/*.db
+Integrations

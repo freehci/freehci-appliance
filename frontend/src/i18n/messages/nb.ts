@@ -132,12 +132,24 @@ export const nb = {
   "header.changePassword": "Bytt passord",
   "header.logout": "Logg ut",
   "header.updateNow": "Oppdater nå",
+  "header.updateNowNewVersion": "Oppdatering tilgjengelig — åpne oppdatering",
+  "header.updateBadgeAria": "Ny versjon tilgjengelig",
 
   "system.updateTitle": "Oppdater FreeHCI",
   "system.updateIntro":
     "Starter oppdatering på hosten (Debian) og restarter stakken. UI kan miste forbindelsen kort mens containere restartes.",
   "system.updateNowBtn": "Oppdater nå",
   "system.updateRunning": "Oppdaterer …",
+  "system.updateIdle": "Klar",
+  "system.updateCheckLoading": "Sjekker versjon mot GitHub …",
+  "system.updateAvailablePrompt":
+    "Versjon {version} er tilgjengelig på GitHub. Du kjører {local}. Vil du oppdatere nå?",
+  "system.updateUpToDate":
+    "Du kjører siste kjente versjon ({local}). GitHub main rapporterer {remote}.",
+  "system.updateRemoteError": "Kunne ikke lese versjon fra GitHub: {msg}",
+  "system.updateConflictRunning": "En oppdatering pågår allerede (ifølge host-tjenesten).",
+  "system.updateConflictStale":
+    "Host-tjenesten rapporterte «allerede i gang», men status viser ikke aktiv jobb. Prøv igjen; ved vedvarende problem: restart freehci-updater og slett evt. stale lock under /run/freehci-updater/.",
   "system.updateStatus": "Status / logg",
   "system.close": "Lukk",
   "system.updateFallback":

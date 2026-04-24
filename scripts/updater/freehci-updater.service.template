@@ -12,6 +12,8 @@ WorkingDirectory={{INSTALL_DIR}}
 # Backend still protects the update trigger via admin auth.
 Environment=FREEHCI_UPDATER_HOST=0.0.0.0
 Environment=FREEHCI_UPDATER_PORT=8765
+# Marker så install-debian13.sh ikke re-installerer/restarter denne servicen mens den kjører en oppdatering.
+Environment=FREEHCI_UPDATER_RUNNING=1
 ExecStart=/usr/bin/env python3 {{INSTALL_DIR}}/scripts/updater/freehci_updater.py
 Restart=on-failure
 RestartSec=2

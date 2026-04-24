@@ -20,3 +20,10 @@ class UpdateStatusResponse(BaseModel):
     detail: str | None = None
     log_tail: list[str] = Field(default_factory=list)
 
+
+class UpdateCheckResponse(BaseModel):
+    local_version: str
+    remote_version: str | None = None
+    update_available: bool = False
+    remote_error: str | None = None
+

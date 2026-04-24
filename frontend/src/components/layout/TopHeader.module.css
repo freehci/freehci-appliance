@@ -105,6 +105,25 @@
   background: var(--color-sidebar-hover);
 }
 
+.iconBtnWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.updateBadgeDot {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-danger-button-bg);
+  box-shadow: 0 0 0 2px var(--color-bg-surface);
+  pointer-events: none;
+}
+
 .userName {
   max-width: 9rem;
   overflow: hidden;

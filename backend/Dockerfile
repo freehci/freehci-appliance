@@ -11,13 +11,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY alembic.ini .
-COPY alembic ./alembic
-COPY app ./app
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY backend/alembic.ini .
+COPY backend/alembic ./alembic
+COPY backend/app ./app
+COPY backend/docker-entrypoint.sh /docker-entrypoint.sh
+COPY .ver /app/.ver
 
 RUN chmod +x /docker-entrypoint.sh \
     && mkdir -p /app/data/uploads /app/data/mibs \
