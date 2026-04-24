@@ -109,6 +109,7 @@ export type User = {
   notes?: string | null;
   external_subject_id?: string | null;
   identity_provider?: string | null;
+  avatar_file?: string | null;
   created_at: string;
 };
 

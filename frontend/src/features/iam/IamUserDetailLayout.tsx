@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, Outlet, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import dcimTabStyles from "@/features/dcim/DcimInnerTabs.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -23,6 +24,10 @@ export function IamUserDetailLayout() {
   const { t } = useI18n();
   const { userId } = useParams<{ userId: string }>();
   const id = Number(userId);
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [avatarBust, setAvatarBust] = useState<number>(0);
+  const [avatarImgOk, setAvatarImgOk] = useState(true);
 
   const q = useQuery({
     queryKey: ["iam", "person", id],
@@ -31,6 +36,27 @@ export function IamUserDetailLayout() {
   });
 
   const person = q.data;
+  useEffect(() => {
+    setAvatarImgOk(true);
+  }, [id, avatarBust, person?.avatar_file]);
+
+  const uploadAvatarM = useMutation({
+    mutationFn: (f: File) => api.uploadPersonAvatar(id, f),
+    onSuccess: () => {
+      setAvatarBust(Date.now());
+      void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
+      void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
+    },
+  });
+
+  const deleteAvatarM = useMutation({
+    mutationFn: () => api.deletePersonAvatar(id),
+    onSuccess: () => {
+      setAvatarBust(Date.now());
+      void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
+      void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
+    },
+  });
   const title =
     q.isLoading || !person ? t("iam.userDetailLoading") : person.display_name?.trim() || person.username;
 
@@ -106,9 +132,50 @@ export function IamUserDetailLayout() {
             <aside className={styles.userDetailSidebar}>
               {person ? (
                 <>
-                  <div className={styles.userDetailAvatar} aria-hidden>
-                    {initials(person.display_name, person.username)}
-                  </div>
+                  <button
+                    type="button"
+                    className={`${styles.userDetailAvatar} ${styles.userDetailAvatarBtn}`.trim()}
+                    title={t("iam.avatarClickToUpload")}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {avatarImgOk && person.avatar_file ? (
+                      <img
+                        className={styles.userDetailAvatarImg}
+                        src={api.avatarUrl(person.id, avatarBust || person.avatar_file)}
+                        alt={t("iam.avatarAlt")}
+                        onError={() => setAvatarImgOk(false)}
+                      />
+                    ) : null}
+                    <span className={styles.userDetailAvatarInitials} aria-hidden>
+                      {initials(person.display_name, person.username)}
+                    </span>
+                    <span className={styles.userDetailAvatarOverlay} aria-hidden>
+                      <i className="fas fa-camera" />
+                    </span>
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      uploadAvatarM.mutate(f);
+                    }}
+                  />
+                  {person.avatar_file ? (
+                    <button
+                      type="button"
+                      className={styles.btnOutline}
+                      style={{ width: "100%", marginBottom: "var(--space-2)" }}
+                      disabled={deleteAvatarM.isPending}
+                      onClick={() => deleteAvatarM.mutate()}
+                    >
+                      {t("iam.avatarRemove")}
+                    </button>
+                  ) : null}
                   <h2 className={styles.userDetailName}>{person.display_name?.trim() || person.username}</h2>
                   {person.email ? (
                     <p className={styles.userDetailMeta}>

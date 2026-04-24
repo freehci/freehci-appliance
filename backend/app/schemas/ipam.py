@@ -156,6 +156,7 @@ class UserRead(BaseModel):
     notes: str | None
     external_subject_id: str | None = None
     identity_provider: str | None = None
+    avatar_file: str | None = None
     created_at: dt.datetime
 
 

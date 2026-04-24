@@ -33,6 +33,8 @@ class User(Base):
     # Synkronisering fra ekstern IAM (AD/LDAP m.m.); fylles av plugins, ikke hardkodet logikk i kjernen.
     external_subject_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
     identity_provider: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Filnavn for profilbilde lagret under UPLOAD_ROOT (relativ sti).
+    avatar_file: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

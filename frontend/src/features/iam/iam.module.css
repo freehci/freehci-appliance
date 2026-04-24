@@ -172,6 +172,47 @@
   flex-shrink: 0;
 }
 
+.userDetailAvatarBtn {
+  position: relative;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.userDetailAvatarBtn:hover {
+  border-color: var(--color-border);
+  background: var(--color-sidebar-hover);
+}
+
+.userDetailAvatarImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.userDetailAvatarInitials {
+  position: relative;
+  z-index: 1;
+}
+
+.userDetailAvatarOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  color: var(--color-text);
+  background: rgba(0, 0, 0, 0.35);
+  transition: opacity 0.12s ease;
+  z-index: 2;
+}
+
+.userDetailAvatarBtn:hover .userDetailAvatarOverlay {
+  opacity: 1;
+}
+
 .userDetailName {
   margin: 0 0 var(--space-2);
   font-size: var(--text-md);

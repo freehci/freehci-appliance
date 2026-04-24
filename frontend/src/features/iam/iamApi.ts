@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost, apiPostNoContent } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostMultipart, apiPostNoContent } from "@/lib/api";
 import type { User } from "@/features/ipam/types";
 
 const P = "/api/v1/iam";
@@ -153,4 +153,19 @@ export function addGroupSubgroupMember(groupId: number, childGroupId: number): P
 
 export function removeGroupSubgroupMember(groupId: number, childGroupId: number): Promise<void> {
   return apiDelete(`${P}/groups/${groupId}/members/groups/${childGroupId}`);
+}
+
+export function avatarUrl(personId: number, cacheBust?: string | number): string {
+  const q = cacheBust != null ? `?v=${encodeURIComponent(String(cacheBust))}` : "";
+  return `${P}/persons/${personId}/avatar${q}`;
+}
+
+export function uploadPersonAvatar(personId: number, file: File): Promise<User> {
+  const fd = new FormData();
+  fd.set("file", file);
+  return apiPostMultipart(`${P}/persons/${personId}/avatar`, fd);
+}
+
+export function deletePersonAvatar(personId: number): Promise<void> {
+  return apiDelete(`${P}/persons/${personId}/avatar`);
 }

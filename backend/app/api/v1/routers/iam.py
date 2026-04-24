@@ -1,9 +1,16 @@
 """IAM REST: personer (users-katalog), globale roller og grupper med undergrupper."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import os
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.api.auth_deps import get_current_admin
 from app.api.deps import get_db
+from app.core.config import get_settings
+from app.models.admin_account import AdminAccount
 from app.schemas.iam import (
     IamAssignRoleBody,
     IamGroupAddSubgroupMember,
@@ -178,3 +185,106 @@ def remove_subgroup_member(group_id: int, child_group_id: int, db: Session = Dep
     if row is None:
         raise HTTPException(status_code=404, detail="gruppe ikke funnet")
     iam_svc.remove_subgroup_from_group(db, row, child_group_id)
+
+
+# --- Avatar ---
+
+
+def _avatar_dir() -> Path:
+    settings = get_settings()
+    return settings.upload_root_path / "avatars" / "persons"
+
+
+def _safe_avatar_ext(content_type: str | None, filename: str | None) -> str | None:
+    ct = (content_type or "").lower().strip()
+    if ct in ("image/png", "image/x-png"):
+        return "png"
+    if ct in ("image/jpeg", "image/jpg"):
+        return "jpg"
+    if ct == "image/webp":
+        return "webp"
+    # fallback på filending (svakere)
+    if filename:
+        fn = filename.lower()
+        for ext in ("png", "jpg", "jpeg", "webp"):
+            if fn.endswith("." + ext):
+                return "jpg" if ext == "jpeg" else ext
+    return None
+
+
+@router.get("/persons/{person_id}/avatar")
+def get_person_avatar(person_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    rel = getattr(row, "avatar_file", None)
+    if not rel:
+        raise HTTPException(status_code=404, detail="ingen avatar")
+    p = get_settings().upload_root_path / rel
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=404, detail="ingen avatar")
+    mt = "application/octet-stream"
+    s = str(p).lower()
+    if s.endswith(".png"):
+        mt = "image/png"
+    elif s.endswith(".jpg") or s.endswith(".jpeg"):
+        mt = "image/jpeg"
+    elif s.endswith(".webp"):
+        mt = "image/webp"
+    return FileResponse(path=str(p), media_type=mt)
+
+
+@router.post("/persons/{person_id}/avatar", response_model=UserRead)
+def upload_person_avatar(
+    person_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: AdminAccount = Depends(get_current_admin),
+) -> UserRead:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    ext = _safe_avatar_ext(file.content_type, file.filename)
+    if ext is None:
+        raise HTTPException(status_code=400, detail="ugyldig filtype (tillat: png, jpg, webp)")
+
+    # max 2 MiB
+    raw = file.file.read()
+    if raw is None:
+        raise HTTPException(status_code=400, detail="tom fil")
+    if len(raw) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="fil for stor (maks 2 MiB)")
+
+    d = _avatar_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    fname = f"{person_id}.{ext}"
+    out = d / fname
+    tmp = d / f".{fname}.tmp"
+    tmp.write_bytes(raw)
+    os.replace(tmp, out)
+
+    rel = str(Path("avatars") / "persons" / fname)
+    row.avatar_file = rel
+    db.commit()
+    db.refresh(row)
+    return UserRead.model_validate(row)
+
+
+@router.delete("/persons/{person_id}/avatar", status_code=204)
+def delete_person_avatar(
+    person_id: int,
+    db: Session = Depends(get_db),
+    _: AdminAccount = Depends(get_current_admin),
+) -> None:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    rel = getattr(row, "avatar_file", None)
+    row.avatar_file = None
+    db.commit()
+    if rel:
+        p = get_settings().upload_root_path / rel
+        try:
+            p.unlink()
+        except FileNotFoundError:
+            pass
