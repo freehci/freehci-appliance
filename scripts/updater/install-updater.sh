@@ -27,11 +27,15 @@ fi
 echo "==> Installing FreeHCI updater systemd service..."
 sed "s|{{INSTALL_DIR}}|${INSTALL_DIR}|g" "${tmpl}" > "${out}"
 chmod 0644 "${out}"
+if [[ ! -s "${out}" ]]; then
+  echo "error: failed to write systemd unit: ${out}" >&2
+  exit 1
+fi
 
 systemctl daemon-reload
-systemctl enable --now freehci-updater.service || true
-systemctl restart freehci-updater.service || true
+systemctl enable --now freehci-updater.service
+systemctl restart freehci-updater.service
 
 echo "==> Updater service status:"
-systemctl --no-pager --full status freehci-updater.service || true
+systemctl --no-pager --full status freehci-updater.service
 

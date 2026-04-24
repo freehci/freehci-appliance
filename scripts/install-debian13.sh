@@ -173,15 +173,25 @@ fi
 
 cd "${INSTALL_DIR}"
 
-echo "==> Making scripts/*.sh executable…"
+echo "==> Making scripts/*.sh and scripts/*/*.sh executable…"
 shopt -s nullglob
 for _sh in scripts/*.sh; do
+  chmod +x "${_sh}" || true
+done
+for _sh in scripts/*/*.sh; do
   chmod +x "${_sh}" || true
 done
 shopt -u nullglob
 
 echo "==> Installing updater service (Update now)..."
-$SUDO INSTALL_DIR="${INSTALL_DIR}" bash "${INSTALL_DIR}/scripts/updater/install-updater.sh" || true
+if $SUDO INSTALL_DIR="${INSTALL_DIR}" bash "${INSTALL_DIR}/scripts/updater/install-updater.sh"; then
+  echo "==> Updater service installed."
+else
+  echo "warning: could not install updater service (Update now)."
+  echo "  You can retry manually from the clone:"
+  echo "    sudo INSTALL_DIR=\"${INSTALL_DIR}\" bash \"${INSTALL_DIR}/scripts/updater/install-updater.sh\""
+  echo "  Fallback update is still available via reinstall one-liner."
+fi
 
 echo "==> Building and starting services (PostgreSQL, Redis, API, worker, frontend)..."
 if [[ "${COMPOSE_DETACH}" == "1" ]]; then
