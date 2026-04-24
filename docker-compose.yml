@@ -32,6 +32,9 @@ services:
       DATABASE_URL: postgresql+psycopg://freehci:freehci@postgres:5432/freehci
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      # Host updater service (systemd) listens on the Docker host.
+      # `host.docker.internal` is mapped to the host gateway below (Linux/Debian).
+      UPDATER_URL: http://host.docker.internal:8765
       UPLOAD_ROOT: /app/data/uploads
       MIB_ROOT: /app/data/mibs
       MIB_COMPILED_ROOT: /app/data/mibs/compiled
@@ -55,6 +58,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 90s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   worker:
     build:
