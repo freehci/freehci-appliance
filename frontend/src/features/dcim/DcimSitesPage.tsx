@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -16,6 +16,16 @@ import * as ipamApi from "@/features/ipam/ipamApi";
 import marker2x from "leaflet/dist/images/marker-icon-2x.png";
 import marker1x from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+function SiteMapRecenter({ lat, lon }: { lat: number; lon: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView([lat, lon], map.getZoom());
+  }, [lat, lon, map]);
+
+  return null;
+}
 
 export function DcimSitesPage() {
   const { t } = useI18n();
@@ -417,6 +427,7 @@ export function DcimSitesPage() {
                 zoom={15}
                 style={{ height: 280, width: "100%", borderRadius: "var(--radius-sm)" }}
               >
+                <SiteMapRecenter lat={latLon.lat} lon={latLon.lon} />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
