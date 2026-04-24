@@ -8,6 +8,10 @@ Type=simple
 User=root
 Group=root
 WorkingDirectory={{INSTALL_DIR}}
+# Must listen on a non-loopback interface so containers can reach it via host gateway.
+# Backend still protects the update trigger via admin auth.
+Environment=FREEHCI_UPDATER_HOST=0.0.0.0
+Environment=FREEHCI_UPDATER_PORT=8765
 ExecStart=/usr/bin/env python3 {{INSTALL_DIR}}/scripts/updater/freehci_updater.py
 Restart=on-failure
 RestartSec=2
