@@ -59,6 +59,7 @@ $SUDO apt-get install -y --no-install-recommends \
   git \
   ca-certificates \
   curl \
+  python3 \
   docker.io \
   docker-cli
 
@@ -178,6 +179,9 @@ for _sh in scripts/*.sh; do
   chmod +x "${_sh}" || true
 done
 shopt -u nullglob
+
+echo "==> Installing updater service (Update now)..."
+$SUDO INSTALL_DIR="${INSTALL_DIR}" bash "${INSTALL_DIR}/scripts/updater/install-updater.sh" || true
 
 echo "==> Building and starting services (PostgreSQL, Redis, API, worker, frontend)..."
 if [[ "${COMPOSE_DETACH}" == "1" ]]; then

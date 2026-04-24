@@ -126,6 +126,17 @@ export const en = {
   "header.langSwitch": "Language",
   "header.changePassword": "Change password",
   "header.logout": "Sign out",
+  "header.updateNow": "Update now",
+
+  "system.updateTitle": "Update FreeHCI",
+  "system.updateIntro":
+    "Starts an in-place update on the host (Debian) and restarts the stack. The UI may disconnect briefly while containers restart.",
+  "system.updateNowBtn": "Update now",
+  "system.updateRunning": "Updating…",
+  "system.updateStatus": "Status / log",
+  "system.close": "Close",
+  "system.updateFallback":
+    "Fallback (manual): bash -c \"$(curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh)\"",
 
   "auth.loginTitle": "Sign in",
   "auth.username": "Username",

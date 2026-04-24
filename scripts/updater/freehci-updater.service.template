@@ -1,0 +1,20 @@
+[Unit]
+Description=FreeHCI host updater service (Update now)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory={{INSTALL_DIR}}
+ExecStart=/usr/bin/env python3 {{INSTALL_DIR}}/scripts/updater/freehci_updater.py
+Restart=on-failure
+RestartSec=2
+
+# Hardening (keep simple; updater needs to run installer which touches system).
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target
+

@@ -64,6 +64,18 @@ bash scripts/upgrade.sh
 
 This runs `git pull --ff-only`, `docker compose build`, and `docker compose up -d --force-recreate` for **api**, **worker**, and **frontend** (so new images are actually used; plain `up -d` often keeps old containers).
 
+### Update now (UI button, Debian 13)
+
+On Debian 13 installs done via `scripts/install-debian13.sh`, the installer also sets up a small **host updater service** (systemd) that the UI can trigger via an **“Update now”** button (circular arrows) in the top header.
+
+- **What it does**: runs the same installer command as the manual upgrade path and restarts the stack. The UI may disconnect briefly while containers restart.
+- **Status/log**: the UI shows a live log tail while the update runs.
+- **Fallback (manual)**:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh)"
+```
+
 Options via environment:
 
 | Variable    | Effect |

@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { fetchMe } from "@/features/auth/authApi";
 import { useAuth } from "@/features/auth/AuthContext";
+import * as systemApi from "@/features/system/systemApi";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/theme/ThemeProvider";
 import styles from "./TopHeader.module.css";
@@ -19,6 +21,24 @@ export function TopHeader() {
     enabled: Boolean(token),
     staleTime: 60_000,
   });
+
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updateErr, setUpdateErr] = useState<string | null>(null);
+  const updateEnabled = Boolean(token) && updateOpen;
+
+  const updateStatusQ = useQuery({
+    queryKey: ["system", "update-status", token],
+    queryFn: () => systemApi.updateStatus(),
+    enabled: updateEnabled,
+    refetchInterval: updateEnabled ? 2_000 : false,
+    staleTime: 0,
+  });
+
+  const logText = useMemo(() => (updateStatusQ.data?.log_tail ?? []).join("\n"), [updateStatusQ.data?.log_tail]);
+
+  useEffect(() => {
+    if (!updateOpen) setUpdateErr(null);
+  }, [updateOpen]);
 
   return (
     <header className={styles.bar}>
@@ -72,6 +92,17 @@ export function TopHeader() {
           <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"}`} />
         </button>
         {me?.username ? (
+          <button
+            type="button"
+            className={styles.iconBtn}
+            title={t("header.updateNow")}
+            aria-label={t("header.updateNow")}
+            onClick={() => setUpdateOpen(true)}
+          >
+            <i className="fas fa-arrows-rotate" aria-hidden />
+          </button>
+        ) : null}
+        {me?.username ? (
           <span className={styles.userName} title={me.username}>
             {me.username}
           </span>
@@ -97,6 +128,96 @@ export function TopHeader() {
           <i className="fas fa-right-from-bracket" aria-hidden />
         </button>
       </div>
+
+      {updateOpen ? (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 210,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "var(--space-3)",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setUpdateOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              width: "min(44rem, 100%)",
+              maxHeight: "90vh",
+              overflow: "auto",
+              background: "var(--color-bg-elevated)",
+              border: "1px solid var(--shell-border)",
+              borderRadius: "var(--radius-md)",
+              padding: "var(--space-4)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginTop: 0 }}>{t("system.updateTitle")}</h2>
+            <p style={{ marginTop: 0 }} className={styles.userName}>
+              {t("system.updateIntro")}
+            </p>
+            {updateStatusQ.isError ? (
+              <p style={{ color: "var(--color-danger)" }}>{(updateStatusQ.error as Error).message}</p>
+            ) : null}
+            {updateErr ? <p style={{ color: "var(--color-danger)" }}>{updateErr}</p> : null}
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-2)" }}>
+              <button
+                type="button"
+                className={styles.iconBtn}
+                style={{ padding: "0.4rem 0.6rem", border: "1px solid var(--shell-border)", borderRadius: "0.5rem" }}
+                disabled={updateStatusQ.data?.running === true}
+                onClick={async () => {
+                  setUpdateErr(null);
+                  try {
+                    await systemApi.updateNow();
+                    void updateStatusQ.refetch();
+                  } catch (e) {
+                    setUpdateErr(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                {updateStatusQ.data?.running ? t("system.updateRunning") : t("system.updateNowBtn")}
+              </button>
+              <button
+                type="button"
+                className={styles.iconBtn}
+                style={{ padding: "0.4rem 0.6rem", border: "1px solid var(--shell-border)", borderRadius: "0.5rem" }}
+                onClick={() => setUpdateOpen(false)}
+              >
+                {t("system.close")}
+              </button>
+            </div>
+
+            <div style={{ marginTop: "var(--space-3)" }}>
+              <h3 style={{ margin: 0, fontSize: "1rem" }}>{t("system.updateStatus")}</h3>
+              <pre
+                style={{
+                  marginTop: "0.5rem",
+                  padding: "0.75rem",
+                  border: "1px solid var(--shell-border)",
+                  borderRadius: "0.5rem",
+                  maxHeight: "18rem",
+                  overflow: "auto",
+                  background: "var(--color-bg)",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {logText || "…"}
+              </pre>
+              <p style={{ marginBottom: 0, color: "var(--color-muted)" }}>{t("system.updateFallback")}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

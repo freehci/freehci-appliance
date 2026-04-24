@@ -128,6 +128,17 @@ export const nb = {
   "header.langSwitch": "Språk",
   "header.changePassword": "Bytt passord",
   "header.logout": "Logg ut",
+  "header.updateNow": "Oppdater nå",
+
+  "system.updateTitle": "Oppdater FreeHCI",
+  "system.updateIntro":
+    "Starter oppdatering på hosten (Debian) og restarter stakken. UI kan miste forbindelsen kort mens containere restartes.",
+  "system.updateNowBtn": "Oppdater nå",
+  "system.updateRunning": "Oppdaterer …",
+  "system.updateStatus": "Status / logg",
+  "system.close": "Lukk",
+  "system.updateFallback":
+    "Fallback (manuelt): bash -c \"$(curl -fsSL https://raw.githubusercontent.com/freehci/freehci-appliance/main/scripts/install-debian13.sh)\"",
 
   "auth.loginTitle": "Logg inn",
   "auth.username": "Brukernavn",
