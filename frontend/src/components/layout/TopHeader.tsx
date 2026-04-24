@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { fetchMe } from "@/features/auth/authApi";
@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import * as systemApi from "@/features/system/systemApi";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/theme/ThemeProvider";
+import dcimStyles from "@/features/dcim/dcim.module.css";
 import styles from "./TopHeader.module.css";
 
 export function TopHeader() {
@@ -15,6 +16,7 @@ export function TopHeader() {
   const { locale, setLocale, t } = useI18n();
   const { token, logout } = useAuth();
   const navigate = useNavigate();
+  const updateTitleId = useId();
   const { data: me } = useQuery({
     queryKey: ["auth", "me", token],
     queryFn: () => fetchMe(),
@@ -38,6 +40,15 @@ export function TopHeader() {
 
   useEffect(() => {
     if (!updateOpen) setUpdateErr(null);
+  }, [updateOpen]);
+
+  useEffect(() => {
+    if (!updateOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setUpdateOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [updateOpen]);
 
   return (
@@ -149,8 +160,9 @@ export function TopHeader() {
           <div
             role="dialog"
             aria-modal="true"
+            aria-labelledby={updateTitleId}
             style={{
-              width: "min(44rem, 100%)",
+              width: "min(40rem, 100%)",
               maxHeight: "90vh",
               overflow: "auto",
               background: "var(--color-bg-elevated)",
@@ -161,59 +173,84 @@ export function TopHeader() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ marginTop: 0 }}>{t("system.updateTitle")}</h2>
-            <p style={{ marginTop: 0 }} className={styles.userName}>
+            <h2 id={updateTitleId} style={{ marginTop: 0, marginBottom: "0.25rem" }}>
+              {t("system.updateTitle")}
+            </h2>
+            <p className={dcimStyles.muted} style={{ marginBottom: "var(--space-2)" }}>
               {t("system.updateIntro")}
             </p>
+
             {updateStatusQ.isError ? (
-              <p style={{ color: "var(--color-danger)" }}>{(updateStatusQ.error as Error).message}</p>
+              <p className={dcimStyles.err}>{(updateStatusQ.error as Error).message}</p>
             ) : null}
-            {updateErr ? <p style={{ color: "var(--color-danger)" }}>{updateErr}</p> : null}
-            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-2)" }}>
-              <button
-                type="button"
-                className={styles.iconBtn}
-                style={{ padding: "0.4rem 0.6rem", border: "1px solid var(--shell-border)", borderRadius: "0.5rem" }}
-                disabled={updateStatusQ.data?.running === true}
-                onClick={async () => {
-                  setUpdateErr(null);
-                  try {
-                    await systemApi.updateNow();
-                    void updateStatusQ.refetch();
-                  } catch (e) {
-                    setUpdateErr(e instanceof Error ? e.message : String(e));
-                  }
-                }}
-              >
-                {updateStatusQ.data?.running ? t("system.updateRunning") : t("system.updateNowBtn")}
-              </button>
-              <button
-                type="button"
-                className={styles.iconBtn}
-                style={{ padding: "0.4rem 0.6rem", border: "1px solid var(--shell-border)", borderRadius: "0.5rem" }}
-                onClick={() => setUpdateOpen(false)}
-              >
-                {t("system.close")}
-              </button>
+            {updateErr ? <p className={dcimStyles.err}>{updateErr}</p> : null}
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "var(--space-2)",
+                flexWrap: "wrap",
+                border: "1px solid var(--shell-border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "var(--space-2)",
+                background: "var(--color-bg-surface)",
+              }}
+            >
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                <span className={dcimStyles.muted} style={{ margin: 0 }}>
+                  {t("system.updateStatus")}
+                </span>
+                <span style={{ fontFamily: "monospace", fontSize: "var(--text-xs)" }}>
+                  {updateStatusQ.data?.running ? t("system.updateRunning") : updateStatusQ.data?.detail ?? "—"}
+                  {updateStatusQ.data?.exit_code != null ? ` (exit ${String(updateStatusQ.data.exit_code)})` : ""}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className={dcimStyles.btn}
+                  disabled={updateStatusQ.data?.running === true}
+                  onClick={async () => {
+                    setUpdateErr(null);
+                    try {
+                      await systemApi.updateNow();
+                      void updateStatusQ.refetch();
+                    } catch (e) {
+                      setUpdateErr(e instanceof Error ? e.message : String(e));
+                    }
+                  }}
+                >
+                  {updateStatusQ.data?.running ? "…" : t("system.updateNowBtn")}
+                </button>
+                <button type="button" className={dcimStyles.btnMuted} onClick={() => setUpdateOpen(false)}>
+                  {t("system.close")}
+                </button>
+              </div>
             </div>
 
             <div style={{ marginTop: "var(--space-3)" }}>
-              <h3 style={{ margin: 0, fontSize: "1rem" }}>{t("system.updateStatus")}</h3>
               <pre
                 style={{
-                  marginTop: "0.5rem",
+                  margin: 0,
                   padding: "0.75rem",
                   border: "1px solid var(--shell-border)",
-                  borderRadius: "0.5rem",
-                  maxHeight: "18rem",
+                  borderRadius: "var(--radius-sm)",
+                  maxHeight: "22rem",
                   overflow: "auto",
                   background: "var(--color-bg)",
                   whiteSpace: "pre-wrap",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                  fontSize: "0.8rem",
+                  lineHeight: 1.35,
                 }}
               >
                 {logText || "…"}
               </pre>
-              <p style={{ marginBottom: 0, color: "var(--color-muted)" }}>{t("system.updateFallback")}</p>
+              <p className={dcimStyles.muted} style={{ marginTop: "var(--space-2)", marginBottom: 0 }}>
+                {t("system.updateFallback")}
+              </p>
             </div>
           </div>
         </div>
