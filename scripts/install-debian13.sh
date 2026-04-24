@@ -184,13 +184,25 @@ done
 shopt -u nullglob
 
 echo "==> Installing updater service (Update now)..."
-if $SUDO INSTALL_DIR="${INSTALL_DIR}" bash "${INSTALL_DIR}/scripts/updater/install-updater.sh"; then
-  echo "==> Updater service installed."
+if [[ -n "${SUDO}" ]]; then
+  # `sudo VAR=... cmd` tolkes som kommando `VAR=...` (ikke env assignment). Bruk `env`.
+  if $SUDO env INSTALL_DIR="${INSTALL_DIR}" bash "${INSTALL_DIR}/scripts/updater/install-updater.sh"; then
+    echo "==> Updater service installed."
+  else
+    echo "warning: could not install updater service (Update now)."
+    echo "  You can retry manually from the clone:"
+    echo "    sudo env INSTALL_DIR=\"${INSTALL_DIR}\" bash \"${INSTALL_DIR}/scripts/updater/install-updater.sh\""
+    echo "  Fallback update is still available via reinstall one-liner."
+  fi
 else
-  echo "warning: could not install updater service (Update now)."
-  echo "  You can retry manually from the clone:"
-  echo "    sudo INSTALL_DIR=\"${INSTALL_DIR}\" bash \"${INSTALL_DIR}/scripts/updater/install-updater.sh\""
-  echo "  Fallback update is still available via reinstall one-liner."
+  if INSTALL_DIR="${INSTALL_DIR}" bash "${INSTALL_DIR}/scripts/updater/install-updater.sh"; then
+    echo "==> Updater service installed."
+  else
+    echo "warning: could not install updater service (Update now)."
+    echo "  You can retry manually from the clone:"
+    echo "    INSTALL_DIR=\"${INSTALL_DIR}\" bash \"${INSTALL_DIR}/scripts/updater/install-updater.sh\""
+    echo "  Fallback update is still available via reinstall one-liner."
+  fi
 fi
 
 echo "==> Building and starting services (PostgreSQL, Redis, API, worker, frontend)..."
