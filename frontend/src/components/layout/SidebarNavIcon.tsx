@@ -6,6 +6,7 @@ export type SidebarNavIconName =
   | "ipam"
   | "snmp"
   | "jobs"
+  | "system"
   | "integrations"
   | "serviceCatalog"
   | "iam"
@@ -69,6 +70,13 @@ export function SidebarNavIcon({ name, size = 18 }: { name: SidebarNavIconName; 
           <rect x="2" y="7" width="20" height="14" rx="2" />
           <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
           <line x1="8" y1="12" x2="16" y2="12" />
+        </S>
+      );
+    case "system":
+      return (
+        <S>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6l-.03.03a2 2 0 1 1-3.94 0L10 20a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.03a1.7 1.7 0 0 0 .57-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6l.03-.03a2 2 0 1 1 3.94 0L14 4a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.18.38.42.72.6 1h.03a2 2 0 1 1 0 4H20a1.7 1.7 0 0 0-.6 1z" />
         </S>
       );
     case "integrations":

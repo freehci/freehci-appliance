@@ -12,6 +12,7 @@ export function SidebarNav() {
     { to: "/", label: t("nav.dashboard"), end: true, icon: "dashboard" },
     { to: "/snmp", label: t("nav.snmp"), icon: "snmp" },
     { to: "/jobs", label: t("nav.jobs"), icon: "jobs" },
+    { to: "/system", label: t("nav.systemStatus"), icon: "system" },
     { to: "/integrations", label: t("nav.integrations"), icon: "integrations" },
     { to: "/service-catalog", label: t("nav.serviceCatalog"), icon: "serviceCatalog" },
   ];

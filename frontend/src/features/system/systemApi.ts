@@ -21,6 +21,13 @@ export type UpdateCheckResponse = {
   remote_error: string | null;
 };
 
+export type SystemStatusResponse = {
+  update_check: UpdateCheckResponse;
+  updater_available: boolean;
+  updater_error: string | null;
+  updater_status: UpdateStatusResponse | null;
+};
+
 export function updateNow(): Promise<UpdateStartResponse> {
   return apiPost(`${P}/update-now`, {});
 }
@@ -31,5 +38,9 @@ export function updateStatus(): Promise<UpdateStatusResponse> {
 
 export function updateCheck(): Promise<UpdateCheckResponse> {
   return apiGet(`${P}/update-check`);
+}
+
+export function systemStatus(): Promise<SystemStatusResponse> {
+  return apiGet(`${P}/status`);
 }
 

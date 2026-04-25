@@ -27,3 +27,10 @@ class UpdateCheckResponse(BaseModel):
     update_available: bool = False
     remote_error: str | None = None
 
+
+class SystemStatusResponse(BaseModel):
+    update_check: UpdateCheckResponse
+    updater_available: bool = False
+    updater_error: str | None = None
+    updater_status: UpdateStatusResponse | None = None
+

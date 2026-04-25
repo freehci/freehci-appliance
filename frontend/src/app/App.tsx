@@ -30,6 +30,7 @@ import { SnmpEnterprisesPage } from "@/features/snmp/SnmpEnterprisesPage";
 import { SnmpMibsPage } from "@/features/snmp/SnmpMibsPage";
 import { SnmpToolsPage } from "@/features/snmp/SnmpToolsPage";
 import { SnmpBrowserPage } from "@/features/snmp/SnmpBrowserPage";
+import { SystemStatusPage } from "@/features/system/SystemStatusPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { PluginProvider } from "@/plugins/PluginContext";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -101,6 +102,7 @@ function AppRoutes() {
             <Route path="scheduler" element={<JobsSchedulerPage />} />
             <Route path="templates" element={<JobsTemplatesPage />} />
           </Route>
+          <Route path="/system" element={<SystemStatusPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
           <Route path="/iam" element={<IamLayout />}>
             <Route index element={<Navigate to="users" replace />} />
