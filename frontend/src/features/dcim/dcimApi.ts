@@ -28,6 +28,9 @@ import type {
   DeviceModelIdentity,
   DeviceModelComponent,
   DeviceType,
+  ExternalIdentityObservation,
+  ExternalIdentityResolveMatch,
+  ExternalInventoryImportPreview,
   IpAssignment,
   Manufacturer,
   ManufacturerDetail,
@@ -370,6 +373,20 @@ export function previewComponentExternalMapping(body: {
   payload: Record<string, unknown>;
 }): Promise<ComponentExternalMappingPreview> {
   return apiPost(`${P}/component-mappings/preview`, body);
+}
+
+export function resolveExternalIdentities(body: {
+  observations: ExternalIdentityObservation[];
+}): Promise<ExternalIdentityResolveMatch[]> {
+  return apiPost(`${P}/identity-resolver/resolve`, body);
+}
+
+export function previewComponentImport(body: {
+  source: string;
+  resource_type: string;
+  payload: Record<string, unknown>;
+}): Promise<ExternalInventoryImportPreview> {
+  return apiPost(`${P}/component-imports/preview`, body);
 }
 
 export function updateComponentClass(

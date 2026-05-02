@@ -167,6 +167,30 @@ export type ComponentExternalMappingProfile = {
   resources: ComponentExternalMappingResource[];
 };
 
+export type ExternalIdentityObservation = {
+  identity_type: string;
+  namespace: string;
+  value: string;
+  source: string | null;
+  confidence: number;
+  raw_json: Record<string, unknown> | null;
+};
+
+export type ExternalIdentityResolveMatch = {
+  owner_type: string;
+  owner_id: number;
+  owner_name: string;
+  identity_type: string;
+  namespace: string;
+  value: string;
+  normalized_value: string;
+  source: string | null;
+  identity_confidence: number;
+  observation_confidence: number;
+  score: number;
+  reason: string;
+};
+
 export type ComponentExternalMappingPreview = {
   source: string;
   source_type: string;
@@ -176,7 +200,22 @@ export type ComponentExternalMappingPreview = {
   specs_json: Record<string, unknown>;
   component_defaults: Record<string, unknown>;
   extra_values: Record<string, unknown>;
+  identity_observations: ExternalIdentityObservation[];
+  identity_matches: ExternalIdentityResolveMatch[];
   missing_paths: string[];
+  notes: string[];
+};
+
+export type ExternalInventoryImportPreview = {
+  source: string;
+  source_type: string;
+  target_class_slug: string;
+  relation: string;
+  proposed_action: string;
+  component_defaults: Record<string, unknown>;
+  specs_json: Record<string, unknown>;
+  identity_matches: ExternalIdentityResolveMatch[];
+  identity_observations: ExternalIdentityObservation[];
   notes: string[];
 };
 

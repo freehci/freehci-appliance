@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
-from app.models.dcim import Manufacturer
+from app.models.dcim import Manufacturer, ManufacturerIdentity
 from app.models.snmp_catalog import SnmpIanaEnterprise, SnmpMibFileMeta
 from app.services import snmp_mibs as mib_disk
 from app.services.snmp_iana import fetch_iana_enterprise_rows
@@ -112,6 +112,17 @@ def _iana_org(db: Session, pen: int | None) -> str | None:
 def _linked_mfr(db: Session, pen: int | None) -> Manufacturer | None:
     if pen is None:
         return None
+    identity = db.execute(
+        select(ManufacturerIdentity).where(
+            ManufacturerIdentity.identity_type == "iana_pen",
+            ManufacturerIdentity.namespace == "enterprise",
+            ManufacturerIdentity.normalized_value == str(pen),
+        ).limit(1)
+    ).scalar_one_or_none()
+    if identity is not None:
+        mfr = db.get(Manufacturer, identity.manufacturer_id)
+        if mfr is not None:
+            return mfr
     return db.execute(
         select(Manufacturer).where(Manufacturer.iana_enterprise_number == pen).limit(1),
     ).scalar_one_or_none()
@@ -517,6 +528,32 @@ def autocreate_dcim_manufacturers(
             continue
         existing = _linked_mfr(db, pen)
         if existing:
+            identity_exists = db.execute(
+                select(ManufacturerIdentity.id).where(
+                    ManufacturerIdentity.identity_type == "iana_pen",
+                    ManufacturerIdentity.namespace == "enterprise",
+                    ManufacturerIdentity.normalized_value == str(pen),
+                    ManufacturerIdentity.manufacturer_id == existing.id,
+                )
+            ).scalar_one_or_none()
+            if identity_exists is None:
+                db.add(
+                    ManufacturerIdentity(
+                        manufacturer_id=existing.id,
+                        identity_type="iana_pen",
+                        namespace="enterprise",
+                        value=str(pen),
+                        normalized_value=str(pen),
+                        source="iana",
+                        confidence=100,
+                        raw_json=None,
+                        notes="Autogenerert fra SNMP/IANA enterprise-kobling.",
+                    )
+                )
+                try:
+                    db.commit()
+                except IntegrityError:
+                    db.rollback()
             skipped.append(f"PEN {pen}: produsent finnes allerede ({existing.name})")
             continue
         org = _iana_org(db, pen)
@@ -539,6 +576,20 @@ def autocreate_dcim_manufacturers(
         )
         db.add(row)
         try:
+            db.flush()
+            db.add(
+                ManufacturerIdentity(
+                    manufacturer_id=row.id,
+                    identity_type="iana_pen",
+                    namespace="enterprise",
+                    value=str(pen),
+                    normalized_value=str(pen),
+                    source="iana",
+                    confidence=100,
+                    raw_json=None,
+                    notes="Autogenerert fra SNMP/IANA enterprise-kobling.",
+                )
+            )
             db.commit()
             db.refresh(row)
             created.append({"enterprise_number": pen, "manufacturer_id": row.id, "name": row.name})

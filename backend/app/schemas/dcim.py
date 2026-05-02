@@ -484,6 +484,47 @@ class ComponentExternalMappingProfileRead(BaseModel):
     resources: list[ComponentExternalMappingResourceRead] = Field(default_factory=list)
 
 
+class ExternalIdentityObservation(BaseModel):
+    identity_type: str = Field(..., min_length=1, max_length=32)
+    namespace: str = Field(..., min_length=1, max_length=64)
+    value: str = Field(..., min_length=1, max_length=255)
+    source: str | None = Field(None, max_length=64)
+    confidence: int = Field(100, ge=0, le=100)
+    raw_json: dict[str, Any] | None = None
+
+    @field_validator("identity_type")
+    @classmethod
+    def identity_type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in EXTERNAL_IDENTITY_TYPES:
+            raise ValueError("identity_type er ikke støttet")
+        return s
+
+    @field_validator("namespace")
+    @classmethod
+    def namespace_ok(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class ExternalIdentityResolveRequest(BaseModel):
+    observations: list[ExternalIdentityObservation] = Field(..., min_length=1)
+
+
+class ExternalIdentityResolveMatch(BaseModel):
+    owner_type: str
+    owner_id: int
+    owner_name: str
+    identity_type: str
+    namespace: str
+    value: str
+    normalized_value: str
+    source: str | None = None
+    identity_confidence: int
+    observation_confidence: int
+    score: int
+    reason: str
+
+
 class ComponentExternalMappingPreviewRequest(BaseModel):
     source: str = Field(..., min_length=1, max_length=64)
     resource_type: str = Field(..., min_length=1, max_length=255)
@@ -499,7 +540,26 @@ class ComponentExternalMappingPreviewRead(BaseModel):
     specs_json: dict[str, Any] = Field(default_factory=dict)
     component_defaults: dict[str, Any] = Field(default_factory=dict)
     extra_values: dict[str, Any] = Field(default_factory=dict)
+    identity_observations: list[ExternalIdentityObservation] = Field(default_factory=list)
+    identity_matches: list[ExternalIdentityResolveMatch] = Field(default_factory=list)
     missing_paths: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class ExternalInventoryImportPreviewRequest(ComponentExternalMappingPreviewRequest):
+    pass
+
+
+class ExternalInventoryImportPreviewRead(BaseModel):
+    source: str
+    source_type: str
+    target_class_slug: str
+    relation: str
+    proposed_action: str
+    component_defaults: dict[str, Any] = Field(default_factory=dict)
+    specs_json: dict[str, Any] = Field(default_factory=dict)
+    identity_matches: list[ExternalIdentityResolveMatch] = Field(default_factory=list)
+    identity_observations: list[ExternalIdentityObservation] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 

@@ -397,3 +397,57 @@ def test_component_identity_registry_links_external_ids_to_component() -> None:
         assert model_identity.status_code == 200, model_identity.text
         assert model_identity.json()["device_model_id"] == model_id
         assert model_identity.json()["normalized_value"] == "1.3.6.1.4.1.674.10892"
+
+        resolved = client.post(
+            "/api/v1/dcim/identity-resolver/resolve",
+            json={
+                "observations": [
+                    {"identity_type": "pci", "namespace": "device", "value": "8086:1572", "source": "lspci"},
+                    {"identity_type": "pci_vendor", "namespace": "vendor", "value": "8086", "source": "pci.ids"},
+                    {
+                        "identity_type": "snmp_sysobjectid",
+                        "namespace": "prefix",
+                        "value": "1.3.6.1.4.1.674.10892.5",
+                        "source": "snmp",
+                    },
+                ],
+            },
+        )
+        assert resolved.status_code == 200, resolved.text
+        matches = {(row["owner_type"], row["owner_id"]) for row in resolved.json()}
+        assert ("component", component_id) in matches
+        assert ("manufacturer", mfr_id) in matches
+        assert ("device_model", model_id) in matches
+
+        patch_pen = client.patch(f"/api/v1/dcim/manufacturers/{mfr_id}", json={"iana_enterprise_number": 343})
+        assert patch_pen.status_code == 200, patch_pen.text
+        pen_identity = client.get("/api/v1/dcim/manufacturer-identities?q=343")
+        assert pen_identity.status_code == 200, pen_identity.text
+        assert any(
+            row["manufacturer_id"] == mfr_id
+            and row["identity_type"] == "iana_pen"
+            and row["namespace"] == "enterprise"
+            for row in pen_identity.json()
+        )
+
+        identity_preview = client.post(
+            "/api/v1/dcim/component-mappings/preview",
+            json={
+                "source": "redfish",
+                "resource_type": "NetworkAdapter",
+                "payload": {"Manufacturer": "Intel", "Model": "X710", "VendorId": "8086", "DeviceId": "1572"},
+            },
+        )
+        assert identity_preview.status_code == 200, identity_preview.text
+        assert any(row["owner_type"] == "component" and row["owner_id"] == component_id for row in identity_preview.json()["identity_matches"])
+
+        import_preview = client.post(
+            "/api/v1/dcim/component-imports/preview",
+            json={
+                "source": "redfish",
+                "resource_type": "NetworkAdapter",
+                "payload": {"Manufacturer": "Intel", "Model": "X710", "VendorId": "8086", "DeviceId": "1572"},
+            },
+        )
+        assert import_preview.status_code == 200, import_preview.text
+        assert import_preview.json()["proposed_action"] == "match_component"

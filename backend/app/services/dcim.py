@@ -87,6 +87,11 @@ from app.schemas.dcim import (
     DeviceInterfaceCreate,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
+    ExternalIdentityObservation,
+    ExternalIdentityResolveMatch,
+    ExternalIdentityResolveRequest,
+    ExternalInventoryImportPreviewRead,
+    ExternalInventoryImportPreviewRequest,
     IpAssignmentCreate,
     IpAssignmentRead,
     IpAssignmentUpdate,
@@ -727,6 +732,7 @@ def update_manufacturer(db: Session, m: Manufacturer, data: ManufacturerUpdate) 
                 .values(iana_enterprise_number=None),
             )
         m.iana_enterprise_number = pen
+        _ensure_manufacturer_iana_identity(db, m.id, pen, source="dcim")
     db.commit()
     db.refresh(m)
     return manufacturer_read(m)
@@ -2051,6 +2057,13 @@ def preview_component_external_mapping(
         specs_json = {key: value for key, value in mapped.items() if key in allowed_spec_keys}
     used_keys = set(specs_json) | component_default_keys
     extra_values = {key: value for key, value in mapped.items() if key not in used_keys}
+    identity_observations = _identity_observations_from_mapping(
+        data.source.strip().lower(),
+        str(resource["source_type"]),
+        data.payload,
+        mapped,
+    )
+    identity_matches = resolve_external_identities(db, ExternalIdentityResolveRequest(observations=identity_observations)) if identity_observations else []
     return ComponentExternalMappingPreviewRead(
         source=data.source,
         source_type=str(resource["source_type"]),
@@ -2060,7 +2073,35 @@ def preview_component_external_mapping(
         specs_json=specs_json,
         component_defaults=component_defaults,
         extra_values=extra_values,
+        identity_observations=identity_observations,
+        identity_matches=identity_matches,
         missing_paths=missing,
+        notes=notes,
+    )
+
+
+def preview_external_inventory_import(
+    db: Session,
+    data: ExternalInventoryImportPreviewRequest,
+) -> ExternalInventoryImportPreviewRead:
+    mapping = preview_component_external_mapping(db, ComponentExternalMappingPreviewRequest.model_validate(data.model_dump()))
+    if mapping.identity_matches:
+        top = mapping.identity_matches[0]
+        action = f"match_{top.owner_type}"
+        notes = [*mapping.notes, f"Beste identity-match: {top.owner_type} #{top.owner_id} ({top.owner_name})"]
+    else:
+        action = "would_create_component" if mapping.relation == "component" else "would_create_child_template"
+        notes = [*mapping.notes, "Ingen identity-match funnet; import ville opprette/foreslå ny FreeHCI-rad."]
+    return ExternalInventoryImportPreviewRead(
+        source=mapping.source,
+        source_type=mapping.source_type,
+        target_class_slug=mapping.target_class_slug,
+        relation=mapping.relation,
+        proposed_action=action,
+        component_defaults=mapping.component_defaults,
+        specs_json=mapping.specs_json,
+        identity_matches=mapping.identity_matches,
+        identity_observations=mapping.identity_observations,
         notes=notes,
     )
 
@@ -2519,6 +2560,284 @@ def _normalize_external_identity(identity_type: str, namespace: str, value: str)
     if identity_type == "snmp_sysobjectid":
         return raw.strip(".")
     return raw.lower()
+
+
+def _identity_observation(
+    identity_type: str,
+    namespace: str,
+    value: object,
+    *,
+    source: str | None = None,
+    confidence: int = 100,
+    raw_json: dict[str, object] | None = None,
+) -> ExternalIdentityObservation | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text == "":
+        return None
+    return ExternalIdentityObservation(
+        identity_type=identity_type,
+        namespace=namespace,
+        value=text,
+        source=source,
+        confidence=confidence,
+        raw_json=raw_json,
+    )
+
+
+def _payload_value(payload: dict[str, object], *names: str) -> object | None:
+    lowered = {key.lower(): value for key, value in payload.items()}
+    for name in names:
+        if name in payload:
+            return payload[name]
+        value = lowered.get(name.lower())
+        if value is not None:
+            return value
+    return None
+
+
+def _identity_observations_from_mapping(
+    source: str,
+    source_type: str,
+    payload: dict[str, object],
+    mapped: dict[str, object],
+) -> list[ExternalIdentityObservation]:
+    observations: list[ExternalIdentityObservation] = []
+
+    def add(identity_type: str, namespace: str, value: object, confidence: int = 85) -> None:
+        obs = _identity_observation(identity_type, namespace, value, source=source, confidence=confidence)
+        if obs is not None:
+            observations.append(obs)
+
+    pci_vendor = _payload_value(payload, "pci_vendor_id", "VendorId", "VendorID", "vendor_id")
+    pci_device = _payload_value(payload, "pci_device_id", "DeviceId", "DeviceID", "device_id")
+    if pci_vendor is not None and pci_device is not None:
+        add("pci", "device", f"{pci_vendor}:{pci_device}", 95)
+    elif pci_vendor is not None:
+        add("pci_vendor", "vendor", pci_vendor, 90)
+
+    usb_vendor = _payload_value(payload, "usb_vendor_id")
+    usb_product = _payload_value(payload, "usb_product_id")
+    if usb_vendor is not None and usb_product is not None:
+        add("usb", "product", f"{usb_vendor}:{usb_product}", 90)
+    elif usb_vendor is not None:
+        add("usb_vendor", "vendor", usb_vendor, 85)
+
+    mac = _payload_value(payload, "mac", "mac_address", "MACAddress", "PermanentMACAddress")
+    if mac is not None:
+        add("mac", "address", mac, 90)
+        add("oui", "prefix", mac, 80)
+
+    sys_object = _payload_value(payload, "sysObjectID", "sys_object_id", "sys_object_id_numeric", "SNMPSysObjectId")
+    if sys_object is not None:
+        add("snmp_sysobjectid", "prefix", sys_object, 95)
+
+    if source == "redfish":
+        add("redfish", "id", _payload_value(payload, "Id", "@odata.id"), 75)
+        add("redfish", "model", mapped.get("model") or _payload_value(payload, "Model"), 80)
+        add("redfish", "part_number", mapped.get("part_number") or _payload_value(payload, "PartNumber"), 85)
+    elif source == "smbios":
+        add("smbios", "product", _payload_value(payload, "ProductName", "product", "name"), 80)
+        add("smbios", "part_number", mapped.get("part_number") or _payload_value(payload, "PartNumber"), 85)
+    elif source == "openbmc":
+        add("redfish", "id", _payload_value(payload, "Id", "@odata.id"), 75)
+        add("redfish", "model", mapped.get("model") or _payload_value(payload, "Model"), 80)
+    elif source in {"lshw", "netbox"}:
+        add("vendor_api", source_type.lower(), mapped.get("part_number") or mapped.get("model") or mapped.get("name"), 70)
+
+    seen: set[tuple[str, str, str]] = set()
+    unique: list[ExternalIdentityObservation] = []
+    for obs in observations:
+        key = (obs.identity_type, obs.namespace, _normalize_external_identity(obs.identity_type, obs.namespace, obs.value))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(obs)
+    return unique
+
+
+def _resolve_match_read(
+    *,
+    owner_type: str,
+    owner_id: int,
+    owner_name: str,
+    identity_type: str,
+    namespace: str,
+    value: str,
+    normalized_value: str,
+    source: str | None,
+    identity_confidence: int,
+    observation_confidence: int,
+    reason: str,
+) -> ExternalIdentityResolveMatch:
+    score = round((identity_confidence * observation_confidence) / 100)
+    return ExternalIdentityResolveMatch(
+        owner_type=owner_type,
+        owner_id=owner_id,
+        owner_name=owner_name,
+        identity_type=identity_type,
+        namespace=namespace,
+        value=value,
+        normalized_value=normalized_value,
+        source=source,
+        identity_confidence=identity_confidence,
+        observation_confidence=observation_confidence,
+        score=score,
+        reason=reason,
+    )
+
+
+def _identity_value_matches(identity_type: str, namespace: str, observed: str, stored: str) -> bool:
+    if identity_type == "snmp_sysobjectid" and namespace == "prefix":
+        return observed == stored or observed.startswith(f"{stored}.")
+    if identity_type == "oui" and namespace == "prefix":
+        return observed.startswith(stored)
+    return observed == stored
+
+
+def resolve_external_identities(
+    db: Session,
+    data: ExternalIdentityResolveRequest,
+) -> list[ExternalIdentityResolveMatch]:
+    matches: list[ExternalIdentityResolveMatch] = []
+    best_by_owner: dict[tuple[str, int], ExternalIdentityResolveMatch] = {}
+
+    for obs in data.observations:
+        identity_type = obs.identity_type.strip().lower()
+        namespace = obs.namespace.strip().lower()
+        normalized = _normalize_external_identity(identity_type, namespace, obs.value)
+
+        mfr_rows = db.execute(
+            select(ManufacturerIdentity).where(
+                ManufacturerIdentity.identity_type == identity_type,
+                ManufacturerIdentity.namespace == namespace,
+            )
+        ).scalars().all()
+        for identity in mfr_rows:
+            if not _identity_value_matches(identity_type, namespace, normalized, identity.normalized_value):
+                continue
+            mfr = db.get(Manufacturer, identity.manufacturer_id)
+            if mfr is None:
+                continue
+            match = _resolve_match_read(
+                owner_type="manufacturer",
+                owner_id=mfr.id,
+                owner_name=mfr.name,
+                identity_type=identity.identity_type,
+                namespace=identity.namespace,
+                value=identity.value,
+                normalized_value=identity.normalized_value,
+                source=identity.source,
+                identity_confidence=identity.confidence,
+                observation_confidence=obs.confidence,
+                reason="identity_registry",
+            )
+            best_by_owner[(match.owner_type, match.owner_id)] = max(
+                best_by_owner.get((match.owner_type, match.owner_id), match),
+                match,
+                key=lambda m: m.score,
+            )
+
+        model_rows = db.execute(
+            select(DeviceModelIdentity).where(
+                DeviceModelIdentity.identity_type == identity_type,
+                DeviceModelIdentity.namespace == namespace,
+            )
+        ).scalars().all()
+        for identity in model_rows:
+            if not _identity_value_matches(identity_type, namespace, normalized, identity.normalized_value):
+                continue
+            model = db.get(DeviceModel, identity.device_model_id)
+            if model is None:
+                continue
+            match = _resolve_match_read(
+                owner_type="device_model",
+                owner_id=model.id,
+                owner_name=model.name,
+                identity_type=identity.identity_type,
+                namespace=identity.namespace,
+                value=identity.value,
+                normalized_value=identity.normalized_value,
+                source=identity.source,
+                identity_confidence=identity.confidence,
+                observation_confidence=obs.confidence,
+                reason="identity_registry",
+            )
+            best_by_owner[(match.owner_type, match.owner_id)] = max(
+                best_by_owner.get((match.owner_type, match.owner_id), match),
+                match,
+                key=lambda m: m.score,
+            )
+
+        component_rows = db.execute(
+            select(ComponentIdentity).where(
+                ComponentIdentity.identity_type == identity_type,
+                ComponentIdentity.namespace == namespace,
+            )
+        ).scalars().all()
+        for identity in component_rows:
+            if not _identity_value_matches(identity_type, namespace, normalized, identity.normalized_value):
+                continue
+            component = db.get(Component, identity.component_id)
+            if component is None:
+                continue
+            match = _resolve_match_read(
+                owner_type="component",
+                owner_id=component.id,
+                owner_name=component.name,
+                identity_type=identity.identity_type,
+                namespace=identity.namespace,
+                value=identity.value,
+                normalized_value=identity.normalized_value,
+                source=identity.source,
+                identity_confidence=identity.confidence,
+                observation_confidence=obs.confidence,
+                reason="identity_registry",
+            )
+            best_by_owner[(match.owner_type, match.owner_id)] = max(
+                best_by_owner.get((match.owner_type, match.owner_id), match),
+                match,
+                key=lambda m: m.score,
+            )
+
+    matches = list(best_by_owner.values())
+    matches.sort(key=lambda m: (-m.score, m.owner_type, m.owner_name))
+    return matches
+
+
+def _ensure_manufacturer_iana_identity(
+    db: Session,
+    manufacturer_id: int,
+    pen: int | None,
+    *,
+    source: str = "iana",
+) -> None:
+    if pen is None:
+        return
+    normalized = _normalize_external_identity("iana_pen", "enterprise", str(pen))
+    existing = db.execute(
+        select(ManufacturerIdentity).where(
+            ManufacturerIdentity.identity_type == "iana_pen",
+            ManufacturerIdentity.namespace == "enterprise",
+            ManufacturerIdentity.normalized_value == normalized,
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return
+    db.add(
+        ManufacturerIdentity(
+            manufacturer_id=manufacturer_id,
+            identity_type="iana_pen",
+            namespace="enterprise",
+            value=str(pen),
+            normalized_value=normalized,
+            source=source,
+            confidence=100,
+            raw_json=None,
+            notes="Autogenerert fra IANA enterprise-kobling.",
+        )
+    )
 
 
 def list_component_identities(
