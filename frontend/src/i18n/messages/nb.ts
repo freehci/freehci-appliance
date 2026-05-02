@@ -267,6 +267,14 @@ export const nb = {
   "dcim.components.mappingManufacturerMissing":
     "Mappingen foreslår produsenten {name}, men den finnes ikke i produsentregisteret ennå.",
   "dcim.components.mappingTargets": "FreeHCI-mål",
+  "dcim.components.importPreview": "Dry-run import",
+  "dcim.components.importPreviewResult": "Import-preview",
+  "dcim.components.importPreviewSummary": "Handling: {action}. Mål: {target}.",
+  "dcim.components.identityObservations": "Observerte identiteter",
+  "dcim.components.identityMatches": "Identity-matcher",
+  "dcim.components.identityScore": "Score",
+  "dcim.components.identityNoMatches": "Ingen identity-matcher funnet.",
+  "dcim.components.identityBestMatch": "Beste match: {owner} (score {score}).",
 
   "auth.loginTitle": "Logg inn",
   "auth.username": "Brukernavn",

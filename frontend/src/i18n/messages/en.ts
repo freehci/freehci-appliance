@@ -265,6 +265,14 @@ export const en = {
   "dcim.components.mappingManufacturerMissing":
     "The mapping suggests manufacturer {name}, but it does not exist in the manufacturer registry yet.",
   "dcim.components.mappingTargets": "FreeHCI targets",
+  "dcim.components.importPreview": "Dry-run import",
+  "dcim.components.importPreviewResult": "Import preview",
+  "dcim.components.importPreviewSummary": "Action: {action}. Target: {target}.",
+  "dcim.components.identityObservations": "Observed identities",
+  "dcim.components.identityMatches": "Identity matches",
+  "dcim.components.identityScore": "Score",
+  "dcim.components.identityNoMatches": "No identity matches found.",
+  "dcim.components.identityBestMatch": "Best match: {owner} (score {score}).",
 
   "auth.loginTitle": "Sign in",
   "auth.username": "Username",

@@ -7,7 +7,7 @@ import {
   DcimComponentSpecEditor,
   specsFromDraft,
 } from "./DcimComponentSpecEditor";
-import type { ComponentExternalMappingPreview } from "./types";
+import type { ComponentExternalMappingPreview, ExternalInventoryImportPreview } from "./types";
 import styles from "./dcim.module.css";
 
 function slugify(s: string): string {
@@ -70,6 +70,8 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [mappingPayload, setMappingPayload] = useState("{}");
   const [mappingPreview, setMappingPreview] = useState("");
   const [mappingPreviewData, setMappingPreviewData] = useState<ComponentExternalMappingPreview | null>(null);
+  const [importPreview, setImportPreview] = useState("");
+  const [importPreviewData, setImportPreviewData] = useState<ExternalInventoryImportPreview | null>(null);
 
   const classesQ = useQuery({ queryKey: ["dcim", "component-classes"], queryFn: api.listComponentClasses });
   const fieldsQ = useQuery({
@@ -179,6 +181,7 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     () => (classesQ.data ?? []).find((x) => x.slug === mappingPreviewData?.target_class_slug),
     [classesQ.data, mappingPreviewData?.target_class_slug],
   );
+  const bestIdentityMatch = mappingPreviewData?.identity_matches[0] ?? importPreviewData?.identity_matches[0] ?? null;
   const filteredCatalogComponents = useMemo(() => {
     const needle = catalogSearch.trim().toLowerCase();
     const rows = (componentsQ.data ?? []).filter((c) => {
@@ -423,6 +426,25 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
       onError(null);
       setMappingPreview(JSON.stringify(res, null, 2));
       setMappingPreviewData(res);
+    },
+    onError: onMutError,
+  });
+  const previewImportM = useMutation({
+    mutationFn: () => {
+      const parsed = JSON.parse(mappingPayload) as unknown;
+      if (parsed == null || Array.isArray(parsed) || typeof parsed !== "object") {
+        throw new Error(t("dcim.components.mappingPayloadObject"));
+      }
+      return api.previewComponentImport({
+        source: mappingSource,
+        resource_type: mappingResourceType,
+        payload: parsed as Record<string, unknown>,
+      });
+    },
+    onSuccess: (res) => {
+      onError(null);
+      setImportPreview(JSON.stringify(res, null, 2));
+      setImportPreviewData(res);
     },
     onError: onMutError,
   });
@@ -688,13 +710,13 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
       {mappingsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
       <form className={styles.formRow} onSubmit={(e) => { e.preventDefault(); previewMappingM.mutate(); }}>
         <label>{t("dcim.components.mappingSource")}
-          <select value={mappingSource} onChange={(e) => { setMappingSource(e.target.value); setMappingResourceType(""); setMappingPreview(""); setMappingPreviewData(null); }} required>
+          <select value={mappingSource} onChange={(e) => { setMappingSource(e.target.value); setMappingResourceType(""); setMappingPreview(""); setMappingPreviewData(null); setImportPreview(""); setImportPreviewData(null); }} required>
             <option value="">{t("dcim.common.choose")}</option>
             {(mappingsQ.data ?? []).map((profile) => <option key={profile.source} value={profile.source}>{profile.display_name}</option>)}
           </select>
         </label>
         <label>{t("dcim.components.mappingResourceType")}
-          <select value={mappingResourceType} onChange={(e) => { setMappingResourceType(e.target.value); setMappingPreview(""); setMappingPreviewData(null); }} required>
+          <select value={mappingResourceType} onChange={(e) => { setMappingResourceType(e.target.value); setMappingPreview(""); setMappingPreviewData(null); setImportPreview(""); setImportPreviewData(null); }} required>
             <option value="">{t("dcim.common.choose")}</option>
             {selectedMappingResources.map((r) => <option key={r.source_type} value={r.source_type}>{r.source_type}</option>)}
           </select>
@@ -704,6 +726,9 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
         </label>
         <button type="submit" className={styles.btn} disabled={previewMappingM.isPending || mappingSource === "" || mappingResourceType === ""}>
           {previewMappingM.isPending ? "…" : t("dcim.components.mappingPreview")}
+        </button>
+        <button type="button" className={styles.btnMuted} disabled={previewImportM.isPending || mappingSource === "" || mappingResourceType === ""} onClick={() => previewImportM.mutate()}>
+          {previewImportM.isPending ? "…" : t("dcim.components.importPreview")}
         </button>
       </form>
       {mappingPreview ? (
@@ -721,7 +746,58 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
               </span>
             ) : null}
           </div>
+          {mappingPreviewData?.identity_observations.length ? (
+            <>
+              <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.components.identityObservations")}</h4>
+              <table className={styles.table}>
+                <thead><tr><th>{t("dcim.components.identityType")}</th><th>{t("dcim.components.identityNamespace")}</th><th>{t("dcim.components.identityValue")}</th><th>{t("dcim.components.identityConfidence")}</th></tr></thead>
+                <tbody>
+                  {mappingPreviewData.identity_observations.map((obs) => (
+                    <tr key={`${obs.identity_type}-${obs.namespace}-${obs.value}`}>
+                      <td><code>{obs.identity_type}</code></td>
+                      <td><code>{obs.namespace}</code></td>
+                      <td>{obs.value}</td>
+                      <td>{obs.confidence}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : null}
+          {mappingPreviewData?.identity_matches.length ? (
+            <>
+              <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.components.identityMatches")}</h4>
+              <table className={styles.table}>
+                <thead><tr><th>{t("dcim.components.identityOwnerColumn")}</th><th>{t("dcim.components.identityType")}</th><th>{t("dcim.components.identityNormalized")}</th><th>{t("dcim.components.identityScore")}</th></tr></thead>
+                <tbody>
+                  {mappingPreviewData.identity_matches.map((match) => (
+                    <tr key={`${match.owner_type}-${match.owner_id}-${match.identity_type}-${match.normalized_value}`}>
+                      <td>{match.owner_type} #{match.owner_id}: {match.owner_name}</td>
+                      <td><code>{match.identity_type}/{match.namespace}</code></td>
+                      <td><code>{match.normalized_value}</code></td>
+                      <td>{match.score}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : <p className={styles.muted}>{t("dcim.components.identityNoMatches")}</p>}
           <pre className={styles.codeBlock}>{mappingPreview}</pre>
+        </>
+      ) : null}
+      {importPreview ? (
+        <>
+          <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.components.importPreviewResult")}</h4>
+          {importPreviewData ? (
+            <p className={styles.muted}>
+              {t("dcim.components.importPreviewSummary", {
+                action: importPreviewData.proposed_action,
+                target: importPreviewData.target_class_slug,
+              })}
+              {bestIdentityMatch ? ` ${t("dcim.components.identityBestMatch", { owner: `${bestIdentityMatch.owner_type} #${bestIdentityMatch.owner_id}: ${bestIdentityMatch.owner_name}`, score: String(bestIdentityMatch.score) })}` : ""}
+            </p>
+          ) : null}
+          <pre className={styles.codeBlock}>{importPreview}</pre>
         </>
       ) : null}
       <table className={styles.table}>
