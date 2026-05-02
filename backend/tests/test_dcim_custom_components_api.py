@@ -300,3 +300,65 @@ def test_component_external_mapping_preview_transforms_payload() -> None:
             json={"source": "redfish", "resource_type": "NotAThing", "payload": {}},
         )
         assert missing.status_code == 404
+
+
+def test_component_identity_registry_links_external_ids_to_component() -> None:
+    app = create_app()
+    suffix = uuid.uuid4().hex[:8]
+
+    with TestClient(app) as client:
+        mfr = client.post("/api/v1/dcim/manufacturers", json={"name": f"Intel {suffix}"})
+        assert mfr.status_code == 200, mfr.text
+        mfr_id = mfr.json()["id"]
+
+        cls = client.post(
+            "/api/v1/dcim/component-classes",
+            json={"name": f"NIC identity {suffix}", "slug": f"nic-identity-{suffix}"},
+        )
+        assert cls.status_code == 200, cls.text
+        component = client.post(
+            "/api/v1/dcim/components",
+            json={
+                "class_id": cls.json()["id"],
+                "manufacturer_id": mfr_id,
+                "name": f"Intel X710 {suffix}",
+                "part_number": f"X710-{suffix}",
+            },
+        )
+        assert component.status_code == 200, component.text
+        component_id = component.json()["id"]
+
+        pci = client.post(
+            f"/api/v1/dcim/components/{component_id}/identities",
+            json={
+                "manufacturer_id": mfr_id,
+                "identity_type": "pci",
+                "namespace": "device",
+                "value": "8086:1572",
+                "source": "lspci",
+                "confidence": 95,
+            },
+        )
+        assert pci.status_code == 200, pci.text
+        assert pci.json()["normalized_value"] == "8086:1572"
+
+        mac = client.post(
+            f"/api/v1/dcim/components/{component_id}/identities",
+            json={"identity_type": "oui", "namespace": "prefix", "value": "3c:fd:fe:11:22:33"},
+        )
+        assert mac.status_code == 200, mac.text
+        assert mac.json()["normalized_value"] == "3CFDFE"
+
+        duplicate = client.post(
+            f"/api/v1/dcim/components/{component_id}/identities",
+            json={"identity_type": "pci", "namespace": "device", "value": "8086:1572"},
+        )
+        assert duplicate.status_code == 409
+
+        found = client.get("/api/v1/dcim/component-identities?q=8086")
+        assert found.status_code == 200, found.text
+        assert any(row["component_id"] == component_id and row["identity_type"] == "pci" for row in found.json())
+
+        linked = client.get(f"/api/v1/dcim/components/{component_id}/identities")
+        assert linked.status_code == 200, linked.text
+        assert {row["identity_type"] for row in linked.json()} == {"pci", "oui"}

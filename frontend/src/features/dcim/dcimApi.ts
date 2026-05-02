@@ -17,6 +17,7 @@ import type {
   ComponentClassParent,
   ComponentExternalMappingProfile,
   ComponentExternalMappingPreview,
+  ComponentIdentity,
   ComponentStandardCatalogSeedResponse,
   ComponentFieldImpact,
   DeviceInstance,
@@ -475,6 +476,38 @@ export function updateComponent(
 
 export function deleteComponent(id: number): Promise<void> {
   return apiDelete(`${P}/components/${id}`);
+}
+
+export function listComponentIdentities(filters?: {
+  component_id?: number;
+  identity_type?: string;
+  namespace?: string;
+  q?: string;
+}): Promise<ComponentIdentity[]> {
+  const qs = new URLSearchParams();
+  if (filters?.component_id != null) qs.set("component_id", String(filters.component_id));
+  if (filters?.identity_type) qs.set("identity_type", filters.identity_type);
+  if (filters?.namespace) qs.set("namespace", filters.namespace);
+  if (filters?.q) qs.set("q", filters.q);
+  const q = qs.toString();
+  return apiGet(`${P}/component-identities${q ? `?${q}` : ""}`);
+}
+
+export function createComponentIdentity(componentId: number, body: {
+  manufacturer_id?: number | null;
+  identity_type: string;
+  namespace: string;
+  value: string;
+  source?: string | null;
+  confidence?: number;
+  raw_json?: Record<string, unknown> | null;
+  notes?: string | null;
+}): Promise<ComponentIdentity> {
+  return apiPost(`${P}/components/${componentId}/identities`, body);
+}
+
+export function deleteComponentIdentity(id: number): Promise<void> {
+  return apiDelete(`${P}/component-identities/${id}`);
 }
 
 export function listComponentChildTemplates(componentId: number): Promise<ComponentChildTemplate[]> {

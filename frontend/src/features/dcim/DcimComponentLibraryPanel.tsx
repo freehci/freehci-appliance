@@ -45,6 +45,13 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [catalogClassFilter, setCatalogClassFilter] = useState("");
   const [catalogMfrFilter, setCatalogMfrFilter] = useState("");
   const [catalogSort, setCatalogSort] = useState("class");
+  const [identityComponentId, setIdentityComponentId] = useState("");
+  const [identitySearch, setIdentitySearch] = useState("");
+  const [identityType, setIdentityType] = useState("pci");
+  const [identityNamespace, setIdentityNamespace] = useState("device");
+  const [identityValue, setIdentityValue] = useState("");
+  const [identitySource, setIdentitySource] = useState("");
+  const [identityConfidence, setIdentityConfidence] = useState("100");
   const [parentClassId, setParentClassId] = useState("");
   const [templateComponentId, setTemplateComponentId] = useState("");
   const [templateChildClassId, setTemplateChildClassId] = useState("");
@@ -93,6 +100,10 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     enabled: templateChildClassId !== "",
   });
   const mfrQ = useQuery({ queryKey: ["dcim", "manufacturers"], queryFn: api.listManufacturers });
+  const identitiesQ = useQuery({
+    queryKey: ["dcim", "component-identities", identitySearch],
+    queryFn: () => api.listComponentIdentities(identitySearch.trim() ? { q: identitySearch.trim() } : undefined),
+  });
 
   const selectedClass = useMemo(
     () => (classesQ.data ?? []).find((x) => x.id === Number(selectedClassId)),
@@ -278,6 +289,32 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     },
     onError: onMutError,
   });
+  const createIdentityM = useMutation({
+    mutationFn: () =>
+      api.createComponentIdentity(Number(identityComponentId), {
+        identity_type: identityType,
+        namespace: identityNamespace,
+        value: identityValue,
+        source: identitySource.trim() || null,
+        confidence: Number(identityConfidence) || 0,
+      }),
+    onSuccess: () => {
+      onError(null);
+      setIdentityValue("");
+      setIdentitySource("");
+      setIdentityConfidence("100");
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-identities"] });
+    },
+    onError: onMutError,
+  });
+  const deleteIdentityM = useMutation({
+    mutationFn: (id: number) => api.deleteComponentIdentity(id),
+    onSuccess: () => {
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-identities"] });
+    },
+    onError: onMutError,
+  });
   const createTemplateM = useMutation({
     mutationFn: () =>
       api.createComponentChildTemplate(Number(templateComponentId), {
@@ -449,6 +486,48 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
           </form>
         </>
       ) : null}
+
+      <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.components.identities")}</h3>
+      <p className={styles.muted}>{t("dcim.components.identitiesHint")}</p>
+      <form className={styles.formRow} onSubmit={(e) => { e.preventDefault(); createIdentityM.mutate(); }}>
+        <label>{t("dcim.components.component")}
+          <select value={identityComponentId} onChange={(e) => setIdentityComponentId(e.target.value)} required>
+            <option value="">{t("dcim.common.choose")}</option>
+            {(componentsQ.data ?? []).map((c) => <option key={c.id} value={String(c.id)}>{classNameById.get(c.class_id) ?? "?"}: {c.name}</option>)}
+          </select>
+        </label>
+        <label>{t("dcim.components.identityType")}
+          <select value={identityType} onChange={(e) => setIdentityType(e.target.value)}>
+            {["pci", "usb", "mac", "oui", "snmp_sysobjectid", "redfish", "smbios", "lldp", "vendor_api", "other"].map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+        </label>
+        <label>{t("dcim.components.identityNamespace")}<input value={identityNamespace} onChange={(e) => setIdentityNamespace(e.target.value)} required /></label>
+        <label>{t("dcim.components.identityValue")}<input value={identityValue} onChange={(e) => setIdentityValue(e.target.value)} required placeholder="8086:1572" /></label>
+        <label>{t("dcim.components.identitySource")}<input value={identitySource} onChange={(e) => setIdentitySource(e.target.value)} placeholder="lspci" /></label>
+        <label>{t("dcim.components.identityConfidence")}<input type="number" min={0} max={100} value={identityConfidence} onChange={(e) => setIdentityConfidence(e.target.value)} /></label>
+        <button type="submit" className={styles.btn} disabled={createIdentityM.isPending || identityComponentId === ""}>{t("dcim.common.add")}</button>
+      </form>
+      <div className={styles.formRow}>
+        <label>{t("dcim.components.identitySearch")}
+          <input value={identitySearch} onChange={(e) => setIdentitySearch(e.target.value)} placeholder="8086, 3CFDFE, Redfish…" />
+        </label>
+      </div>
+      <table className={styles.table} style={{ marginBottom: "var(--space-3)" }}>
+        <thead><tr><th>{t("dcim.components.component")}</th><th>{t("dcim.components.identityType")}</th><th>{t("dcim.components.identityNamespace")}</th><th>{t("dcim.components.identityValue")}</th><th>{t("dcim.components.identityNormalized")}</th><th>{t("dcim.components.identityConfidence")}</th><th /></tr></thead>
+        <tbody>
+          {(identitiesQ.data ?? []).map((identity) => (
+            <tr key={identity.id}>
+              <td>{componentNameById.get(identity.component_id) ?? `#${identity.component_id}`}</td>
+              <td><code>{identity.identity_type}</code></td>
+              <td><code>{identity.namespace}</code></td>
+              <td>{identity.value}</td>
+              <td><code>{identity.normalized_value}</code></td>
+              <td>{identity.confidence}</td>
+              <td><button type="button" className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()} onClick={() => deleteIdentityM.mutate(identity.id)}><i className="fas fa-trash-can" aria-hidden /></button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.components.childTemplates")}</h3>
       <div className={styles.formRow}>

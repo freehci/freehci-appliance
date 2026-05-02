@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -355,6 +355,42 @@ class Component(Base):
         foreign_keys="ComponentChildTemplate.parent_component_id",
         order_by="ComponentChildTemplate.sort_order, ComponentChildTemplate.id",
     )
+    identities: Mapped[list["ComponentIdentity"]] = relationship(
+        back_populates="component",
+        cascade="all, delete-orphan",
+        order_by="ComponentIdentity.identity_type, ComponentIdentity.namespace, ComponentIdentity.normalized_value",
+    )
+
+
+class ComponentIdentity(Base):
+    """Ekstern identitet som gjenkjenner en canonical FreeHCI-komponent."""
+
+    __tablename__ = "dcim_component_identities"
+    __table_args__ = (
+        UniqueConstraint("identity_type", "namespace", "normalized_value", name="uq_dcim_component_identity_value"),
+        Index("ix_dcim_component_identities_component", "component_id"),
+        Index("ix_dcim_component_identities_mfr", "manufacturer_id"),
+        Index("ix_dcim_component_identities_lookup", "identity_type", "namespace", "normalized_value"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    component_id: Mapped[int] = mapped_column(ForeignKey("dcim_components.id", ondelete="CASCADE"), nullable=False)
+    manufacturer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_manufacturers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    identity_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    namespace: Mapped[str] = mapped_column(String(64), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    component: Mapped["Component"] = relationship(back_populates="identities")
+    manufacturer: Mapped["Manufacturer | None"] = relationship("Manufacturer")
 
 
 class ComponentChildTemplate(Base):

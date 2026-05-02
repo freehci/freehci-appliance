@@ -229,6 +229,21 @@ export type Component = {
   active: boolean;
 };
 
+export type ComponentIdentity = {
+  id: number;
+  component_id: number;
+  manufacturer_id: number | null;
+  identity_type: string;
+  namespace: string;
+  value: string;
+  normalized_value: string;
+  source: string | null;
+  confidence: number;
+  raw_json: Record<string, unknown>;
+  notes: string | null;
+  created_at: string;
+};
+
 export type ComponentChildTemplate = {
   id: number;
   parent_component_id: number;

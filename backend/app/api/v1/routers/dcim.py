@@ -30,6 +30,9 @@ from app.schemas.dcim import (
     ComponentExternalMappingPreviewRead,
     ComponentExternalMappingPreviewRequest,
     ComponentFieldImpactRead,
+    ComponentIdentityCreate,
+    ComponentIdentityRead,
+    ComponentIdentityUpdate,
     ComponentMaterializeInterfacesRequest,
     ComponentRead,
     ComponentStandardCatalogSeedResponse,
@@ -639,6 +642,53 @@ def delete_component(component_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="komponent ikke funnet")
     dcim_svc.delete_component(db, row)
+
+
+@router.get("/component-identities", response_model=list[ComponentIdentityRead])
+def list_component_identities(
+    component_id: int | None = Query(None),
+    identity_type: str | None = Query(None),
+    namespace: str | None = Query(None),
+    q: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[ComponentIdentityRead]:
+    return dcim_svc.list_component_identities(db, component_id=component_id, identity_type=identity_type, namespace=namespace, q=q)
+
+
+@router.get("/components/{component_id}/identities", response_model=list[ComponentIdentityRead])
+def list_component_identities_for_component(component_id: int, db: Session = Depends(get_db)) -> list[ComponentIdentityRead]:
+    if dcim_svc.get_component(db, component_id) is None:
+        raise HTTPException(status_code=404, detail="komponent ikke funnet")
+    return dcim_svc.list_component_identities(db, component_id=component_id)
+
+
+@router.post("/components/{component_id}/identities", response_model=ComponentIdentityRead)
+def create_component_identity(
+    component_id: int,
+    data: ComponentIdentityCreate,
+    db: Session = Depends(get_db),
+) -> ComponentIdentityRead:
+    return dcim_svc.create_component_identity(db, component_id, data)
+
+
+@router.patch("/component-identities/{identity_id}", response_model=ComponentIdentityRead)
+def patch_component_identity(
+    identity_id: int,
+    data: ComponentIdentityUpdate,
+    db: Session = Depends(get_db),
+) -> ComponentIdentityRead:
+    row = dcim_svc.get_component_identity(db, identity_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentidentitet ikke funnet")
+    return dcim_svc.update_component_identity(db, row, data)
+
+
+@router.delete("/component-identities/{identity_id}", status_code=204)
+def delete_component_identity(identity_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_component_identity(db, identity_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentidentitet ikke funnet")
+    dcim_svc.delete_component_identity(db, row)
 
 
 @router.get("/components/{component_id}/children", response_model=list[ComponentChildTemplateRead])

@@ -404,6 +404,7 @@ class DeviceInstanceRead(BaseModel):
 
 
 COMPONENT_FIELD_TYPES = {"text", "number", "integer", "boolean", "choice", "date"}
+COMPONENT_IDENTITY_TYPES = {"mac", "oui", "pci", "usb", "snmp_sysobjectid", "redfish", "smbios", "lldp", "vendor_api", "other"}
 
 
 class ComponentClassCreate(BaseModel):
@@ -625,6 +626,73 @@ class ComponentRead(BaseModel):
     description: str | None
     specs_json: dict[str, Any] = Field(default_factory=dict)
     active: bool
+
+
+class ComponentIdentityCreate(BaseModel):
+    manufacturer_id: int | None = Field(None, ge=1)
+    identity_type: str = Field(..., min_length=1, max_length=32)
+    namespace: str = Field(..., min_length=1, max_length=64)
+    value: str = Field(..., min_length=1, max_length=255)
+    source: str | None = Field(None, max_length=64)
+    confidence: int = Field(100, ge=0, le=100)
+    raw_json: dict[str, Any] | None = None
+    notes: str | None = None
+
+    @field_validator("identity_type")
+    @classmethod
+    def identity_type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in COMPONENT_IDENTITY_TYPES:
+            raise ValueError("identity_type er ikke støttet")
+        return s
+
+    @field_validator("namespace")
+    @classmethod
+    def namespace_ok(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class ComponentIdentityUpdate(BaseModel):
+    manufacturer_id: int | None = Field(None, ge=1)
+    identity_type: str | None = Field(None, min_length=1, max_length=32)
+    namespace: str | None = Field(None, min_length=1, max_length=64)
+    value: str | None = Field(None, min_length=1, max_length=255)
+    source: str | None = Field(None, max_length=64)
+    confidence: int | None = Field(None, ge=0, le=100)
+    raw_json: dict[str, Any] | None = None
+    notes: str | None = None
+
+    @field_validator("identity_type")
+    @classmethod
+    def identity_type_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in COMPONENT_IDENTITY_TYPES:
+            raise ValueError("identity_type er ikke støttet")
+        return s
+
+    @field_validator("namespace")
+    @classmethod
+    def namespace_ok(cls, v: str | None) -> str | None:
+        return v.strip().lower() if v is not None else None
+
+
+class ComponentIdentityRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    component_id: int
+    manufacturer_id: int | None
+    identity_type: str
+    namespace: str
+    value: str
+    normalized_value: str
+    source: str | None
+    confidence: int
+    raw_json: dict[str, Any] = Field(default_factory=dict)
+    notes: str | None
+    created_at: dt.datetime
 
 
 class ComponentChildTemplateCreate(BaseModel):

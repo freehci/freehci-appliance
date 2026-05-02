@@ -8,7 +8,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -28,6 +28,7 @@ from app.models.dcim import (
     ComponentClass,
     ComponentClassField,
     ComponentClassParent,
+    ComponentIdentity,
     DeviceInstance,
     DeviceInstanceComponent,
     DeviceInterface,
@@ -67,6 +68,9 @@ from app.schemas.dcim import (
     ComponentExternalMappingProfileRead,
     ComponentExternalMappingPreviewRead,
     ComponentExternalMappingPreviewRequest,
+    ComponentIdentityCreate,
+    ComponentIdentityRead,
+    ComponentIdentityUpdate,
     ComponentStandardCatalogSeedResponse,
     ComponentCreate,
     ComponentFieldImpactRead,
@@ -1163,6 +1167,23 @@ def component_read(row: Component) -> ComponentRead:
         description=row.description,
         specs_json=_dict_or_empty(row.specs_json),
         active=row.active,
+    )
+
+
+def component_identity_read(row: ComponentIdentity) -> ComponentIdentityRead:
+    return ComponentIdentityRead(
+        id=row.id,
+        component_id=row.component_id,
+        manufacturer_id=row.manufacturer_id,
+        identity_type=row.identity_type,
+        namespace=row.namespace,
+        value=row.value,
+        normalized_value=row.normalized_value,
+        source=row.source,
+        confidence=row.confidence,
+        raw_json=_dict_or_empty(row.raw_json),
+        notes=row.notes,
+        created_at=row.created_at,
     )
 
 
@@ -2440,6 +2461,117 @@ def delete_component(db: Session, row: Component) -> None:
     used_dev = db.execute(select(DeviceInstanceComponent.id).where(DeviceInstanceComponent.component_id == row.id).limit(1)).scalar_one_or_none()
     if used_model is not None or used_dev is not None:
         raise HTTPException(status_code=409, detail="komponent er i bruk")
+    db.delete(row)
+    db.commit()
+
+
+def _normalize_component_identity(identity_type: str, namespace: str, value: str) -> str:
+    raw = value.strip()
+    key = f"{identity_type.strip().lower()}:{namespace.strip().lower()}"
+    if identity_type in {"mac", "oui"} or key in {"mac:address", "oui:prefix"}:
+        compact = "".join(ch for ch in raw.upper() if ch in "0123456789ABCDEF")
+        if identity_type == "oui" and len(compact) >= 6:
+            return compact[:6]
+        return compact
+    if identity_type in {"pci", "usb"}:
+        return raw.lower().replace(" ", "")
+    if identity_type == "snmp_sysobjectid":
+        return raw.strip(".")
+    return raw.lower()
+
+
+def list_component_identities(
+    db: Session,
+    *,
+    component_id: int | None = None,
+    identity_type: str | None = None,
+    namespace: str | None = None,
+    q: str | None = None,
+) -> list[ComponentIdentityRead]:
+    stmt = select(ComponentIdentity).order_by(ComponentIdentity.identity_type, ComponentIdentity.namespace, ComponentIdentity.value)
+    if component_id is not None:
+        stmt = stmt.where(ComponentIdentity.component_id == component_id)
+    if identity_type:
+        stmt = stmt.where(ComponentIdentity.identity_type == identity_type.strip().lower())
+    if namespace:
+        stmt = stmt.where(ComponentIdentity.namespace == namespace.strip().lower())
+    if q:
+        needle = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                ComponentIdentity.value.ilike(needle),
+                ComponentIdentity.normalized_value.ilike(needle),
+                ComponentIdentity.source.ilike(needle),
+                ComponentIdentity.notes.ilike(needle),
+            )
+        )
+    return [component_identity_read(r) for r in db.execute(stmt).scalars().all()]
+
+
+def get_component_identity(db: Session, identity_id: int) -> ComponentIdentity | None:
+    return db.get(ComponentIdentity, identity_id)
+
+
+def create_component_identity(db: Session, component_id: int, data: ComponentIdentityCreate) -> ComponentIdentityRead:
+    component = get_component(db, component_id)
+    if component is None:
+        raise HTTPException(status_code=404, detail="komponent ikke funnet")
+    if data.manufacturer_id is not None and get_manufacturer(db, data.manufacturer_id) is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    identity_type = data.identity_type.strip().lower()
+    namespace = data.namespace.strip().lower()
+    value = data.value.strip()
+    row = ComponentIdentity(
+        component_id=component_id,
+        manufacturer_id=data.manufacturer_id if data.manufacturer_id is not None else component.manufacturer_id,
+        identity_type=identity_type,
+        namespace=namespace,
+        value=value,
+        normalized_value=_normalize_component_identity(identity_type, namespace, value),
+        source=data.source.strip() if data.source else None,
+        confidence=data.confidence,
+        raw_json=data.raw_json,
+        notes=data.notes,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="komponentidentitet finnes allerede") from e
+    db.refresh(row)
+    return component_identity_read(row)
+
+
+def update_component_identity(db: Session, row: ComponentIdentity, data: ComponentIdentityUpdate) -> ComponentIdentityRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "manufacturer_id" in patch and patch["manufacturer_id"] is not None and get_manufacturer(db, patch["manufacturer_id"]) is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    identity_type = str(patch.get("identity_type", row.identity_type)).strip().lower()
+    namespace = str(patch.get("namespace", row.namespace)).strip().lower()
+    value = str(patch.get("value", row.value)).strip()
+    for k, v in patch.items():
+        if k in {"identity_type", "namespace", "value"}:
+            continue
+        if k == "source" and v is not None:
+            v = str(v).strip()
+        setattr(row, k, v)
+    row.identity_type = identity_type
+    row.namespace = namespace
+    row.value = value
+    row.normalized_value = _normalize_component_identity(identity_type, namespace, value)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="komponentidentitet finnes allerede") from e
+    db.refresh(row)
+    return component_identity_read(row)
+
+
+def delete_component_identity(db: Session, row: ComponentIdentity) -> None:
     db.delete(row)
     db.commit()
 
