@@ -1,7 +1,7 @@
 """DCIM custom hardware components.
 
 Revision ID: 20260501_dcim_components
-Revises: 20260434_ipam_prefix_vrf
+Revises: 20260424_uava
 """
 
 from typing import Sequence, Union
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "20260501_dcim_components"
-down_revision: Union[str, Sequence[str], None] = "20260434_ipam_prefix_vrf"
+down_revision: Union[str, Sequence[str], None] = "20260424_uava"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
