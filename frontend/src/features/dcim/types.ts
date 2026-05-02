@@ -173,6 +173,9 @@ export type ComponentExternalMappingPreview = {
   target_class_slug: string;
   relation: string;
   mapped_values: Record<string, unknown>;
+  specs_json: Record<string, unknown>;
+  component_defaults: Record<string, unknown>;
+  extra_values: Record<string, unknown>;
   missing_paths: string[];
   notes: string[];
 };

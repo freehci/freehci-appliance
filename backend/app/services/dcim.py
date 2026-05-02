@@ -49,10 +49,6 @@ from app.models.ipam import IpamIpv4Prefix
 
 from app.services import tenant as tenant_svc
 
-LOGO_MAX_BYTES = 512 * 1024
-DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
-ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
-
 from app.schemas.dcim import (
     ComponentClassCreate,
     ComponentChildTemplateCreate,
@@ -119,6 +115,10 @@ from app.schemas.dcim import (
     SiteRoleUpdate,
     SiteUpdate,
 )
+
+LOGO_MAX_BYTES = 512 * 1024
+DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
 
 _SITE_QUERY = object()
 
@@ -1944,7 +1944,26 @@ def _apply_mapping_transform(value: object, transform: str | None) -> object:
     return value
 
 
-def preview_component_external_mapping(data: ComponentExternalMappingPreviewRequest) -> ComponentExternalMappingPreviewRead:
+def _component_defaults_from_mapping(target_class_slug: str, source_type: str, mapped: dict[str, object]) -> dict[str, object]:
+    defaults: dict[str, object] = {}
+    name = mapped.get("name") or mapped.get("model") or mapped.get("part_number")
+    if name is not None:
+        defaults["name"] = name
+    else:
+        defaults["name"] = f"{target_class_slug} {source_type}"
+    if mapped.get("part_number") is not None:
+        defaults["part_number"] = mapped["part_number"]
+    if mapped.get("manufacturer") is not None:
+        defaults["manufacturer_name"] = mapped["manufacturer"]
+    if mapped.get("description") is not None:
+        defaults["description"] = mapped["description"]
+    return defaults
+
+
+def preview_component_external_mapping(
+    db: Session,
+    data: ComponentExternalMappingPreviewRequest,
+) -> ComponentExternalMappingPreviewRead:
     resource = _mapping_resource(data.source, data.resource_type)
     if resource is None:
         raise HTTPException(status_code=404, detail="mapping-resource ikke funnet")
@@ -1962,12 +1981,25 @@ def preview_component_external_mapping(data: ComponentExternalMappingPreviewRequ
         mapped[str(field["target_field_key"])] = _apply_mapping_transform(value, field.get("transform"))
         if field.get("notes"):
             notes.append(str(field["notes"]))
+    target_class_slug = str(resource["target_class_slug"])
+    component_defaults = _component_defaults_from_mapping(target_class_slug, str(resource["source_type"]), mapped)
+    component_default_keys = {"name", "model", "part_number", "manufacturer", "description"}
+    specs_json: dict[str, object] = {}
+    target_class = _component_class_by_slug(db, target_class_slug)
+    if target_class is not None:
+        allowed_spec_keys = {field.key for field, _source in _component_effective_fields(db, target_class.id)}
+        specs_json = {key: value for key, value in mapped.items() if key in allowed_spec_keys}
+    used_keys = set(specs_json) | component_default_keys
+    extra_values = {key: value for key, value in mapped.items() if key not in used_keys}
     return ComponentExternalMappingPreviewRead(
         source=data.source,
         source_type=str(resource["source_type"]),
-        target_class_slug=str(resource["target_class_slug"]),
+        target_class_slug=target_class_slug,
         relation=str(resource.get("relation") or "component"),
         mapped_values=mapped,
+        specs_json=specs_json,
+        component_defaults=component_defaults,
+        extra_values=extra_values,
         missing_paths=missing,
         notes=notes,
     )

@@ -251,6 +251,9 @@ def test_component_external_mapping_preview_transforms_payload() -> None:
     app = create_app()
 
     with TestClient(app) as client:
+        seed = client.post("/api/v1/dcim/component-classes/seed-standard")
+        assert seed.status_code == 200, seed.text
+
         preview = client.post(
             "/api/v1/dcim/component-mappings/preview",
             json={
@@ -271,6 +274,26 @@ def test_component_external_mapping_preview_transforms_payload() -> None:
         assert body["mapped_values"]["supported_speeds"] == "1000,10000"
         assert body["mapped_values"]["media_type"] == "copper"
         assert body["missing_paths"] == ["PhysicalPortNumber"]
+        assert body["specs_json"] == {
+            "speed_mbps": 1000,
+            "supported_speeds": "1000,10000",
+            "media_type": "copper",
+        }
+        assert body["component_defaults"]["name"] == "network-port NetworkPort"
+
+        adapter = client.post(
+            "/api/v1/dcim/component-mappings/preview",
+            json={
+                "source": "redfish",
+                "resource_type": "NetworkAdapter",
+                "payload": {"Manufacturer": "Intel", "Model": "X710", "SerialNumber": "ABC123"},
+            },
+        )
+        assert adapter.status_code == 200, adapter.text
+        adapter_body = adapter.json()
+        assert adapter_body["component_defaults"]["name"] == "X710"
+        assert adapter_body["component_defaults"]["manufacturer_name"] == "Intel"
+        assert adapter_body["specs_json"]["serial_number"] == "ABC123"
 
         missing = client.post(
             "/api/v1/dcim/component-mappings/preview",

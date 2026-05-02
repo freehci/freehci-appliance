@@ -473,8 +473,9 @@ def list_component_external_mappings(source: str | None = Query(None)) -> list[C
 @router.post("/component-mappings/preview", response_model=ComponentExternalMappingPreviewRead)
 def preview_component_external_mapping(
     data: ComponentExternalMappingPreviewRequest,
+    db: Session = Depends(get_db),
 ) -> ComponentExternalMappingPreviewRead:
-    return dcim_svc.preview_component_external_mapping(data)
+    return dcim_svc.preview_component_external_mapping(db, data)
 
 
 @router.get("/component-mappings/{source}", response_model=ComponentExternalMappingProfileRead)

@@ -286,11 +286,12 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
       onError(t("dcim.components.mappingTargetMissing"));
       return;
     }
-    const draft = draftFromMappedValues(mappingPreviewData.mapped_values);
+    const draft = draftFromMappedValues(mappingPreviewData.specs_json);
+    const defaults = mappingPreviewData.component_defaults;
     if (mappingPreviewData.relation === "child_template") {
       setTemplateChildClassId(String(targetClass.id));
       setTemplateDraft(draft);
-      setTemplateSlotLabel(mappingValueToString(mappingPreviewData.mapped_values.slot));
+      setTemplateSlotLabel(mappingValueToString(mappingPreviewData.specs_json.slot));
       setTemplateMaterialize(mappingPreviewData.target_class_slug === "network-port");
       if (templateNamePattern.trim() === "") setTemplateNamePattern("eth{n}");
       onError(templateComponentId === "" ? t("dcim.components.mappingChooseParentComponent") : null);
@@ -298,10 +299,10 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     }
     setSelectedClassId(String(targetClass.id));
     setSpecDraft(draft);
-    setComponentPart(mappingValueToString(mappingPreviewData.mapped_values.part_number));
+    setComponentPart(mappingValueToString(defaults.part_number));
     setComponentName(
-      mappingValueToString(mappingPreviewData.mapped_values.model)
-      || mappingValueToString(mappingPreviewData.mapped_values.part_number)
+      mappingValueToString(defaults.name)
+      || mappingValueToString(defaults.part_number)
       || `${targetClass.name} ${mappingPreviewData.source_type}`,
     );
     onError(null);

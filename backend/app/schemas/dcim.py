@@ -481,6 +481,9 @@ class ComponentExternalMappingPreviewRead(BaseModel):
     target_class_slug: str
     relation: str
     mapped_values: dict[str, Any] = Field(default_factory=dict)
+    specs_json: dict[str, Any] = Field(default_factory=dict)
+    component_defaults: dict[str, Any] = Field(default_factory=dict)
+    extra_values: dict[str, Any] = Field(default_factory=dict)
     missing_paths: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
