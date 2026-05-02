@@ -217,6 +217,10 @@ export const en = {
   "dcim.components.materializeAs": "Materialize as",
   "dcim.components.addChildTemplate": "Add child template",
   "dcim.components.createInterfaces": "Create interfaces",
+  "dcim.components.seedStandard": "Add FreeHCI standard catalog",
+  "dcim.components.seedStandardHint":
+    "Creates canonical FreeHCI classes and fields inspired by Redfish and SMBIOS. Safe to run more than once.",
+  "dcim.components.seedSummary": "Created {classes} classes, {fields} fields and {parents} inheritance links.",
 
   "auth.loginTitle": "Sign in",
   "auth.username": "Username",

@@ -138,6 +138,13 @@ export type ComponentClass = {
   active: boolean;
 };
 
+export type ComponentStandardCatalogSeedResponse = {
+  classes_created: number;
+  fields_created: number;
+  parents_created: number;
+  class_slugs: string[];
+};
+
 export type ComponentClassField = {
   id: number;
   class_id: number;

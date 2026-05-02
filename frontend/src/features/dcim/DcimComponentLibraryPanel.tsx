@@ -38,6 +38,7 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [templateSlotLabel, setTemplateSlotLabel] = useState("");
   const [templateMaterialize, setTemplateMaterialize] = useState(true);
   const [templateDraft, setTemplateDraft] = useState<Record<string, string>>({});
+  const [seedSummary, setSeedSummary] = useState("");
 
   const classesQ = useQuery({ queryKey: ["dcim", "component-classes"], queryFn: api.listComponentClasses });
   const fieldsQ = useQuery({
@@ -97,6 +98,24 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
       setClassSlug("");
       setSelectedClassId(String(created.id));
       void qc.invalidateQueries({ queryKey: ["dcim", "component-classes"] });
+    },
+    onError: onMutError,
+  });
+  const seedCatalogM = useMutation({
+    mutationFn: api.seedStandardComponentCatalog,
+    onSuccess: (res) => {
+      onError(null);
+      setSeedSummary(
+        t("dcim.components.seedSummary", {
+          classes: String(res.classes_created),
+          fields: String(res.fields_created),
+          parents: String(res.parents_created),
+        }),
+      );
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-classes"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-class-fields"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-effective-fields"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-class-parents"] });
     },
     onError: onMutError,
   });
@@ -215,6 +234,13 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   return (
     <>
       <p className={styles.muted} style={{ marginTop: 0 }}>{t("dcim.components.intro")}</p>
+      <div className={styles.formRow} style={{ alignItems: "center" }}>
+        <button type="button" className={styles.btnMuted} disabled={seedCatalogM.isPending} onClick={() => seedCatalogM.mutate()}>
+          {seedCatalogM.isPending ? "…" : t("dcim.components.seedStandard")}
+        </button>
+        <span className={styles.muted}>{t("dcim.components.seedStandardHint")}</span>
+      </div>
+      {seedSummary ? <p className={styles.muted}>{seedSummary}</p> : null}
       <form className={styles.formRow} onSubmit={(e) => { e.preventDefault(); createClassM.mutate(); }}>
         <label>{t("dcim.components.className")}<input value={className} onChange={(e) => { setClassName(e.target.value); setClassSlug(slugify(e.target.value)); }} required /></label>
         <label>{t("dcim.components.classSlug")}<input value={classSlug} onChange={(e) => setClassSlug(e.target.value)} required /></label>

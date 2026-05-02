@@ -219,6 +219,10 @@ export const nb = {
   "dcim.components.materializeAs": "Materialiser som",
   "dcim.components.addChildTemplate": "Legg til child template",
   "dcim.components.createInterfaces": "Opprett interfaces",
+  "dcim.components.seedStandard": "Legg til FreeHCI-standardkatalog",
+  "dcim.components.seedStandardHint":
+    "Oppretter canonical FreeHCI-klasser og felt inspirert av Redfish og SMBIOS. Trygt å kjøre flere ganger.",
+  "dcim.components.seedSummary": "Opprettet {classes} klasser, {fields} felt og {parents} arv-koblinger.",
 
   "auth.loginTitle": "Logg inn",
   "auth.username": "Brukernavn",

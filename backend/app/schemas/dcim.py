@@ -440,6 +440,13 @@ class ComponentClassRead(BaseModel):
     active: bool
 
 
+class ComponentStandardCatalogSeedResponse(BaseModel):
+    classes_created: int = 0
+    fields_created: int = 0
+    parents_created: int = 0
+    class_slugs: list[str] = Field(default_factory=list)
+
+
 class ComponentClassParentCreate(BaseModel):
     parent_class_id: int = Field(..., ge=1)
     sort_order: int = 0

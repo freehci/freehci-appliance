@@ -29,6 +29,7 @@ from app.schemas.dcim import (
     ComponentFieldImpactRead,
     ComponentMaterializeInterfacesRequest,
     ComponentRead,
+    ComponentStandardCatalogSeedResponse,
     ComponentUpdate,
     DeviceInstanceCreate,
     DeviceInstanceComponentCreate,
@@ -454,6 +455,11 @@ def list_component_classes(db: Session = Depends(get_db)) -> list[ComponentClass
 @router.post("/component-classes", response_model=ComponentClassRead)
 def create_component_class(data: ComponentClassCreate, db: Session = Depends(get_db)) -> ComponentClassRead:
     return dcim_svc.create_component_class(db, data)
+
+
+@router.post("/component-classes/seed-standard", response_model=ComponentStandardCatalogSeedResponse)
+def seed_standard_component_catalog(db: Session = Depends(get_db)) -> ComponentStandardCatalogSeedResponse:
+    return dcim_svc.seed_standard_component_catalog(db)
 
 
 @router.get("/component-classes/{class_id}", response_model=ComponentClassRead)

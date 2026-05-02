@@ -68,6 +68,7 @@ from app.schemas.dcim import (
     ComponentClassParentUpdate,
     ComponentClassRead,
     ComponentClassUpdate,
+    ComponentStandardCatalogSeedResponse,
     ComponentCreate,
     ComponentFieldImpactRead,
     ComponentRead,
@@ -1385,6 +1386,259 @@ def list_component_classes(db: Session) -> list[ComponentClassRead]:
 
 def get_component_class(db: Session, class_id: int) -> ComponentClass | None:
     return db.get(ComponentClass, class_id)
+
+
+STANDARD_COMPONENT_CATALOG: list[dict] = [
+    {
+        "slug": "physical-device",
+        "name": "Physical Device",
+        "description": "FreeHCI canonical physical hardware mixin, inspired by Redfish physical resources and SMBIOS chassis/slot data.",
+        "icon": "box",
+        "fields": [
+            ("height_mm", "Height", "integer", "mm", False, 0, None, None, "Physical height in millimeters."),
+            ("width_mm", "Width", "integer", "mm", False, 0, None, None, "Physical width in millimeters."),
+            ("depth_mm", "Depth", "integer", "mm", False, 0, None, None, "Physical depth in millimeters."),
+            ("weight_kg", "Weight", "number", "kg", False, 0, None, None, "Physical weight in kilograms."),
+            ("serial_number", "Serial number", "text", None, False, None, None, None, "Manufacturer serial number."),
+            ("firmware_version", "Firmware version", "text", None, False, None, None, None, "Firmware or bundle version."),
+        ],
+    },
+    {
+        "slug": "network-capable",
+        "name": "Network Capable",
+        "description": "FreeHCI canonical network capability mixin, mapping cleanly from Redfish NetworkPort and NetworkDeviceFunction.",
+        "icon": "network-wired",
+        "fields": [
+            ("speed_mbps", "Speed", "integer", "Mbps", False, 0, None, None, "Negotiated or nominal network speed."),
+            ("supported_speeds", "Supported speeds", "text", None, False, None, None, None, "Comma-separated supported speeds when a list is needed."),
+            ("media_type", "Media type", "choice", None, False, None, None, ["copper", "fiber", "backplane", "dac", "virtual", "unknown"], "Physical or logical media type."),
+            ("mac_address", "MAC address", "text", None, False, None, None, None, "MAC address when the function or port exposes one."),
+        ],
+    },
+    {
+        "slug": "network-adapter",
+        "name": "Network Adapter",
+        "description": "Physical NIC/CNA adapter. Redfish analogue: NetworkAdapter.",
+        "icon": "ethernet",
+        "parents": ["physical-device", "network-capable"],
+        "fields": [
+            ("port_count", "Port count", "integer", None, False, 0, None, None, "Number of physical ports."),
+            ("sriov_supported", "SR-IOV supported", "boolean", None, False, None, None, None, "Whether the adapter supports SR-IOV."),
+            ("pcie_generation", "PCIe generation", "text", None, False, None, None, None, "PCIe generation or bus standard."),
+        ],
+    },
+    {
+        "slug": "network-port",
+        "name": "Network Port",
+        "description": "Physical network port. Redfish analogue: NetworkPort.",
+        "icon": "plug",
+        "parents": ["network-capable"],
+        "fields": [
+            ("port_type", "Port type", "choice", None, False, None, None, ["ethernet", "fibre_channel", "infiniband", "management", "unknown"], "Protocol family for the physical port."),
+            ("connector_type", "Connector type", "choice", None, False, None, None, ["rj45", "sfp", "sfp+", "sfp28", "qsfp", "qsfp28", "backplane", "unknown"], "Connector or transceiver form."),
+            ("lane_count", "Lane count", "integer", None, False, 0, None, None, "Number of physical lanes."),
+        ],
+    },
+    {
+        "slug": "network-device-function",
+        "name": "Network Device Function",
+        "description": "Logical network function. Redfish analogue: NetworkDeviceFunction.",
+        "icon": "diagram-project",
+        "parents": ["network-capable"],
+        "fields": [
+            ("function_type", "Function type", "choice", None, False, None, None, ["ethernet", "fibre_channel", "iscsi", "fcoe", "management", "virtual"], "Logical function type."),
+            ("device_enabled", "Device enabled", "boolean", None, False, None, None, None, "Whether the logical function is enabled."),
+        ],
+    },
+    {
+        "slug": "memory-module",
+        "name": "Memory Module",
+        "description": "DIMM or memory device. Redfish Memory and SMBIOS Memory Device analogue.",
+        "icon": "memory",
+        "parents": ["physical-device"],
+        "fields": [
+            ("capacity_gb", "Capacity", "integer", "GB", False, 0, None, None, "Installed capacity."),
+            ("memory_type", "Memory type", "choice", None, False, None, None, ["ddr3", "ddr4", "ddr5", "lpddr4", "lpddr5", "hbm", "unknown"], "Memory technology."),
+            ("speed_mt_s", "Speed", "integer", "MT/s", False, 0, None, None, "Configured or rated transfer speed."),
+            ("ecc", "ECC", "boolean", None, False, None, None, None, "Whether ECC is supported/enabled."),
+            ("slot", "Slot", "text", None, False, None, None, None, "Physical memory slot or locator."),
+        ],
+    },
+    {
+        "slug": "processor",
+        "name": "Processor",
+        "description": "CPU package/socket. Redfish Processor and SMBIOS Processor analogue.",
+        "icon": "microchip",
+        "parents": ["physical-device"],
+        "fields": [
+            ("socket", "Socket", "text", None, False, None, None, None, "CPU socket or SMBIOS socket designation."),
+            ("core_count", "Core count", "integer", None, False, 0, None, None, "Number of physical cores."),
+            ("thread_count", "Thread count", "integer", None, False, 0, None, None, "Number of hardware threads."),
+            ("base_frequency_mhz", "Base frequency", "integer", "MHz", False, 0, None, None, "Base frequency."),
+            ("max_frequency_mhz", "Max frequency", "integer", "MHz", False, 0, None, None, "Maximum frequency."),
+        ],
+    },
+    {
+        "slug": "drive",
+        "name": "Drive",
+        "description": "Storage drive. Redfish Drive analogue.",
+        "icon": "hard-drive",
+        "parents": ["physical-device"],
+        "fields": [
+            ("capacity_gb", "Capacity", "integer", "GB", False, 0, None, None, "Drive capacity."),
+            ("drive_type", "Drive type", "choice", None, False, None, None, ["hdd", "ssd", "nvme", "emmc", "unknown"], "Drive media/interface family."),
+            ("protocol", "Protocol", "choice", None, False, None, None, ["sata", "sas", "nvme", "usb", "unknown"], "Drive protocol."),
+            ("form_factor", "Form factor", "text", None, False, None, None, None, "Drive form factor."),
+        ],
+    },
+    {
+        "slug": "pcie-device",
+        "name": "PCIe Device",
+        "description": "PCIe add-in or onboard device. Redfish PCIeDevice and SMBIOS System Slot analogue.",
+        "icon": "grip",
+        "parents": ["physical-device"],
+        "fields": [
+            ("vendor_id", "Vendor ID", "text", None, False, None, None, None, "PCI vendor ID."),
+            ("device_id", "Device ID", "text", None, False, None, None, None, "PCI device ID."),
+            ("slot", "Slot", "text", None, False, None, None, None, "PCIe slot or bus location."),
+            ("pcie_generation", "PCIe generation", "text", None, False, None, None, None, "PCIe generation."),
+        ],
+    },
+    {
+        "slug": "power-supply",
+        "name": "Power Supply",
+        "description": "Power supply unit. Redfish PowerSupply analogue.",
+        "icon": "plug-circle-bolt",
+        "parents": ["physical-device"],
+        "fields": [
+            ("capacity_w", "Capacity", "integer", "W", False, 0, None, None, "Rated power capacity."),
+            ("input_voltage_v", "Input voltage", "number", "V", False, 0, None, None, "Input voltage."),
+            ("redundant", "Redundant", "boolean", None, False, None, None, None, "Whether the PSU is part of a redundant set."),
+        ],
+    },
+    {
+        "slug": "chassis",
+        "name": "Chassis",
+        "description": "System chassis/enclosure. Redfish Chassis and SMBIOS Chassis analogue.",
+        "icon": "server",
+        "parents": ["physical-device"],
+        "fields": [
+            ("chassis_type", "Chassis type", "text", None, False, None, None, None, "Chassis type or enclosure class."),
+            ("asset_tag", "Asset tag", "text", None, False, None, None, None, "Asset tag from firmware or inventory."),
+        ],
+    },
+    {
+        "slug": "baseboard",
+        "name": "Baseboard",
+        "description": "Mainboard/baseboard. SMBIOS Baseboard analogue.",
+        "icon": "table-cells-large",
+        "parents": ["physical-device"],
+        "fields": [
+            ("board_type", "Board type", "text", None, False, None, None, None, "Baseboard type."),
+            ("location", "Location", "text", None, False, None, None, None, "Physical location in chassis."),
+        ],
+    },
+    {
+        "slug": "system-slot",
+        "name": "System Slot",
+        "description": "Physical slot. SMBIOS System Slot analogue.",
+        "icon": "border-all",
+        "parents": ["physical-device"],
+        "fields": [
+            ("slot_type", "Slot type", "text", None, False, None, None, None, "Slot type."),
+            ("slot_width", "Slot width", "text", None, False, None, None, None, "Electrical/mechanical width."),
+            ("occupied", "Occupied", "boolean", None, False, None, None, None, "Whether the slot is occupied."),
+        ],
+    },
+]
+
+
+def _component_class_by_slug(db: Session, slug: str) -> ComponentClass | None:
+    return db.execute(select(ComponentClass).where(ComponentClass.slug == slug)).scalar_one_or_none()
+
+
+def _component_field_by_key(db: Session, class_id: int, key: str) -> ComponentClassField | None:
+    return db.execute(
+        select(ComponentClassField).where(ComponentClassField.class_id == class_id, ComponentClassField.key == key)
+    ).scalar_one_or_none()
+
+
+def seed_standard_component_catalog(db: Session) -> ComponentStandardCatalogSeedResponse:
+    classes_created = 0
+    fields_created = 0
+    parents_created = 0
+    by_slug: dict[str, ComponentClass] = {}
+
+    for class_def in STANDARD_COMPONENT_CATALOG:
+        slug = str(class_def["slug"])
+        row = _component_class_by_slug(db, slug)
+        if row is None:
+            row = ComponentClass(
+                name=str(class_def["name"]),
+                slug=slug,
+                description=str(class_def.get("description") or ""),
+                icon=class_def.get("icon"),
+                active=True,
+            )
+            db.add(row)
+            db.flush()
+            classes_created += 1
+        by_slug[slug] = row
+
+    for class_def in STANDARD_COMPONENT_CATALOG:
+        row = by_slug[str(class_def["slug"])]
+        for idx, field_def in enumerate(class_def.get("fields", []), start=1):
+            key, label, data_type, unit, required, min_number, max_number, choices, description = field_def
+            if _component_field_by_key(db, row.id, key) is not None:
+                continue
+            normalized_choices = _validate_component_field_shape(data_type, min_number, max_number, choices)
+            db.add(
+                ComponentClassField(
+                    class_id=row.id,
+                    key=key,
+                    label=label,
+                    data_type=data_type,
+                    unit=unit,
+                    required=required,
+                    sort_order=idx,
+                    min_number=min_number,
+                    max_number=max_number,
+                    choices_json=normalized_choices,
+                    default_value=None,
+                    description=description,
+                    active=True,
+                )
+            )
+            fields_created += 1
+
+    for class_def in STANDARD_COMPONENT_CATALOG:
+        child = by_slug[str(class_def["slug"])]
+        for idx, parent_slug in enumerate(class_def.get("parents", []), start=1):
+            parent = by_slug.get(parent_slug)
+            if parent is None:
+                continue
+            exists = db.execute(
+                select(ComponentClassParent.id).where(
+                    ComponentClassParent.child_class_id == child.id,
+                    ComponentClassParent.parent_class_id == parent.id,
+                )
+            ).scalar_one_or_none()
+            if exists is not None:
+                continue
+            if _component_parent_would_cycle(db, child.id, parent.id):
+                raise HTTPException(status_code=409, detail=f"standardkatalog ville laget arv-syklus for {child.slug}")
+            db.add(ComponentClassParent(child_class_id=child.id, parent_class_id=parent.id, sort_order=idx))
+            db.flush()
+            _component_effective_fields(db, child.id)
+            parents_created += 1
+
+    db.commit()
+    return ComponentStandardCatalogSeedResponse(
+        classes_created=classes_created,
+        fields_created=fields_created,
+        parents_created=parents_created,
+        class_slugs=[str(c["slug"]) for c in STANDARD_COMPONENT_CATALOG],
+    )
 
 
 def create_component_class(db: Session, data: ComponentClassCreate) -> ComponentClassRead:

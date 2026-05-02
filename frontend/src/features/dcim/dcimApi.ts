@@ -15,6 +15,7 @@ import type {
   ComponentClassEffectiveField,
   ComponentClassField,
   ComponentClassParent,
+  ComponentStandardCatalogSeedResponse,
   ComponentFieldImpact,
   DeviceInstance,
   DeviceInstanceComponent,
@@ -343,6 +344,10 @@ export function createComponentClass(body: {
   active?: boolean;
 }): Promise<ComponentClass> {
   return apiPost(`${P}/component-classes`, body);
+}
+
+export function seedStandardComponentCatalog(): Promise<ComponentStandardCatalogSeedResponse> {
+  return apiPost(`${P}/component-classes/seed-standard`, {});
 }
 
 export function updateComponentClass(

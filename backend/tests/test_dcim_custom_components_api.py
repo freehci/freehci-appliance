@@ -189,3 +189,39 @@ def test_component_class_inheritance_children_and_interface_materialization() ->
         assert materialized.status_code == 200, materialized.text
         assert [x["name"] for x in materialized.json()] == ["eth1", "eth2"]
         assert all(x["speed_mbps"] == 1000 for x in materialized.json())
+
+
+def test_standard_component_catalog_seed_is_idempotent_and_creates_canonical_classes() -> None:
+    app = create_app()
+
+    with TestClient(app) as client:
+        first = client.post("/api/v1/dcim/component-classes/seed-standard")
+        assert first.status_code == 200, first.text
+        assert first.json()["classes_created"] >= 10
+        assert first.json()["fields_created"] > 0
+        assert "network-adapter" in first.json()["class_slugs"]
+
+        second = client.post("/api/v1/dcim/component-classes/seed-standard")
+        assert second.status_code == 200, second.text
+        assert second.json()["classes_created"] == 0
+        assert second.json()["fields_created"] == 0
+        assert second.json()["parents_created"] == 0
+
+        classes = client.get("/api/v1/dcim/component-classes")
+        assert classes.status_code == 200, classes.text
+        by_slug = {row["slug"]: row for row in classes.json()}
+        nic_id = by_slug["network-adapter"]["id"]
+        port_id = by_slug["network-port"]["id"]
+
+        nic_fields = client.get(f"/api/v1/dcim/component-classes/{nic_id}/effective-fields")
+        assert nic_fields.status_code == 200, nic_fields.text
+        nic_keys = {row["key"]: row for row in nic_fields.json()}
+        assert nic_keys["height_mm"]["inherited"] is True
+        assert nic_keys["media_type"]["inherited"] is True
+        assert nic_keys["port_count"]["inherited"] is False
+
+        port_fields = client.get(f"/api/v1/dcim/component-classes/{port_id}/effective-fields")
+        assert port_fields.status_code == 200, port_fields.text
+        port_keys = {row["key"]: row for row in port_fields.json()}
+        assert "speed_mbps" in port_keys
+        assert "connector_type" in port_keys
