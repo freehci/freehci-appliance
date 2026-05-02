@@ -134,6 +134,32 @@
   max-width: 40rem;
 }
 
+.catalogTreeGroup,
+.catalogTreeVendor {
+  margin: 0 0 var(--space-2);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+}
+
+.catalogTreeGroup > summary,
+.catalogTreeVendor > summary {
+  cursor: pointer;
+  padding: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.catalogTreeVendor {
+  margin: 0 var(--space-2) var(--space-2);
+}
+
+.catalogTreeVendor > .table {
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
 .ipList {
   margin: 0;
   padding-left: 1.1rem;

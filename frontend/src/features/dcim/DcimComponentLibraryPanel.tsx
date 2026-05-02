@@ -41,6 +41,10 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [componentMfr, setComponentMfr] = useState("");
   const [componentPart, setComponentPart] = useState("");
   const [specDraft, setSpecDraft] = useState<Record<string, string>>({});
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogClassFilter, setCatalogClassFilter] = useState("");
+  const [catalogMfrFilter, setCatalogMfrFilter] = useState("");
+  const [catalogSort, setCatalogSort] = useState("class");
   const [parentClassId, setParentClassId] = useState("");
   const [templateComponentId, setTemplateComponentId] = useState("");
   const [templateChildClassId, setTemplateChildClassId] = useState("");
@@ -117,6 +121,53 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     () => (classesQ.data ?? []).find((x) => x.slug === mappingPreviewData?.target_class_slug),
     [classesQ.data, mappingPreviewData?.target_class_slug],
   );
+  const filteredCatalogComponents = useMemo(() => {
+    const needle = catalogSearch.trim().toLowerCase();
+    const rows = (componentsQ.data ?? []).filter((c) => {
+      if (catalogClassFilter !== "" && c.class_id !== Number(catalogClassFilter)) return false;
+      if (catalogMfrFilter !== "" && c.manufacturer_id !== Number(catalogMfrFilter)) return false;
+      if (needle === "") return true;
+      const haystack = [
+        c.name,
+        c.part_number ?? "",
+        classNameById.get(c.class_id) ?? "",
+        c.manufacturer_id ? (mfrNameById.get(c.manufacturer_id) ?? "") : "",
+        JSON.stringify(c.specs_json ?? {}),
+      ].join(" ").toLowerCase();
+      return haystack.includes(needle);
+    });
+    return rows.sort((a, b) => {
+      if (catalogSort === "vendor") {
+        const av = a.manufacturer_id ? (mfrNameById.get(a.manufacturer_id) ?? "") : "";
+        const bv = b.manufacturer_id ? (mfrNameById.get(b.manufacturer_id) ?? "") : "";
+        return av.localeCompare(bv) || a.name.localeCompare(b.name);
+      }
+      if (catalogSort === "name") return a.name.localeCompare(b.name);
+      if (catalogSort === "part_number") return (a.part_number ?? "").localeCompare(b.part_number ?? "") || a.name.localeCompare(b.name);
+      const ac = classNameById.get(a.class_id) ?? "";
+      const bc = classNameById.get(b.class_id) ?? "";
+      return ac.localeCompare(bc) || a.name.localeCompare(b.name);
+    });
+  }, [catalogClassFilter, catalogMfrFilter, catalogSearch, catalogSort, classNameById, componentsQ.data, mfrNameById]);
+  const catalogTree = useMemo(() => {
+    const byClass = new Map<number, Map<number, typeof filteredCatalogComponents>>();
+    for (const component of filteredCatalogComponents) {
+      const mfrId = component.manufacturer_id ?? 0;
+      if (!byClass.has(component.class_id)) byClass.set(component.class_id, new Map());
+      const byMfr = byClass.get(component.class_id);
+      if (byMfr == null) continue;
+      byMfr.set(mfrId, [...(byMfr.get(mfrId) ?? []), component]);
+    }
+    return Array.from(byClass.entries()).map(([classId, byMfr]) => ({
+      classId,
+      className: classNameById.get(classId) ?? `#${classId}`,
+      vendors: Array.from(byMfr.entries()).map(([mfrId, rows]) => ({
+        mfrId,
+        mfrName: mfrId === 0 ? t("dcim.common.none") : (mfrNameById.get(mfrId) ?? `#${mfrId}`),
+        rows,
+      })),
+    }));
+  }, [classNameById, filteredCatalogComponents, mfrNameById, t]);
 
   const onMutError = (e: Error) => onError(e instanceof ApiError ? e.message : e.message);
 
@@ -514,20 +565,59 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
         </tbody>
       </table>
 
-      <table className={styles.table}>
-        <thead><tr><th>{t("dcim.components.className")}</th><th>{t("dcim.common.name")}</th><th>{t("dcim.equip.dm.mfr")}</th><th>{t("dcim.components.partNumber")}</th><th /></tr></thead>
-        <tbody>
-          {(componentsQ.data ?? []).map((c) => (
-            <tr key={c.id}>
-              <td>{classNameById.get(c.class_id) ?? `#${c.class_id}`}</td>
-              <td>{c.name}</td>
-              <td>{c.manufacturer_id ? (mfrNameById.get(c.manufacturer_id) ?? `#${c.manufacturer_id}`) : "—"}</td>
-              <td>{c.part_number ?? "—"}</td>
-              <td><button type="button" className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()} onClick={() => deleteComponentM.mutate(c.id)}><i className="fas fa-trash-can" aria-hidden /></button></td>
-            </tr>
+      <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.components.catalogBrowser")}</h3>
+      <div className={styles.formRow}>
+        <label>{t("dcim.components.catalogSearch")}
+          <input value={catalogSearch} onChange={(e) => setCatalogSearch(e.target.value)} placeholder={t("dcim.components.catalogSearchPlaceholder")} />
+        </label>
+        <label>{t("dcim.components.catalogTypeFilter")}
+          <select value={catalogClassFilter} onChange={(e) => setCatalogClassFilter(e.target.value)}>
+            <option value="">{t("dcim.common.all")}</option>
+            {(classesQ.data ?? []).map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+          </select>
+        </label>
+        <label>{t("dcim.components.catalogVendorFilter")}
+          <select value={catalogMfrFilter} onChange={(e) => setCatalogMfrFilter(e.target.value)}>
+            <option value="">{t("dcim.common.all")}</option>
+            {(mfrQ.data ?? []).map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+          </select>
+        </label>
+        <label>{t("dcim.components.catalogSort")}
+          <select value={catalogSort} onChange={(e) => setCatalogSort(e.target.value)}>
+            <option value="class">{t("dcim.components.catalogSortClass")}</option>
+            <option value="vendor">{t("dcim.components.catalogSortVendor")}</option>
+            <option value="name">{t("dcim.common.name")}</option>
+            <option value="part_number">{t("dcim.components.partNumber")}</option>
+          </select>
+        </label>
+      </div>
+      <p className={styles.muted}>
+        {t("dcim.components.catalogResultCount", { count: String(filteredCatalogComponents.length) })}
+      </p>
+      {catalogTree.length === 0 ? <p className={styles.muted}>{t("dcim.components.catalogEmpty")}</p> : null}
+      {catalogTree.map((group) => (
+        <details key={group.classId} className={styles.catalogTreeGroup} open>
+          <summary>{group.className} ({group.vendors.reduce((sum, vendor) => sum + vendor.rows.length, 0)})</summary>
+          {group.vendors.map((vendor) => (
+            <details key={`${group.classId}-${vendor.mfrId}`} className={styles.catalogTreeVendor} open>
+              <summary>{vendor.mfrName} ({vendor.rows.length})</summary>
+              <table className={styles.table}>
+                <thead><tr><th>{t("dcim.common.name")}</th><th>{t("dcim.components.partNumber")}</th><th>{t("dcim.components.catalogId")}</th><th /></tr></thead>
+                <tbody>
+                  {vendor.rows.map((c) => (
+                    <tr key={c.id}>
+                      <td>{c.name}</td>
+                      <td>{c.part_number ?? "—"}</td>
+                      <td><code>{c.id}</code></td>
+                      <td><button type="button" className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()} onClick={() => deleteComponentM.mutate(c.id)}><i className="fas fa-trash-can" aria-hidden /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
           ))}
-        </tbody>
-      </table>
+        </details>
+      ))}
     </>
   );
 }
