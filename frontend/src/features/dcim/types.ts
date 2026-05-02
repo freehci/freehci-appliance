@@ -155,6 +155,19 @@ export type ComponentClassField = {
   active: boolean;
 };
 
+export type ComponentClassEffectiveField = ComponentClassField & {
+  inherited_from_class_id: number | null;
+  inherited_from_class_name: string | null;
+  inherited: boolean;
+};
+
+export type ComponentClassParent = {
+  id: number;
+  child_class_id: number;
+  parent_class_id: number;
+  sort_order: number;
+};
+
 export type ComponentFieldImpact = {
   breaking: boolean;
   affected_components: number;
@@ -172,6 +185,19 @@ export type Component = {
   description: string | null;
   specs_json: Record<string, unknown>;
   active: boolean;
+};
+
+export type ComponentChildTemplate = {
+  id: number;
+  parent_component_id: number;
+  child_class_id: number;
+  child_component_id: number | null;
+  quantity: number;
+  name_pattern: string | null;
+  slot_label: string | null;
+  overrides_json: Record<string, unknown>;
+  materialize_as: string | null;
+  sort_order: number;
 };
 
 export type DeviceModelComponent = {

@@ -88,3 +88,104 @@ def test_custom_components_validate_impact_and_copy_to_device() -> None:
         assert len(copied.json()) == 1
         assert copied.json()[0]["component_id"] == component_id
         assert copied.json()[0]["quantity"] == 8
+
+
+def test_component_class_inheritance_children_and_interface_materialization() -> None:
+    app = create_app()
+    suffix = uuid.uuid4().hex[:8]
+
+    with TestClient(app) as client:
+        physical = client.post(
+            "/api/v1/dcim/component-classes",
+            json={"name": f"Physical Device {suffix}", "slug": f"physical-{suffix}"},
+        )
+        assert physical.status_code == 200, physical.text
+        physical_id = physical.json()["id"]
+        height_field = client.post(
+            f"/api/v1/dcim/component-classes/{physical_id}/fields",
+            json={"key": "height_mm", "label": "Height", "data_type": "integer", "unit": "mm"},
+        )
+        assert height_field.status_code == 200, height_field.text
+
+        net = client.post(
+            "/api/v1/dcim/component-classes",
+            json={"name": f"Network Capable {suffix}", "slug": f"netcap-{suffix}"},
+        )
+        assert net.status_code == 200, net.text
+        net_id = net.json()["id"]
+
+        nic = client.post(
+            "/api/v1/dcim/component-classes",
+            json={"name": f"NIC {suffix}", "slug": f"nic-{suffix}"},
+        )
+        assert nic.status_code == 200, nic.text
+        nic_id = nic.json()["id"]
+        assert client.post(f"/api/v1/dcim/component-classes/{nic_id}/parents", json={"parent_class_id": physical_id}).status_code == 200
+        assert client.post(f"/api/v1/dcim/component-classes/{nic_id}/parents", json={"parent_class_id": net_id}).status_code == 200
+        cycle = client.post(f"/api/v1/dcim/component-classes/{physical_id}/parents", json={"parent_class_id": nic_id})
+        assert cycle.status_code == 409
+
+        effective = client.get(f"/api/v1/dcim/component-classes/{nic_id}/effective-fields")
+        assert effective.status_code == 200, effective.text
+        assert any(f["key"] == "height_mm" and f["inherited"] for f in effective.json())
+
+        port = client.post(
+            "/api/v1/dcim/component-classes",
+            json={"name": f"Port {suffix}", "slug": f"port-{suffix}"},
+        )
+        assert port.status_code == 200, port.text
+        port_id = port.json()["id"]
+        speed_field = client.post(
+            f"/api/v1/dcim/component-classes/{port_id}/fields",
+            json={"key": "speed_mbps", "label": "Speed", "data_type": "integer", "unit": "Mbps"},
+        )
+        assert speed_field.status_code == 200, speed_field.text
+        media_field = client.post(
+            f"/api/v1/dcim/component-classes/{port_id}/fields",
+            json={
+                "key": "media_type",
+                "label": "Media type",
+                "data_type": "choice",
+                "choices_json": ["copper", "fiber"],
+            },
+        )
+        assert media_field.status_code == 200, media_field.text
+
+        nic_component = client.post(
+            "/api/v1/dcim/components",
+            json={"class_id": nic_id, "name": f"NIC-344435 {suffix}", "specs_json": {"height_mm": 42}},
+        )
+        assert nic_component.status_code == 200, nic_component.text
+        nic_component_id = nic_component.json()["id"]
+
+        child = client.post(
+            f"/api/v1/dcim/components/{nic_component_id}/children",
+            json={
+                "child_class_id": port_id,
+                "quantity": 2,
+                "name_pattern": "eth{n}",
+                "overrides_json": {"speed_mbps": 1000, "media_type": "copper"},
+                "materialize_as": "interface",
+            },
+        )
+        assert child.status_code == 200, child.text
+
+        model = client.post("/api/v1/dcim/device-models", json={"name": f"Server NIC {suffix}"})
+        assert model.status_code == 200, model.text
+        model_id = model.json()["id"]
+        bom = client.post(f"/api/v1/dcim/device-models/{model_id}/components", json={"component_id": nic_component_id})
+        assert bom.status_code == 200, bom.text
+        device = client.post("/api/v1/dcim/devices", json={"device_model_id": model_id, "name": f"server-nic-{suffix}"})
+        assert device.status_code == 200, device.text
+        device_id = device.json()["id"]
+        copied = client.post(f"/api/v1/dcim/devices/{device_id}/components/copy-from-model")
+        assert copied.status_code == 200, copied.text
+        link_id = copied.json()[0]["id"]
+
+        materialized = client.post(
+            f"/api/v1/dcim/devices/{device_id}/components/materialize-interfaces",
+            json={"component_link_id": link_id},
+        )
+        assert materialized.status_code == 200, materialized.text
+        assert [x["name"] for x in materialized.json()] == ["eth1", "eth2"]
+        assert all(x["speed_mbps"] == 1000 for x in materialized.json())

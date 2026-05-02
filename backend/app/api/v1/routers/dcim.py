@@ -13,13 +13,21 @@ from app.core.media_storage import (
 )
 from app.schemas.dcim import (
     ComponentClassCreate,
+    ComponentChildTemplateCreate,
+    ComponentChildTemplateRead,
+    ComponentChildTemplateUpdate,
+    ComponentClassEffectiveFieldRead,
     ComponentClassFieldCreate,
     ComponentClassFieldRead,
     ComponentClassFieldUpdate,
+    ComponentClassParentCreate,
+    ComponentClassParentRead,
+    ComponentClassParentUpdate,
     ComponentClassRead,
     ComponentClassUpdate,
     ComponentCreate,
     ComponentFieldImpactRead,
+    ComponentMaterializeInterfacesRequest,
     ComponentRead,
     ComponentUpdate,
     DeviceInstanceCreate,
@@ -476,9 +484,51 @@ def delete_component_class(class_id: int, db: Session = Depends(get_db)) -> None
     dcim_svc.delete_component_class(db, row)
 
 
+@router.get("/component-classes/{class_id}/parents", response_model=list[ComponentClassParentRead])
+def list_component_class_parents(class_id: int, db: Session = Depends(get_db)) -> list[ComponentClassParentRead]:
+    return dcim_svc.list_component_class_parents(db, class_id)
+
+
+@router.post("/component-classes/{class_id}/parents", response_model=ComponentClassParentRead)
+def create_component_class_parent(
+    class_id: int,
+    data: ComponentClassParentCreate,
+    db: Session = Depends(get_db),
+) -> ComponentClassParentRead:
+    return dcim_svc.create_component_class_parent(db, class_id, data)
+
+
+@router.patch("/component-class-parents/{parent_link_id}", response_model=ComponentClassParentRead)
+def patch_component_class_parent(
+    parent_link_id: int,
+    data: ComponentClassParentUpdate,
+    db: Session = Depends(get_db),
+) -> ComponentClassParentRead:
+    row = dcim_svc.get_component_class_parent(db, parent_link_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="klasseforelder ikke funnet")
+    return dcim_svc.update_component_class_parent(db, row, data)
+
+
+@router.delete("/component-class-parents/{parent_link_id}", status_code=204)
+def delete_component_class_parent(parent_link_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_component_class_parent(db, parent_link_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="klasseforelder ikke funnet")
+    dcim_svc.delete_component_class_parent(db, row)
+
+
 @router.get("/component-classes/{class_id}/fields", response_model=list[ComponentClassFieldRead])
 def list_component_fields(class_id: int, db: Session = Depends(get_db)) -> list[ComponentClassFieldRead]:
     return dcim_svc.list_component_fields(db, class_id)
+
+
+@router.get("/component-classes/{class_id}/effective-fields", response_model=list[ComponentClassEffectiveFieldRead])
+def list_component_effective_fields(
+    class_id: int,
+    db: Session = Depends(get_db),
+) -> list[ComponentClassEffectiveFieldRead]:
+    return dcim_svc.list_component_effective_fields(db, class_id)
 
 
 @router.post("/component-classes/{class_id}/fields", response_model=ComponentClassFieldRead)
@@ -559,6 +609,43 @@ def delete_component(component_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="komponent ikke funnet")
     dcim_svc.delete_component(db, row)
+
+
+@router.get("/components/{component_id}/children", response_model=list[ComponentChildTemplateRead])
+def list_component_child_templates(
+    component_id: int,
+    db: Session = Depends(get_db),
+) -> list[ComponentChildTemplateRead]:
+    return dcim_svc.list_component_child_templates(db, component_id)
+
+
+@router.post("/components/{component_id}/children", response_model=ComponentChildTemplateRead)
+def create_component_child_template(
+    component_id: int,
+    data: ComponentChildTemplateCreate,
+    db: Session = Depends(get_db),
+) -> ComponentChildTemplateRead:
+    return dcim_svc.create_component_child_template(db, component_id, data)
+
+
+@router.patch("/component-child-templates/{template_id}", response_model=ComponentChildTemplateRead)
+def patch_component_child_template(
+    template_id: int,
+    data: ComponentChildTemplateUpdate,
+    db: Session = Depends(get_db),
+) -> ComponentChildTemplateRead:
+    row = dcim_svc.get_component_child_template(db, template_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="child-template ikke funnet")
+    return dcim_svc.update_component_child_template(db, row, data)
+
+
+@router.delete("/component-child-templates/{template_id}", status_code=204)
+def delete_component_child_template(template_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_component_child_template(db, template_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="child-template ikke funnet")
+    dcim_svc.delete_component_child_template(db, row)
 
 
 # --- Device models ---
@@ -781,6 +868,15 @@ def create_device_instance_component(
 @router.post("/devices/{did}/components/copy-from-model", response_model=list[DeviceInstanceComponentRead])
 def copy_device_components_from_model(did: int, db: Session = Depends(get_db)) -> list[DeviceInstanceComponentRead]:
     return dcim_svc.copy_model_components_to_device(db, did)
+
+
+@router.post("/devices/{did}/components/materialize-interfaces", response_model=list[DeviceInterfaceRead])
+def materialize_component_interfaces(
+    did: int,
+    data: ComponentMaterializeInterfacesRequest,
+    db: Session = Depends(get_db),
+) -> list[DeviceInterfaceRead]:
+    return dcim_svc.materialize_component_interfaces(db, did, data)
 
 
 @router.patch("/devices/{did}/components/{link_id}", response_model=DeviceInstanceComponentRead)

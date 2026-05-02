@@ -257,6 +257,48 @@ class ComponentClass(Base):
         order_by="ComponentClassField.sort_order, ComponentClassField.id",
     )
     components: Mapped[list["Component"]] = relationship(back_populates="component_class")
+    parent_links: Mapped[list["ComponentClassParent"]] = relationship(
+        back_populates="child_class",
+        cascade="all, delete-orphan",
+        foreign_keys="ComponentClassParent.child_class_id",
+        order_by="ComponentClassParent.sort_order, ComponentClassParent.id",
+    )
+    child_links: Mapped[list["ComponentClassParent"]] = relationship(
+        back_populates="parent_class",
+        cascade="all, delete-orphan",
+        foreign_keys="ComponentClassParent.parent_class_id",
+    )
+
+
+class ComponentClassParent(Base):
+    """Fler-arv/mixins mellom komponentklasser."""
+
+    __tablename__ = "dcim_component_class_parents"
+    __table_args__ = (
+        UniqueConstraint("child_class_id", "parent_class_id", name="uq_dcim_component_class_parent"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    child_class_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_component_classes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    parent_class_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_component_classes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    child_class: Mapped["ComponentClass"] = relationship(
+        "ComponentClass",
+        back_populates="parent_links",
+        foreign_keys=[child_class_id],
+    )
+    parent_class: Mapped["ComponentClass"] = relationship(
+        "ComponentClass",
+        back_populates="child_links",
+        foreign_keys=[parent_class_id],
+    )
 
 
 class ComponentClassField(Base):
@@ -307,6 +349,46 @@ class Component(Base):
     manufacturer: Mapped["Manufacturer | None"] = relationship("Manufacturer")
     model_links: Mapped[list["DeviceModelComponent"]] = relationship(back_populates="component")
     instance_links: Mapped[list["DeviceInstanceComponent"]] = relationship(back_populates="component")
+    child_templates: Mapped[list["ComponentChildTemplate"]] = relationship(
+        back_populates="parent_component",
+        cascade="all, delete-orphan",
+        foreign_keys="ComponentChildTemplate.parent_component_id",
+        order_by="ComponentChildTemplate.sort_order, ComponentChildTemplate.id",
+    )
+
+
+class ComponentChildTemplate(Base):
+    """Barn som en bibliotekskomponent består av, f.eks. NIC -> porter."""
+
+    __tablename__ = "dcim_component_child_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    parent_component_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_components.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    child_class_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_component_classes.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    child_component_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_components.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    name_pattern: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    slot_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    overrides_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    materialize_as: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    parent_component: Mapped["Component"] = relationship(
+        "Component",
+        back_populates="child_templates",
+        foreign_keys=[parent_component_id],
+    )
+    child_class: Mapped["ComponentClass"] = relationship("ComponentClass")
+    child_component: Mapped["Component | None"] = relationship("Component", foreign_keys=[child_component_id])
 
 
 class DeviceModelComponent(Base):

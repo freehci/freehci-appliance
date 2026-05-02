@@ -440,6 +440,24 @@ class ComponentClassRead(BaseModel):
     active: bool
 
 
+class ComponentClassParentCreate(BaseModel):
+    parent_class_id: int = Field(..., ge=1)
+    sort_order: int = 0
+
+
+class ComponentClassParentUpdate(BaseModel):
+    sort_order: int | None = None
+
+
+class ComponentClassParentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    child_class_id: int
+    parent_class_id: int
+    sort_order: int
+
+
 class ComponentClassFieldCreate(BaseModel):
     key: str = Field(..., min_length=1, max_length=64)
     label: str = Field(..., min_length=1, max_length=255)
@@ -514,6 +532,12 @@ class ComponentClassFieldRead(BaseModel):
     active: bool
 
 
+class ComponentClassEffectiveFieldRead(ComponentClassFieldRead):
+    inherited_from_class_id: int | None = None
+    inherited_from_class_name: str | None = None
+    inherited: bool = False
+
+
 class ComponentFieldImpactRead(BaseModel):
     breaking: bool
     affected_components: int = 0
@@ -553,6 +577,48 @@ class ComponentRead(BaseModel):
     description: str | None
     specs_json: dict[str, Any] = Field(default_factory=dict)
     active: bool
+
+
+class ComponentChildTemplateCreate(BaseModel):
+    child_class_id: int = Field(..., ge=1)
+    child_component_id: int | None = Field(None, ge=1)
+    quantity: int = Field(1, ge=1, le=1_000_000)
+    name_pattern: str | None = Field(None, max_length=128)
+    slot_label: str | None = Field(None, max_length=128)
+    overrides_json: dict[str, Any] | None = None
+    materialize_as: str | None = Field(None, max_length=32)
+    sort_order: int = 0
+
+
+class ComponentChildTemplateUpdate(BaseModel):
+    child_class_id: int | None = Field(None, ge=1)
+    child_component_id: int | None = Field(None, ge=1)
+    quantity: int | None = Field(None, ge=1, le=1_000_000)
+    name_pattern: str | None = Field(None, max_length=128)
+    slot_label: str | None = Field(None, max_length=128)
+    overrides_json: dict[str, Any] | None = None
+    materialize_as: str | None = Field(None, max_length=32)
+    sort_order: int | None = None
+
+
+class ComponentChildTemplateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    parent_component_id: int
+    child_class_id: int
+    child_component_id: int | None
+    quantity: int
+    name_pattern: str | None
+    slot_label: str | None
+    overrides_json: dict[str, Any] = Field(default_factory=dict)
+    materialize_as: str | None
+    sort_order: int
+
+
+class ComponentMaterializeInterfacesRequest(BaseModel):
+    component_link_id: int = Field(..., ge=1)
+    overwrite_existing: bool = False
 
 
 class DeviceModelComponentCreate(BaseModel):

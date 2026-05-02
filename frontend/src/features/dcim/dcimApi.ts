@@ -10,8 +10,11 @@ import {
 } from "@/lib/api";
 import type {
   Component,
+  ComponentChildTemplate,
   ComponentClass,
+  ComponentClassEffectiveField,
   ComponentClassField,
+  ComponentClassParent,
   ComponentFieldImpact,
   DeviceInstance,
   DeviceInstanceComponent,
@@ -353,8 +356,34 @@ export function deleteComponentClass(id: number): Promise<void> {
   return apiDelete(`${P}/component-classes/${id}`);
 }
 
+export function listComponentClassParents(classId: number): Promise<ComponentClassParent[]> {
+  return apiGet(`${P}/component-classes/${classId}/parents`);
+}
+
+export function createComponentClassParent(
+  classId: number,
+  body: { parent_class_id: number; sort_order?: number },
+): Promise<ComponentClassParent> {
+  return apiPost(`${P}/component-classes/${classId}/parents`, body);
+}
+
+export function updateComponentClassParent(
+  parentLinkId: number,
+  body: { sort_order?: number },
+): Promise<ComponentClassParent> {
+  return apiPatch(`${P}/component-class-parents/${parentLinkId}`, body);
+}
+
+export function deleteComponentClassParent(parentLinkId: number): Promise<void> {
+  return apiDelete(`${P}/component-class-parents/${parentLinkId}`);
+}
+
 export function listComponentClassFields(classId: number): Promise<ComponentClassField[]> {
   return apiGet(`${P}/component-classes/${classId}/fields`);
+}
+
+export function listComponentEffectiveFields(classId: number): Promise<ComponentClassEffectiveField[]> {
+  return apiGet(`${P}/component-classes/${classId}/effective-fields`);
 }
 
 export function createComponentClassField(
@@ -422,6 +451,46 @@ export function updateComponent(
 
 export function deleteComponent(id: number): Promise<void> {
   return apiDelete(`${P}/components/${id}`);
+}
+
+export function listComponentChildTemplates(componentId: number): Promise<ComponentChildTemplate[]> {
+  return apiGet(`${P}/components/${componentId}/children`);
+}
+
+export function createComponentChildTemplate(
+  componentId: number,
+  body: {
+    child_class_id: number;
+    child_component_id?: number | null;
+    quantity?: number;
+    name_pattern?: string | null;
+    slot_label?: string | null;
+    overrides_json?: Record<string, unknown> | null;
+    materialize_as?: string | null;
+    sort_order?: number;
+  },
+): Promise<ComponentChildTemplate> {
+  return apiPost(`${P}/components/${componentId}/children`, body);
+}
+
+export function updateComponentChildTemplate(
+  templateId: number,
+  body: Partial<{
+    child_class_id: number;
+    child_component_id: number | null;
+    quantity: number;
+    name_pattern: string | null;
+    slot_label: string | null;
+    overrides_json: Record<string, unknown> | null;
+    materialize_as: string | null;
+    sort_order: number;
+  }>,
+): Promise<ComponentChildTemplate> {
+  return apiPatch(`${P}/component-child-templates/${templateId}`, body);
+}
+
+export function deleteComponentChildTemplate(templateId: number): Promise<void> {
+  return apiDelete(`${P}/component-child-templates/${templateId}`);
 }
 
 export function listDeviceModels(): Promise<DeviceModel[]> {
@@ -574,6 +643,13 @@ export function createDeviceInstanceComponent(
 
 export function copyDeviceComponentsFromModel(deviceId: number): Promise<DeviceInstanceComponent[]> {
   return apiPost(`${P}/devices/${deviceId}/components/copy-from-model`, {});
+}
+
+export function materializeComponentInterfaces(
+  deviceId: number,
+  body: { component_link_id: number; overwrite_existing?: boolean },
+): Promise<DeviceInterface[]> {
+  return apiPost(`${P}/devices/${deviceId}/components/materialize-interfaces`, body);
 }
 
 export function updateDeviceInstanceComponent(

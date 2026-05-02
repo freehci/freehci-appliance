@@ -116,6 +116,16 @@ export function DcimOwnerComponentsPanel({
     },
     onError: onMutError,
   });
+  const materializeM = useMutation({
+    mutationFn: (linkId: number) =>
+      api.materializeComponentInterfaces(ownerId, { component_link_id: linkId, overwrite_existing: false }),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+      if (ownerKind === "device") void qc.invalidateQueries({ queryKey: ["dcim", "devices", ownerId, "interfaces"] });
+    },
+    onError: onMutError,
+  });
 
   return (
     <section className={styles.mfrDetailSection} style={{ marginTop: "var(--space-4)" }}>
@@ -162,7 +172,14 @@ export function DcimOwnerComponentsPanel({
                 <td>{comp?.name ?? `#${link.component_id}`}</td>
                 <td>{link.quantity}</td>
                 <td>{link.slot_label ?? "—"}</td>
-                <td><button type="button" className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()} onClick={() => delM.mutate(link.id)}><i className="fas fa-trash-can" aria-hidden /></button></td>
+                <td>
+                  {ownerKind === "device" ? (
+                    <button type="button" className={styles.tableIconBtn} title={t("dcim.components.createInterfaces")} aria-label={t("dcim.components.createInterfaces")} onClick={() => materializeM.mutate(link.id)} disabled={materializeM.isPending}>
+                      <i className="fas fa-network-wired" aria-hidden />
+                    </button>
+                  ) : null}
+                  <button type="button" className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()} onClick={() => delM.mutate(link.id)}><i className="fas fa-trash-can" aria-hidden /></button>
+                </td>
               </tr>
             );
           })}

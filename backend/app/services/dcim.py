@@ -24,8 +24,10 @@ from app.core.media_storage import (
 )
 from app.models.dcim import (
     Component,
+    ComponentChildTemplate,
     ComponentClass,
     ComponentClassField,
+    ComponentClassParent,
     DeviceInstance,
     DeviceInstanceComponent,
     DeviceInterface,
@@ -53,9 +55,17 @@ ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/s
 
 from app.schemas.dcim import (
     ComponentClassCreate,
+    ComponentChildTemplateCreate,
+    ComponentChildTemplateRead,
+    ComponentChildTemplateUpdate,
+    ComponentMaterializeInterfacesRequest,
+    ComponentClassEffectiveFieldRead,
     ComponentClassFieldCreate,
     ComponentClassFieldRead,
     ComponentClassFieldUpdate,
+    ComponentClassParentCreate,
+    ComponentClassParentRead,
+    ComponentClassParentUpdate,
     ComponentClassRead,
     ComponentClassUpdate,
     ComponentCreate,
@@ -1109,6 +1119,36 @@ def component_field_read(row: ComponentClassField) -> ComponentClassFieldRead:
     )
 
 
+def component_effective_field_read(
+    row: ComponentClassField,
+    *,
+    inherited_from: ComponentClass | None,
+) -> ComponentClassEffectiveFieldRead:
+    return ComponentClassEffectiveFieldRead(
+        id=row.id,
+        class_id=row.class_id,
+        key=row.key,
+        label=row.label,
+        data_type=row.data_type,
+        unit=row.unit,
+        required=row.required,
+        sort_order=row.sort_order,
+        min_number=row.min_number,
+        max_number=row.max_number,
+        choices_json=list(row.choices_json) if isinstance(row.choices_json, list) else None,
+        default_value=row.default_value,
+        description=row.description,
+        active=row.active,
+        inherited_from_class_id=inherited_from.id if inherited_from is not None else None,
+        inherited_from_class_name=inherited_from.name if inherited_from is not None else None,
+        inherited=inherited_from is not None,
+    )
+
+
+def component_class_parent_read(row: ComponentClassParent) -> ComponentClassParentRead:
+    return ComponentClassParentRead.model_validate(row)
+
+
 def component_read(row: Component) -> ComponentRead:
     return ComponentRead(
         id=row.id,
@@ -1119,6 +1159,21 @@ def component_read(row: Component) -> ComponentRead:
         description=row.description,
         specs_json=_dict_or_empty(row.specs_json),
         active=row.active,
+    )
+
+
+def component_child_template_read(row: ComponentChildTemplate) -> ComponentChildTemplateRead:
+    return ComponentChildTemplateRead(
+        id=row.id,
+        parent_component_id=row.parent_component_id,
+        child_class_id=row.child_class_id,
+        child_component_id=row.child_component_id,
+        quantity=row.quantity,
+        name_pattern=row.name_pattern,
+        slot_label=row.slot_label,
+        overrides_json=_dict_or_empty(row.overrides_json),
+        materialize_as=row.materialize_as,
+        sort_order=row.sort_order,
     )
 
 
@@ -1161,6 +1216,78 @@ def _component_fields(db: Session, class_id: int) -> list[ComponentClassField]:
         .scalars()
         .all()
     )
+
+
+def _component_class_parent_ids(db: Session, class_id: int) -> list[int]:
+    return list(
+        db.execute(
+            select(ComponentClassParent.parent_class_id)
+            .where(ComponentClassParent.child_class_id == class_id)
+            .order_by(ComponentClassParent.sort_order, ComponentClassParent.id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _component_class_descendant_ids(db: Session, class_id: int) -> set[int]:
+    out: set[int] = set()
+    stack = [class_id]
+    while stack:
+        cur = stack.pop()
+        child_ids = list(
+            db.execute(
+                select(ComponentClassParent.child_class_id).where(ComponentClassParent.parent_class_id == cur)
+            )
+            .scalars()
+            .all()
+        )
+        for child_id in child_ids:
+            if child_id not in out:
+                out.add(child_id)
+                stack.append(child_id)
+    return out
+
+
+def _component_effective_fields(
+    db: Session,
+    class_id: int,
+    *,
+    validate_unique: bool = True,
+) -> list[tuple[ComponentClassField, ComponentClass | None]]:
+    if get_component_class(db, class_id) is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    visited: set[int] = set()
+    visiting: set[int] = set()
+    rows: list[tuple[ComponentClassField, ComponentClass | None]] = []
+
+    def walk(cid: int, inherited_from: ComponentClass | None) -> None:
+        if cid in visiting:
+            raise HTTPException(status_code=409, detail="komponentklasse-arv inneholder en syklus")
+        if cid in visited:
+            return
+        visiting.add(cid)
+        parent_ids = _component_class_parent_ids(db, cid)
+        for parent_id in parent_ids:
+            parent = get_component_class(db, parent_id)
+            if parent is None:
+                continue
+            walk(parent_id, parent)
+        visiting.remove(cid)
+        visited.add(cid)
+        source = inherited_from if cid != class_id else None
+        rows.extend((field, source) for field in _component_fields(db, cid))
+
+    walk(class_id, None)
+    if validate_unique:
+        by_key: dict[str, list[str]] = defaultdict(list)
+        for field, source in rows:
+            by_key[field.key].append(source.name if source is not None else "egen klasse")
+        duplicate = {key: origins for key, origins in by_key.items() if len(origins) > 1}
+        if duplicate:
+            detail = "; ".join(f"{key}: {', '.join(origins)}" for key, origins in sorted(duplicate.items()))
+            raise HTTPException(status_code=409, detail=f"dupliserte arvede komponentfelt: {detail}")
+    return rows
 
 
 def _normalize_choice_list(v: object) -> list[str] | None:
@@ -1234,7 +1361,7 @@ def _validate_value(field: ComponentClassField, value: object, *, missing_ok: bo
 
 def _validate_specs_for_class(db: Session, class_id: int, data: dict | None, *, partial: bool = False) -> dict:
     specs = dict(data or {})
-    fields = _component_fields(db, class_id)
+    fields = [field for field, _source in _component_effective_fields(db, class_id)]
     allowed = {f.key: f for f in fields}
     unknown = sorted(k for k in specs if k not in allowed)
     if unknown:
@@ -1301,6 +1428,90 @@ def delete_component_class(db: Session, row: ComponentClass) -> None:
         raise HTTPException(status_code=409, detail="komponentklasse er i bruk")
     db.delete(row)
     db.commit()
+
+
+def list_component_class_parents(db: Session, class_id: int) -> list[ComponentClassParentRead]:
+    if get_component_class(db, class_id) is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    rows = list(
+        db.execute(
+            select(ComponentClassParent)
+            .where(ComponentClassParent.child_class_id == class_id)
+            .order_by(ComponentClassParent.sort_order, ComponentClassParent.id)
+        )
+        .scalars()
+        .all()
+    )
+    return [component_class_parent_read(r) for r in rows]
+
+
+def _component_parent_would_cycle(db: Session, child_class_id: int, parent_class_id: int) -> bool:
+    if child_class_id == parent_class_id:
+        return True
+    return child_class_id in _component_class_descendant_ids(db, parent_class_id)
+
+
+def create_component_class_parent(
+    db: Session,
+    class_id: int,
+    data: ComponentClassParentCreate,
+) -> ComponentClassParentRead:
+    if get_component_class(db, class_id) is None or get_component_class(db, data.parent_class_id) is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    if _component_parent_would_cycle(db, class_id, data.parent_class_id):
+        raise HTTPException(status_code=409, detail="komponentklasse-arv kan ikke lage syklus")
+    row = ComponentClassParent(
+        child_class_id=class_id,
+        parent_class_id=data.parent_class_id,
+        sort_order=data.sort_order,
+    )
+    db.add(row)
+    try:
+        db.flush()
+        _component_effective_fields(db, class_id)
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="forelder er allerede lagt til") from e
+    except HTTPException:
+        db.rollback()
+        raise
+    db.refresh(row)
+    return component_class_parent_read(row)
+
+
+def get_component_class_parent(db: Session, parent_link_id: int) -> ComponentClassParent | None:
+    return db.get(ComponentClassParent, parent_link_id)
+
+
+def update_component_class_parent(
+    db: Session,
+    row: ComponentClassParent,
+    data: ComponentClassParentUpdate,
+) -> ComponentClassParentRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    for k, v in patch.items():
+        setattr(row, k, v)
+    db.commit()
+    db.refresh(row)
+    return component_class_parent_read(row)
+
+
+def delete_component_class_parent(db: Session, row: ComponentClassParent) -> None:
+    child_id = row.child_class_id
+    db.delete(row)
+    db.flush()
+    _component_effective_fields(db, child_id)
+    db.commit()
+
+
+def list_component_effective_fields(db: Session, class_id: int) -> list[ComponentClassEffectiveFieldRead]:
+    return [
+        component_effective_field_read(field, inherited_from=source)
+        for field, source in _component_effective_fields(db, class_id)
+    ]
 
 
 def list_component_fields(db: Session, class_id: int) -> list[ComponentClassFieldRead]:
@@ -1372,12 +1583,13 @@ def component_field_impact(db: Session, field: ComponentClassField, data: Compon
     )
     _validate_component_field_shape(candidate.data_type, candidate.min_number, candidate.max_number, candidate.choices_json)
     messages: list[str] = []
-    components = list(db.execute(select(Component).where(Component.class_id == field.class_id)).scalars().all())
+    affected_class_ids = {field.class_id, *_component_class_descendant_ids(db, field.class_id)}
+    components = list(db.execute(select(Component).where(Component.class_id.in_(affected_class_ids))).scalars().all())
     model_links = list(
         db.execute(
             select(DeviceModelComponent)
             .join(Component, Component.id == DeviceModelComponent.component_id)
-            .where(Component.class_id == field.class_id)
+            .where(Component.class_id.in_(affected_class_ids))
         )
         .scalars()
         .all()
@@ -1386,7 +1598,7 @@ def component_field_impact(db: Session, field: ComponentClassField, data: Compon
         db.execute(
             select(DeviceInstanceComponent)
             .join(Component, Component.id == DeviceInstanceComponent.component_id)
-            .where(Component.class_id == field.class_id)
+            .where(Component.class_id.in_(affected_class_ids))
         )
         .scalars()
         .all()
@@ -1524,6 +1736,206 @@ def delete_component(db: Session, row: Component) -> None:
         raise HTTPException(status_code=409, detail="komponent er i bruk")
     db.delete(row)
     db.commit()
+
+
+def list_component_child_templates(db: Session, component_id: int) -> list[ComponentChildTemplateRead]:
+    if get_component(db, component_id) is None:
+        raise HTTPException(status_code=404, detail="komponent ikke funnet")
+    rows = list(
+        db.execute(
+            select(ComponentChildTemplate)
+            .where(ComponentChildTemplate.parent_component_id == component_id)
+            .order_by(ComponentChildTemplate.sort_order, ComponentChildTemplate.id)
+        )
+        .scalars()
+        .all()
+    )
+    return [component_child_template_read(r) for r in rows]
+
+
+def _validate_child_template(
+    db: Session,
+    *,
+    parent_component_id: int,
+    child_class_id: int,
+    child_component_id: int | None,
+    overrides_json: dict | None,
+    materialize_as: str | None,
+) -> dict:
+    parent = get_component(db, parent_component_id)
+    if parent is None:
+        raise HTTPException(status_code=404, detail="parent-komponent ikke funnet")
+    if get_component_class(db, child_class_id) is None:
+        raise HTTPException(status_code=404, detail="child-komponentklasse ikke funnet")
+    if child_component_id is not None:
+        child_component = get_component(db, child_component_id)
+        if child_component is None:
+            raise HTTPException(status_code=404, detail="child-komponent ikke funnet")
+        if child_component.class_id != child_class_id:
+            raise HTTPException(status_code=400, detail="child_component må tilhøre child_class")
+        if child_component_id == parent_component_id:
+            raise HTTPException(status_code=400, detail="komponent kan ikke inneholde seg selv")
+    if materialize_as is not None and materialize_as not in {"interface"}:
+        raise HTTPException(status_code=422, detail="materialize_as må være interface eller null")
+    return _validate_specs_for_class(db, child_class_id, overrides_json, partial=True)
+
+
+def create_component_child_template(
+    db: Session,
+    component_id: int,
+    data: ComponentChildTemplateCreate,
+) -> ComponentChildTemplateRead:
+    overrides = _validate_child_template(
+        db,
+        parent_component_id=component_id,
+        child_class_id=data.child_class_id,
+        child_component_id=data.child_component_id,
+        overrides_json=data.overrides_json,
+        materialize_as=data.materialize_as,
+    )
+    row = ComponentChildTemplate(
+        parent_component_id=component_id,
+        child_class_id=data.child_class_id,
+        child_component_id=data.child_component_id,
+        quantity=data.quantity,
+        name_pattern=data.name_pattern,
+        slot_label=data.slot_label,
+        overrides_json=overrides,
+        materialize_as=data.materialize_as,
+        sort_order=data.sort_order,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return component_child_template_read(row)
+
+
+def get_component_child_template(db: Session, template_id: int) -> ComponentChildTemplate | None:
+    return db.get(ComponentChildTemplate, template_id)
+
+
+def update_component_child_template(
+    db: Session,
+    row: ComponentChildTemplate,
+    data: ComponentChildTemplateUpdate,
+) -> ComponentChildTemplateRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    child_class_id = patch.get("child_class_id", row.child_class_id)
+    child_component_id = patch.get("child_component_id", row.child_component_id)
+    materialize_as = patch.get("materialize_as", row.materialize_as)
+    if "overrides_json" in patch or child_class_id != row.child_class_id:
+        patch["overrides_json"] = _validate_child_template(
+            db,
+            parent_component_id=row.parent_component_id,
+            child_class_id=child_class_id,
+            child_component_id=child_component_id,
+            overrides_json=patch.get("overrides_json", row.overrides_json),
+            materialize_as=materialize_as,
+        )
+    else:
+        _validate_child_template(
+            db,
+            parent_component_id=row.parent_component_id,
+            child_class_id=child_class_id,
+            child_component_id=child_component_id,
+            overrides_json=row.overrides_json,
+            materialize_as=materialize_as,
+        )
+    for k, v in patch.items():
+        setattr(row, k, v)
+    db.commit()
+    db.refresh(row)
+    return component_child_template_read(row)
+
+
+def delete_component_child_template(db: Session, row: ComponentChildTemplate) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def _template_instance_name(template: ComponentChildTemplate, idx: int) -> str:
+    base = template.name_pattern or template.slot_label or "port{n}"
+    return base.replace("{n}", str(idx)).replace("{i}", str(idx))
+
+
+def _speed_from_specs(specs: dict) -> int | None:
+    for key in ("speed_mbps", "network_speed_mbps"):
+        value = specs.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return int(value)
+        if isinstance(value, str):
+            digits = "".join(ch for ch in value if ch.isdigit())
+            if digits:
+                return int(digits)
+    return None
+
+
+def materialize_component_interfaces(
+    db: Session,
+    device_id: int,
+    data: ComponentMaterializeInterfacesRequest,
+) -> list[DeviceInterfaceRead]:
+    dev = _require_device(db, device_id)
+    link = get_device_instance_component(db, data.component_link_id)
+    if link is None or link.device_id != device_id:
+        raise HTTPException(status_code=404, detail="device-komponent ikke funnet")
+    templates = list(
+        db.execute(
+            select(ComponentChildTemplate)
+            .where(
+                ComponentChildTemplate.parent_component_id == link.component_id,
+                ComponentChildTemplate.materialize_as == "interface",
+            )
+            .order_by(ComponentChildTemplate.sort_order, ComponentChildTemplate.id)
+        )
+        .scalars()
+        .all()
+    )
+    if not templates:
+        raise HTTPException(status_code=400, detail="komponenten har ingen interface-templates")
+    existing_names = {
+        name
+        for name in db.execute(select(DeviceInterface.name).where(DeviceInterface.device_id == device_id)).scalars().all()
+    }
+    created: list[DeviceInterface] = []
+    sort_base = db.execute(select(DeviceInterface.id).where(DeviceInterface.device_id == device_id)).scalars().all()
+    sort_order = len(list(sort_base))
+    for template in templates:
+        child_component_specs = {}
+        if template.child_component_id is not None:
+            child_component = get_component(db, template.child_component_id)
+            child_component_specs = _dict_or_empty(child_component.specs_json) if child_component is not None else {}
+        specs = {**child_component_specs, **_dict_or_empty(template.overrides_json)}
+        for idx in range(1, template.quantity + 1):
+            name = _template_instance_name(template, idx)
+            if name in existing_names:
+                if data.overwrite_existing:
+                    continue
+                raise HTTPException(status_code=409, detail=f"interface finnes allerede: {name}")
+            sort_order += 1
+            iface = DeviceInterface(
+                device_id=dev.id,
+                name=name,
+                description=template.slot_label,
+                speed_mbps=_speed_from_specs(specs),
+                enabled=True,
+                sort_order=sort_order,
+            )
+            db.add(iface)
+            created.append(iface)
+            existing_names.add(name)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="kunne ikke opprette interfaces") from e
+    for row in created:
+        db.refresh(row)
+    return [device_interface_read(row) for row in created]
 
 
 def list_device_model_components(db: Session, model_id: int) -> list[DeviceModelComponentRead]:
