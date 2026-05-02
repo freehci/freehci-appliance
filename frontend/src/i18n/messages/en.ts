@@ -230,6 +230,12 @@ export const en = {
   "dcim.components.mappingPayload": "External JSON payload",
   "dcim.components.mappingPreview": "Preview mapping",
   "dcim.components.mappingPayloadObject": "Payload must be a JSON object.",
+  "dcim.components.mappingUseAsComponent": "Use as component",
+  "dcim.components.mappingUseAsChildTemplate": "Use as child template",
+  "dcim.components.mappingTargetSummary": "Target: {target} ({relation})",
+  "dcim.components.mappingTargetMissing": "Target class does not exist yet. Run the FreeHCI standard catalog first.",
+  "dcim.components.mappingChooseParentComponent":
+    "Choose a parent component in the Child templates section before saving the child template.",
   "dcim.components.mappingTargets": "FreeHCI targets",
 
   "auth.loginTitle": "Sign in",

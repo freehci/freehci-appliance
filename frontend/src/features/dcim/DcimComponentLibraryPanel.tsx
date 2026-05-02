@@ -7,10 +7,22 @@ import {
   DcimComponentSpecEditor,
   specsFromDraft,
 } from "./DcimComponentSpecEditor";
+import type { ComponentExternalMappingPreview } from "./types";
 import styles from "./dcim.module.css";
 
 function slugify(s: string): string {
   return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function mappingValueToString(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+function draftFromMappedValues(values: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, mappingValueToString(value)]));
 }
 
 export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string | null) => void }) {
@@ -43,6 +55,7 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [mappingResourceType, setMappingResourceType] = useState("");
   const [mappingPayload, setMappingPayload] = useState("{}");
   const [mappingPreview, setMappingPreview] = useState("");
+  const [mappingPreviewData, setMappingPreviewData] = useState<ComponentExternalMappingPreview | null>(null);
 
   const classesQ = useQuery({ queryKey: ["dcim", "component-classes"], queryFn: api.listComponentClasses });
   const fieldsQ = useQuery({
@@ -100,6 +113,10 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     [mappingSource, mappingsQ.data],
   );
   const selectedMappingResources = selectedMappingProfile?.resources ?? [];
+  const mappingTargetClass = useMemo(
+    () => (classesQ.data ?? []).find((x) => x.slug === mappingPreviewData?.target_class_slug),
+    [classesQ.data, mappingPreviewData?.target_class_slug],
+  );
 
   const onMutError = (e: Error) => onError(e instanceof ApiError ? e.message : e.message);
 
@@ -258,9 +275,37 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     onSuccess: (res) => {
       onError(null);
       setMappingPreview(JSON.stringify(res, null, 2));
+      setMappingPreviewData(res);
     },
     onError: onMutError,
   });
+  const applyMappingPreview = () => {
+    if (mappingPreviewData == null) return;
+    const targetClass = mappingTargetClass;
+    if (targetClass == null) {
+      onError(t("dcim.components.mappingTargetMissing"));
+      return;
+    }
+    const draft = draftFromMappedValues(mappingPreviewData.mapped_values);
+    if (mappingPreviewData.relation === "child_template") {
+      setTemplateChildClassId(String(targetClass.id));
+      setTemplateDraft(draft);
+      setTemplateSlotLabel(mappingValueToString(mappingPreviewData.mapped_values.slot));
+      setTemplateMaterialize(mappingPreviewData.target_class_slug === "network-port");
+      if (templateNamePattern.trim() === "") setTemplateNamePattern("eth{n}");
+      onError(templateComponentId === "" ? t("dcim.components.mappingChooseParentComponent") : null);
+      return;
+    }
+    setSelectedClassId(String(targetClass.id));
+    setSpecDraft(draft);
+    setComponentPart(mappingValueToString(mappingPreviewData.mapped_values.part_number));
+    setComponentName(
+      mappingValueToString(mappingPreviewData.mapped_values.model)
+      || mappingValueToString(mappingPreviewData.mapped_values.part_number)
+      || `${targetClass.name} ${mappingPreviewData.source_type}`,
+    );
+    onError(null);
+  };
 
   return (
     <>
@@ -400,13 +445,13 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
       {mappingsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
       <form className={styles.formRow} onSubmit={(e) => { e.preventDefault(); previewMappingM.mutate(); }}>
         <label>{t("dcim.components.mappingSource")}
-          <select value={mappingSource} onChange={(e) => { setMappingSource(e.target.value); setMappingResourceType(""); setMappingPreview(""); }} required>
+          <select value={mappingSource} onChange={(e) => { setMappingSource(e.target.value); setMappingResourceType(""); setMappingPreview(""); setMappingPreviewData(null); }} required>
             <option value="">{t("dcim.common.choose")}</option>
             {(mappingsQ.data ?? []).map((profile) => <option key={profile.source} value={profile.source}>{profile.display_name}</option>)}
           </select>
         </label>
         <label>{t("dcim.components.mappingResourceType")}
-          <select value={mappingResourceType} onChange={(e) => { setMappingResourceType(e.target.value); setMappingPreview(""); }} required>
+          <select value={mappingResourceType} onChange={(e) => { setMappingResourceType(e.target.value); setMappingPreview(""); setMappingPreviewData(null); }} required>
             <option value="">{t("dcim.common.choose")}</option>
             {selectedMappingResources.map((r) => <option key={r.source_type} value={r.source_type}>{r.source_type}</option>)}
           </select>
@@ -419,7 +464,22 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
         </button>
       </form>
       {mappingPreview ? (
-        <pre className={styles.codeBlock}>{mappingPreview}</pre>
+        <>
+          <div className={styles.formRow} style={{ alignItems: "center" }}>
+            <button type="button" className={styles.btnMuted} disabled={mappingPreviewData == null} onClick={applyMappingPreview}>
+              {mappingPreviewData?.relation === "child_template" ? t("dcim.components.mappingUseAsChildTemplate") : t("dcim.components.mappingUseAsComponent")}
+            </button>
+            {mappingPreviewData ? (
+              <span className={styles.muted}>
+                {t("dcim.components.mappingTargetSummary", {
+                  target: mappingPreviewData.target_class_slug,
+                  relation: mappingPreviewData.relation,
+                })}
+              </span>
+            ) : null}
+          </div>
+          <pre className={styles.codeBlock}>{mappingPreview}</pre>
+        </>
       ) : null}
       <table className={styles.table}>
         <thead>

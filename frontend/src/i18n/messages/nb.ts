@@ -232,6 +232,12 @@ export const nb = {
   "dcim.components.mappingPayload": "Ekstern JSON-payload",
   "dcim.components.mappingPreview": "Forhåndsvis mapping",
   "dcim.components.mappingPayloadObject": "Payload må være et JSON-objekt.",
+  "dcim.components.mappingUseAsComponent": "Bruk som komponent",
+  "dcim.components.mappingUseAsChildTemplate": "Bruk som child template",
+  "dcim.components.mappingTargetSummary": "Mål: {target} ({relation})",
+  "dcim.components.mappingTargetMissing": "Target class finnes ikke ennå. Kjør FreeHCI-standardkatalogen først.",
+  "dcim.components.mappingChooseParentComponent":
+    "Velg foreldrekomponent i Child templates-seksjonen før du lagrer child template.",
   "dcim.components.mappingTargets": "FreeHCI-mål",
 
   "auth.loginTitle": "Logg inn",
