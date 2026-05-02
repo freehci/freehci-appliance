@@ -469,6 +469,22 @@ class ComponentExternalMappingProfileRead(BaseModel):
     resources: list[ComponentExternalMappingResourceRead] = Field(default_factory=list)
 
 
+class ComponentExternalMappingPreviewRequest(BaseModel):
+    source: str = Field(..., min_length=1, max_length=64)
+    resource_type: str = Field(..., min_length=1, max_length=255)
+    payload: dict[str, Any]
+
+
+class ComponentExternalMappingPreviewRead(BaseModel):
+    source: str
+    source_type: str
+    target_class_slug: str
+    relation: str
+    mapped_values: dict[str, Any] = Field(default_factory=dict)
+    missing_paths: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class ComponentClassParentCreate(BaseModel):
     parent_class_id: int = Field(..., ge=1)
     sort_order: int = 0

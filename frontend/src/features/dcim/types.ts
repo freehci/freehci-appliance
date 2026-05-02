@@ -167,6 +167,16 @@ export type ComponentExternalMappingProfile = {
   resources: ComponentExternalMappingResource[];
 };
 
+export type ComponentExternalMappingPreview = {
+  source: string;
+  source_type: string;
+  target_class_slug: string;
+  relation: string;
+  mapped_values: Record<string, unknown>;
+  missing_paths: string[];
+  notes: string[];
+};
+
 export type ComponentClassField = {
   id: number;
   class_id: number;

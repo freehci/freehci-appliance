@@ -228,6 +228,10 @@ export const nb = {
     "Referansemappinger fra eksterne inventory-kilder inn i FreeHCI-normalmodellen. Importere bør bruke disse mappingene i stedet for å endre intern modell.",
   "dcim.components.mappingSource": "Kilde",
   "dcim.components.mappingResources": "Ressurser",
+  "dcim.components.mappingResourceType": "Resource type",
+  "dcim.components.mappingPayload": "Ekstern JSON-payload",
+  "dcim.components.mappingPreview": "Forhåndsvis mapping",
+  "dcim.components.mappingPayloadObject": "Payload må være et JSON-objekt.",
   "dcim.components.mappingTargets": "FreeHCI-mål",
 
   "auth.loginTitle": "Logg inn",

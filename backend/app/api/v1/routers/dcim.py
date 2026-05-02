@@ -27,6 +27,8 @@ from app.schemas.dcim import (
     ComponentClassUpdate,
     ComponentCreate,
     ComponentExternalMappingProfileRead,
+    ComponentExternalMappingPreviewRead,
+    ComponentExternalMappingPreviewRequest,
     ComponentFieldImpactRead,
     ComponentMaterializeInterfacesRequest,
     ComponentRead,
@@ -466,6 +468,13 @@ def seed_standard_component_catalog(db: Session = Depends(get_db)) -> ComponentS
 @router.get("/component-mappings", response_model=list[ComponentExternalMappingProfileRead])
 def list_component_external_mappings(source: str | None = Query(None)) -> list[ComponentExternalMappingProfileRead]:
     return dcim_svc.list_component_external_mapping_profiles(source)
+
+
+@router.post("/component-mappings/preview", response_model=ComponentExternalMappingPreviewRead)
+def preview_component_external_mapping(
+    data: ComponentExternalMappingPreviewRequest,
+) -> ComponentExternalMappingPreviewRead:
+    return dcim_svc.preview_component_external_mapping(data)
 
 
 @router.get("/component-mappings/{source}", response_model=ComponentExternalMappingProfileRead)

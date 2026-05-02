@@ -226,6 +226,10 @@ export const en = {
     "Reference mappings from external inventory sources into the FreeHCI normal model. Importers should use these mappings instead of changing the internal model.",
   "dcim.components.mappingSource": "Source",
   "dcim.components.mappingResources": "Resources",
+  "dcim.components.mappingResourceType": "Resource type",
+  "dcim.components.mappingPayload": "External JSON payload",
+  "dcim.components.mappingPreview": "Preview mapping",
+  "dcim.components.mappingPayloadObject": "Payload must be a JSON object.",
   "dcim.components.mappingTargets": "FreeHCI targets",
 
   "auth.loginTitle": "Sign in",

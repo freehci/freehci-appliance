@@ -245,3 +245,35 @@ def test_component_external_mapping_registry_exposes_reference_profiles() -> Non
 
         missing = client.get("/api/v1/dcim/component-mappings/does-not-exist")
         assert missing.status_code == 404
+
+
+def test_component_external_mapping_preview_transforms_payload() -> None:
+    app = create_app()
+
+    with TestClient(app) as client:
+        preview = client.post(
+            "/api/v1/dcim/component-mappings/preview",
+            json={
+                "source": "redfish",
+                "resource_type": "NetworkPort",
+                "payload": {
+                    "CurrentLinkSpeedMbps": 1000,
+                    "SupportedLinkCapabilities": [{"LinkSpeedMbps": 1000}, {"LinkSpeedMbps": 10000}],
+                    "ActiveLinkTechnology": "Ethernet",
+                },
+            },
+        )
+        assert preview.status_code == 200, preview.text
+        body = preview.json()
+        assert body["target_class_slug"] == "network-port"
+        assert body["relation"] == "child_template"
+        assert body["mapped_values"]["speed_mbps"] == 1000
+        assert body["mapped_values"]["supported_speeds"] == "1000,10000"
+        assert body["mapped_values"]["media_type"] == "copper"
+        assert body["missing_paths"] == ["PhysicalPortNumber"]
+
+        missing = client.post(
+            "/api/v1/dcim/component-mappings/preview",
+            json={"source": "redfish", "resource_type": "NotAThing", "payload": {}},
+        )
+        assert missing.status_code == 404

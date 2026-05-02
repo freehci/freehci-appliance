@@ -69,6 +69,8 @@ from app.schemas.dcim import (
     ComponentClassRead,
     ComponentClassUpdate,
     ComponentExternalMappingProfileRead,
+    ComponentExternalMappingPreviewRead,
+    ComponentExternalMappingPreviewRequest,
     ComponentStandardCatalogSeedResponse,
     ComponentCreate,
     ComponentFieldImpactRead,
@@ -1776,6 +1778,199 @@ def list_component_external_mapping_profiles(
 def get_component_external_mapping_profile(source: str) -> ComponentExternalMappingProfileRead | None:
     rows = list_component_external_mapping_profiles(source)
     return rows[0] if rows else None
+
+
+def _mapping_resource(source: str, resource_type: str) -> dict | None:
+    wanted_source = source.strip().lower()
+    wanted_type = resource_type.strip().lower()
+    for profile in EXTERNAL_COMPONENT_MAPPING_PROFILES:
+        if str(profile["source"]).lower() != wanted_source:
+            continue
+        for resource in profile.get("resources", []):
+            if str(resource["source_type"]).lower() == wanted_type:
+                return resource
+    return None
+
+
+def _extract_mapping_path(payload: object, path: str) -> object:
+    parts = path.split(".") if path else []
+
+    def walk(value: object, idx: int) -> object:
+        if idx >= len(parts):
+            return value
+        part = parts[idx]
+        if part.endswith("[]"):
+            key = part[:-2]
+            if not isinstance(value, dict) or key not in value or not isinstance(value[key], list):
+                return None
+            out = [walk(item, idx + 1) for item in value[key]]
+            return [x for x in out if x is not None]
+        if isinstance(value, list):
+            out = [walk(item, idx) for item in value]
+            return [x for x in out if x is not None]
+        if not isinstance(value, dict) or part not in value:
+            return None
+        return walk(value[part], idx + 1)
+
+    return walk(payload, 0)
+
+
+def _first_number(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = ""
+        seen_digit = False
+        for ch in value:
+            if ch.isdigit() or (ch == "." and seen_digit):
+                cleaned += ch
+                if ch.isdigit():
+                    seen_digit = True
+            elif seen_digit:
+                break
+        if cleaned:
+            try:
+                return float(cleaned)
+            except ValueError:
+                return None
+    return None
+
+
+def _normalize_choice(value: object, mapping: dict[str, str], default: str = "unknown") -> str:
+    raw = str(value).strip().lower().replace(" ", "_").replace("-", "_")
+    return mapping.get(raw, raw if raw in set(mapping.values()) else default)
+
+
+def _apply_mapping_transform(value: object, transform: str | None) -> object:
+    if value is None or transform is None:
+        return value
+    if transform == "join_csv":
+        if isinstance(value, list):
+            return ",".join(str(x) for x in value)
+        return str(value)
+    if transform == "lowercase":
+        return str(value).strip().lower()
+    if transform == "bytes_to_gb":
+        n = _first_number(value)
+        return int(round(n / 1_000_000_000)) if n is not None else value
+    if transform == "mib_to_gb":
+        n = _first_number(value)
+        return int(round(n / 1024)) if n is not None else value
+    if transform == "kb_to_gb":
+        n = _first_number(value)
+        return int(round(n / (1024 * 1024))) if n is not None else value
+    if transform == "bits_per_second_to_mbps":
+        n = _first_number(value)
+        return int(round(n / 1_000_000)) if n is not None else value
+    if transform == "hz_to_mhz":
+        n = _first_number(value)
+        return int(round(n / 1_000_000)) if n is not None else value
+    if transform == "hz_to_mt_s":
+        n = _first_number(value)
+        return int(round(n / 1_000_000)) if n is not None else value
+    if transform == "mhz_text_to_int":
+        n = _first_number(value)
+        return int(n) if n is not None else value
+    if transform == "mt_s_text_to_int":
+        n = _first_number(value)
+        return int(n) if n is not None else value
+    if transform == "size_text_to_gb":
+        n = _first_number(value)
+        if n is None:
+            return value
+        raw = str(value).lower()
+        if "mb" in raw:
+            return int(round(n / 1024))
+        if "kb" in raw:
+            return int(round(n / (1024 * 1024)))
+        return int(round(n))
+    if transform == "usage_to_bool":
+        raw = str(value).strip().lower()
+        return raw in {"in use", "used", "occupied", "true", "yes"}
+    if transform == "normalize_media_type":
+        return _normalize_choice(
+            value,
+            {
+                "ethernet": "copper",
+                "base_t": "copper",
+                "baset": "copper",
+                "twisted_pair": "copper",
+                "fiber": "fiber",
+                "fibre": "fiber",
+                "optical": "fiber",
+                "backplane": "backplane",
+                "dac": "dac",
+                "virtual": "virtual",
+            },
+        )
+    if transform == "normalize_memory_type":
+        return _normalize_choice(
+            value,
+            {"ddr3": "ddr3", "ddr4": "ddr4", "ddr5": "ddr5", "lpddr4": "lpddr4", "lpddr5": "lpddr5", "hbm": "hbm"},
+        )
+    if transform == "normalize_drive_type":
+        return _normalize_choice(value, {"hdd": "hdd", "ssd": "ssd", "nvme": "nvme", "solid_state": "ssd"})
+    if transform == "normalize_function_type":
+        return _normalize_choice(
+            value,
+            {
+                "ethernet": "ethernet",
+                "fibrechannel": "fibre_channel",
+                "fibre_channel": "fibre_channel",
+                "fc": "fibre_channel",
+                "iscsi": "iscsi",
+                "fcoe": "fcoe",
+                "management": "management",
+                "virtual": "virtual",
+            },
+        )
+    if transform == "normalize_connector_type":
+        return _normalize_choice(
+            value,
+            {
+                "1000base_t": "rj45",
+                "10gbase_t": "rj45",
+                "rj45": "rj45",
+                "sfp": "sfp",
+                "sfp+": "sfp+",
+                "sfp28": "sfp28",
+                "qsfp": "qsfp",
+                "qsfp28": "qsfp28",
+                "backplane": "backplane",
+            },
+        )
+    return value
+
+
+def preview_component_external_mapping(data: ComponentExternalMappingPreviewRequest) -> ComponentExternalMappingPreviewRead:
+    resource = _mapping_resource(data.source, data.resource_type)
+    if resource is None:
+        raise HTTPException(status_code=404, detail="mapping-resource ikke funnet")
+    mapped: dict[str, object] = {}
+    missing: list[str] = []
+    notes: list[str] = []
+    if resource.get("notes"):
+        notes.append(str(resource["notes"]))
+    for field in resource.get("fields", []):
+        path = str(field["source_path"])
+        value = _extract_mapping_path(data.payload, path)
+        if value is None or value == []:
+            missing.append(path)
+            continue
+        mapped[str(field["target_field_key"])] = _apply_mapping_transform(value, field.get("transform"))
+        if field.get("notes"):
+            notes.append(str(field["notes"]))
+    return ComponentExternalMappingPreviewRead(
+        source=data.source,
+        source_type=str(resource["source_type"]),
+        target_class_slug=str(resource["target_class_slug"]),
+        relation=str(resource.get("relation") or "component"),
+        mapped_values=mapped,
+        missing_paths=missing,
+        notes=notes,
+    )
 
 
 def _component_class_by_slug(db: Session, slug: str) -> ComponentClass | None:

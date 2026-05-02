@@ -16,6 +16,7 @@ import type {
   ComponentClassField,
   ComponentClassParent,
   ComponentExternalMappingProfile,
+  ComponentExternalMappingPreview,
   ComponentStandardCatalogSeedResponse,
   ComponentFieldImpact,
   DeviceInstance,
@@ -358,6 +359,14 @@ export function listComponentExternalMappings(source?: string): Promise<Componen
 
 export function getComponentExternalMapping(source: string): Promise<ComponentExternalMappingProfile> {
   return apiGet(`${P}/component-mappings/${encodeURIComponent(source)}`);
+}
+
+export function previewComponentExternalMapping(body: {
+  source: string;
+  resource_type: string;
+  payload: Record<string, unknown>;
+}): Promise<ComponentExternalMappingPreview> {
+  return apiPost(`${P}/component-mappings/preview`, body);
 }
 
 export function updateComponentClass(
