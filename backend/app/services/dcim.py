@@ -68,6 +68,7 @@ from app.schemas.dcim import (
     ComponentClassParentUpdate,
     ComponentClassRead,
     ComponentClassUpdate,
+    ComponentExternalMappingProfileRead,
     ComponentStandardCatalogSeedResponse,
     ComponentCreate,
     ComponentFieldImpactRead,
@@ -1551,6 +1552,230 @@ STANDARD_COMPONENT_CATALOG: list[dict] = [
         ],
     },
 ]
+
+
+EXTERNAL_COMPONENT_MAPPING_PROFILES: list[dict] = [
+    {
+        "source": "redfish",
+        "display_name": "DMTF Redfish",
+        "description": "Primary mapping reference for modern out-of-band hardware inventory. FreeHCI keeps its own normal model and maps Redfish resources into canonical classes.",
+        "resources": [
+            {
+                "source_type": "NetworkAdapter",
+                "target_class_slug": "network-adapter",
+                "relation": "component",
+                "notes": "Physical NIC/CNA adapter. Ports and functions should be modeled as child templates/functions.",
+                "fields": [
+                    {"source_path": "Id", "target_field_key": "slot", "notes": "Use as locator when no dedicated slot is present."},
+                    {"source_path": "Manufacturer", "target_field_key": "manufacturer"},
+                    {"source_path": "Model", "target_field_key": "model"},
+                    {"source_path": "SerialNumber", "target_field_key": "serial_number"},
+                    {"source_path": "FirmwareVersion", "target_field_key": "firmware_version"},
+                ],
+            },
+            {
+                "source_type": "NetworkPort",
+                "target_class_slug": "network-port",
+                "relation": "child_template",
+                "notes": "Physical port under a NetworkAdapter.",
+                "fields": [
+                    {"source_path": "CurrentLinkSpeedMbps", "target_field_key": "speed_mbps"},
+                    {"source_path": "SupportedLinkCapabilities[].LinkSpeedMbps", "target_field_key": "supported_speeds", "transform": "join_csv"},
+                    {"source_path": "PhysicalPortNumber", "target_field_key": "slot"},
+                    {"source_path": "ActiveLinkTechnology", "target_field_key": "media_type", "transform": "normalize_media_type"},
+                ],
+            },
+            {
+                "source_type": "NetworkDeviceFunction",
+                "target_class_slug": "network-device-function",
+                "relation": "child_template",
+                "notes": "Logical function for SR-IOV, CNA, FC, iSCSI and management functions.",
+                "fields": [
+                    {"source_path": "NetDevFuncType", "target_field_key": "function_type", "transform": "normalize_function_type"},
+                    {"source_path": "DeviceEnabled", "target_field_key": "device_enabled"},
+                    {"source_path": "Ethernet.MACAddress", "target_field_key": "mac_address"},
+                ],
+            },
+            {
+                "source_type": "Memory",
+                "target_class_slug": "memory-module",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "CapacityMiB", "target_field_key": "capacity_gb", "transform": "mib_to_gb"},
+                    {"source_path": "MemoryDeviceType", "target_field_key": "memory_type", "transform": "normalize_memory_type"},
+                    {"source_path": "OperatingSpeedMhz", "target_field_key": "speed_mt_s"},
+                    {"source_path": "Location.PartLocation.ServiceLabel", "target_field_key": "slot"},
+                ],
+            },
+            {
+                "source_type": "Processor",
+                "target_class_slug": "processor",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "Socket", "target_field_key": "socket"},
+                    {"source_path": "TotalCores", "target_field_key": "core_count"},
+                    {"source_path": "TotalThreads", "target_field_key": "thread_count"},
+                    {"source_path": "MaxSpeedMHz", "target_field_key": "max_frequency_mhz"},
+                ],
+            },
+            {
+                "source_type": "Drive",
+                "target_class_slug": "drive",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "CapacityBytes", "target_field_key": "capacity_gb", "transform": "bytes_to_gb"},
+                    {"source_path": "MediaType", "target_field_key": "drive_type", "transform": "normalize_drive_type"},
+                    {"source_path": "Protocol", "target_field_key": "protocol", "transform": "lowercase"},
+                    {"source_path": "PhysicalLocation.PartLocation.ServiceLabel", "target_field_key": "slot"},
+                ],
+            },
+            {
+                "source_type": "PCIeDevice",
+                "target_class_slug": "pcie-device",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "PCIeInterface.PCIeType", "target_field_key": "pcie_generation"},
+                    {"source_path": "Manufacturer", "target_field_key": "manufacturer"},
+                    {"source_path": "Model", "target_field_key": "model"},
+                    {"source_path": "SerialNumber", "target_field_key": "serial_number"},
+                ],
+            },
+            {
+                "source_type": "PowerSupply",
+                "target_class_slug": "power-supply",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "PowerCapacityWatts", "target_field_key": "capacity_w"},
+                    {"source_path": "LineInputVoltage", "target_field_key": "input_voltage_v"},
+                    {"source_path": "SerialNumber", "target_field_key": "serial_number"},
+                    {"source_path": "FirmwareVersion", "target_field_key": "firmware_version"},
+                ],
+            },
+        ],
+    },
+    {
+        "source": "smbios",
+        "display_name": "SMBIOS / DMI",
+        "description": "Low-level firmware inventory for sockets, slots, chassis, BIOS and installed memory/CPU details.",
+        "resources": [
+            {
+                "source_type": "Type 3 Chassis",
+                "target_class_slug": "chassis",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "Type", "target_field_key": "chassis_type"},
+                    {"source_path": "Serial Number", "target_field_key": "serial_number"},
+                    {"source_path": "Asset Tag", "target_field_key": "asset_tag"},
+                ],
+            },
+            {
+                "source_type": "Type 4 Processor Information",
+                "target_class_slug": "processor",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "Socket Designation", "target_field_key": "socket"},
+                    {"source_path": "Core Count", "target_field_key": "core_count"},
+                    {"source_path": "Thread Count", "target_field_key": "thread_count"},
+                    {"source_path": "Max Speed", "target_field_key": "max_frequency_mhz", "transform": "mhz_text_to_int"},
+                ],
+            },
+            {
+                "source_type": "Type 9 System Slots",
+                "target_class_slug": "system-slot",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "Designation", "target_field_key": "slot"},
+                    {"source_path": "Type", "target_field_key": "slot_type"},
+                    {"source_path": "Current Usage", "target_field_key": "occupied", "transform": "usage_to_bool"},
+                    {"source_path": "Slot Length", "target_field_key": "slot_width"},
+                ],
+            },
+            {
+                "source_type": "Type 17 Memory Device",
+                "target_class_slug": "memory-module",
+                "relation": "component",
+                "fields": [
+                    {"source_path": "Locator", "target_field_key": "slot"},
+                    {"source_path": "Size", "target_field_key": "capacity_gb", "transform": "size_text_to_gb"},
+                    {"source_path": "Type", "target_field_key": "memory_type", "transform": "normalize_memory_type"},
+                    {"source_path": "Speed", "target_field_key": "speed_mt_s", "transform": "mt_s_text_to_int"},
+                    {"source_path": "Serial Number", "target_field_key": "serial_number"},
+                ],
+            },
+        ],
+    },
+    {
+        "source": "lshw",
+        "display_name": "lshw",
+        "description": "Linux hardware tree mapping. Useful as an OS-side fallback where Redfish/SMBIOS is incomplete or unavailable.",
+        "resources": [
+            {"source_type": "network", "target_class_slug": "network-adapter", "relation": "component", "fields": [
+                {"source_path": "logicalname", "target_field_key": "slot"},
+                {"source_path": "serial", "target_field_key": "mac_address"},
+                {"source_path": "capacity", "target_field_key": "speed_mbps", "transform": "bits_per_second_to_mbps"},
+            ]},
+            {"source_type": "memory/bank", "target_class_slug": "memory-module", "relation": "component", "fields": [
+                {"source_path": "slot", "target_field_key": "slot"},
+                {"source_path": "size", "target_field_key": "capacity_gb", "transform": "bytes_to_gb"},
+                {"source_path": "clock", "target_field_key": "speed_mt_s", "transform": "hz_to_mt_s"},
+            ]},
+            {"source_type": "processor", "target_class_slug": "processor", "relation": "component", "fields": [
+                {"source_path": "slot", "target_field_key": "socket"},
+                {"source_path": "configuration.cores", "target_field_key": "core_count"},
+                {"source_path": "capacity", "target_field_key": "max_frequency_mhz", "transform": "hz_to_mhz"},
+            ]},
+        ],
+    },
+    {
+        "source": "netbox",
+        "display_name": "NetBox",
+        "description": "Mapping from NetBox inventory objects to FreeHCI canonical components. Intended for import/sync, not internal storage.",
+        "resources": [
+            {"source_type": "dcim.Interface", "target_class_slug": "network-port", "relation": "child_template", "fields": [
+                {"source_path": "name", "target_field_key": "slot"},
+                {"source_path": "type", "target_field_key": "connector_type", "transform": "normalize_connector_type"},
+                {"source_path": "speed", "target_field_key": "speed_mbps"},
+            ]},
+            {"source_type": "dcim.InventoryItem", "target_class_slug": "physical-device", "relation": "component", "fields": [
+                {"source_path": "serial", "target_field_key": "serial_number"},
+                {"source_path": "asset_tag", "target_field_key": "asset_tag"},
+            ]},
+        ],
+    },
+    {
+        "source": "openbmc",
+        "display_name": "OpenBMC",
+        "description": "Mapping from OpenBMC inventory D-Bus objects to FreeHCI canonical classes.",
+        "resources": [
+            {"source_type": "xyz.openbmc_project.Inventory.Item.Dimm", "target_class_slug": "memory-module", "relation": "component", "fields": [
+                {"source_path": "MemorySizeInKB", "target_field_key": "capacity_gb", "transform": "kb_to_gb"},
+                {"source_path": "MemoryType", "target_field_key": "memory_type", "transform": "normalize_memory_type"},
+                {"source_path": "PartNumber", "target_field_key": "part_number"},
+                {"source_path": "SerialNumber", "target_field_key": "serial_number"},
+            ]},
+            {"source_type": "xyz.openbmc_project.Inventory.Item.Cpu", "target_class_slug": "processor", "relation": "component", "fields": [
+                {"source_path": "CoreCount", "target_field_key": "core_count"},
+                {"source_path": "Socket", "target_field_key": "socket"},
+                {"source_path": "SerialNumber", "target_field_key": "serial_number"},
+            ]},
+        ],
+    },
+]
+
+
+def list_component_external_mapping_profiles(
+    source: str | None = None,
+) -> list[ComponentExternalMappingProfileRead]:
+    profiles = EXTERNAL_COMPONENT_MAPPING_PROFILES
+    if source is not None:
+        wanted = source.strip().lower()
+        profiles = [p for p in profiles if str(p["source"]).lower() == wanted]
+    return [ComponentExternalMappingProfileRead.model_validate(p) for p in profiles]
+
+
+def get_component_external_mapping_profile(source: str) -> ComponentExternalMappingProfileRead | None:
+    rows = list_component_external_mapping_profiles(source)
+    return rows[0] if rows else None
 
 
 def _component_class_by_slug(db: Session, slug: str) -> ComponentClass | None:

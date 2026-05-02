@@ -62,6 +62,10 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     queryFn: () => api.listComponentChildTemplates(Number(templateComponentId)),
     enabled: templateComponentId !== "",
   });
+  const mappingsQ = useQuery({
+    queryKey: ["dcim", "component-external-mappings"],
+    queryFn: () => api.listComponentExternalMappings(),
+  });
   const templateFieldsQ = useQuery({
     queryKey: ["dcim", "component-effective-fields", templateChildClassId],
     queryFn: () => api.listComponentEffectiveFields(Number(templateChildClassId)),
@@ -363,6 +367,32 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
           </table>
         </>
       ) : null}
+
+      <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.components.externalMappings")}</h3>
+      <p className={styles.muted}>{t("dcim.components.externalMappingsHint")}</p>
+      {mappingsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>{t("dcim.components.mappingSource")}</th>
+            <th>{t("dcim.components.mappingResources")}</th>
+            <th>{t("dcim.components.mappingTargets")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(mappingsQ.data ?? []).map((profile) => (
+            <tr key={profile.source}>
+              <td>
+                <strong>{profile.display_name}</strong>
+                <br />
+                <span className={styles.muted}>{profile.description}</span>
+              </td>
+              <td>{profile.resources.map((r) => r.source_type).join(", ")}</td>
+              <td>{Array.from(new Set(profile.resources.map((r) => r.target_class_slug))).join(", ")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <table className={styles.table}>
         <thead><tr><th>{t("dcim.components.className")}</th><th>{t("dcim.common.name")}</th><th>{t("dcim.equip.dm.mfr")}</th><th>{t("dcim.components.partNumber")}</th><th /></tr></thead>

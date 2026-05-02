@@ -26,6 +26,7 @@ from app.schemas.dcim import (
     ComponentClassRead,
     ComponentClassUpdate,
     ComponentCreate,
+    ComponentExternalMappingProfileRead,
     ComponentFieldImpactRead,
     ComponentMaterializeInterfacesRequest,
     ComponentRead,
@@ -460,6 +461,19 @@ def create_component_class(data: ComponentClassCreate, db: Session = Depends(get
 @router.post("/component-classes/seed-standard", response_model=ComponentStandardCatalogSeedResponse)
 def seed_standard_component_catalog(db: Session = Depends(get_db)) -> ComponentStandardCatalogSeedResponse:
     return dcim_svc.seed_standard_component_catalog(db)
+
+
+@router.get("/component-mappings", response_model=list[ComponentExternalMappingProfileRead])
+def list_component_external_mappings(source: str | None = Query(None)) -> list[ComponentExternalMappingProfileRead]:
+    return dcim_svc.list_component_external_mapping_profiles(source)
+
+
+@router.get("/component-mappings/{source}", response_model=ComponentExternalMappingProfileRead)
+def get_component_external_mapping(source: str) -> ComponentExternalMappingProfileRead:
+    row = dcim_svc.get_component_external_mapping_profile(source)
+    if row is None:
+        raise HTTPException(status_code=404, detail="mapping-kilde ikke funnet")
+    return row
 
 
 @router.get("/component-classes/{class_id}", response_model=ComponentClassRead)

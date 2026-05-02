@@ -145,6 +145,28 @@ export type ComponentStandardCatalogSeedResponse = {
   class_slugs: string[];
 };
 
+export type ComponentExternalMappingField = {
+  source_path: string;
+  target_field_key: string;
+  transform: string | null;
+  notes: string | null;
+};
+
+export type ComponentExternalMappingResource = {
+  source_type: string;
+  target_class_slug: string;
+  relation: string;
+  notes: string | null;
+  fields: ComponentExternalMappingField[];
+};
+
+export type ComponentExternalMappingProfile = {
+  source: string;
+  display_name: string;
+  description: string;
+  resources: ComponentExternalMappingResource[];
+};
+
 export type ComponentClassField = {
   id: number;
   class_id: number;

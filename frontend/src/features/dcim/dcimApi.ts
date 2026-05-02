@@ -15,6 +15,7 @@ import type {
   ComponentClassEffectiveField,
   ComponentClassField,
   ComponentClassParent,
+  ComponentExternalMappingProfile,
   ComponentStandardCatalogSeedResponse,
   ComponentFieldImpact,
   DeviceInstance,
@@ -348,6 +349,15 @@ export function createComponentClass(body: {
 
 export function seedStandardComponentCatalog(): Promise<ComponentStandardCatalogSeedResponse> {
   return apiPost(`${P}/component-classes/seed-standard`, {});
+}
+
+export function listComponentExternalMappings(source?: string): Promise<ComponentExternalMappingProfile[]> {
+  const q = source ? `?source=${encodeURIComponent(source)}` : "";
+  return apiGet(`${P}/component-mappings${q}`);
+}
+
+export function getComponentExternalMapping(source: string): Promise<ComponentExternalMappingProfile> {
+  return apiGet(`${P}/component-mappings/${encodeURIComponent(source)}`);
 }
 
 export function updateComponentClass(

@@ -447,6 +447,28 @@ class ComponentStandardCatalogSeedResponse(BaseModel):
     class_slugs: list[str] = Field(default_factory=list)
 
 
+class ComponentExternalMappingFieldRead(BaseModel):
+    source_path: str
+    target_field_key: str
+    transform: str | None = None
+    notes: str | None = None
+
+
+class ComponentExternalMappingResourceRead(BaseModel):
+    source_type: str
+    target_class_slug: str
+    relation: str = "component"
+    notes: str | None = None
+    fields: list[ComponentExternalMappingFieldRead] = Field(default_factory=list)
+
+
+class ComponentExternalMappingProfileRead(BaseModel):
+    source: str
+    display_name: str
+    description: str
+    resources: list[ComponentExternalMappingResourceRead] = Field(default_factory=list)
+
+
 class ComponentClassParentCreate(BaseModel):
     parent_class_id: int = Field(..., ge=1)
     sort_order: int = 0

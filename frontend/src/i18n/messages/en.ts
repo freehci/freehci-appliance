@@ -221,6 +221,12 @@ export const en = {
   "dcim.components.seedStandardHint":
     "Creates canonical FreeHCI classes and fields inspired by Redfish and SMBIOS. Safe to run more than once.",
   "dcim.components.seedSummary": "Created {classes} classes, {fields} fields and {parents} inheritance links.",
+  "dcim.components.externalMappings": "External mappings",
+  "dcim.components.externalMappingsHint":
+    "Reference mappings from external inventory sources into the FreeHCI normal model. Importers should use these mappings instead of changing the internal model.",
+  "dcim.components.mappingSource": "Source",
+  "dcim.components.mappingResources": "Resources",
+  "dcim.components.mappingTargets": "FreeHCI targets",
 
   "auth.loginTitle": "Sign in",
   "auth.username": "Username",

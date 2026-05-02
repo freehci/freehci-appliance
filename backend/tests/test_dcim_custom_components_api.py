@@ -225,3 +225,23 @@ def test_standard_component_catalog_seed_is_idempotent_and_creates_canonical_cla
         port_keys = {row["key"]: row for row in port_fields.json()}
         assert "speed_mbps" in port_keys
         assert "connector_type" in port_keys
+
+
+def test_component_external_mapping_registry_exposes_reference_profiles() -> None:
+    app = create_app()
+
+    with TestClient(app) as client:
+        profiles = client.get("/api/v1/dcim/component-mappings")
+        assert profiles.status_code == 200, profiles.text
+        sources = {row["source"] for row in profiles.json()}
+        assert {"redfish", "smbios", "lshw", "netbox", "openbmc"}.issubset(sources)
+
+        redfish = client.get("/api/v1/dcim/component-mappings/redfish")
+        assert redfish.status_code == 200, redfish.text
+        resources = {row["source_type"]: row for row in redfish.json()["resources"]}
+        assert resources["NetworkAdapter"]["target_class_slug"] == "network-adapter"
+        assert resources["NetworkPort"]["target_class_slug"] == "network-port"
+        assert any(f["target_field_key"] == "speed_mbps" for f in resources["NetworkPort"]["fields"])
+
+        missing = client.get("/api/v1/dcim/component-mappings/does-not-exist")
+        assert missing.status_code == 404

@@ -223,6 +223,12 @@ export const nb = {
   "dcim.components.seedStandardHint":
     "Oppretter canonical FreeHCI-klasser og felt inspirert av Redfish og SMBIOS. Trygt å kjøre flere ganger.",
   "dcim.components.seedSummary": "Opprettet {classes} klasser, {fields} felt og {parents} arv-koblinger.",
+  "dcim.components.externalMappings": "Eksterne mappinger",
+  "dcim.components.externalMappingsHint":
+    "Referansemappinger fra eksterne inventory-kilder inn i FreeHCI-normalmodellen. Importere bør bruke disse mappingene i stedet for å endre intern modell.",
+  "dcim.components.mappingSource": "Kilde",
+  "dcim.components.mappingResources": "Ressurser",
+  "dcim.components.mappingTargets": "FreeHCI-mål",
 
   "auth.loginTitle": "Logg inn",
   "auth.username": "Brukernavn",
