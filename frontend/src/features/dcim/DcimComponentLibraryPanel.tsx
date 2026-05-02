@@ -45,7 +45,10 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [catalogClassFilter, setCatalogClassFilter] = useState("");
   const [catalogMfrFilter, setCatalogMfrFilter] = useState("");
   const [catalogSort, setCatalogSort] = useState("class");
+  const [identityOwnerType, setIdentityOwnerType] = useState<"component" | "manufacturer" | "device_model">("component");
   const [identityComponentId, setIdentityComponentId] = useState("");
+  const [identityManufacturerId, setIdentityManufacturerId] = useState("");
+  const [identityDeviceModelId, setIdentityDeviceModelId] = useState("");
   const [identitySearch, setIdentitySearch] = useState("");
   const [identityType, setIdentityType] = useState("pci");
   const [identityNamespace, setIdentityNamespace] = useState("device");
@@ -100,9 +103,18 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     enabled: templateChildClassId !== "",
   });
   const mfrQ = useQuery({ queryKey: ["dcim", "manufacturers"], queryFn: api.listManufacturers });
+  const deviceModelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
   const identitiesQ = useQuery({
     queryKey: ["dcim", "component-identities", identitySearch],
     queryFn: () => api.listComponentIdentities(identitySearch.trim() ? { q: identitySearch.trim() } : undefined),
+  });
+  const manufacturerIdentitiesQ = useQuery({
+    queryKey: ["dcim", "manufacturer-identities", identitySearch],
+    queryFn: () => api.listManufacturerIdentities(identitySearch.trim() ? { q: identitySearch.trim() } : undefined),
+  });
+  const deviceModelIdentitiesQ = useQuery({
+    queryKey: ["dcim", "device-model-identities", identitySearch],
+    queryFn: () => api.listDeviceModelIdentities(identitySearch.trim() ? { q: identitySearch.trim() } : undefined),
   });
 
   const selectedClass = useMemo(
@@ -123,6 +135,41 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const classNameById = useMemo(() => new Map((classesQ.data ?? []).map((x) => [x.id, x.name])), [classesQ.data]);
   const mfrNameById = useMemo(() => new Map((mfrQ.data ?? []).map((x) => [x.id, x.name])), [mfrQ.data]);
   const componentNameById = useMemo(() => new Map((componentsQ.data ?? []).map((x) => [x.id, x.name])), [componentsQ.data]);
+  const deviceModelNameById = useMemo(() => new Map((deviceModelsQ.data ?? []).map((x) => [x.id, x.name])), [deviceModelsQ.data]);
+  const identityTypeOptions = useMemo(() => {
+    if (identityOwnerType === "manufacturer") return ["pci_vendor", "usb_vendor", "iana_pen", "redfish", "vendor_api", "other"];
+    if (identityOwnerType === "device_model") return ["snmp_sysobjectid", "redfish", "smbios", "vendor_api", "other"];
+    return ["pci", "usb", "mac", "oui", "snmp_sysobjectid", "redfish", "smbios", "lldp", "vendor_api", "other"];
+  }, [identityOwnerType]);
+  const identityRows = useMemo(() => {
+    if (identityOwnerType === "manufacturer") {
+      return (manufacturerIdentitiesQ.data ?? []).map((identity) => ({
+        ...identity,
+        ownerKind: "manufacturer" as const,
+        ownerName: mfrNameById.get(identity.manufacturer_id) ?? `#${identity.manufacturer_id}`,
+      }));
+    }
+    if (identityOwnerType === "device_model") {
+      return (deviceModelIdentitiesQ.data ?? []).map((identity) => ({
+        ...identity,
+        ownerKind: "device_model" as const,
+        ownerName: deviceModelNameById.get(identity.device_model_id) ?? `#${identity.device_model_id}`,
+      }));
+    }
+    return (identitiesQ.data ?? []).map((identity) => ({
+      ...identity,
+      ownerKind: "component" as const,
+      ownerName: componentNameById.get(identity.component_id) ?? `#${identity.component_id}`,
+    }));
+  }, [
+    componentNameById,
+    deviceModelIdentitiesQ.data,
+    deviceModelNameById,
+    identitiesQ.data,
+    identityOwnerType,
+    manufacturerIdentitiesQ.data,
+    mfrNameById,
+  ]);
   const selectedMappingProfile = useMemo(
     () => (mappingsQ.data ?? []).find((x) => x.source === mappingSource),
     [mappingSource, mappingsQ.data],
@@ -289,29 +336,41 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     },
     onError: onMutError,
   });
-  const createIdentityM = useMutation({
-    mutationFn: () =>
-      api.createComponentIdentity(Number(identityComponentId), {
+  const createIdentityM = useMutation<unknown, Error, void>({
+    mutationFn: () => {
+      const body = {
         identity_type: identityType,
         namespace: identityNamespace,
         value: identityValue,
         source: identitySource.trim() || null,
         confidence: Number(identityConfidence) || 0,
-      }),
+      };
+      if (identityOwnerType === "manufacturer") return api.createManufacturerIdentity(Number(identityManufacturerId), body);
+      if (identityOwnerType === "device_model") return api.createDeviceModelIdentity(Number(identityDeviceModelId), body);
+      return api.createComponentIdentity(Number(identityComponentId), body);
+    },
     onSuccess: () => {
       onError(null);
       setIdentityValue("");
       setIdentitySource("");
       setIdentityConfidence("100");
       void qc.invalidateQueries({ queryKey: ["dcim", "component-identities"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "manufacturer-identities"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-model-identities"] });
     },
     onError: onMutError,
   });
   const deleteIdentityM = useMutation({
-    mutationFn: (id: number) => api.deleteComponentIdentity(id),
+    mutationFn: ({ id, ownerKind }: { id: number; ownerKind: "component" | "manufacturer" | "device_model" }) => {
+      if (ownerKind === "manufacturer") return api.deleteManufacturerIdentity(id);
+      if (ownerKind === "device_model") return api.deleteDeviceModelIdentity(id);
+      return api.deleteComponentIdentity(id);
+    },
     onSuccess: () => {
       onError(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "component-identities"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "manufacturer-identities"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-model-identities"] });
     },
     onError: onMutError,
   });
@@ -490,22 +549,66 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
       <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.components.identities")}</h3>
       <p className={styles.muted}>{t("dcim.components.identitiesHint")}</p>
       <form className={styles.formRow} onSubmit={(e) => { e.preventDefault(); createIdentityM.mutate(); }}>
-        <label>{t("dcim.components.component")}
-          <select value={identityComponentId} onChange={(e) => setIdentityComponentId(e.target.value)} required>
-            <option value="">{t("dcim.common.choose")}</option>
-            {(componentsQ.data ?? []).map((c) => <option key={c.id} value={String(c.id)}>{classNameById.get(c.class_id) ?? "?"}: {c.name}</option>)}
+        <label>{t("dcim.components.identityOwner")}
+          <select
+            value={identityOwnerType}
+            onChange={(e) => {
+              const ownerType = e.target.value as "component" | "manufacturer" | "device_model";
+              setIdentityOwnerType(ownerType);
+              setIdentityType(ownerType === "manufacturer" ? "iana_pen" : ownerType === "device_model" ? "snmp_sysobjectid" : "pci");
+              setIdentityNamespace(ownerType === "manufacturer" ? "vendor" : ownerType === "device_model" ? "model" : "device");
+            }}
+          >
+            <option value="component">{t("dcim.components.identityOwnerComponent")}</option>
+            <option value="manufacturer">{t("dcim.components.identityOwnerManufacturer")}</option>
+            <option value="device_model">{t("dcim.components.identityOwnerDeviceModel")}</option>
           </select>
         </label>
+        {identityOwnerType === "component" ? (
+          <label>{t("dcim.components.component")}
+            <select value={identityComponentId} onChange={(e) => setIdentityComponentId(e.target.value)} required>
+              <option value="">{t("dcim.common.choose")}</option>
+              {(componentsQ.data ?? []).map((c) => <option key={c.id} value={String(c.id)}>{classNameById.get(c.class_id) ?? "?"}: {c.name}</option>)}
+            </select>
+          </label>
+        ) : null}
+        {identityOwnerType === "manufacturer" ? (
+          <label>{t("dcim.components.identityOwnerManufacturer")}
+            <select value={identityManufacturerId} onChange={(e) => setIdentityManufacturerId(e.target.value)} required>
+              <option value="">{t("dcim.common.choose")}</option>
+              {(mfrQ.data ?? []).map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+            </select>
+          </label>
+        ) : null}
+        {identityOwnerType === "device_model" ? (
+          <label>{t("dcim.components.identityOwnerDeviceModel")}
+            <select value={identityDeviceModelId} onChange={(e) => setIdentityDeviceModelId(e.target.value)} required>
+              <option value="">{t("dcim.common.choose")}</option>
+              {(deviceModelsQ.data ?? []).map((m) => <option key={m.id} value={String(m.id)}>{mfrNameById.get(m.manufacturer_id ?? 0) ?? "?"}: {m.name}</option>)}
+            </select>
+          </label>
+        ) : null}
         <label>{t("dcim.components.identityType")}
           <select value={identityType} onChange={(e) => setIdentityType(e.target.value)}>
-            {["pci", "usb", "mac", "oui", "snmp_sysobjectid", "redfish", "smbios", "lldp", "vendor_api", "other"].map((x) => <option key={x} value={x}>{x}</option>)}
+            {identityTypeOptions.map((x) => <option key={x} value={x}>{x}</option>)}
           </select>
         </label>
         <label>{t("dcim.components.identityNamespace")}<input value={identityNamespace} onChange={(e) => setIdentityNamespace(e.target.value)} required /></label>
         <label>{t("dcim.components.identityValue")}<input value={identityValue} onChange={(e) => setIdentityValue(e.target.value)} required placeholder="8086:1572" /></label>
         <label>{t("dcim.components.identitySource")}<input value={identitySource} onChange={(e) => setIdentitySource(e.target.value)} placeholder="lspci" /></label>
         <label>{t("dcim.components.identityConfidence")}<input type="number" min={0} max={100} value={identityConfidence} onChange={(e) => setIdentityConfidence(e.target.value)} /></label>
-        <button type="submit" className={styles.btn} disabled={createIdentityM.isPending || identityComponentId === ""}>{t("dcim.common.add")}</button>
+        <button
+          type="submit"
+          className={styles.btn}
+          disabled={
+            createIdentityM.isPending
+            || (identityOwnerType === "component" && identityComponentId === "")
+            || (identityOwnerType === "manufacturer" && identityManufacturerId === "")
+            || (identityOwnerType === "device_model" && identityDeviceModelId === "")
+          }
+        >
+          {t("dcim.common.add")}
+        </button>
       </form>
       <div className={styles.formRow}>
         <label>{t("dcim.components.identitySearch")}
@@ -513,17 +616,17 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
         </label>
       </div>
       <table className={styles.table} style={{ marginBottom: "var(--space-3)" }}>
-        <thead><tr><th>{t("dcim.components.component")}</th><th>{t("dcim.components.identityType")}</th><th>{t("dcim.components.identityNamespace")}</th><th>{t("dcim.components.identityValue")}</th><th>{t("dcim.components.identityNormalized")}</th><th>{t("dcim.components.identityConfidence")}</th><th /></tr></thead>
+        <thead><tr><th>{t("dcim.components.identityOwnerColumn")}</th><th>{t("dcim.components.identityType")}</th><th>{t("dcim.components.identityNamespace")}</th><th>{t("dcim.components.identityValue")}</th><th>{t("dcim.components.identityNormalized")}</th><th>{t("dcim.components.identityConfidence")}</th><th /></tr></thead>
         <tbody>
-          {(identitiesQ.data ?? []).map((identity) => (
+          {identityRows.map((identity) => (
             <tr key={identity.id}>
-              <td>{componentNameById.get(identity.component_id) ?? `#${identity.component_id}`}</td>
+              <td>{identity.ownerName}</td>
               <td><code>{identity.identity_type}</code></td>
               <td><code>{identity.namespace}</code></td>
               <td>{identity.value}</td>
               <td><code>{identity.normalized_value}</code></td>
               <td>{identity.confidence}</td>
-              <td><button type="button" className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()} onClick={() => deleteIdentityM.mutate(identity.id)}><i className="fas fa-trash-can" aria-hidden /></button></td>
+              <td><button type="button" className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()} onClick={() => deleteIdentityM.mutate({ id: identity.id, ownerKind: identity.ownerKind })}><i className="fas fa-trash-can" aria-hidden /></button></td>
             </tr>
           ))}
         </tbody>
