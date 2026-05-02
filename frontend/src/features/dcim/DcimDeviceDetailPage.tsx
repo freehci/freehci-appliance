@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError, apiGet } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
+import { DcimOwnerComponentsPanel } from "./DcimOwnerComponentsPanel";
 import { DCIM_DEVICE_ICON_URL_ATTR } from "./modelImages";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
 import type { DeviceInterface, DeviceIpAssignment } from "./types";
@@ -755,39 +756,47 @@ export function DcimDeviceDetailPage() {
         ) : null}
 
         {detailTab === "hardware" ? (
-          <section className={styles.mfrDetailSection}>
-            {hwPlugins.length > 0 ? (
-              <p className={styles.muted} style={{ marginTop: 0 }}>
-                {t("dcim.equip.dev.pluginHardwareIntegrationsPrefix")}{" "}
-                <strong>{hwPlugins.map((p) => p.name).join(", ")}</strong>.{" "}
-                {t("dcim.equip.dev.pluginHardwareIntegrationsSuffix")}
+          <>
+            <DcimOwnerComponentsPanel
+              ownerKind="device"
+              ownerId={id}
+              canCopyFromModel={dev.device_model_id != null}
+              onError={setErr}
+            />
+            <section className={styles.mfrDetailSection}>
+              {hwPlugins.length > 0 ? (
+                <p className={styles.muted} style={{ marginTop: 0 }}>
+                  {t("dcim.equip.dev.pluginHardwareIntegrationsPrefix")}{" "}
+                  <strong>{hwPlugins.map((p) => p.name).join(", ")}</strong>.{" "}
+                  {t("dcim.equip.dev.pluginHardwareIntegrationsSuffix")}
+                </p>
+              ) : null}
+              <p
+                className={styles.muted}
+                style={{ marginTop: hwPlugins.length > 0 ? "var(--space-3)" : 0 }}
+              >
+                {t("dcim.equip.dev.pluginPlaceholderHardware")}
               </p>
-            ) : null}
-            <p
-              className={styles.muted}
-              style={{ marginTop: hwPlugins.length > 0 ? "var(--space-3)" : 0 }}
-            >
-              {t("dcim.equip.dev.pluginPlaceholderHardware")}
-            </p>
-            {pluginHwPath != null ? (
-              <>
-                <h4 className={styles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-4)" }}>
-                  {primaryHwPlugin?.name ?? t("dcim.equip.dev.pluginPanelDataTitle")}
-                </h4>
-                {pluginHardwareQ.isLoading ? (
-                  <p className={styles.muted}>{t("dcim.common.loading")}</p>
-                ) : null}
-                {pluginHardwareQ.isError ? (
-                  <p className={styles.err}>{(pluginHardwareQ.error as Error).message}</p>
-                ) : null}
-                {pluginHardwareQ.data != null ? (
-                  <pre className={styles.codeBlock}>
-                    {JSON.stringify(pluginHardwareQ.data, null, 2)}
-                  </pre>
-                ) : null}
-              </>
-            ) : null}
-          </section>
+              {pluginHwPath != null ? (
+                <>
+                  <h4 className={styles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-4)" }}>
+                    {primaryHwPlugin?.name ?? t("dcim.equip.dev.pluginPanelDataTitle")}
+                  </h4>
+                  {pluginHardwareQ.isLoading ? (
+                    <p className={styles.muted}>{t("dcim.common.loading")}</p>
+                  ) : null}
+                  {pluginHardwareQ.isError ? (
+                    <p className={styles.err}>{(pluginHardwareQ.error as Error).message}</p>
+                  ) : null}
+                  {pluginHardwareQ.data != null ? (
+                    <pre className={styles.codeBlock}>
+                      {JSON.stringify(pluginHardwareQ.data, null, 2)}
+                    </pre>
+                  ) : null}
+                </>
+              ) : null}
+            </section>
+          </>
         ) : null}
 
         {detailTab === "os" ? (

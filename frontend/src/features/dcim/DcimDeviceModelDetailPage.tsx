@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { DcimOwnerComponentsPanel } from "./DcimOwnerComponentsPanel";
 import { deviceModelListThumbSrc } from "./modelImages";
 import styles from "./dcim.module.css";
 
@@ -323,6 +324,10 @@ export function DcimDeviceModelDetailPage() {
             </button>
           </div>
         </form>
+
+        {!isNew && mo ? (
+          <DcimOwnerComponentsPanel ownerKind="model" ownerId={id} onError={setErr} />
+        ) : null}
 
         {!isNew && mo ? (
           <section className={styles.mfrDetailSection} style={{ marginTop: "var(--space-4)" }}>

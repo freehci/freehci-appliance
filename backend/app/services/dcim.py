@@ -4,18 +4,13 @@ from __future__ import annotations
 
 import ipaddress
 from collections import defaultdict
-
-from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
-
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import HTTPException
-
-LOGO_MAX_BYTES = 512 * 1024
-DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
-ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.core.media_storage import (
@@ -28,10 +23,15 @@ from app.core.media_storage import (
     write_room_floorplan_file,
 )
 from app.models.dcim import (
+    Component,
+    ComponentClass,
+    ComponentClassField,
     DeviceInstance,
+    DeviceInstanceComponent,
     DeviceInterface,
     DeviceIpAssignment,
     DeviceModel,
+    DeviceModelComponent,
     DeviceType,
     InterfaceIpAssignment,
     Manufacturer,
@@ -47,8 +47,25 @@ from app.models.ipam import IpamIpv4Prefix
 
 from app.services import tenant as tenant_svc
 
+LOGO_MAX_BYTES = 512 * 1024
+DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
+
 from app.schemas.dcim import (
+    ComponentClassCreate,
+    ComponentClassFieldCreate,
+    ComponentClassFieldRead,
+    ComponentClassFieldUpdate,
+    ComponentClassRead,
+    ComponentClassUpdate,
+    ComponentCreate,
+    ComponentFieldImpactRead,
+    ComponentRead,
+    ComponentUpdate,
     DeviceInstanceCreate,
+    DeviceInstanceComponentCreate,
+    DeviceInstanceComponentRead,
+    DeviceInstanceComponentUpdate,
     DeviceInstanceRead,
     DeviceInstanceUpdate,
     DeviceInterfaceCreate,
@@ -61,6 +78,9 @@ from app.schemas.dcim import (
     DeviceIpAssignmentRead,
     DeviceIpAssignmentUpdate,
     DeviceModelCreate,
+    DeviceModelComponentCreate,
+    DeviceModelComponentRead,
+    DeviceModelComponentUpdate,
     DeviceModelUpdate,
     DeviceModelBrief,
     DeviceModelRead,
@@ -1057,6 +1077,608 @@ def _require_device(db: Session, did: int) -> DeviceInstance:
     if dev is None:
         raise HTTPException(status_code=404, detail="device ikke funnet")
     return dev
+
+
+# --- Custom hardware components ---
+
+
+def _dict_or_empty(v: object) -> dict:
+    return dict(v) if isinstance(v, dict) else {}
+
+
+def component_class_read(row: ComponentClass) -> ComponentClassRead:
+    return ComponentClassRead.model_validate(row)
+
+
+def component_field_read(row: ComponentClassField) -> ComponentClassFieldRead:
+    return ComponentClassFieldRead(
+        id=row.id,
+        class_id=row.class_id,
+        key=row.key,
+        label=row.label,
+        data_type=row.data_type,
+        unit=row.unit,
+        required=row.required,
+        sort_order=row.sort_order,
+        min_number=row.min_number,
+        max_number=row.max_number,
+        choices_json=list(row.choices_json) if isinstance(row.choices_json, list) else None,
+        default_value=row.default_value,
+        description=row.description,
+        active=row.active,
+    )
+
+
+def component_read(row: Component) -> ComponentRead:
+    return ComponentRead(
+        id=row.id,
+        class_id=row.class_id,
+        manufacturer_id=row.manufacturer_id,
+        name=row.name,
+        part_number=row.part_number,
+        description=row.description,
+        specs_json=_dict_or_empty(row.specs_json),
+        active=row.active,
+    )
+
+
+def device_model_component_read(row: DeviceModelComponent) -> DeviceModelComponentRead:
+    return DeviceModelComponentRead(
+        id=row.id,
+        device_model_id=row.device_model_id,
+        component_id=row.component_id,
+        quantity=row.quantity,
+        slot_label=row.slot_label,
+        notes=row.notes,
+        overrides_json=_dict_or_empty(row.overrides_json),
+        sort_order=row.sort_order,
+    )
+
+
+def device_instance_component_read(row: DeviceInstanceComponent) -> DeviceInstanceComponentRead:
+    return DeviceInstanceComponentRead(
+        id=row.id,
+        device_id=row.device_id,
+        component_id=row.component_id,
+        quantity=row.quantity,
+        slot_label=row.slot_label,
+        serial_number=row.serial_number,
+        asset_tag=row.asset_tag,
+        installed_at=row.installed_at,
+        notes=row.notes,
+        overrides_json=_dict_or_empty(row.overrides_json),
+        sort_order=row.sort_order,
+    )
+
+
+def _component_fields(db: Session, class_id: int) -> list[ComponentClassField]:
+    return list(
+        db.execute(
+            select(ComponentClassField)
+            .where(ComponentClassField.class_id == class_id, ComponentClassField.active.is_(True))
+            .order_by(ComponentClassField.sort_order, ComponentClassField.id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _normalize_choice_list(v: object) -> list[str] | None:
+    if v is None:
+        return None
+    if not isinstance(v, list):
+        raise HTTPException(status_code=422, detail="choices_json må være en liste")
+    out = [str(x).strip() for x in v if str(x).strip()]
+    return out or None
+
+
+def _validate_component_field_shape(
+    data_type: str,
+    min_number: float | None,
+    max_number: float | None,
+    choices_json: object,
+) -> list[str] | None:
+    if data_type not in {"text", "number", "integer", "boolean", "choice", "date"}:
+        raise HTTPException(status_code=422, detail="ugyldig data_type")
+    if min_number is not None and max_number is not None and min_number > max_number:
+        raise HTTPException(status_code=422, detail="min_number kan ikke være større enn max_number")
+    choices = _normalize_choice_list(choices_json)
+    if data_type == "choice" and not choices:
+        raise HTTPException(status_code=422, detail="choice-felt må ha choices_json")
+    if data_type != "choice" and choices:
+        raise HTTPException(status_code=422, detail="choices_json kan bare brukes for choice-felt")
+    return choices
+
+
+def _validate_value(field: ComponentClassField, value: object, *, missing_ok: bool) -> None:
+    if value is None or value == "":
+        if field.required and not missing_ok:
+            raise HTTPException(status_code=422, detail=f"mangler required komponentfelt: {field.key}")
+        return
+    dt = field.data_type
+    if dt == "text":
+        if not isinstance(value, str):
+            raise HTTPException(status_code=422, detail=f"{field.key} må være tekst")
+        return
+    if dt == "boolean":
+        if not isinstance(value, bool):
+            raise HTTPException(status_code=422, detail=f"{field.key} må være boolean")
+        return
+    if dt in ("number", "integer"):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise HTTPException(status_code=422, detail=f"{field.key} må være tall")
+        if dt == "integer" and int(value) != value:
+            raise HTTPException(status_code=422, detail=f"{field.key} må være heltall")
+        fv = float(value)
+        if field.min_number is not None and fv < field.min_number:
+            raise HTTPException(status_code=422, detail=f"{field.key} er lavere enn minimum")
+        if field.max_number is not None and fv > field.max_number:
+            raise HTTPException(status_code=422, detail=f"{field.key} er høyere enn maksimum")
+        return
+    if dt == "choice":
+        choices = [str(x) for x in (field.choices_json or [])]
+        if str(value) not in choices:
+            raise HTTPException(status_code=422, detail=f"{field.key} må være en gyldig verdi")
+        return
+    if dt == "date":
+        if isinstance(value, (date, datetime)):
+            return
+        if isinstance(value, str):
+            try:
+                date.fromisoformat(value[:10])
+                return
+            except ValueError:
+                pass
+        raise HTTPException(status_code=422, detail=f"{field.key} må være ISO-dato")
+
+
+def _validate_specs_for_class(db: Session, class_id: int, data: dict | None, *, partial: bool = False) -> dict:
+    specs = dict(data or {})
+    fields = _component_fields(db, class_id)
+    allowed = {f.key: f for f in fields}
+    unknown = sorted(k for k in specs if k not in allowed)
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"ukjente komponentfelt: {', '.join(unknown)}")
+    for f in fields:
+        _validate_value(f, specs.get(f.key), missing_ok=partial)
+    return specs
+
+
+def _component_class_id_for_component(db: Session, component_id: int) -> int:
+    component = db.get(Component, component_id)
+    if component is None:
+        raise HTTPException(status_code=404, detail="komponent ikke funnet")
+    return component.class_id
+
+
+def list_component_classes(db: Session) -> list[ComponentClassRead]:
+    rows = list(db.execute(select(ComponentClass).order_by(ComponentClass.name)).scalars().all())
+    return [component_class_read(r) for r in rows]
+
+
+def get_component_class(db: Session, class_id: int) -> ComponentClass | None:
+    return db.get(ComponentClass, class_id)
+
+
+def create_component_class(db: Session, data: ComponentClassCreate) -> ComponentClassRead:
+    row = ComponentClass(
+        name=data.name.strip(),
+        slug=data.slug,
+        description=data.description,
+        icon=data.icon,
+        active=data.active,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="komponentklasse finnes allerede") from e
+    db.refresh(row)
+    return component_class_read(row)
+
+
+def update_component_class(db: Session, row: ComponentClass, data: ComponentClassUpdate) -> ComponentClassRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    for k, v in patch.items():
+        if k == "name" and v is not None:
+            v = str(v).strip()
+        setattr(row, k, v)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="komponentklasse finnes allerede") from e
+    db.refresh(row)
+    return component_class_read(row)
+
+
+def delete_component_class(db: Session, row: ComponentClass) -> None:
+    used = db.execute(select(Component.id).where(Component.class_id == row.id).limit(1)).scalar_one_or_none()
+    if used is not None:
+        raise HTTPException(status_code=409, detail="komponentklasse er i bruk")
+    db.delete(row)
+    db.commit()
+
+
+def list_component_fields(db: Session, class_id: int) -> list[ComponentClassFieldRead]:
+    if get_component_class(db, class_id) is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    rows = list(
+        db.execute(
+            select(ComponentClassField)
+            .where(ComponentClassField.class_id == class_id)
+            .order_by(ComponentClassField.sort_order, ComponentClassField.id)
+        )
+        .scalars()
+        .all()
+    )
+    return [component_field_read(r) for r in rows]
+
+
+def create_component_field(db: Session, class_id: int, data: ComponentClassFieldCreate) -> ComponentClassFieldRead:
+    if get_component_class(db, class_id) is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    choices = _validate_component_field_shape(data.data_type, data.min_number, data.max_number, data.choices_json)
+    row = ComponentClassField(
+        class_id=class_id,
+        key=data.key,
+        label=data.label.strip(),
+        data_type=data.data_type,
+        unit=data.unit,
+        required=data.required,
+        sort_order=data.sort_order,
+        min_number=data.min_number,
+        max_number=data.max_number,
+        choices_json=choices,
+        default_value=data.default_value,
+        description=data.description,
+        active=data.active,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="felt-key finnes allerede for komponentklassen") from e
+    db.refresh(row)
+    return component_field_read(row)
+
+
+def get_component_field(db: Session, field_id: int) -> ComponentClassField | None:
+    return db.get(ComponentClassField, field_id)
+
+
+def component_field_impact(db: Session, field: ComponentClassField, data: ComponentClassFieldUpdate) -> ComponentFieldImpactRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        return ComponentFieldImpactRead(breaking=False)
+    candidate = ComponentClassField(
+        class_id=field.class_id,
+        key=field.key,
+        label=patch.get("label", field.label),
+        data_type=patch.get("data_type", field.data_type),
+        unit=patch.get("unit", field.unit),
+        required=patch.get("required", field.required),
+        sort_order=patch.get("sort_order", field.sort_order),
+        min_number=patch.get("min_number", field.min_number),
+        max_number=patch.get("max_number", field.max_number),
+        choices_json=patch.get("choices_json", field.choices_json),
+        default_value=patch.get("default_value", field.default_value),
+        description=patch.get("description", field.description),
+        active=patch.get("active", field.active),
+    )
+    _validate_component_field_shape(candidate.data_type, candidate.min_number, candidate.max_number, candidate.choices_json)
+    messages: list[str] = []
+    components = list(db.execute(select(Component).where(Component.class_id == field.class_id)).scalars().all())
+    model_links = list(
+        db.execute(
+            select(DeviceModelComponent)
+            .join(Component, Component.id == DeviceModelComponent.component_id)
+            .where(Component.class_id == field.class_id)
+        )
+        .scalars()
+        .all()
+    )
+    instance_links = list(
+        db.execute(
+            select(DeviceInstanceComponent)
+            .join(Component, Component.id == DeviceInstanceComponent.component_id)
+            .where(Component.class_id == field.class_id)
+        )
+        .scalars()
+        .all()
+    )
+    for row in components:
+        try:
+            _validate_value(candidate, _dict_or_empty(row.specs_json).get(field.key), missing_ok=False)
+        except HTTPException as e:
+            messages.append(f"Komponent #{row.id}: {e.detail}")
+    for row in model_links:
+        try:
+            _validate_value(candidate, _dict_or_empty(row.overrides_json).get(field.key), missing_ok=True)
+        except HTTPException as e:
+            messages.append(f"DeviceModel-komponent #{row.id}: {e.detail}")
+    for row in instance_links:
+        try:
+            _validate_value(candidate, _dict_or_empty(row.overrides_json).get(field.key), missing_ok=True)
+        except HTTPException as e:
+            messages.append(f"Device-komponent #{row.id}: {e.detail}")
+    return ComponentFieldImpactRead(
+        breaking=bool(messages),
+        affected_components=len(components),
+        affected_model_links=len(model_links),
+        affected_instance_links=len(instance_links),
+        messages=messages[:50],
+    )
+
+
+def update_component_field(
+    db: Session,
+    field: ComponentClassField,
+    data: ComponentClassFieldUpdate,
+    *,
+    force: bool = False,
+) -> ComponentClassFieldRead:
+    impact = component_field_impact(db, field, data)
+    if impact.breaking and not force:
+        raise HTTPException(status_code=409, detail={"message": "feltendring brekker eksisterende data", "impact": impact.model_dump()})
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "choices_json" in patch:
+        patch["choices_json"] = _normalize_choice_list(patch["choices_json"])
+    data_type = patch.get("data_type", field.data_type)
+    min_number = patch.get("min_number", field.min_number)
+    max_number = patch.get("max_number", field.max_number)
+    choices = patch.get("choices_json", field.choices_json)
+    _validate_component_field_shape(data_type, min_number, max_number, choices)
+    for k, v in patch.items():
+        setattr(field, k, v)
+    db.commit()
+    db.refresh(field)
+    return component_field_read(field)
+
+
+def delete_component_field(db: Session, field: ComponentClassField, *, force: bool = False) -> None:
+    impact = component_field_impact(db, field, ComponentClassFieldUpdate(active=False))
+    if impact.breaking and not force:
+        raise HTTPException(status_code=409, detail={"message": "feltet er i bruk", "impact": impact.model_dump()})
+    db.delete(field)
+    db.commit()
+
+
+def list_components(
+    db: Session,
+    *,
+    class_id: int | None = None,
+    manufacturer_id: int | None = None,
+) -> list[ComponentRead]:
+    stmt = select(Component).order_by(Component.name)
+    if class_id is not None:
+        stmt = stmt.where(Component.class_id == class_id)
+    if manufacturer_id is not None:
+        stmt = stmt.where(Component.manufacturer_id == manufacturer_id)
+    return [component_read(r) for r in db.execute(stmt).scalars().all()]
+
+
+def get_component(db: Session, component_id: int) -> Component | None:
+    return db.get(Component, component_id)
+
+
+def create_component(db: Session, data: ComponentCreate) -> ComponentRead:
+    if get_component_class(db, data.class_id) is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    if data.manufacturer_id is not None and get_manufacturer(db, data.manufacturer_id) is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    specs = _validate_specs_for_class(db, data.class_id, data.specs_json)
+    row = Component(
+        class_id=data.class_id,
+        manufacturer_id=data.manufacturer_id,
+        name=data.name.strip(),
+        part_number=data.part_number,
+        description=data.description,
+        specs_json=specs,
+        active=data.active,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="komponent finnes allerede") from e
+    db.refresh(row)
+    return component_read(row)
+
+
+def update_component(db: Session, row: Component, data: ComponentUpdate) -> ComponentRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    class_id = patch.get("class_id", row.class_id)
+    if class_id != row.class_id and get_component_class(db, class_id) is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    if "manufacturer_id" in patch and patch["manufacturer_id"] is not None and get_manufacturer(db, patch["manufacturer_id"]) is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    if "specs_json" in patch or class_id != row.class_id:
+        patch["specs_json"] = _validate_specs_for_class(db, class_id, patch.get("specs_json", row.specs_json))
+    for k, v in patch.items():
+        if k == "name" and v is not None:
+            v = str(v).strip()
+        setattr(row, k, v)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="komponent finnes allerede") from e
+    db.refresh(row)
+    return component_read(row)
+
+
+def delete_component(db: Session, row: Component) -> None:
+    used_model = db.execute(select(DeviceModelComponent.id).where(DeviceModelComponent.component_id == row.id).limit(1)).scalar_one_or_none()
+    used_dev = db.execute(select(DeviceInstanceComponent.id).where(DeviceInstanceComponent.component_id == row.id).limit(1)).scalar_one_or_none()
+    if used_model is not None or used_dev is not None:
+        raise HTTPException(status_code=409, detail="komponent er i bruk")
+    db.delete(row)
+    db.commit()
+
+
+def list_device_model_components(db: Session, model_id: int) -> list[DeviceModelComponentRead]:
+    if get_device_model(db, model_id) is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    rows = list(
+        db.execute(
+            select(DeviceModelComponent)
+            .where(DeviceModelComponent.device_model_id == model_id)
+            .order_by(DeviceModelComponent.sort_order, DeviceModelComponent.id)
+        )
+        .scalars()
+        .all()
+    )
+    return [device_model_component_read(r) for r in rows]
+
+
+def create_device_model_component(db: Session, model_id: int, data: DeviceModelComponentCreate) -> DeviceModelComponentRead:
+    if get_device_model(db, model_id) is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    class_id = _component_class_id_for_component(db, data.component_id)
+    overrides = _validate_specs_for_class(db, class_id, data.overrides_json, partial=True)
+    row = DeviceModelComponent(
+        device_model_id=model_id,
+        component_id=data.component_id,
+        quantity=data.quantity,
+        slot_label=data.slot_label,
+        notes=data.notes,
+        overrides_json=overrides,
+        sort_order=data.sort_order,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return device_model_component_read(row)
+
+
+def get_device_model_component(db: Session, link_id: int) -> DeviceModelComponent | None:
+    return db.get(DeviceModelComponent, link_id)
+
+
+def update_device_model_component(db: Session, row: DeviceModelComponent, data: DeviceModelComponentUpdate) -> DeviceModelComponentRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    component_id = patch.get("component_id", row.component_id)
+    class_id = _component_class_id_for_component(db, component_id)
+    if "overrides_json" in patch or component_id != row.component_id:
+        patch["overrides_json"] = _validate_specs_for_class(db, class_id, patch.get("overrides_json", row.overrides_json), partial=True)
+    for k, v in patch.items():
+        setattr(row, k, v)
+    db.commit()
+    db.refresh(row)
+    return device_model_component_read(row)
+
+
+def delete_device_model_component(db: Session, row: DeviceModelComponent) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def list_device_instance_components(db: Session, device_id: int) -> list[DeviceInstanceComponentRead]:
+    _require_device(db, device_id)
+    rows = list(
+        db.execute(
+            select(DeviceInstanceComponent)
+            .where(DeviceInstanceComponent.device_id == device_id)
+            .order_by(DeviceInstanceComponent.sort_order, DeviceInstanceComponent.id)
+        )
+        .scalars()
+        .all()
+    )
+    return [device_instance_component_read(r) for r in rows]
+
+
+def create_device_instance_component(db: Session, device_id: int, data: DeviceInstanceComponentCreate) -> DeviceInstanceComponentRead:
+    _require_device(db, device_id)
+    class_id = _component_class_id_for_component(db, data.component_id)
+    overrides = _validate_specs_for_class(db, class_id, data.overrides_json, partial=True)
+    row = DeviceInstanceComponent(
+        device_id=device_id,
+        component_id=data.component_id,
+        quantity=data.quantity,
+        slot_label=data.slot_label,
+        serial_number=data.serial_number,
+        asset_tag=data.asset_tag,
+        installed_at=data.installed_at,
+        notes=data.notes,
+        overrides_json=overrides,
+        sort_order=data.sort_order,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return device_instance_component_read(row)
+
+
+def copy_model_components_to_device(db: Session, device_id: int) -> list[DeviceInstanceComponentRead]:
+    dev = _require_device(db, device_id)
+    if dev.device_model_id is None:
+        raise HTTPException(status_code=400, detail="device har ingen device_model")
+    existing = db.execute(select(DeviceInstanceComponent.id).where(DeviceInstanceComponent.device_id == device_id).limit(1)).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="device har allerede komponenter")
+    model_rows = list(
+        db.execute(
+            select(DeviceModelComponent)
+            .where(DeviceModelComponent.device_model_id == dev.device_model_id)
+            .order_by(DeviceModelComponent.sort_order, DeviceModelComponent.id)
+        )
+        .scalars()
+        .all()
+    )
+    for m in model_rows:
+        db.add(
+            DeviceInstanceComponent(
+                device_id=device_id,
+                component_id=m.component_id,
+                quantity=m.quantity,
+                slot_label=m.slot_label,
+                notes=m.notes,
+                overrides_json=_dict_or_empty(m.overrides_json),
+                sort_order=m.sort_order,
+            )
+        )
+    db.commit()
+    return list_device_instance_components(db, device_id)
+
+
+def get_device_instance_component(db: Session, link_id: int) -> DeviceInstanceComponent | None:
+    return db.get(DeviceInstanceComponent, link_id)
+
+
+def update_device_instance_component(
+    db: Session,
+    row: DeviceInstanceComponent,
+    data: DeviceInstanceComponentUpdate,
+) -> DeviceInstanceComponentRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    component_id = patch.get("component_id", row.component_id)
+    class_id = _component_class_id_for_component(db, component_id)
+    if "overrides_json" in patch or component_id != row.component_id:
+        patch["overrides_json"] = _validate_specs_for_class(db, class_id, patch.get("overrides_json", row.overrides_json), partial=True)
+    for k, v in patch.items():
+        setattr(row, k, v)
+    db.commit()
+    db.refresh(row)
+    return device_instance_component_read(row)
+
+
+def delete_device_instance_component(db: Session, row: DeviceInstanceComponent) -> None:
+    db.delete(row)
+    db.commit()
 
 
 def _iface_commit(db: Session) -> None:

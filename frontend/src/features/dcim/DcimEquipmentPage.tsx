@@ -6,13 +6,14 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { DcimComponentLibraryPanel } from "./DcimComponentLibraryPanel";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { deviceTypeResolvedFaIconClass } from "./dcimTypeIcons";
 import { deviceInstanceListThumbSrc, deviceModelListThumbSrc } from "./modelImages";
 import type { DeviceInstance, DeviceModel, DeviceType, Rack, RackPlacement } from "./types";
 
-type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl";
+type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl" | "cmp";
 
 export function DcimEquipmentPage() {
   const { t } = useI18n();
@@ -255,6 +256,7 @@ export function DcimEquipmentPage() {
           { id: "dm", label: t("dcim.equip.dm.title"), icon: "deviceModels" },
           { id: "dev", label: t("dcim.equip.dev.title"), icon: "devices" },
           { id: "pl", label: t("dcim.equip.pl.title"), icon: "placements" },
+          { id: "cmp", label: t("dcim.components.title"), icon: "deviceHardware" },
         ]}
         activeId={equipTab}
         onChange={(id) => setEquipTab(id as EquipTab)}
@@ -847,6 +849,7 @@ export function DcimEquipmentPage() {
         )}
         </>
       ) : null}
+      {equipTab === "cmp" ? <DcimComponentLibraryPanel onError={setErr} /> : null}
     </Panel>
     <ConfirmModal
       open={mfrPendingDelete != null}

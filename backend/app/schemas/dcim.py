@@ -403,6 +403,229 @@ class DeviceInstanceRead(BaseModel):
     attributes: dict[str, Any] = Field(default_factory=dict)
 
 
+COMPONENT_FIELD_TYPES = {"text", "number", "integer", "boolean", "choice", "date"}
+
+
+class ComponentClassCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    description: str | None = None
+    icon: str | None = Field(None, max_length=64)
+    active: bool = True
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class ComponentClassUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    icon: str | None = Field(None, max_length=64)
+    active: bool | None = None
+
+
+class ComponentClassRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    description: str | None
+    icon: str | None
+    active: bool
+
+
+class ComponentClassFieldCreate(BaseModel):
+    key: str = Field(..., min_length=1, max_length=64)
+    label: str = Field(..., min_length=1, max_length=255)
+    data_type: str = Field(..., max_length=16)
+    unit: str | None = Field(None, max_length=32)
+    required: bool = False
+    sort_order: int = 0
+    min_number: float | None = None
+    max_number: float | None = None
+    choices_json: list[str] | None = None
+    default_value: Any | None = None
+    description: str | None = None
+    active: bool = True
+
+    @field_validator("key")
+    @classmethod
+    def key_ok(cls, v: str) -> str:
+        s = v.strip().lower().replace(" ", "_")
+        if not re.match(r"^[a-z][a-z0-9_]{0,63}$", s):
+            raise ValueError("key må starte med bokstav og kan inneholde små bokstaver, tall og _")
+        return s
+
+    @field_validator("data_type")
+    @classmethod
+    def data_type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in COMPONENT_FIELD_TYPES:
+            raise ValueError("data_type må være text, number, integer, boolean, choice eller date")
+        return s
+
+
+class ComponentClassFieldUpdate(BaseModel):
+    label: str | None = Field(None, min_length=1, max_length=255)
+    data_type: str | None = Field(None, max_length=16)
+    unit: str | None = Field(None, max_length=32)
+    required: bool | None = None
+    sort_order: int | None = None
+    min_number: float | None = None
+    max_number: float | None = None
+    choices_json: list[str] | None = None
+    default_value: Any | None = None
+    description: str | None = None
+    active: bool | None = None
+
+    @field_validator("data_type")
+    @classmethod
+    def data_type_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in COMPONENT_FIELD_TYPES:
+            raise ValueError("data_type må være text, number, integer, boolean, choice eller date")
+        return s
+
+
+class ComponentClassFieldRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    class_id: int
+    key: str
+    label: str
+    data_type: str
+    unit: str | None
+    required: bool
+    sort_order: int
+    min_number: float | None
+    max_number: float | None
+    choices_json: list[str] | None
+    default_value: Any | None
+    description: str | None
+    active: bool
+
+
+class ComponentFieldImpactRead(BaseModel):
+    breaking: bool
+    affected_components: int = 0
+    affected_model_links: int = 0
+    affected_instance_links: int = 0
+    messages: list[str] = Field(default_factory=list)
+
+
+class ComponentCreate(BaseModel):
+    class_id: int = Field(..., ge=1)
+    manufacturer_id: int | None = Field(None, ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    part_number: str | None = Field(None, max_length=128)
+    description: str | None = None
+    specs_json: dict[str, Any] | None = None
+    active: bool = True
+
+
+class ComponentUpdate(BaseModel):
+    class_id: int | None = Field(None, ge=1)
+    manufacturer_id: int | None = Field(None, ge=1)
+    name: str | None = Field(None, min_length=1, max_length=255)
+    part_number: str | None = Field(None, max_length=128)
+    description: str | None = None
+    specs_json: dict[str, Any] | None = None
+    active: bool | None = None
+
+
+class ComponentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    class_id: int
+    manufacturer_id: int | None
+    name: str
+    part_number: str | None
+    description: str | None
+    specs_json: dict[str, Any] = Field(default_factory=dict)
+    active: bool
+
+
+class DeviceModelComponentCreate(BaseModel):
+    component_id: int = Field(..., ge=1)
+    quantity: int = Field(1, ge=1, le=1_000_000)
+    slot_label: str | None = Field(None, max_length=128)
+    notes: str | None = None
+    overrides_json: dict[str, Any] | None = None
+    sort_order: int = 0
+
+
+class DeviceModelComponentUpdate(BaseModel):
+    component_id: int | None = Field(None, ge=1)
+    quantity: int | None = Field(None, ge=1, le=1_000_000)
+    slot_label: str | None = Field(None, max_length=128)
+    notes: str | None = None
+    overrides_json: dict[str, Any] | None = None
+    sort_order: int | None = None
+
+
+class DeviceModelComponentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_model_id: int
+    component_id: int
+    quantity: int
+    slot_label: str | None
+    notes: str | None
+    overrides_json: dict[str, Any] = Field(default_factory=dict)
+    sort_order: int
+
+
+class DeviceInstanceComponentCreate(BaseModel):
+    component_id: int = Field(..., ge=1)
+    quantity: int = Field(1, ge=1, le=1_000_000)
+    slot_label: str | None = Field(None, max_length=128)
+    serial_number: str | None = Field(None, max_length=128)
+    asset_tag: str | None = Field(None, max_length=128)
+    installed_at: dt.datetime | None = None
+    notes: str | None = None
+    overrides_json: dict[str, Any] | None = None
+    sort_order: int = 0
+
+
+class DeviceInstanceComponentUpdate(BaseModel):
+    component_id: int | None = Field(None, ge=1)
+    quantity: int | None = Field(None, ge=1, le=1_000_000)
+    slot_label: str | None = Field(None, max_length=128)
+    serial_number: str | None = Field(None, max_length=128)
+    asset_tag: str | None = Field(None, max_length=128)
+    installed_at: dt.datetime | None = None
+    notes: str | None = None
+    overrides_json: dict[str, Any] | None = None
+    sort_order: int | None = None
+
+
+class DeviceInstanceComponentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    component_id: int
+    quantity: int
+    slot_label: str | None
+    serial_number: str | None
+    asset_tag: str | None
+    installed_at: dt.datetime | None
+    notes: str | None
+    overrides_json: dict[str, Any] = Field(default_factory=dict)
+    sort_order: int
+
+
 class DeviceInterfaceCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     description: str | None = None

@@ -9,10 +9,16 @@ import {
   fetchAuthedBlobUrl,
 } from "@/lib/api";
 import type {
+  Component,
+  ComponentClass,
+  ComponentClassField,
+  ComponentFieldImpact,
   DeviceInstance,
+  DeviceInstanceComponent,
   DeviceInterface,
   DeviceIpAssignment,
   DeviceModel,
+  DeviceModelComponent,
   DeviceType,
   IpAssignment,
   Manufacturer,
@@ -322,6 +328,102 @@ export function deleteDeviceType(id: number): Promise<void> {
   return apiDelete(`${P}/device-types/${id}`);
 }
 
+export function listComponentClasses(): Promise<ComponentClass[]> {
+  return apiGet(`${P}/component-classes`);
+}
+
+export function createComponentClass(body: {
+  name: string;
+  slug: string;
+  description?: string | null;
+  icon?: string | null;
+  active?: boolean;
+}): Promise<ComponentClass> {
+  return apiPost(`${P}/component-classes`, body);
+}
+
+export function updateComponentClass(
+  id: number,
+  body: { name?: string; description?: string | null; icon?: string | null; active?: boolean },
+): Promise<ComponentClass> {
+  return apiPatch(`${P}/component-classes/${id}`, body);
+}
+
+export function deleteComponentClass(id: number): Promise<void> {
+  return apiDelete(`${P}/component-classes/${id}`);
+}
+
+export function listComponentClassFields(classId: number): Promise<ComponentClassField[]> {
+  return apiGet(`${P}/component-classes/${classId}/fields`);
+}
+
+export function createComponentClassField(
+  classId: number,
+  body: Omit<ComponentClassField, "id" | "class_id">,
+): Promise<ComponentClassField> {
+  return apiPost(`${P}/component-classes/${classId}/fields`, body);
+}
+
+export function updateComponentClassField(
+  fieldId: number,
+  body: Partial<Omit<ComponentClassField, "id" | "class_id" | "key">>,
+  force = false,
+): Promise<ComponentClassField> {
+  const q = force ? "?force=true" : "";
+  return apiPatch(`${P}/component-class-fields/${fieldId}${q}`, body);
+}
+
+export function componentFieldImpact(
+  fieldId: number,
+  body: Partial<Omit<ComponentClassField, "id" | "class_id" | "key">>,
+): Promise<ComponentFieldImpact> {
+  return apiPost(`${P}/component-class-fields/${fieldId}/impact`, body);
+}
+
+export function deleteComponentClassField(fieldId: number, force = false): Promise<void> {
+  const q = force ? "?force=true" : "";
+  return apiDelete(`${P}/component-class-fields/${fieldId}${q}`);
+}
+
+export function listComponents(filters?: { class_id?: number; manufacturer_id?: number }): Promise<Component[]> {
+  const qs = new URLSearchParams();
+  if (filters?.class_id != null) qs.set("class_id", String(filters.class_id));
+  if (filters?.manufacturer_id != null) qs.set("manufacturer_id", String(filters.manufacturer_id));
+  const q = qs.toString();
+  return apiGet(`${P}/components${q ? `?${q}` : ""}`);
+}
+
+export function createComponent(body: {
+  class_id: number;
+  manufacturer_id?: number | null;
+  name: string;
+  part_number?: string | null;
+  description?: string | null;
+  specs_json?: Record<string, unknown> | null;
+  active?: boolean;
+}): Promise<Component> {
+  return apiPost(`${P}/components`, body);
+}
+
+export function updateComponent(
+  id: number,
+  body: Partial<{
+    class_id: number;
+    manufacturer_id: number | null;
+    name: string;
+    part_number: string | null;
+    description: string | null;
+    specs_json: Record<string, unknown> | null;
+    active: boolean;
+  }>,
+): Promise<Component> {
+  return apiPatch(`${P}/components/${id}`, body);
+}
+
+export function deleteComponent(id: number): Promise<void> {
+  return apiDelete(`${P}/components/${id}`);
+}
+
 export function listDeviceModels(): Promise<DeviceModel[]> {
   return apiGet(`${P}/device-models`);
 }
@@ -370,6 +472,43 @@ export function deleteDeviceModel(id: number): Promise<void> {
   return apiDelete(`${P}/device-models/${id}`);
 }
 
+export function listDeviceModelComponents(modelId: number): Promise<DeviceModelComponent[]> {
+  return apiGet(`${P}/device-models/${modelId}/components`);
+}
+
+export function createDeviceModelComponent(
+  modelId: number,
+  body: {
+    component_id: number;
+    quantity?: number;
+    slot_label?: string | null;
+    notes?: string | null;
+    overrides_json?: Record<string, unknown> | null;
+    sort_order?: number;
+  },
+): Promise<DeviceModelComponent> {
+  return apiPost(`${P}/device-models/${modelId}/components`, body);
+}
+
+export function updateDeviceModelComponent(
+  modelId: number,
+  linkId: number,
+  body: Partial<{
+    component_id: number;
+    quantity: number;
+    slot_label: string | null;
+    notes: string | null;
+    overrides_json: Record<string, unknown> | null;
+    sort_order: number;
+  }>,
+): Promise<DeviceModelComponent> {
+  return apiPatch(`${P}/device-models/${modelId}/components/${linkId}`, body);
+}
+
+export function deleteDeviceModelComponent(modelId: number, linkId: number): Promise<void> {
+  return apiDelete(`${P}/device-models/${modelId}/components/${linkId}`);
+}
+
 export function uploadDeviceModelImageFront(id: number, file: File): Promise<DeviceModel> {
   const fd = new FormData();
   fd.append("file", file);
@@ -410,6 +549,53 @@ export function getDevice(id: number): Promise<DeviceInstance> {
 
 export function listDeviceInterfaces(deviceId: number): Promise<DeviceInterface[]> {
   return apiGet(`${P}/devices/${deviceId}/interfaces`);
+}
+
+export function listDeviceInstanceComponents(deviceId: number): Promise<DeviceInstanceComponent[]> {
+  return apiGet(`${P}/devices/${deviceId}/components`);
+}
+
+export function createDeviceInstanceComponent(
+  deviceId: number,
+  body: {
+    component_id: number;
+    quantity?: number;
+    slot_label?: string | null;
+    serial_number?: string | null;
+    asset_tag?: string | null;
+    installed_at?: string | null;
+    notes?: string | null;
+    overrides_json?: Record<string, unknown> | null;
+    sort_order?: number;
+  },
+): Promise<DeviceInstanceComponent> {
+  return apiPost(`${P}/devices/${deviceId}/components`, body);
+}
+
+export function copyDeviceComponentsFromModel(deviceId: number): Promise<DeviceInstanceComponent[]> {
+  return apiPost(`${P}/devices/${deviceId}/components/copy-from-model`, {});
+}
+
+export function updateDeviceInstanceComponent(
+  deviceId: number,
+  linkId: number,
+  body: Partial<{
+    component_id: number;
+    quantity: number;
+    slot_label: string | null;
+    serial_number: string | null;
+    asset_tag: string | null;
+    installed_at: string | null;
+    notes: string | null;
+    overrides_json: Record<string, unknown> | null;
+    sort_order: number;
+  }>,
+): Promise<DeviceInstanceComponent> {
+  return apiPatch(`${P}/devices/${deviceId}/components/${linkId}`, body);
+}
+
+export function deleteDeviceInstanceComponent(deviceId: number, linkId: number): Promise<void> {
+  return apiDelete(`${P}/devices/${deviceId}/components/${linkId}`);
 }
 
 export function createDeviceInterface(

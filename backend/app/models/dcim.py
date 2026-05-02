@@ -188,6 +188,12 @@ class DeviceModel(Base):
     # Numerisk sysObjectID (f.eks. 1.3.6.1.4.1.890.1.5.8.40) — matching: agent-OID starter med denne strengen.
     snmp_sys_object_id_prefix: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
+    components: Mapped[list["DeviceModelComponent"]] = relationship(
+        back_populates="device_model",
+        cascade="all, delete-orphan",
+        order_by="DeviceModelComponent.sort_order, DeviceModelComponent.id",
+    )
+
 
 class DeviceInstance(Base):
     __tablename__ = "dcim_device_instances"
@@ -222,6 +228,126 @@ class DeviceInstance(Base):
         cascade="all, delete-orphan",
         order_by="DeviceIpAssignment.family, DeviceIpAssignment.address",
     )
+    components: Mapped[list["DeviceInstanceComponent"]] = relationship(
+        back_populates="device",
+        cascade="all, delete-orphan",
+        order_by="DeviceInstanceComponent.sort_order, DeviceInstanceComponent.id",
+    )
+
+
+class ComponentClass(Base):
+    """Komponentklasse (RAM, CPU, HDD, PSU, ...), med validerte egendefinerte felt."""
+
+    __tablename__ = "dcim_component_classes"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_dcim_component_classes_slug"),
+        UniqueConstraint("name", name="uq_dcim_component_classes_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    fields: Mapped[list["ComponentClassField"]] = relationship(
+        back_populates="component_class",
+        cascade="all, delete-orphan",
+        order_by="ComponentClassField.sort_order, ComponentClassField.id",
+    )
+    components: Mapped[list["Component"]] = relationship(back_populates="component_class")
+
+
+class ComponentClassField(Base):
+    __tablename__ = "dcim_component_class_fields"
+    __table_args__ = (
+        UniqueConstraint("class_id", "key", name="uq_dcim_component_class_fields_class_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("dcim_component_classes.id", ondelete="CASCADE"), nullable=False)
+    key: Mapped[str] = mapped_column(String(64), nullable=False)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    data_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    min_number: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_number: Mapped[float | None] = mapped_column(Float, nullable=True)
+    choices_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    default_value: Mapped[object | None] = mapped_column(JSON, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    component_class: Mapped["ComponentClass"] = relationship(back_populates="fields")
+
+
+class Component(Base):
+    """Gjenbrukbar komponent i biblioteket (f.eks. Samsung 32GB DDR4 DIMM)."""
+
+    __tablename__ = "dcim_components"
+    __table_args__ = (
+        UniqueConstraint("class_id", "manufacturer_id", "part_number", name="uq_dcim_components_class_mfr_part"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("dcim_component_classes.id", ondelete="RESTRICT"), nullable=False)
+    manufacturer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_manufacturers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    part_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    specs_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    component_class: Mapped["ComponentClass"] = relationship(back_populates="components")
+    manufacturer: Mapped["Manufacturer | None"] = relationship("Manufacturer")
+    model_links: Mapped[list["DeviceModelComponent"]] = relationship(back_populates="component")
+    instance_links: Mapped[list["DeviceInstanceComponent"]] = relationship(back_populates="component")
+
+
+class DeviceModelComponent(Base):
+    __tablename__ = "dcim_device_model_components"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_model_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_models.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    component_id: Mapped[int] = mapped_column(ForeignKey("dcim_components.id", ondelete="RESTRICT"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    slot_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    overrides_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    device_model: Mapped["DeviceModel"] = relationship(back_populates="components")
+    component: Mapped["Component"] = relationship(back_populates="model_links")
+
+
+class DeviceInstanceComponent(Base):
+    __tablename__ = "dcim_device_instance_components"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    component_id: Mapped[int] = mapped_column(ForeignKey("dcim_components.id", ondelete="RESTRICT"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    slot_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    serial_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    asset_tag: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    installed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    overrides_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    device: Mapped["DeviceInstance"] = relationship(back_populates="components")
+    component: Mapped["Component"] = relationship(back_populates="instance_links")
 
 
 class DeviceInterface(Base):

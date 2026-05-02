@@ -127,6 +127,78 @@ export type DeviceInstance = {
   attributes: Record<string, unknown>;
 };
 
+export type ComponentFieldType = "text" | "number" | "integer" | "boolean" | "choice" | "date";
+
+export type ComponentClass = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  active: boolean;
+};
+
+export type ComponentClassField = {
+  id: number;
+  class_id: number;
+  key: string;
+  label: string;
+  data_type: ComponentFieldType;
+  unit: string | null;
+  required: boolean;
+  sort_order: number;
+  min_number: number | null;
+  max_number: number | null;
+  choices_json: string[] | null;
+  default_value: unknown;
+  description: string | null;
+  active: boolean;
+};
+
+export type ComponentFieldImpact = {
+  breaking: boolean;
+  affected_components: number;
+  affected_model_links: number;
+  affected_instance_links: number;
+  messages: string[];
+};
+
+export type Component = {
+  id: number;
+  class_id: number;
+  manufacturer_id: number | null;
+  name: string;
+  part_number: string | null;
+  description: string | null;
+  specs_json: Record<string, unknown>;
+  active: boolean;
+};
+
+export type DeviceModelComponent = {
+  id: number;
+  device_model_id: number;
+  component_id: number;
+  quantity: number;
+  slot_label: string | null;
+  notes: string | null;
+  overrides_json: Record<string, unknown>;
+  sort_order: number;
+};
+
+export type DeviceInstanceComponent = {
+  id: number;
+  device_id: number;
+  component_id: number;
+  quantity: number;
+  slot_label: string | null;
+  serial_number: string | null;
+  asset_tag: string | null;
+  installed_at: string | null;
+  notes: string | null;
+  overrides_json: Record<string, unknown>;
+  sort_order: number;
+};
+
 /** IP-tildeling på et grensesnitt (IPAM-forberedelse). */
 export type IpAssignment = {
   id: number;

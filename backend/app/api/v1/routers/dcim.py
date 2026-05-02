@@ -12,7 +12,20 @@ from app.core.media_storage import (
     resolve_room_floorplan_path,
 )
 from app.schemas.dcim import (
+    ComponentClassCreate,
+    ComponentClassFieldCreate,
+    ComponentClassFieldRead,
+    ComponentClassFieldUpdate,
+    ComponentClassRead,
+    ComponentClassUpdate,
+    ComponentCreate,
+    ComponentFieldImpactRead,
+    ComponentRead,
+    ComponentUpdate,
     DeviceInstanceCreate,
+    DeviceInstanceComponentCreate,
+    DeviceInstanceComponentRead,
+    DeviceInstanceComponentUpdate,
     DeviceInstanceRead,
     DeviceInstanceUpdate,
     DeviceIpAssignmentCreate,
@@ -25,6 +38,9 @@ from app.schemas.dcim import (
     IpAssignmentRead,
     IpAssignmentUpdate,
     DeviceModelCreate,
+    DeviceModelComponentCreate,
+    DeviceModelComponentRead,
+    DeviceModelComponentUpdate,
     DeviceModelRead,
     DeviceModelUpdate,
     DeviceTypeCreate,
@@ -419,6 +435,132 @@ def delete_device_type(tid: int, db: Session = Depends(get_db)) -> None:
     dcim_svc.delete_device_type(db, row)
 
 
+# --- Component classes / library ---
+
+
+@router.get("/component-classes", response_model=list[ComponentClassRead])
+def list_component_classes(db: Session = Depends(get_db)) -> list[ComponentClassRead]:
+    return dcim_svc.list_component_classes(db)
+
+
+@router.post("/component-classes", response_model=ComponentClassRead)
+def create_component_class(data: ComponentClassCreate, db: Session = Depends(get_db)) -> ComponentClassRead:
+    return dcim_svc.create_component_class(db, data)
+
+
+@router.get("/component-classes/{class_id}", response_model=ComponentClassRead)
+def get_component_class(class_id: int, db: Session = Depends(get_db)) -> ComponentClassRead:
+    row = dcim_svc.get_component_class(db, class_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    return dcim_svc.component_class_read(row)
+
+
+@router.patch("/component-classes/{class_id}", response_model=ComponentClassRead)
+def patch_component_class(
+    class_id: int,
+    data: ComponentClassUpdate,
+    db: Session = Depends(get_db),
+) -> ComponentClassRead:
+    row = dcim_svc.get_component_class(db, class_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    return dcim_svc.update_component_class(db, row, data)
+
+
+@router.delete("/component-classes/{class_id}", status_code=204)
+def delete_component_class(class_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_component_class(db, class_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentklasse ikke funnet")
+    dcim_svc.delete_component_class(db, row)
+
+
+@router.get("/component-classes/{class_id}/fields", response_model=list[ComponentClassFieldRead])
+def list_component_fields(class_id: int, db: Session = Depends(get_db)) -> list[ComponentClassFieldRead]:
+    return dcim_svc.list_component_fields(db, class_id)
+
+
+@router.post("/component-classes/{class_id}/fields", response_model=ComponentClassFieldRead)
+def create_component_field(
+    class_id: int,
+    data: ComponentClassFieldCreate,
+    db: Session = Depends(get_db),
+) -> ComponentClassFieldRead:
+    return dcim_svc.create_component_field(db, class_id, data)
+
+
+@router.post("/component-class-fields/{field_id}/impact", response_model=ComponentFieldImpactRead)
+def component_field_impact(
+    field_id: int,
+    data: ComponentClassFieldUpdate,
+    db: Session = Depends(get_db),
+) -> ComponentFieldImpactRead:
+    row = dcim_svc.get_component_field(db, field_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentfelt ikke funnet")
+    return dcim_svc.component_field_impact(db, row, data)
+
+
+@router.patch("/component-class-fields/{field_id}", response_model=ComponentClassFieldRead)
+def patch_component_field(
+    field_id: int,
+    data: ComponentClassFieldUpdate,
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+) -> ComponentClassFieldRead:
+    row = dcim_svc.get_component_field(db, field_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentfelt ikke funnet")
+    return dcim_svc.update_component_field(db, row, data, force=force)
+
+
+@router.delete("/component-class-fields/{field_id}", status_code=204)
+def delete_component_field(field_id: int, force: bool = Query(False), db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_component_field(db, field_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponentfelt ikke funnet")
+    dcim_svc.delete_component_field(db, row, force=force)
+
+
+@router.get("/components", response_model=list[ComponentRead])
+def list_components(
+    class_id: int | None = Query(None),
+    manufacturer_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[ComponentRead]:
+    return dcim_svc.list_components(db, class_id=class_id, manufacturer_id=manufacturer_id)
+
+
+@router.post("/components", response_model=ComponentRead)
+def create_component(data: ComponentCreate, db: Session = Depends(get_db)) -> ComponentRead:
+    return dcim_svc.create_component(db, data)
+
+
+@router.get("/components/{component_id}", response_model=ComponentRead)
+def get_component(component_id: int, db: Session = Depends(get_db)) -> ComponentRead:
+    row = dcim_svc.get_component(db, component_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponent ikke funnet")
+    return dcim_svc.component_read(row)
+
+
+@router.patch("/components/{component_id}", response_model=ComponentRead)
+def patch_component(component_id: int, data: ComponentUpdate, db: Session = Depends(get_db)) -> ComponentRead:
+    row = dcim_svc.get_component(db, component_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponent ikke funnet")
+    return dcim_svc.update_component(db, row, data)
+
+
+@router.delete("/components/{component_id}", status_code=204)
+def delete_component(component_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_component(db, component_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="komponent ikke funnet")
+    dcim_svc.delete_component(db, row)
+
+
 # --- Device models ---
 
 
@@ -546,6 +688,41 @@ def remove_device_model_image_product(mid: int, db: Session = Depends(get_db)) -
     return dcim_svc.device_model_read(row)
 
 
+@router.get("/device-models/{mid}/components", response_model=list[DeviceModelComponentRead])
+def list_device_model_components(mid: int, db: Session = Depends(get_db)) -> list[DeviceModelComponentRead]:
+    return dcim_svc.list_device_model_components(db, mid)
+
+
+@router.post("/device-models/{mid}/components", response_model=DeviceModelComponentRead)
+def create_device_model_component(
+    mid: int,
+    data: DeviceModelComponentCreate,
+    db: Session = Depends(get_db),
+) -> DeviceModelComponentRead:
+    return dcim_svc.create_device_model_component(db, mid, data)
+
+
+@router.patch("/device-models/{mid}/components/{link_id}", response_model=DeviceModelComponentRead)
+def patch_device_model_component(
+    mid: int,
+    link_id: int,
+    data: DeviceModelComponentUpdate,
+    db: Session = Depends(get_db),
+) -> DeviceModelComponentRead:
+    row = dcim_svc.get_device_model_component(db, link_id)
+    if row is None or row.device_model_id != mid:
+        raise HTTPException(status_code=404, detail="modellkomponent ikke funnet")
+    return dcim_svc.update_device_model_component(db, row, data)
+
+
+@router.delete("/device-models/{mid}/components/{link_id}", status_code=204)
+def delete_device_model_component(mid: int, link_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_model_component(db, link_id)
+    if row is None or row.device_model_id != mid:
+        raise HTTPException(status_code=404, detail="modellkomponent ikke funnet")
+    dcim_svc.delete_device_model_component(db, row)
+
+
 @router.get("/device-models/{mid}", response_model=DeviceModelRead)
 def get_device_model(mid: int, db: Session = Depends(get_db)) -> DeviceModelRead:
     row = dcim_svc.get_device_model(db, mid)
@@ -585,6 +762,46 @@ def list_devices(db: Session = Depends(get_db)) -> list[DeviceInstanceRead]:
 @router.post("/devices", response_model=DeviceInstanceRead)
 def create_device(data: DeviceInstanceCreate, db: Session = Depends(get_db)) -> DeviceInstanceRead:
     return dcim_svc.create_device(db, data)
+
+
+@router.get("/devices/{did}/components", response_model=list[DeviceInstanceComponentRead])
+def list_device_instance_components(did: int, db: Session = Depends(get_db)) -> list[DeviceInstanceComponentRead]:
+    return dcim_svc.list_device_instance_components(db, did)
+
+
+@router.post("/devices/{did}/components", response_model=DeviceInstanceComponentRead)
+def create_device_instance_component(
+    did: int,
+    data: DeviceInstanceComponentCreate,
+    db: Session = Depends(get_db),
+) -> DeviceInstanceComponentRead:
+    return dcim_svc.create_device_instance_component(db, did, data)
+
+
+@router.post("/devices/{did}/components/copy-from-model", response_model=list[DeviceInstanceComponentRead])
+def copy_device_components_from_model(did: int, db: Session = Depends(get_db)) -> list[DeviceInstanceComponentRead]:
+    return dcim_svc.copy_model_components_to_device(db, did)
+
+
+@router.patch("/devices/{did}/components/{link_id}", response_model=DeviceInstanceComponentRead)
+def patch_device_instance_component(
+    did: int,
+    link_id: int,
+    data: DeviceInstanceComponentUpdate,
+    db: Session = Depends(get_db),
+) -> DeviceInstanceComponentRead:
+    row = dcim_svc.get_device_instance_component(db, link_id)
+    if row is None or row.device_id != did:
+        raise HTTPException(status_code=404, detail="device-komponent ikke funnet")
+    return dcim_svc.update_device_instance_component(db, row, data)
+
+
+@router.delete("/devices/{did}/components/{link_id}", status_code=204)
+def delete_device_instance_component(did: int, link_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_instance_component(db, link_id)
+    if row is None or row.device_id != did:
+        raise HTTPException(status_code=404, detail="device-komponent ikke funnet")
+    dcim_svc.delete_device_instance_component(db, row)
 
 
 @router.get("/devices/{did}/interfaces", response_model=list[DeviceInterfaceRead])
