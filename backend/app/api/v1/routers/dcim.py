@@ -49,6 +49,9 @@ from app.schemas.dcim import (
     DeviceInterfaceCreate,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
+    DeviceModelIdentityCreate,
+    DeviceModelIdentityRead,
+    DeviceModelIdentityUpdate,
     IpAssignmentCreate,
     IpAssignmentRead,
     IpAssignmentUpdate,
@@ -63,6 +66,9 @@ from app.schemas.dcim import (
     DeviceTypeUpdate,
     ManufacturerCreate,
     ManufacturerDetailRead,
+    ManufacturerIdentityCreate,
+    ManufacturerIdentityRead,
+    ManufacturerIdentityUpdate,
     ManufacturerRead,
     ManufacturerUpdate,
     RackCreate,
@@ -413,6 +419,59 @@ def delete_manufacturer(mid: int, db: Session = Depends(get_db)) -> None:
     dcim_svc.delete_manufacturer(db, row)
 
 
+@router.get("/manufacturer-identities", response_model=list[ManufacturerIdentityRead])
+def list_manufacturer_identities(
+    manufacturer_id: int | None = Query(None),
+    identity_type: str | None = Query(None),
+    namespace: str | None = Query(None),
+    q: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[ManufacturerIdentityRead]:
+    return dcim_svc.list_manufacturer_identities(
+        db,
+        manufacturer_id=manufacturer_id,
+        identity_type=identity_type,
+        namespace=namespace,
+        q=q,
+    )
+
+
+@router.get("/manufacturers/{mid}/identities", response_model=list[ManufacturerIdentityRead])
+def list_manufacturer_identities_for_manufacturer(mid: int, db: Session = Depends(get_db)) -> list[ManufacturerIdentityRead]:
+    if dcim_svc.get_manufacturer(db, mid) is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    return dcim_svc.list_manufacturer_identities(db, manufacturer_id=mid)
+
+
+@router.post("/manufacturers/{mid}/identities", response_model=ManufacturerIdentityRead)
+def create_manufacturer_identity(
+    mid: int,
+    data: ManufacturerIdentityCreate,
+    db: Session = Depends(get_db),
+) -> ManufacturerIdentityRead:
+    return dcim_svc.create_manufacturer_identity(db, mid, data)
+
+
+@router.patch("/manufacturer-identities/{identity_id}", response_model=ManufacturerIdentityRead)
+def patch_manufacturer_identity(
+    identity_id: int,
+    data: ManufacturerIdentityUpdate,
+    db: Session = Depends(get_db),
+) -> ManufacturerIdentityRead:
+    row = dcim_svc.get_manufacturer_identity(db, identity_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="manufacturer-identitet ikke funnet")
+    return dcim_svc.update_manufacturer_identity(db, row, data)
+
+
+@router.delete("/manufacturer-identities/{identity_id}", status_code=204)
+def delete_manufacturer_identity(identity_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_manufacturer_identity(db, identity_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="manufacturer-identitet ikke funnet")
+    dcim_svc.delete_manufacturer_identity(db, row)
+
+
 # --- Device types ---
 
 
@@ -743,6 +802,59 @@ def match_device_models_snmp(
 ) -> list[DeviceModelRead]:
     """Foreslå modeller ut fra numerisk sysObjectID (prefiksmatch mot snmp_sys_object_id_prefix)."""
     return dcim_svc.list_device_models_matching_snmp_oid(db, numeric_oid)
+
+
+@router.get("/device-model-identities", response_model=list[DeviceModelIdentityRead])
+def list_device_model_identities(
+    device_model_id: int | None = Query(None),
+    identity_type: str | None = Query(None),
+    namespace: str | None = Query(None),
+    q: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[DeviceModelIdentityRead]:
+    return dcim_svc.list_device_model_identities(
+        db,
+        device_model_id=device_model_id,
+        identity_type=identity_type,
+        namespace=namespace,
+        q=q,
+    )
+
+
+@router.get("/device-models/{mid}/identities", response_model=list[DeviceModelIdentityRead])
+def list_device_model_identities_for_model(mid: int, db: Session = Depends(get_db)) -> list[DeviceModelIdentityRead]:
+    if dcim_svc.get_device_model(db, mid) is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    return dcim_svc.list_device_model_identities(db, device_model_id=mid)
+
+
+@router.post("/device-models/{mid}/identities", response_model=DeviceModelIdentityRead)
+def create_device_model_identity(
+    mid: int,
+    data: DeviceModelIdentityCreate,
+    db: Session = Depends(get_db),
+) -> DeviceModelIdentityRead:
+    return dcim_svc.create_device_model_identity(db, mid, data)
+
+
+@router.patch("/device-model-identities/{identity_id}", response_model=DeviceModelIdentityRead)
+def patch_device_model_identity(
+    identity_id: int,
+    data: DeviceModelIdentityUpdate,
+    db: Session = Depends(get_db),
+) -> DeviceModelIdentityRead:
+    row = dcim_svc.get_device_model_identity(db, identity_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device-model-identitet ikke funnet")
+    return dcim_svc.update_device_model_identity(db, row, data)
+
+
+@router.delete("/device-model-identities/{identity_id}", status_code=204)
+def delete_device_model_identity(identity_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_model_identity(db, identity_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device-model-identitet ikke funnet")
+    dcim_svc.delete_device_model_identity(db, row)
 
 
 @router.post("/device-models", response_model=DeviceModelRead)

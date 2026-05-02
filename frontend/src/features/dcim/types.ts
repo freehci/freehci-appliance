@@ -232,7 +232,6 @@ export type Component = {
 export type ComponentIdentity = {
   id: number;
   component_id: number;
-  manufacturer_id: number | null;
   identity_type: string;
   namespace: string;
   value: string;
@@ -242,6 +241,14 @@ export type ComponentIdentity = {
   raw_json: Record<string, unknown>;
   notes: string | null;
   created_at: string;
+};
+
+export type ManufacturerIdentity = Omit<ComponentIdentity, "component_id"> & {
+  manufacturer_id: number;
+};
+
+export type DeviceModelIdentity = Omit<ComponentIdentity, "component_id"> & {
+  device_model_id: number;
 };
 
 export type ComponentChildTemplate = {

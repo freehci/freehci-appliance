@@ -25,11 +25,13 @@ import type {
   DeviceInterface,
   DeviceIpAssignment,
   DeviceModel,
+  DeviceModelIdentity,
   DeviceModelComponent,
   DeviceType,
   IpAssignment,
   Manufacturer,
   ManufacturerDetail,
+  ManufacturerIdentity,
   Rack,
   RackPlacement,
   Room,
@@ -478,6 +480,68 @@ export function deleteComponent(id: number): Promise<void> {
   return apiDelete(`${P}/components/${id}`);
 }
 
+export function listManufacturerIdentities(filters?: {
+  manufacturer_id?: number;
+  identity_type?: string;
+  namespace?: string;
+  q?: string;
+}): Promise<ManufacturerIdentity[]> {
+  const qs = new URLSearchParams();
+  if (filters?.manufacturer_id != null) qs.set("manufacturer_id", String(filters.manufacturer_id));
+  if (filters?.identity_type) qs.set("identity_type", filters.identity_type);
+  if (filters?.namespace) qs.set("namespace", filters.namespace);
+  if (filters?.q) qs.set("q", filters.q);
+  const q = qs.toString();
+  return apiGet(`${P}/manufacturer-identities${q ? `?${q}` : ""}`);
+}
+
+export function createManufacturerIdentity(manufacturerId: number, body: {
+  identity_type: string;
+  namespace: string;
+  value: string;
+  source?: string | null;
+  confidence?: number;
+  raw_json?: Record<string, unknown> | null;
+  notes?: string | null;
+}): Promise<ManufacturerIdentity> {
+  return apiPost(`${P}/manufacturers/${manufacturerId}/identities`, body);
+}
+
+export function deleteManufacturerIdentity(id: number): Promise<void> {
+  return apiDelete(`${P}/manufacturer-identities/${id}`);
+}
+
+export function listDeviceModelIdentities(filters?: {
+  device_model_id?: number;
+  identity_type?: string;
+  namespace?: string;
+  q?: string;
+}): Promise<DeviceModelIdentity[]> {
+  const qs = new URLSearchParams();
+  if (filters?.device_model_id != null) qs.set("device_model_id", String(filters.device_model_id));
+  if (filters?.identity_type) qs.set("identity_type", filters.identity_type);
+  if (filters?.namespace) qs.set("namespace", filters.namespace);
+  if (filters?.q) qs.set("q", filters.q);
+  const q = qs.toString();
+  return apiGet(`${P}/device-model-identities${q ? `?${q}` : ""}`);
+}
+
+export function createDeviceModelIdentity(deviceModelId: number, body: {
+  identity_type: string;
+  namespace: string;
+  value: string;
+  source?: string | null;
+  confidence?: number;
+  raw_json?: Record<string, unknown> | null;
+  notes?: string | null;
+}): Promise<DeviceModelIdentity> {
+  return apiPost(`${P}/device-models/${deviceModelId}/identities`, body);
+}
+
+export function deleteDeviceModelIdentity(id: number): Promise<void> {
+  return apiDelete(`${P}/device-model-identities/${id}`);
+}
+
 export function listComponentIdentities(filters?: {
   component_id?: number;
   identity_type?: string;
@@ -494,7 +558,6 @@ export function listComponentIdentities(filters?: {
 }
 
 export function createComponentIdentity(componentId: number, body: {
-  manufacturer_id?: number | null;
   identity_type: string;
   namespace: string;
   value: string;

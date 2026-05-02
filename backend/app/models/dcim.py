@@ -147,6 +147,37 @@ class Manufacturer(Base):
     # IANA SMI Network Management Private Enterprise Number (1.3.6.1.4.1.<pen>) — kobler produsent til SNMP enterprise.
     iana_enterprise_number: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
 
+    identities: Mapped[list["ManufacturerIdentity"]] = relationship(
+        back_populates="manufacturer",
+        cascade="all, delete-orphan",
+        order_by="ManufacturerIdentity.identity_type, ManufacturerIdentity.namespace, ManufacturerIdentity.normalized_value",
+    )
+
+
+class ManufacturerIdentity(Base):
+    """Ekstern identitet som gjenkjenner en canonical produsent/vendor."""
+
+    __tablename__ = "dcim_manufacturer_identities"
+    __table_args__ = (
+        UniqueConstraint("identity_type", "namespace", "normalized_value", name="uq_dcim_manufacturer_identity_value"),
+        Index("ix_dcim_manufacturer_identities_mfr", "manufacturer_id"),
+        Index("ix_dcim_manufacturer_identities_lookup", "identity_type", "namespace", "normalized_value"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    manufacturer_id: Mapped[int] = mapped_column(ForeignKey("dcim_manufacturers.id", ondelete="CASCADE"), nullable=False)
+    identity_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    namespace: Mapped[str] = mapped_column(String(64), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    manufacturer: Mapped["Manufacturer"] = relationship(back_populates="identities")
+
 
 class DeviceType(Base):
     """Logisk klasse utstyr (switch, server, router, …) — grunnlag for attributter og plugin-kobling."""
@@ -193,6 +224,36 @@ class DeviceModel(Base):
         cascade="all, delete-orphan",
         order_by="DeviceModelComponent.sort_order, DeviceModelComponent.id",
     )
+    identities: Mapped[list["DeviceModelIdentity"]] = relationship(
+        back_populates="device_model",
+        cascade="all, delete-orphan",
+        order_by="DeviceModelIdentity.identity_type, DeviceModelIdentity.namespace, DeviceModelIdentity.normalized_value",
+    )
+
+
+class DeviceModelIdentity(Base):
+    """Ekstern identitet som gjenkjenner en canonical enhetsmodell."""
+
+    __tablename__ = "dcim_device_model_identities"
+    __table_args__ = (
+        UniqueConstraint("identity_type", "namespace", "normalized_value", name="uq_dcim_device_model_identity_value"),
+        Index("ix_dcim_device_model_identities_model", "device_model_id"),
+        Index("ix_dcim_device_model_identities_lookup", "identity_type", "namespace", "normalized_value"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_model_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_models.id", ondelete="CASCADE"), nullable=False)
+    identity_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    namespace: Mapped[str] = mapped_column(String(64), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    device_model: Mapped["DeviceModel"] = relationship(back_populates="identities")
 
 
 class DeviceInstance(Base):
@@ -369,16 +430,11 @@ class ComponentIdentity(Base):
     __table_args__ = (
         UniqueConstraint("identity_type", "namespace", "normalized_value", name="uq_dcim_component_identity_value"),
         Index("ix_dcim_component_identities_component", "component_id"),
-        Index("ix_dcim_component_identities_mfr", "manufacturer_id"),
         Index("ix_dcim_component_identities_lookup", "identity_type", "namespace", "normalized_value"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     component_id: Mapped[int] = mapped_column(ForeignKey("dcim_components.id", ondelete="CASCADE"), nullable=False)
-    manufacturer_id: Mapped[int | None] = mapped_column(
-        ForeignKey("dcim_manufacturers.id", ondelete="SET NULL"),
-        nullable=True,
-    )
     identity_type: Mapped[str] = mapped_column(String(32), nullable=False)
     namespace: Mapped[str] = mapped_column(String(64), nullable=False)
     value: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -390,7 +446,6 @@ class ComponentIdentity(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     component: Mapped["Component"] = relationship(back_populates="identities")
-    manufacturer: Mapped["Manufacturer | None"] = relationship("Manufacturer")
 
 
 class ComponentChildTemplate(Base):

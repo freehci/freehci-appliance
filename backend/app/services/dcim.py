@@ -35,9 +35,11 @@ from app.models.dcim import (
     DeviceIpAssignment,
     DeviceModel,
     DeviceModelComponent,
+    DeviceModelIdentity,
     DeviceType,
     InterfaceIpAssignment,
     Manufacturer,
+    ManufacturerIdentity,
     Rack,
     RackPlacement,
     Room,
@@ -97,11 +99,17 @@ from app.schemas.dcim import (
     DeviceModelComponentUpdate,
     DeviceModelUpdate,
     DeviceModelBrief,
+    DeviceModelIdentityCreate,
+    DeviceModelIdentityRead,
+    DeviceModelIdentityUpdate,
     DeviceModelRead,
     DeviceTypeCreate,
     DeviceTypeUpdate,
     ManufacturerCreate,
     ManufacturerDetailRead,
+    ManufacturerIdentityCreate,
+    ManufacturerIdentityRead,
+    ManufacturerIdentityUpdate,
     ManufacturerRead,
     ManufacturerUpdate,
     RackCreate,
@@ -1174,7 +1182,38 @@ def component_identity_read(row: ComponentIdentity) -> ComponentIdentityRead:
     return ComponentIdentityRead(
         id=row.id,
         component_id=row.component_id,
+        identity_type=row.identity_type,
+        namespace=row.namespace,
+        value=row.value,
+        normalized_value=row.normalized_value,
+        source=row.source,
+        confidence=row.confidence,
+        raw_json=_dict_or_empty(row.raw_json),
+        notes=row.notes,
+        created_at=row.created_at,
+    )
+
+
+def manufacturer_identity_read(row: ManufacturerIdentity) -> ManufacturerIdentityRead:
+    return ManufacturerIdentityRead(
+        id=row.id,
         manufacturer_id=row.manufacturer_id,
+        identity_type=row.identity_type,
+        namespace=row.namespace,
+        value=row.value,
+        normalized_value=row.normalized_value,
+        source=row.source,
+        confidence=row.confidence,
+        raw_json=_dict_or_empty(row.raw_json),
+        notes=row.notes,
+        created_at=row.created_at,
+    )
+
+
+def device_model_identity_read(row: DeviceModelIdentity) -> DeviceModelIdentityRead:
+    return DeviceModelIdentityRead(
+        id=row.id,
+        device_model_id=row.device_model_id,
         identity_type=row.identity_type,
         namespace=row.namespace,
         value=row.value,
@@ -2465,7 +2504,7 @@ def delete_component(db: Session, row: Component) -> None:
     db.commit()
 
 
-def _normalize_component_identity(identity_type: str, namespace: str, value: str) -> str:
+def _normalize_external_identity(identity_type: str, namespace: str, value: str) -> str:
     raw = value.strip()
     key = f"{identity_type.strip().lower()}:{namespace.strip().lower()}"
     if identity_type in {"mac", "oui"} or key in {"mac:address", "oui:prefix"}:
@@ -2473,8 +2512,10 @@ def _normalize_component_identity(identity_type: str, namespace: str, value: str
         if identity_type == "oui" and len(compact) >= 6:
             return compact[:6]
         return compact
-    if identity_type in {"pci", "usb"}:
+    if identity_type in {"pci", "pci_vendor", "usb", "usb_vendor"}:
         return raw.lower().replace(" ", "")
+    if identity_type == "iana_pen":
+        return raw.strip()
     if identity_type == "snmp_sysobjectid":
         return raw.strip(".")
     return raw.lower()
@@ -2516,18 +2557,15 @@ def create_component_identity(db: Session, component_id: int, data: ComponentIde
     component = get_component(db, component_id)
     if component is None:
         raise HTTPException(status_code=404, detail="komponent ikke funnet")
-    if data.manufacturer_id is not None and get_manufacturer(db, data.manufacturer_id) is None:
-        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
     identity_type = data.identity_type.strip().lower()
     namespace = data.namespace.strip().lower()
     value = data.value.strip()
     row = ComponentIdentity(
         component_id=component_id,
-        manufacturer_id=data.manufacturer_id if data.manufacturer_id is not None else component.manufacturer_id,
         identity_type=identity_type,
         namespace=namespace,
         value=value,
-        normalized_value=_normalize_component_identity(identity_type, namespace, value),
+        normalized_value=_normalize_external_identity(identity_type, namespace, value),
         source=data.source.strip() if data.source else None,
         confidence=data.confidence,
         raw_json=data.raw_json,
@@ -2547,8 +2585,6 @@ def update_component_identity(db: Session, row: ComponentIdentity, data: Compone
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
-    if "manufacturer_id" in patch and patch["manufacturer_id"] is not None and get_manufacturer(db, patch["manufacturer_id"]) is None:
-        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
     identity_type = str(patch.get("identity_type", row.identity_type)).strip().lower()
     namespace = str(patch.get("namespace", row.namespace)).strip().lower()
     value = str(patch.get("value", row.value)).strip()
@@ -2561,7 +2597,7 @@ def update_component_identity(db: Session, row: ComponentIdentity, data: Compone
     row.identity_type = identity_type
     row.namespace = namespace
     row.value = value
-    row.normalized_value = _normalize_component_identity(identity_type, namespace, value)
+    row.normalized_value = _normalize_external_identity(identity_type, namespace, value)
     try:
         db.commit()
     except IntegrityError as e:
@@ -2572,6 +2608,186 @@ def update_component_identity(db: Session, row: ComponentIdentity, data: Compone
 
 
 def delete_component_identity(db: Session, row: ComponentIdentity) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def list_manufacturer_identities(
+    db: Session,
+    *,
+    manufacturer_id: int | None = None,
+    identity_type: str | None = None,
+    namespace: str | None = None,
+    q: str | None = None,
+) -> list[ManufacturerIdentityRead]:
+    stmt = select(ManufacturerIdentity).order_by(ManufacturerIdentity.identity_type, ManufacturerIdentity.namespace, ManufacturerIdentity.value)
+    if manufacturer_id is not None:
+        stmt = stmt.where(ManufacturerIdentity.manufacturer_id == manufacturer_id)
+    if identity_type:
+        stmt = stmt.where(ManufacturerIdentity.identity_type == identity_type.strip().lower())
+    if namespace:
+        stmt = stmt.where(ManufacturerIdentity.namespace == namespace.strip().lower())
+    if q:
+        needle = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                ManufacturerIdentity.value.ilike(needle),
+                ManufacturerIdentity.normalized_value.ilike(needle),
+                ManufacturerIdentity.source.ilike(needle),
+                ManufacturerIdentity.notes.ilike(needle),
+            )
+        )
+    return [manufacturer_identity_read(r) for r in db.execute(stmt).scalars().all()]
+
+
+def get_manufacturer_identity(db: Session, identity_id: int) -> ManufacturerIdentity | None:
+    return db.get(ManufacturerIdentity, identity_id)
+
+
+def create_manufacturer_identity(db: Session, manufacturer_id: int, data: ManufacturerIdentityCreate) -> ManufacturerIdentityRead:
+    if get_manufacturer(db, manufacturer_id) is None:
+        raise HTTPException(status_code=404, detail="manufacturer ikke funnet")
+    identity_type = data.identity_type.strip().lower()
+    namespace = data.namespace.strip().lower()
+    value = data.value.strip()
+    row = ManufacturerIdentity(
+        manufacturer_id=manufacturer_id,
+        identity_type=identity_type,
+        namespace=namespace,
+        value=value,
+        normalized_value=_normalize_external_identity(identity_type, namespace, value),
+        source=data.source.strip() if data.source else None,
+        confidence=data.confidence,
+        raw_json=data.raw_json,
+        notes=data.notes,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="manufacturer-identitet finnes allerede") from e
+    db.refresh(row)
+    return manufacturer_identity_read(row)
+
+
+def update_manufacturer_identity(db: Session, row: ManufacturerIdentity, data: ManufacturerIdentityUpdate) -> ManufacturerIdentityRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    identity_type = str(patch.get("identity_type", row.identity_type)).strip().lower()
+    namespace = str(patch.get("namespace", row.namespace)).strip().lower()
+    value = str(patch.get("value", row.value)).strip()
+    for k, v in patch.items():
+        if k in {"identity_type", "namespace", "value"}:
+            continue
+        if k == "source" and v is not None:
+            v = str(v).strip()
+        setattr(row, k, v)
+    row.identity_type = identity_type
+    row.namespace = namespace
+    row.value = value
+    row.normalized_value = _normalize_external_identity(identity_type, namespace, value)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="manufacturer-identitet finnes allerede") from e
+    db.refresh(row)
+    return manufacturer_identity_read(row)
+
+
+def delete_manufacturer_identity(db: Session, row: ManufacturerIdentity) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def list_device_model_identities(
+    db: Session,
+    *,
+    device_model_id: int | None = None,
+    identity_type: str | None = None,
+    namespace: str | None = None,
+    q: str | None = None,
+) -> list[DeviceModelIdentityRead]:
+    stmt = select(DeviceModelIdentity).order_by(DeviceModelIdentity.identity_type, DeviceModelIdentity.namespace, DeviceModelIdentity.value)
+    if device_model_id is not None:
+        stmt = stmt.where(DeviceModelIdentity.device_model_id == device_model_id)
+    if identity_type:
+        stmt = stmt.where(DeviceModelIdentity.identity_type == identity_type.strip().lower())
+    if namespace:
+        stmt = stmt.where(DeviceModelIdentity.namespace == namespace.strip().lower())
+    if q:
+        needle = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                DeviceModelIdentity.value.ilike(needle),
+                DeviceModelIdentity.normalized_value.ilike(needle),
+                DeviceModelIdentity.source.ilike(needle),
+                DeviceModelIdentity.notes.ilike(needle),
+            )
+        )
+    return [device_model_identity_read(r) for r in db.execute(stmt).scalars().all()]
+
+
+def get_device_model_identity(db: Session, identity_id: int) -> DeviceModelIdentity | None:
+    return db.get(DeviceModelIdentity, identity_id)
+
+
+def create_device_model_identity(db: Session, device_model_id: int, data: DeviceModelIdentityCreate) -> DeviceModelIdentityRead:
+    if get_device_model(db, device_model_id) is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    identity_type = data.identity_type.strip().lower()
+    namespace = data.namespace.strip().lower()
+    value = data.value.strip()
+    row = DeviceModelIdentity(
+        device_model_id=device_model_id,
+        identity_type=identity_type,
+        namespace=namespace,
+        value=value,
+        normalized_value=_normalize_external_identity(identity_type, namespace, value),
+        source=data.source.strip() if data.source else None,
+        confidence=data.confidence,
+        raw_json=data.raw_json,
+        notes=data.notes,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="device-model-identitet finnes allerede") from e
+    db.refresh(row)
+    return device_model_identity_read(row)
+
+
+def update_device_model_identity(db: Session, row: DeviceModelIdentity, data: DeviceModelIdentityUpdate) -> DeviceModelIdentityRead:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    identity_type = str(patch.get("identity_type", row.identity_type)).strip().lower()
+    namespace = str(patch.get("namespace", row.namespace)).strip().lower()
+    value = str(patch.get("value", row.value)).strip()
+    for k, v in patch.items():
+        if k in {"identity_type", "namespace", "value"}:
+            continue
+        if k == "source" and v is not None:
+            v = str(v).strip()
+        setattr(row, k, v)
+    row.identity_type = identity_type
+    row.namespace = namespace
+    row.value = value
+    row.normalized_value = _normalize_external_identity(identity_type, namespace, value)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="device-model-identitet finnes allerede") from e
+    db.refresh(row)
+    return device_model_identity_read(row)
+
+
+def delete_device_model_identity(db: Session, row: DeviceModelIdentity) -> None:
     db.delete(row)
     db.commit()
 

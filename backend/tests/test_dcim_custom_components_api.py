@@ -331,7 +331,6 @@ def test_component_identity_registry_links_external_ids_to_component() -> None:
         pci = client.post(
             f"/api/v1/dcim/components/{component_id}/identities",
             json={
-                "manufacturer_id": mfr_id,
                 "identity_type": "pci",
                 "namespace": "device",
                 "value": "8086:1572",
@@ -362,3 +361,39 @@ def test_component_identity_registry_links_external_ids_to_component() -> None:
         linked = client.get(f"/api/v1/dcim/components/{component_id}/identities")
         assert linked.status_code == 200, linked.text
         assert {row["identity_type"] for row in linked.json()} == {"pci", "oui"}
+
+        vendor_identity = client.post(
+            f"/api/v1/dcim/manufacturers/{mfr_id}/identities",
+            json={
+                "identity_type": "pci_vendor",
+                "namespace": "vendor",
+                "value": "8086",
+                "source": "pci.ids",
+            },
+        )
+        assert vendor_identity.status_code == 200, vendor_identity.text
+        assert vendor_identity.json()["manufacturer_id"] == mfr_id
+        assert vendor_identity.json()["normalized_value"] == "8086"
+
+        vendor_found = client.get("/api/v1/dcim/manufacturer-identities?q=8086")
+        assert vendor_found.status_code == 200, vendor_found.text
+        assert any(row["manufacturer_id"] == mfr_id and row["identity_type"] == "pci_vendor" for row in vendor_found.json())
+
+        model = client.post(
+            "/api/v1/dcim/device-models",
+            json={"manufacturer_id": mfr_id, "name": f"PowerEdge Identity {suffix}"},
+        )
+        assert model.status_code == 200, model.text
+        model_id = model.json()["id"]
+        model_identity = client.post(
+            f"/api/v1/dcim/device-models/{model_id}/identities",
+            json={
+                "identity_type": "snmp_sysobjectid",
+                "namespace": "prefix",
+                "value": ".1.3.6.1.4.1.674.10892",
+                "source": "snmp",
+            },
+        )
+        assert model_identity.status_code == 200, model_identity.text
+        assert model_identity.json()["device_model_id"] == model_id
+        assert model_identity.json()["normalized_value"] == "1.3.6.1.4.1.674.10892"

@@ -404,7 +404,21 @@ class DeviceInstanceRead(BaseModel):
 
 
 COMPONENT_FIELD_TYPES = {"text", "number", "integer", "boolean", "choice", "date"}
-COMPONENT_IDENTITY_TYPES = {"mac", "oui", "pci", "usb", "snmp_sysobjectid", "redfish", "smbios", "lldp", "vendor_api", "other"}
+EXTERNAL_IDENTITY_TYPES = {
+    "mac",
+    "oui",
+    "pci",
+    "pci_vendor",
+    "usb",
+    "usb_vendor",
+    "iana_pen",
+    "snmp_sysobjectid",
+    "redfish",
+    "smbios",
+    "lldp",
+    "vendor_api",
+    "other",
+}
 
 
 class ComponentClassCreate(BaseModel):
@@ -628,8 +642,7 @@ class ComponentRead(BaseModel):
     active: bool
 
 
-class ComponentIdentityCreate(BaseModel):
-    manufacturer_id: int | None = Field(None, ge=1)
+class ExternalIdentityBaseCreate(BaseModel):
     identity_type: str = Field(..., min_length=1, max_length=32)
     namespace: str = Field(..., min_length=1, max_length=64)
     value: str = Field(..., min_length=1, max_length=255)
@@ -642,7 +655,7 @@ class ComponentIdentityCreate(BaseModel):
     @classmethod
     def identity_type_ok(cls, v: str) -> str:
         s = v.strip().lower()
-        if s not in COMPONENT_IDENTITY_TYPES:
+        if s not in EXTERNAL_IDENTITY_TYPES:
             raise ValueError("identity_type er ikke støttet")
         return s
 
@@ -652,8 +665,7 @@ class ComponentIdentityCreate(BaseModel):
         return v.strip().lower()
 
 
-class ComponentIdentityUpdate(BaseModel):
-    manufacturer_id: int | None = Field(None, ge=1)
+class ExternalIdentityBaseUpdate(BaseModel):
     identity_type: str | None = Field(None, min_length=1, max_length=32)
     namespace: str | None = Field(None, min_length=1, max_length=64)
     value: str | None = Field(None, min_length=1, max_length=255)
@@ -668,7 +680,7 @@ class ComponentIdentityUpdate(BaseModel):
         if v is None:
             return None
         s = v.strip().lower()
-        if s not in COMPONENT_IDENTITY_TYPES:
+        if s not in EXTERNAL_IDENTITY_TYPES:
             raise ValueError("identity_type er ikke støttet")
         return s
 
@@ -678,12 +690,34 @@ class ComponentIdentityUpdate(BaseModel):
         return v.strip().lower() if v is not None else None
 
 
-class ComponentIdentityRead(BaseModel):
+class ComponentIdentityCreate(ExternalIdentityBaseCreate):
+    pass
+
+
+class ComponentIdentityUpdate(ExternalIdentityBaseUpdate):
+    pass
+
+
+class ManufacturerIdentityCreate(ExternalIdentityBaseCreate):
+    pass
+
+
+class ManufacturerIdentityUpdate(ExternalIdentityBaseUpdate):
+    pass
+
+
+class DeviceModelIdentityCreate(ExternalIdentityBaseCreate):
+    pass
+
+
+class DeviceModelIdentityUpdate(ExternalIdentityBaseUpdate):
+    pass
+
+
+class ExternalIdentityReadBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    component_id: int
-    manufacturer_id: int | None
     identity_type: str
     namespace: str
     value: str
@@ -693,6 +727,18 @@ class ComponentIdentityRead(BaseModel):
     raw_json: dict[str, Any] = Field(default_factory=dict)
     notes: str | None
     created_at: dt.datetime
+
+
+class ComponentIdentityRead(ExternalIdentityReadBase):
+    component_id: int
+
+
+class ManufacturerIdentityRead(ExternalIdentityReadBase):
+    manufacturer_id: int
+
+
+class DeviceModelIdentityRead(ExternalIdentityReadBase):
+    device_model_id: int
 
 
 class ComponentChildTemplateCreate(BaseModel):
