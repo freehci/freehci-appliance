@@ -300,12 +300,21 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     setSelectedClassId(String(targetClass.id));
     setSpecDraft(draft);
     setComponentPart(mappingValueToString(defaults.part_number));
+    const manufacturerName = mappingValueToString(defaults.manufacturer_name).trim();
+    const matchedManufacturer = manufacturerName
+      ? (mfrQ.data ?? []).find((m) => m.name.trim().toLowerCase() === manufacturerName.toLowerCase())
+      : undefined;
+    setComponentMfr(matchedManufacturer ? String(matchedManufacturer.id) : "");
     setComponentName(
       mappingValueToString(defaults.name)
       || mappingValueToString(defaults.part_number)
       || `${targetClass.name} ${mappingPreviewData.source_type}`,
     );
-    onError(null);
+    onError(
+      manufacturerName !== "" && matchedManufacturer == null
+        ? t("dcim.components.mappingManufacturerMissing", { name: manufacturerName })
+        : null,
+    );
   };
 
   return (

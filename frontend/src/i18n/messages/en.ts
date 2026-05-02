@@ -236,6 +236,8 @@ export const en = {
   "dcim.components.mappingTargetMissing": "Target class does not exist yet. Run the FreeHCI standard catalog first.",
   "dcim.components.mappingChooseParentComponent":
     "Choose a parent component in the Child templates section before saving the child template.",
+  "dcim.components.mappingManufacturerMissing":
+    "The mapping suggests manufacturer {name}, but it does not exist in the manufacturer registry yet.",
   "dcim.components.mappingTargets": "FreeHCI targets",
 
   "auth.loginTitle": "Sign in",

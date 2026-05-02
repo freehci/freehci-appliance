@@ -238,6 +238,8 @@ export const nb = {
   "dcim.components.mappingTargetMissing": "Target class finnes ikke ennå. Kjør FreeHCI-standardkatalogen først.",
   "dcim.components.mappingChooseParentComponent":
     "Velg foreldrekomponent i Child templates-seksjonen før du lagrer child template.",
+  "dcim.components.mappingManufacturerMissing":
+    "Mappingen foreslår produsenten {name}, men den finnes ikke i produsentregisteret ennå.",
   "dcim.components.mappingTargets": "FreeHCI-mål",
 
   "auth.loginTitle": "Logg inn",
