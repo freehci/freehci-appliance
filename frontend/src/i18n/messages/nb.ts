@@ -270,6 +270,8 @@ export const nb = {
   "dcim.components.importPreview": "Dry-run import",
   "dcim.components.importPreviewResult": "Import-preview",
   "dcim.components.importPreviewSummary": "Handling: {action}. Mål: {target}.",
+  "dcim.components.importApply": "Utfør import",
+  "dcim.components.importApplyResult": "Import-resultat",
   "dcim.components.identityObservations": "Observerte identiteter",
   "dcim.components.identityMatches": "Identity-matcher",
   "dcim.components.identityScore": "Score",

@@ -451,3 +451,35 @@ def test_component_identity_registry_links_external_ids_to_component() -> None:
         )
         assert import_preview.status_code == 200, import_preview.text
         assert import_preview.json()["proposed_action"] == "match_component"
+
+        apply_existing = client.post(
+            "/api/v1/dcim/component-imports/apply",
+            json={
+                "source": "redfish",
+                "resource_type": "NetworkAdapter",
+                "payload": {"Manufacturer": "Intel", "Model": "X710", "VendorId": "8086", "DeviceId": "1572"},
+            },
+        )
+        assert apply_existing.status_code == 200, apply_existing.text
+        assert apply_existing.json()["action"] == "matched_component"
+        assert apply_existing.json()["component"]["id"] == component_id
+
+        seed = client.post("/api/v1/dcim/component-classes/seed-standard")
+        assert seed.status_code == 200, seed.text
+        apply_new = client.post(
+            "/api/v1/dcim/component-imports/apply",
+            json={
+                "source": "redfish",
+                "resource_type": "NetworkAdapter",
+                "payload": {
+                    "Manufacturer": f"Vendor {suffix}",
+                    "Model": f"New NIC {suffix}",
+                    "VendorId": "14e4",
+                    "DeviceId": suffix,
+                },
+            },
+        )
+        assert apply_new.status_code == 200, apply_new.text
+        assert apply_new.json()["action"] == "created_component"
+        assert apply_new.json()["component"]["name"] == f"New NIC {suffix}"
+        assert apply_new.json()["identities_created"] >= 1

@@ -54,6 +54,8 @@ from app.schemas.dcim import (
     DeviceModelIdentityUpdate,
     ExternalIdentityResolveMatch,
     ExternalIdentityResolveRequest,
+    ExternalInventoryImportApplyRead,
+    ExternalInventoryImportApplyRequest,
     ExternalInventoryImportPreviewRead,
     ExternalInventoryImportPreviewRequest,
     IpAssignmentCreate,
@@ -558,6 +560,14 @@ def preview_component_import(
     db: Session = Depends(get_db),
 ) -> ExternalInventoryImportPreviewRead:
     return dcim_svc.preview_external_inventory_import(db, data)
+
+
+@router.post("/component-imports/apply", response_model=ExternalInventoryImportApplyRead)
+def apply_component_import(
+    data: ExternalInventoryImportApplyRequest,
+    db: Session = Depends(get_db),
+) -> ExternalInventoryImportApplyRead:
+    return dcim_svc.apply_external_inventory_import(db, data)
 
 
 @router.get("/component-mappings/{source}", response_model=ComponentExternalMappingProfileRead)

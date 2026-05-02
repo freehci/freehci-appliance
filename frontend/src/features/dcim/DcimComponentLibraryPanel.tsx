@@ -72,6 +72,7 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [mappingPreviewData, setMappingPreviewData] = useState<ComponentExternalMappingPreview | null>(null);
   const [importPreview, setImportPreview] = useState("");
   const [importPreviewData, setImportPreviewData] = useState<ExternalInventoryImportPreview | null>(null);
+  const [importApplyResult, setImportApplyResult] = useState("");
 
   const classesQ = useQuery({ queryKey: ["dcim", "component-classes"], queryFn: api.listComponentClasses });
   const fieldsQ = useQuery({
@@ -448,6 +449,26 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     },
     onError: onMutError,
   });
+  const applyImportM = useMutation({
+    mutationFn: () => {
+      const parsed = JSON.parse(mappingPayload) as unknown;
+      if (parsed == null || Array.isArray(parsed) || typeof parsed !== "object") {
+        throw new Error(t("dcim.components.mappingPayloadObject"));
+      }
+      return api.applyComponentImport({
+        source: mappingSource,
+        resource_type: mappingResourceType,
+        payload: parsed as Record<string, unknown>,
+      });
+    },
+    onSuccess: (res) => {
+      onError(null);
+      setImportApplyResult(JSON.stringify(res, null, 2));
+      void qc.invalidateQueries({ queryKey: ["dcim", "components"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-identities"] });
+    },
+    onError: onMutError,
+  });
   const applyMappingPreview = () => {
     if (mappingPreviewData == null) return;
     const targetClass = mappingTargetClass;
@@ -710,13 +731,13 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
       {mappingsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
       <form className={styles.formRow} onSubmit={(e) => { e.preventDefault(); previewMappingM.mutate(); }}>
         <label>{t("dcim.components.mappingSource")}
-          <select value={mappingSource} onChange={(e) => { setMappingSource(e.target.value); setMappingResourceType(""); setMappingPreview(""); setMappingPreviewData(null); setImportPreview(""); setImportPreviewData(null); }} required>
+          <select value={mappingSource} onChange={(e) => { setMappingSource(e.target.value); setMappingResourceType(""); setMappingPreview(""); setMappingPreviewData(null); setImportPreview(""); setImportPreviewData(null); setImportApplyResult(""); }} required>
             <option value="">{t("dcim.common.choose")}</option>
             {(mappingsQ.data ?? []).map((profile) => <option key={profile.source} value={profile.source}>{profile.display_name}</option>)}
           </select>
         </label>
         <label>{t("dcim.components.mappingResourceType")}
-          <select value={mappingResourceType} onChange={(e) => { setMappingResourceType(e.target.value); setMappingPreview(""); setMappingPreviewData(null); setImportPreview(""); setImportPreviewData(null); }} required>
+          <select value={mappingResourceType} onChange={(e) => { setMappingResourceType(e.target.value); setMappingPreview(""); setMappingPreviewData(null); setImportPreview(""); setImportPreviewData(null); setImportApplyResult(""); }} required>
             <option value="">{t("dcim.common.choose")}</option>
             {selectedMappingResources.map((r) => <option key={r.source_type} value={r.source_type}>{r.source_type}</option>)}
           </select>
@@ -729,6 +750,9 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
         </button>
         <button type="button" className={styles.btnMuted} disabled={previewImportM.isPending || mappingSource === "" || mappingResourceType === ""} onClick={() => previewImportM.mutate()}>
           {previewImportM.isPending ? "…" : t("dcim.components.importPreview")}
+        </button>
+        <button type="button" className={styles.btn} disabled={applyImportM.isPending || mappingSource === "" || mappingResourceType === ""} onClick={() => applyImportM.mutate()}>
+          {applyImportM.isPending ? "…" : t("dcim.components.importApply")}
         </button>
       </form>
       {mappingPreview ? (
@@ -798,6 +822,12 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
             </p>
           ) : null}
           <pre className={styles.codeBlock}>{importPreview}</pre>
+        </>
+      ) : null}
+      {importApplyResult ? (
+        <>
+          <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.components.importApplyResult")}</h4>
+          <pre className={styles.codeBlock}>{importApplyResult}</pre>
         </>
       ) : null}
       <table className={styles.table}>

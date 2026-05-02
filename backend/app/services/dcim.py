@@ -90,6 +90,8 @@ from app.schemas.dcim import (
     ExternalIdentityObservation,
     ExternalIdentityResolveMatch,
     ExternalIdentityResolveRequest,
+    ExternalInventoryImportApplyRead,
+    ExternalInventoryImportApplyRequest,
     ExternalInventoryImportPreviewRead,
     ExternalInventoryImportPreviewRequest,
     IpAssignmentCreate,
@@ -2103,6 +2105,113 @@ def preview_external_inventory_import(
         identity_matches=mapping.identity_matches,
         identity_observations=mapping.identity_observations,
         notes=notes,
+    )
+
+
+def _component_manufacturer_from_import(
+    db: Session,
+    mapping: ComponentExternalMappingPreviewRead,
+) -> int | None:
+    manufacturer_match = next((m for m in mapping.identity_matches if m.owner_type == "manufacturer"), None)
+    if manufacturer_match is not None:
+        return manufacturer_match.owner_id
+    manufacturer_name = mapping.component_defaults.get("manufacturer_name")
+    if manufacturer_name is None:
+        return None
+    name = str(manufacturer_name).strip().lower()
+    if name == "":
+        return None
+    row = db.execute(select(Manufacturer).where(Manufacturer.name.ilike(name))).scalar_one_or_none()
+    return row.id if row is not None else None
+
+
+def _attach_component_identity_observations(
+    db: Session,
+    component_id: int,
+    observations: list[ExternalIdentityObservation],
+) -> int:
+    created = 0
+    for obs in observations:
+        identity_type = obs.identity_type.strip().lower()
+        namespace = obs.namespace.strip().lower()
+        value = obs.value.strip()
+        normalized = _normalize_external_identity(identity_type, namespace, value)
+        existing = db.execute(
+            select(ComponentIdentity.id).where(
+                ComponentIdentity.identity_type == identity_type,
+                ComponentIdentity.namespace == namespace,
+                ComponentIdentity.normalized_value == normalized,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            continue
+        db.add(
+            ComponentIdentity(
+                component_id=component_id,
+                identity_type=identity_type,
+                namespace=namespace,
+                value=value,
+                normalized_value=normalized,
+                source=obs.source.strip() if obs.source else None,
+                confidence=obs.confidence,
+                raw_json=obs.raw_json,
+                notes="Opprettet fra ekstern import.",
+            )
+        )
+        created += 1
+    if created:
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            return 0
+    return created
+
+
+def apply_external_inventory_import(
+    db: Session,
+    data: ExternalInventoryImportApplyRequest,
+) -> ExternalInventoryImportApplyRead:
+    mapping = preview_component_external_mapping(db, ComponentExternalMappingPreviewRequest.model_validate(data.model_dump()))
+    if mapping.relation != "component":
+        raise HTTPException(status_code=400, detail="apply støtter foreløpig bare component-import")
+    component_match = next((m for m in mapping.identity_matches if m.owner_type == "component"), None)
+    if component_match is not None:
+        component = get_component(db, component_match.owner_id)
+        if component is None:
+            raise HTTPException(status_code=404, detail="matchet komponent ikke funnet")
+        identities_created = _attach_component_identity_observations(db, component.id, mapping.identity_observations)
+        return ExternalInventoryImportApplyRead(
+            action="matched_component",
+            component=component_read(component),
+            identities_created=identities_created,
+            identity_matches=mapping.identity_matches,
+            notes=[*mapping.notes, f"Gjenbrukte eksisterende komponent #{component.id}."],
+        )
+
+    target_class = _component_class_by_slug(db, mapping.target_class_slug)
+    if target_class is None:
+        raise HTTPException(status_code=404, detail="target component class finnes ikke")
+    defaults = mapping.component_defaults
+    component = create_component(
+        db,
+        ComponentCreate(
+            class_id=target_class.id,
+            manufacturer_id=_component_manufacturer_from_import(db, mapping),
+            name=str(defaults.get("name") or defaults.get("part_number") or f"{mapping.target_class_slug} {mapping.source_type}").strip(),
+            part_number=str(defaults["part_number"]).strip() if defaults.get("part_number") is not None else None,
+            description=str(defaults["description"]).strip() if defaults.get("description") is not None else None,
+            specs_json=mapping.specs_json,
+            active=True,
+        ),
+    )
+    identities_created = _attach_component_identity_observations(db, component.id, mapping.identity_observations)
+    return ExternalInventoryImportApplyRead(
+        action="created_component",
+        component=component,
+        identities_created=identities_created,
+        identity_matches=mapping.identity_matches,
+        notes=[*mapping.notes, f"Opprettet komponent #{component.id} fra import."],
     )
 
 

@@ -28,6 +28,7 @@ import type {
   DeviceModelIdentity,
   DeviceModelComponent,
   DeviceType,
+  ExternalInventoryImportApply,
   ExternalIdentityObservation,
   ExternalIdentityResolveMatch,
   ExternalInventoryImportPreview,
@@ -387,6 +388,14 @@ export function previewComponentImport(body: {
   payload: Record<string, unknown>;
 }): Promise<ExternalInventoryImportPreview> {
   return apiPost(`${P}/component-imports/preview`, body);
+}
+
+export function applyComponentImport(body: {
+  source: string;
+  resource_type: string;
+  payload: Record<string, unknown>;
+}): Promise<ExternalInventoryImportApply> {
+  return apiPost(`${P}/component-imports/apply`, body);
 }
 
 export function updateComponentClass(

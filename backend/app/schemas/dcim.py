@@ -550,6 +550,10 @@ class ExternalInventoryImportPreviewRequest(ComponentExternalMappingPreviewReque
     pass
 
 
+class ExternalInventoryImportApplyRequest(ComponentExternalMappingPreviewRequest):
+    pass
+
+
 class ExternalInventoryImportPreviewRead(BaseModel):
     source: str
     source_type: str
@@ -700,6 +704,14 @@ class ComponentRead(BaseModel):
     description: str | None
     specs_json: dict[str, Any] = Field(default_factory=dict)
     active: bool
+
+
+class ExternalInventoryImportApplyRead(BaseModel):
+    action: str
+    component: ComponentRead
+    identities_created: int = 0
+    identity_matches: list[ExternalIdentityResolveMatch] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
 
 
 class ExternalIdentityBaseCreate(BaseModel):

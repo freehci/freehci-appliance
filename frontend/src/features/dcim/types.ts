@@ -219,6 +219,14 @@ export type ExternalInventoryImportPreview = {
   notes: string[];
 };
 
+export type ExternalInventoryImportApply = {
+  action: string;
+  component: Component;
+  identities_created: number;
+  identity_matches: ExternalIdentityResolveMatch[];
+  notes: string[];
+};
+
 export type ComponentClassField = {
   id: number;
   class_id: number;

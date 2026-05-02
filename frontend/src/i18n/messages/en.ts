@@ -268,6 +268,8 @@ export const en = {
   "dcim.components.importPreview": "Dry-run import",
   "dcim.components.importPreviewResult": "Import preview",
   "dcim.components.importPreviewSummary": "Action: {action}. Target: {target}.",
+  "dcim.components.importApply": "Apply import",
+  "dcim.components.importApplyResult": "Import result",
   "dcim.components.identityObservations": "Observed identities",
   "dcim.components.identityMatches": "Identity matches",
   "dcim.components.identityScore": "Score",
