@@ -108,13 +108,13 @@ class Settings(BaseSettings):
         description="Katalog for importerte NetBox Device Type Library ZIP-er og utpakkede filer",
     )
     netbox_dtl_max_zip_bytes: int = Field(
-        default=300 * 1024 * 1024,
+        default=2 * 1024 * 1024 * 1024,
         ge=1024 * 1024,
         le=2 * 1024 * 1024 * 1024,
         description="Maks størrelse på NetBox Device Type Library ZIP",
     )
     netbox_dtl_max_extracted_bytes: int = Field(
-        default=1024 * 1024 * 1024,
+        default=4 * 1024 * 1024 * 1024,
         ge=1024 * 1024,
         le=4 * 1024 * 1024 * 1024,
         description="Maks samlet utpakket størrelse for NetBox Device Type Library",
