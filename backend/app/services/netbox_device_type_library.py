@@ -9,7 +9,6 @@ import re
 import shutil
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Any
 
 import httpx
 import yaml
@@ -130,7 +129,7 @@ async def import_download(
     source: str = "download",
     branch: str | None = None,
 ) -> NetBoxDeviceTypeLibraryImport:
-    async with httpx.AsyncClient(follow_redirects=True, timeout=120) as client:
+    async with httpx.AsyncClient(follow_redirects=True, timeout=300) as client:
         try:
             response = await client.get(url)
             response.raise_for_status()
