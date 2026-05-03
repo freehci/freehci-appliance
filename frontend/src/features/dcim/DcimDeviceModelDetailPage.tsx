@@ -42,6 +42,11 @@ export function DcimDeviceModelDetailPage() {
     queryFn: () => api.getDeviceModel(id),
     enabled: !isNew && Number.isFinite(id) && id > 0,
   });
+  const templatesQ = useQuery({
+    queryKey: ["dcim", "device-model-templates", id],
+    queryFn: () => api.listDeviceModelTemplates(id),
+    enabled: !isNew && Number.isFinite(id) && id > 0,
+  });
 
   const mo = modelQ.data;
 
@@ -327,6 +332,30 @@ export function DcimDeviceModelDetailPage() {
 
         {!isNew && mo ? (
           <DcimOwnerComponentsPanel ownerKind="model" ownerId={id} onError={setErr} />
+        ) : null}
+
+        {!isNew && mo ? (
+          <section className={styles.mfrDetailSection} style={{ marginTop: "var(--space-4)" }}>
+            <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.netbox.templatesTitle")}</h3>
+            {templatesQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+            {(templatesQ.data ?? []).length === 0 && !templatesQ.isLoading ? (
+              <p className={styles.muted}>{t("dcim.netbox.templatesEmpty")}</p>
+            ) : null}
+            {(templatesQ.data ?? []).length > 0 ? (
+              <table className={styles.table}>
+                <thead><tr><th>{t("dcim.netbox.componentType")}</th><th>{t("dcim.common.name")}</th><th>{t("dcim.netbox.label")}</th></tr></thead>
+                <tbody>
+                  {(templatesQ.data ?? []).map((tpl) => (
+                    <tr key={tpl.id}>
+                      <td><code>{tpl.component_type}</code></td>
+                      <td>{tpl.name}</td>
+                      <td>{tpl.label ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </section>
         ) : null}
 
         {!isNew && mo ? (

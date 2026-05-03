@@ -15,6 +15,8 @@ _mib_root = Path(tempfile.mkdtemp(prefix="freehci-mibs-"))
 os.environ["MIB_ROOT"] = str(_mib_root)
 _redfish_schema_root = Path(tempfile.mkdtemp(prefix="freehci-redfish-schemas-"))
 os.environ["REDFISH_SCHEMA_ROOT"] = str(_redfish_schema_root)
+_netbox_dtl_root = Path(tempfile.mkdtemp(prefix="freehci-netbox-dtl-"))
+os.environ["NETBOX_DTL_ROOT"] = str(_netbox_dtl_root)
 
 from app.core.config import get_settings  # noqa: E402
 

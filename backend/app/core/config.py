@@ -103,6 +103,29 @@ class Settings(BaseSettings):
         description="Maks antall filer som indekseres/utpakkes fra DSP8010 ZIP",
     )
 
+    netbox_dtl_root: str = Field(
+        default="data/netbox-dtl",
+        description="Katalog for importerte NetBox Device Type Library ZIP-er og utpakkede filer",
+    )
+    netbox_dtl_max_zip_bytes: int = Field(
+        default=300 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=2 * 1024 * 1024 * 1024,
+        description="Maks størrelse på NetBox Device Type Library ZIP",
+    )
+    netbox_dtl_max_extracted_bytes: int = Field(
+        default=1024 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=4 * 1024 * 1024 * 1024,
+        description="Maks samlet utpakket størrelse for NetBox Device Type Library",
+    )
+    netbox_dtl_max_files: int = Field(
+        default=100000,
+        ge=1,
+        le=250000,
+        description="Maks antall filer i NetBox Device Type Library ZIP",
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -130,6 +153,10 @@ class Settings(BaseSettings):
     @property
     def redfish_schema_root_path(self) -> Path:
         return Path(self.redfish_schema_root).expanduser()
+
+    @property
+    def netbox_dtl_root_path(self) -> Path:
+        return Path(self.netbox_dtl_root).expanduser()
 
 
 @lru_cache

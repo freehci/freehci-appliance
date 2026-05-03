@@ -11,7 +11,7 @@ import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { deviceTypeResolvedFaIconClass } from "./dcimTypeIcons";
 import { deviceInstanceListThumbSrc, deviceModelListThumbSrc } from "./modelImages";
-import type { DeviceInstance, DeviceModel, DeviceType, Rack, RackPlacement } from "./types";
+import type { DeviceInstance, DeviceModel, DeviceType, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
 
 type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl" | "cmp";
 
@@ -33,6 +33,14 @@ export function DcimEquipmentPage() {
   const [plU, setPlU] = useState("1");
   const [dmMatchOid, setDmMatchOid] = useState("");
   const [dmMatchResult, setDmMatchResult] = useState<DeviceModel[] | null>(null);
+  const [netboxBranch, setNetboxBranch] = useState("master");
+  const [netboxUrl, setNetboxUrl] = useState("");
+  const [netboxImportId, setNetboxImportId] = useState("");
+  const [netboxSearch, setNetboxSearch] = useState("");
+  const [netboxManufacturer, setNetboxManufacturer] = useState("");
+  const [netboxLimit, setNetboxLimit] = useState("25");
+  const [netboxPreview, setNetboxPreview] = useState<NetBoxDtlPreview | null>(null);
+  const [netboxApplyResult, setNetboxApplyResult] = useState("");
   const [plMount, setPlMount] = useState("front");
   const [rackFilter, setRackFilter] = useState<string>("");
   const [devListFilter, setDevListFilter] = useState("");
@@ -50,6 +58,18 @@ export function DcimEquipmentPage() {
     queryFn: api.listDeviceTypes,
   });
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
+  const netboxImportsQ = useQuery({ queryKey: ["dcim", "netbox-dtl-imports"], queryFn: api.listNetBoxDtlImports });
+  const netboxItemsQ = useQuery({
+    queryKey: ["dcim", "netbox-dtl-items", netboxImportId, netboxSearch, netboxManufacturer],
+    queryFn: () =>
+      api.listNetBoxDtlItems({
+        import_id: netboxImportId === "" ? undefined : Number(netboxImportId),
+        q: netboxSearch.trim() || undefined,
+        manufacturer: netboxManufacturer.trim() || undefined,
+        limit: 100,
+      }),
+    enabled: netboxImportId !== "",
+  });
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: api.listDevices });
   const racksQ = useQuery({ queryKey: ["dcim", "racks", "all-equip"], queryFn: () => api.listRacks() });
 
@@ -211,6 +231,70 @@ export function DcimEquipmentPage() {
       void qc.invalidateQueries({ queryKey: ["dcim", "device-types"] });
       void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
       void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const importNetboxGithubM = useMutation({
+    mutationFn: () => api.importNetBoxDtlGithub({ branch: netboxBranch.trim() || "master" }),
+    onSuccess: (res) => {
+      setErr(null);
+      setNetboxImportId(String(res.id));
+      setNetboxPreview(null);
+      setNetboxApplyResult("");
+      void qc.invalidateQueries({ queryKey: ["dcim", "netbox-dtl-imports"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "netbox-dtl-items"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const downloadNetboxM = useMutation({
+    mutationFn: () => api.downloadNetBoxDtl({ url: netboxUrl.trim() }),
+    onSuccess: (res) => {
+      setErr(null);
+      setNetboxUrl("");
+      setNetboxImportId(String(res.id));
+      setNetboxPreview(null);
+      setNetboxApplyResult("");
+      void qc.invalidateQueries({ queryKey: ["dcim", "netbox-dtl-imports"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "netbox-dtl-items"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const uploadNetboxM = useMutation({
+    mutationFn: (file: File) => api.uploadNetBoxDtl(file),
+    onSuccess: (res) => {
+      setErr(null);
+      setNetboxImportId(String(res.id));
+      setNetboxPreview(null);
+      setNetboxApplyResult("");
+      void qc.invalidateQueries({ queryKey: ["dcim", "netbox-dtl-imports"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "netbox-dtl-items"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const netboxApplyBody = () => ({
+    import_id: Number(netboxImportId),
+    q: netboxSearch.trim() || null,
+    manufacturer: netboxManufacturer.trim() || null,
+    limit: Number(netboxLimit) || 25,
+    include_images: true,
+    include_templates: true,
+  });
+  const previewNetboxM = useMutation({
+    mutationFn: () => api.previewNetBoxDtlImport(netboxApplyBody()),
+    onSuccess: (res) => {
+      setErr(null);
+      setNetboxPreview(res);
+      setNetboxApplyResult("");
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const applyNetboxM = useMutation({
+    mutationFn: () => api.applyNetBoxDtlImport(netboxApplyBody()),
+    onSuccess: (res) => {
+      setErr(null);
+      setNetboxApplyResult(JSON.stringify(res, null, 2));
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "manufacturers"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -457,6 +541,81 @@ export function DcimEquipmentPage() {
           <p className={styles.muted} style={{ marginTop: "var(--space-2)" }}>
             {t("dcim.equip.dm.listHint")}
           </p>
+          <section className={styles.mfrDetailSection} style={{ marginTop: "var(--space-3)" }}>
+            <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.netbox.title")}</h3>
+            <p className={styles.muted}>{t("dcim.netbox.hint")}</p>
+            <div className={styles.formRow} style={{ alignItems: "flex-end" }}>
+              <label>{t("dcim.netbox.branch")}
+                <input value={netboxBranch} onChange={(e) => setNetboxBranch(e.target.value)} placeholder="master" />
+              </label>
+              <button type="button" className={styles.btn} disabled={importNetboxGithubM.isPending} onClick={() => importNetboxGithubM.mutate()}>
+                {importNetboxGithubM.isPending ? "…" : t("dcim.netbox.importGithub")}
+              </button>
+              <label style={{ flex: "1 1 18rem" }}>{t("dcim.netbox.zipUrl")}
+                <input value={netboxUrl} onChange={(e) => setNetboxUrl(e.target.value)} placeholder="https://" />
+              </label>
+              <button type="button" className={styles.btnMuted} disabled={downloadNetboxM.isPending || netboxUrl.trim() === ""} onClick={() => downloadNetboxM.mutate()}>
+                {downloadNetboxM.isPending ? "…" : t("dcim.netbox.downloadZip")}
+              </button>
+              <label>{t("dcim.netbox.uploadZip")}
+                <input
+                  type="file"
+                  accept=".zip,application/zip"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadNetboxM.mutate(file);
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            <div className={styles.formRow} style={{ alignItems: "flex-end" }}>
+              <label>{t("dcim.netbox.importRun")}
+                <select value={netboxImportId} onChange={(e) => { setNetboxImportId(e.target.value); setNetboxPreview(null); setNetboxApplyResult(""); }}>
+                  <option value="">{t("dcim.common.choose")}</option>
+                  {(netboxImportsQ.data ?? []).map((row) => (
+                    <option key={row.id} value={String(row.id)}>{row.name} ({row.item_count})</option>
+                  ))}
+                </select>
+              </label>
+              <label>{t("dcim.netbox.search")}
+                <input value={netboxSearch} onChange={(e) => setNetboxSearch(e.target.value)} placeholder={t("dcim.netbox.searchPlaceholder")} />
+              </label>
+              <label>{t("dcim.netbox.manufacturer")}
+                <input value={netboxManufacturer} onChange={(e) => setNetboxManufacturer(e.target.value)} placeholder="Cisco" />
+              </label>
+              <label>{t("dcim.netbox.limit")}
+                <input type="number" min={1} max={500} value={netboxLimit} onChange={(e) => setNetboxLimit(e.target.value)} />
+              </label>
+              <button type="button" className={styles.btnMuted} disabled={previewNetboxM.isPending || netboxImportId === ""} onClick={() => previewNetboxM.mutate()}>
+                {previewNetboxM.isPending ? "…" : t("dcim.netbox.preview")}
+              </button>
+              <button type="button" className={styles.btn} disabled={applyNetboxM.isPending || netboxImportId === ""} onClick={() => applyNetboxM.mutate()}>
+                {applyNetboxM.isPending ? "…" : t("dcim.netbox.apply")}
+              </button>
+            </div>
+            {netboxImportId !== "" ? (
+              <p className={styles.muted}>
+                {t("dcim.netbox.indexedCount", { count: String(netboxItemsQ.data?.length ?? 0) })}
+              </p>
+            ) : null}
+            {netboxPreview ? (
+              <table className={styles.table}>
+                <thead><tr><th>{t("dcim.netbox.model")}</th><th>{t("dcim.netbox.action")}</th><th>{t("dcim.netbox.images")}</th><th>{t("dcim.netbox.templates")}</th></tr></thead>
+                <tbody>
+                  {netboxPreview.items.map((item) => (
+                    <tr key={item.item_id}>
+                      <td>{item.manufacturer} {item.model}<br /><code>{item.slug}</code></td>
+                      <td>{item.manufacturer_action} / {item.action}</td>
+                      <td>{[item.front_image ? "front" : "", item.rear_image ? "rear" : ""].filter(Boolean).join(", ") || "—"}</td>
+                      <td>{Object.entries(item.component_counts).map(([k, v]) => `${k}: ${v}`).join(", ") || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+            {netboxApplyResult ? <pre className={styles.codeBlock}>{netboxApplyResult}</pre> : null}
+          </section>
           <div className={styles.formRow} style={{ marginTop: "var(--space-3)", alignItems: "flex-end" }}>
             <label style={{ flex: "1 1 14rem" }}>
               {t("dcim.equip.dm.matchSnmpLabel")}

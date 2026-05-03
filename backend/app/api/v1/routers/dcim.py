@@ -58,6 +58,14 @@ from app.schemas.dcim import (
     ExternalInventoryImportApplyRequest,
     ExternalInventoryImportPreviewRead,
     ExternalInventoryImportPreviewRequest,
+    DeviceModelTemplateRead,
+    NetBoxDtlApplyRead,
+    NetBoxDtlApplyRequest,
+    NetBoxDtlDownloadImportRequest,
+    NetBoxDtlGithubImportRequest,
+    NetBoxDtlImportRead,
+    NetBoxDtlItemRead,
+    NetBoxDtlPreviewRead,
     RedfishInventoryApplyRead,
     RedfishInventoryImportRequest,
     RedfishInventoryPreviewRead,
@@ -106,6 +114,7 @@ from app.schemas.dcim import (
 )
 from app.services import dcim as dcim_svc
 from app.services import geocoding as geocode_svc
+from app.services import netbox_device_type_library as netbox_dtl_svc
 from app.services import redfish_schema_bundle as redfish_schema_svc
 
 router = APIRouter(prefix="/dcim", tags=["dcim"])
@@ -624,6 +633,62 @@ def apply_redfish_inventory(
     return result  # type: ignore[return-value]
 
 
+@router.post("/netbox-dtl/imports/github", response_model=NetBoxDtlImportRead)
+async def import_netbox_dtl_github(
+    data: NetBoxDtlGithubImportRequest,
+    db: Session = Depends(get_db),
+) -> NetBoxDtlImportRead:
+    return await netbox_dtl_svc.import_github(db, get_settings(), data.branch)
+
+
+@router.post("/netbox-dtl/imports/upload", response_model=NetBoxDtlImportRead)
+async def upload_netbox_dtl(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> NetBoxDtlImportRead:
+    return await netbox_dtl_svc.import_upload(db, get_settings(), file)
+
+
+@router.post("/netbox-dtl/imports/download", response_model=NetBoxDtlImportRead)
+async def download_netbox_dtl(
+    data: NetBoxDtlDownloadImportRequest,
+    db: Session = Depends(get_db),
+) -> NetBoxDtlImportRead:
+    return await netbox_dtl_svc.import_download(db, get_settings(), data.url, name=data.name)
+
+
+@router.get("/netbox-dtl/imports", response_model=list[NetBoxDtlImportRead])
+def list_netbox_dtl_imports(db: Session = Depends(get_db)) -> list[NetBoxDtlImportRead]:
+    return netbox_dtl_svc.list_imports(db)
+
+
+@router.get("/netbox-dtl/items", response_model=list[NetBoxDtlItemRead])
+def list_netbox_dtl_items(
+    import_id: int | None = Query(None),
+    q: str | None = Query(None),
+    manufacturer: str | None = Query(None),
+    limit: int = Query(200, ge=1, le=1000),
+    db: Session = Depends(get_db),
+) -> list[NetBoxDtlItemRead]:
+    return netbox_dtl_svc.list_items(db, import_id=import_id, q=q, manufacturer=manufacturer, limit=limit)
+
+
+@router.post("/netbox-dtl/preview", response_model=NetBoxDtlPreviewRead)
+def preview_netbox_dtl_import(
+    data: NetBoxDtlApplyRequest,
+    db: Session = Depends(get_db),
+) -> NetBoxDtlPreviewRead:
+    return netbox_dtl_svc.preview_apply(db, data)
+
+
+@router.post("/netbox-dtl/apply", response_model=NetBoxDtlApplyRead)
+def apply_netbox_dtl_import(
+    data: NetBoxDtlApplyRequest,
+    db: Session = Depends(get_db),
+) -> NetBoxDtlApplyRead:
+    return netbox_dtl_svc.apply_import(db, get_settings(), data)
+
+
 @router.get("/component-mappings/{source}", response_model=ComponentExternalMappingProfileRead)
 def get_component_external_mapping(source: str) -> ComponentExternalMappingProfileRead:
     row = dcim_svc.get_component_external_mapping_profile(source)
@@ -1054,6 +1119,14 @@ def remove_device_model_image_product(mid: int, db: Session = Depends(get_db)) -
 @router.get("/device-models/{mid}/components", response_model=list[DeviceModelComponentRead])
 def list_device_model_components(mid: int, db: Session = Depends(get_db)) -> list[DeviceModelComponentRead]:
     return dcim_svc.list_device_model_components(db, mid)
+
+
+@router.get("/device-models/{mid}/templates", response_model=list[DeviceModelTemplateRead])
+def list_device_model_templates(mid: int, db: Session = Depends(get_db)) -> list[DeviceModelTemplateRead]:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    return netbox_dtl_svc.list_device_model_templates(db, mid)
 
 
 @router.post("/device-models/{mid}/components", response_model=DeviceModelComponentRead)

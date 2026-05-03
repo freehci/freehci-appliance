@@ -647,6 +647,115 @@ class RedfishInventoryApplyRead(RedfishInventoryPreviewRead):
     applied_count: int = 0
 
 
+class NetBoxDtlGithubImportRequest(BaseModel):
+    branch: str = Field(default="master", min_length=1, max_length=128)
+
+
+class NetBoxDtlDownloadImportRequest(BaseModel):
+    url: str = Field(..., min_length=1, max_length=2048)
+    name: str | None = Field(None, max_length=255)
+
+
+class NetBoxDtlImportRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    source: str
+    source_url: str | None
+    branch: str | None
+    file_relpath: str
+    extract_relpath: str
+    sha256: str
+    status: str
+    item_count: int
+    manufacturer_count: int
+    image_count: int
+    component_template_count: int
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: dt.datetime
+
+
+class NetBoxDtlItemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    import_id: int
+    manufacturer: str
+    model: str
+    slug: str
+    part_number: str | None
+    u_height: float | None
+    is_full_depth: bool | None
+    airflow: str | None
+    front_image_relpath: str | None
+    rear_image_relpath: str | None
+    yaml_relpath: str
+    component_counts_json: dict[str, Any] = Field(default_factory=dict)
+    raw_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class DeviceModelTemplateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_model_id: int
+    source: str
+    component_type: str
+    name: str
+    label: str | None
+    sort_order: int
+    raw_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: dt.datetime
+
+
+class NetBoxDtlApplyRequest(BaseModel):
+    import_id: int = Field(..., ge=1)
+    item_ids: list[int] | None = None
+    q: str | None = Field(None, max_length=255)
+    manufacturer: str | None = Field(None, max_length=255)
+    limit: int = Field(default=50, ge=1, le=500)
+    include_images: bool = True
+    include_templates: bool = True
+
+
+class NetBoxDtlItemPreviewRead(BaseModel):
+    item_id: int
+    manufacturer: str
+    model: str
+    slug: str
+    action: str
+    manufacturer_action: str
+    existing_device_model_id: int | None = None
+    front_image: bool = False
+    rear_image: bool = False
+    component_counts: dict[str, int] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+
+
+class NetBoxDtlPreviewRead(BaseModel):
+    import_id: int
+    items: list[NetBoxDtlItemPreviewRead] = Field(default_factory=list)
+    total_candidates: int = 0
+    notes: list[str] = Field(default_factory=list)
+
+
+class NetBoxDtlApplyItemRead(NetBoxDtlItemPreviewRead):
+    device_model_id: int
+    identities_created: int = 0
+    templates_imported: int = 0
+    images_imported: int = 0
+
+
+class NetBoxDtlApplyRead(BaseModel):
+    import_id: int
+    applied_count: int = 0
+    created_count: int = 0
+    updated_count: int = 0
+    items: list[NetBoxDtlApplyItemRead] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class ComponentClassParentCreate(BaseModel):
     parent_class_id: int = Field(..., ge=1)
     sort_order: int = 0

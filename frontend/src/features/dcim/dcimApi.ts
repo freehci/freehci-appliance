@@ -36,6 +36,11 @@ import type {
   Manufacturer,
   ManufacturerDetail,
   ManufacturerIdentity,
+  DeviceModelTemplate,
+  NetBoxDtlApply,
+  NetBoxDtlImport,
+  NetBoxDtlItem,
+  NetBoxDtlPreview,
   Rack,
   RackPlacement,
   RedfishInventoryApply,
@@ -434,6 +439,67 @@ export function applyRedfishInventory(body: {
   apply_components?: boolean;
 }): Promise<RedfishInventoryApply> {
   return apiPost(`${P}/redfish/inventory/apply`, body);
+}
+
+export function importNetBoxDtlGithub(body: { branch?: string }): Promise<NetBoxDtlImport> {
+  return apiPost(`${P}/netbox-dtl/imports/github`, body);
+}
+
+export function uploadNetBoxDtl(file: File): Promise<NetBoxDtlImport> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/netbox-dtl/imports/upload`, fd);
+}
+
+export function downloadNetBoxDtl(body: { url: string; name?: string | null }): Promise<NetBoxDtlImport> {
+  return apiPost(`${P}/netbox-dtl/imports/download`, body);
+}
+
+export function listNetBoxDtlImports(): Promise<NetBoxDtlImport[]> {
+  return apiGet(`${P}/netbox-dtl/imports`);
+}
+
+export function listNetBoxDtlItems(params?: {
+  import_id?: number;
+  q?: string;
+  manufacturer?: string;
+  limit?: number;
+}): Promise<NetBoxDtlItem[]> {
+  const qs = new URLSearchParams();
+  if (params?.import_id != null) qs.set("import_id", String(params.import_id));
+  if (params?.q) qs.set("q", params.q);
+  if (params?.manufacturer) qs.set("manufacturer", params.manufacturer);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return apiGet(`${P}/netbox-dtl/items${suffix}`);
+}
+
+export function previewNetBoxDtlImport(body: {
+  import_id: number;
+  item_ids?: number[] | null;
+  q?: string | null;
+  manufacturer?: string | null;
+  limit?: number;
+  include_images?: boolean;
+  include_templates?: boolean;
+}): Promise<NetBoxDtlPreview> {
+  return apiPost(`${P}/netbox-dtl/preview`, body);
+}
+
+export function applyNetBoxDtlImport(body: {
+  import_id: number;
+  item_ids?: number[] | null;
+  q?: string | null;
+  manufacturer?: string | null;
+  limit?: number;
+  include_images?: boolean;
+  include_templates?: boolean;
+}): Promise<NetBoxDtlApply> {
+  return apiPost(`${P}/netbox-dtl/apply`, body);
+}
+
+export function listDeviceModelTemplates(modelId: number): Promise<DeviceModelTemplate[]> {
+  return apiGet(`${P}/device-models/${modelId}/templates`);
 }
 
 export function updateComponentClass(

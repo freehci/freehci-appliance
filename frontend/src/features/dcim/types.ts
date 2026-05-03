@@ -292,6 +292,90 @@ export type RedfishInventoryApply = RedfishInventoryPreview & {
   applied_count: number;
 };
 
+export type NetBoxDtlImport = {
+  id: number;
+  name: string;
+  source: string;
+  source_url: string | null;
+  branch: string | null;
+  file_relpath: string;
+  extract_relpath: string;
+  sha256: string;
+  status: string;
+  item_count: number;
+  manufacturer_count: number;
+  image_count: number;
+  component_template_count: number;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type NetBoxDtlItem = {
+  id: number;
+  import_id: number;
+  manufacturer: string;
+  model: string;
+  slug: string;
+  part_number: string | null;
+  u_height: number | null;
+  is_full_depth: boolean | null;
+  airflow: string | null;
+  front_image_relpath: string | null;
+  rear_image_relpath: string | null;
+  yaml_relpath: string;
+  component_counts_json: Record<string, unknown>;
+  raw_json: Record<string, unknown>;
+};
+
+export type DeviceModelTemplate = {
+  id: number;
+  device_model_id: number;
+  source: string;
+  component_type: string;
+  name: string;
+  label: string | null;
+  sort_order: number;
+  raw_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type NetBoxDtlItemPreview = {
+  item_id: number;
+  manufacturer: string;
+  model: string;
+  slug: string;
+  action: string;
+  manufacturer_action: string;
+  existing_device_model_id: number | null;
+  front_image: boolean;
+  rear_image: boolean;
+  component_counts: Record<string, number>;
+  notes: string[];
+};
+
+export type NetBoxDtlPreview = {
+  import_id: number;
+  items: NetBoxDtlItemPreview[];
+  total_candidates: number;
+  notes: string[];
+};
+
+export type NetBoxDtlApplyItem = NetBoxDtlItemPreview & {
+  device_model_id: number;
+  identities_created: number;
+  templates_imported: number;
+  images_imported: number;
+};
+
+export type NetBoxDtlApply = {
+  import_id: number;
+  applied_count: number;
+  created_count: number;
+  updated_count: number;
+  items: NetBoxDtlApplyItem[];
+  notes: string[];
+};
+
 export type ComponentClassField = {
   id: number;
   class_id: number;

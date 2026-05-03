@@ -229,6 +229,11 @@ class DeviceModel(Base):
         cascade="all, delete-orphan",
         order_by="DeviceModelIdentity.identity_type, DeviceModelIdentity.namespace, DeviceModelIdentity.normalized_value",
     )
+    templates: Mapped[list["DeviceModelTemplate"]] = relationship(
+        back_populates="device_model",
+        cascade="all, delete-orphan",
+        order_by="DeviceModelTemplate.component_type, DeviceModelTemplate.sort_order, DeviceModelTemplate.name",
+    )
 
 
 class DeviceModelIdentity(Base):
@@ -503,6 +508,89 @@ class RedfishSchemaResource(Base):
     metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     bundle: Mapped["RedfishSchemaBundle"] = relationship(back_populates="resources")
+
+
+class NetBoxDeviceTypeLibraryImport(Base):
+    """Importert NetBox Device Type Library-kopi."""
+
+    __tablename__ = "dcim_netbox_dtl_imports"
+    __table_args__ = (
+        UniqueConstraint("sha256", name="uq_dcim_netbox_dtl_imports_sha256"),
+        Index("ix_dcim_netbox_dtl_imports_created", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    branch: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    file_relpath: Mapped[str] = mapped_column(String(512), nullable=False)
+    extract_relpath: Mapped[str] = mapped_column(String(512), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ready")
+    item_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    manufacturer_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    image_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    component_template_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    items: Mapped[list["NetBoxDeviceTypeLibraryItem"]] = relationship(
+        back_populates="import_run",
+        cascade="all, delete-orphan",
+        order_by="NetBoxDeviceTypeLibraryItem.manufacturer, NetBoxDeviceTypeLibraryItem.model",
+    )
+
+
+class NetBoxDeviceTypeLibraryItem(Base):
+    """Indeksert device type fra NetBox Device Type Library."""
+
+    __tablename__ = "dcim_netbox_dtl_items"
+    __table_args__ = (
+        UniqueConstraint("import_id", "manufacturer", "slug", name="uq_dcim_netbox_dtl_item_import_slug"),
+        Index("ix_dcim_netbox_dtl_items_import", "import_id"),
+        Index("ix_dcim_netbox_dtl_items_lookup", "manufacturer", "slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    import_id: Mapped[int] = mapped_column(ForeignKey("dcim_netbox_dtl_imports.id", ondelete="CASCADE"), nullable=False)
+    manufacturer: Mapped[str] = mapped_column(String(255), nullable=False)
+    model: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    part_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    u_height: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_full_depth: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    airflow: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    front_image_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    rear_image_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    yaml_relpath: Mapped[str] = mapped_column(String(512), nullable=False)
+    component_counts_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    import_run: Mapped["NetBoxDeviceTypeLibraryImport"] = relationship(back_populates="items")
+
+
+class DeviceModelTemplate(Base):
+    """NetBox component template bevart på FreeHCI DeviceModel."""
+
+    __tablename__ = "dcim_device_model_templates"
+    __table_args__ = (
+        UniqueConstraint("device_model_id", "source", "component_type", "name", name="uq_dcim_device_model_template"),
+        Index("ix_dcim_device_model_templates_model", "device_model_id"),
+        Index("ix_dcim_device_model_templates_type", "component_type"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_model_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_models.id", ondelete="CASCADE"), nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, default="netbox_dtl")
+    component_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    device_model: Mapped["DeviceModel"] = relationship(back_populates="templates")
 
 
 class ComponentChildTemplate(Base):
