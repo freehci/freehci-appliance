@@ -567,6 +567,86 @@ class ExternalInventoryImportPreviewRead(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class RedfishSchemaBundleDownloadRequest(BaseModel):
+    url: str = Field(..., min_length=1, max_length=2048)
+    name: str | None = Field(None, max_length=255)
+
+
+class RedfishSchemaBundleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    version: str | None
+    source: str
+    source_url: str | None
+    file_relpath: str
+    extract_relpath: str
+    sha256: str
+    status: str
+    schema_count: int
+    json_schema_count: int
+    csdl_count: int
+    openapi_count: int
+    dictionaries_count: int
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: dt.datetime
+
+
+class RedfishSchemaResourceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    bundle_id: int
+    resource_type: str
+    schema_version: str | None
+    schema_uri: str
+    format: str
+    file_relpath: str
+    title: str | None
+    description: str | None
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class RedfishSchemaValidationRead(BaseModel):
+    resource_type: str
+    odata_type: str | None = None
+    schema_resource_id: int | None = None
+    schema_known: bool = False
+    valid: bool = True
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class RedfishInventoryImportRequest(BaseModel):
+    bundle_id: int | None = Field(None, ge=1)
+    payload: dict[str, Any]
+    apply_components: bool = True
+
+
+class RedfishInventoryResourcePreviewRead(BaseModel):
+    resource_type: str
+    odata_type: str | None = None
+    path: str | None = None
+    name: str | None = None
+    supported: bool = False
+    proposed_action: str
+    validation: RedfishSchemaValidationRead
+    component_preview: ExternalInventoryImportPreviewRead | None = None
+    apply_result: ExternalInventoryImportApplyRead | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class RedfishInventoryPreviewRead(BaseModel):
+    bundle_id: int | None = None
+    resources: list[RedfishInventoryResourcePreviewRead] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class RedfishInventoryApplyRead(RedfishInventoryPreviewRead):
+    applied_count: int = 0
+
+
 class ComponentClassParentCreate(BaseModel):
     parent_class_id: int = Field(..., ge=1)
     sort_order: int = 0

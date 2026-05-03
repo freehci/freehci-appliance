@@ -38,11 +38,13 @@ services:
       UPLOAD_ROOT: /app/data/uploads
       MIB_ROOT: /app/data/mibs
       MIB_COMPILED_ROOT: /app/data/mibs/compiled
+      REDFISH_SCHEMA_ROOT: /app/data/redfish-schemas
       # Overstyr i produksjon (påvirker JWT for admin-innlogging).
       JWT_SECRET: change-me-in-production-use-long-random-string
     volumes:
       - dcim_uploads:/app/data/uploads
       - dcim_mibs:/app/data/mibs
+      - dcim_redfish_schemas:/app/data/redfish-schemas
     depends_on:
       postgres:
         condition: service_healthy
@@ -96,3 +98,4 @@ volumes:
   postgres_data:
   dcim_uploads:
   dcim_mibs:
+  dcim_redfish_schemas:

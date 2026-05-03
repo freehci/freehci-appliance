@@ -80,6 +80,29 @@ class Settings(BaseSettings):
         description="Maks størrelse per opplastet MIB-fil (bytes), standard 20 MiB",
     )
 
+    redfish_schema_root: str = Field(
+        default="data/redfish-schemas",
+        description="Katalog for importerte Redfish DSP8010 schema-bundles",
+    )
+    redfish_schema_max_zip_bytes: int = Field(
+        default=200 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=1024 * 1024 * 1024,
+        description="Maks størrelse på opplastet/nedlastet DSP8010 ZIP",
+    )
+    redfish_schema_max_extracted_bytes: int = Field(
+        default=750 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=2 * 1024 * 1024 * 1024,
+        description="Maks samlet utpakket størrelse for DSP8010 ZIP",
+    )
+    redfish_schema_max_files: int = Field(
+        default=20000,
+        ge=1,
+        le=100000,
+        description="Maks antall filer som indekseres/utpakkes fra DSP8010 ZIP",
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -103,6 +126,10 @@ class Settings(BaseSettings):
     @property
     def mib_compiled_path(self) -> Path:
         return Path(self.mib_compiled_root).expanduser()
+
+    @property
+    def redfish_schema_root_path(self) -> Path:
+        return Path(self.redfish_schema_root).expanduser()
 
 
 @lru_cache

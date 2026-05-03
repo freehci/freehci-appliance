@@ -58,6 +58,12 @@ from app.schemas.dcim import (
     ExternalInventoryImportApplyRequest,
     ExternalInventoryImportPreviewRead,
     ExternalInventoryImportPreviewRequest,
+    RedfishInventoryApplyRead,
+    RedfishInventoryImportRequest,
+    RedfishInventoryPreviewRead,
+    RedfishSchemaBundleDownloadRequest,
+    RedfishSchemaBundleRead,
+    RedfishSchemaResourceRead,
     IpAssignmentCreate,
     IpAssignmentRead,
     IpAssignmentUpdate,
@@ -100,6 +106,7 @@ from app.schemas.dcim import (
 )
 from app.services import dcim as dcim_svc
 from app.services import geocoding as geocode_svc
+from app.services import redfish_schema_bundle as redfish_schema_svc
 
 router = APIRouter(prefix="/dcim", tags=["dcim"])
 
@@ -568,6 +575,53 @@ def apply_component_import(
     db: Session = Depends(get_db),
 ) -> ExternalInventoryImportApplyRead:
     return dcim_svc.apply_external_inventory_import(db, data)
+
+
+@router.post("/redfish/schema-bundles/upload", response_model=RedfishSchemaBundleRead)
+async def upload_redfish_schema_bundle(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> RedfishSchemaBundleRead:
+    return await redfish_schema_svc.import_schema_bundle_upload(db, get_settings(), file)
+
+
+@router.post("/redfish/schema-bundles/download", response_model=RedfishSchemaBundleRead)
+async def download_redfish_schema_bundle(
+    data: RedfishSchemaBundleDownloadRequest,
+    db: Session = Depends(get_db),
+) -> RedfishSchemaBundleRead:
+    return await redfish_schema_svc.import_schema_bundle_download(db, get_settings(), data.url, data.name)
+
+
+@router.get("/redfish/schema-bundles", response_model=list[RedfishSchemaBundleRead])
+def list_redfish_schema_bundles(db: Session = Depends(get_db)) -> list[RedfishSchemaBundleRead]:
+    return redfish_schema_svc.list_schema_bundles(db)
+
+
+@router.get("/redfish/schema-bundles/{bundle_id}/resources", response_model=list[RedfishSchemaResourceRead])
+def list_redfish_schema_resources(
+    bundle_id: int,
+    db: Session = Depends(get_db),
+) -> list[RedfishSchemaResourceRead]:
+    return redfish_schema_svc.list_schema_resources(db, bundle_id)
+
+
+@router.post("/redfish/inventory/preview", response_model=RedfishInventoryPreviewRead)
+def preview_redfish_inventory(
+    data: RedfishInventoryImportRequest,
+    db: Session = Depends(get_db),
+) -> RedfishInventoryPreviewRead:
+    result = redfish_schema_svc.preview_redfish_inventory(db, get_settings(), data, apply=False)
+    return result  # type: ignore[return-value]
+
+
+@router.post("/redfish/inventory/apply", response_model=RedfishInventoryApplyRead)
+def apply_redfish_inventory(
+    data: RedfishInventoryImportRequest,
+    db: Session = Depends(get_db),
+) -> RedfishInventoryApplyRead:
+    result = redfish_schema_svc.preview_redfish_inventory(db, get_settings(), data, apply=True)
+    return result  # type: ignore[return-value]
 
 
 @router.get("/component-mappings/{source}", response_model=ComponentExternalMappingProfileRead)

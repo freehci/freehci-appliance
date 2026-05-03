@@ -448,6 +448,63 @@ class ComponentIdentity(Base):
     component: Mapped["Component"] = relationship(back_populates="identities")
 
 
+class RedfishSchemaBundle(Base):
+    """Importert DMTF Redfish Schema Bundle (DSP8010)."""
+
+    __tablename__ = "dcim_redfish_schema_bundles"
+    __table_args__ = (
+        UniqueConstraint("sha256", name="uq_dcim_redfish_schema_bundles_sha256"),
+        Index("ix_dcim_redfish_schema_bundles_created", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    file_relpath: Mapped[str] = mapped_column(String(512), nullable=False)
+    extract_relpath: Mapped[str] = mapped_column(String(512), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ready")
+    schema_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    json_schema_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    csdl_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    openapi_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    dictionaries_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    resources: Mapped[list["RedfishSchemaResource"]] = relationship(
+        back_populates="bundle",
+        cascade="all, delete-orphan",
+        order_by="RedfishSchemaResource.resource_type, RedfishSchemaResource.schema_version",
+    )
+
+
+class RedfishSchemaResource(Base):
+    """Indeksert Redfish schema/resource fra en DSP8010-bundle."""
+
+    __tablename__ = "dcim_redfish_schema_resources"
+    __table_args__ = (
+        UniqueConstraint("bundle_id", "format", "schema_uri", name="uq_dcim_redfish_schema_resource_uri"),
+        Index("ix_dcim_redfish_schema_resources_bundle", "bundle_id"),
+        Index("ix_dcim_redfish_schema_resources_lookup", "resource_type", "format"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bundle_id: Mapped[int] = mapped_column(ForeignKey("dcim_redfish_schema_bundles.id", ondelete="CASCADE"), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    schema_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    schema_uri: Mapped[str] = mapped_column(String(512), nullable=False)
+    format: Mapped[str] = mapped_column(String(32), nullable=False)
+    file_relpath: Mapped[str] = mapped_column(String(512), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    bundle: Mapped["RedfishSchemaBundle"] = relationship(back_populates="resources")
+
+
 class ComponentChildTemplate(Base):
     """Barn som en bibliotekskomponent består av, f.eks. NIC -> porter."""
 

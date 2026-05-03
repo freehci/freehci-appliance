@@ -7,7 +7,7 @@ import {
   DcimComponentSpecEditor,
   specsFromDraft,
 } from "./DcimComponentSpecEditor";
-import type { ComponentExternalMappingPreview, ExternalInventoryImportPreview } from "./types";
+import type { ComponentExternalMappingPreview, ExternalInventoryImportPreview, RedfishInventoryPreview } from "./types";
 import styles from "./dcim.module.css";
 
 function slugify(s: string): string {
@@ -73,6 +73,12 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const [importPreview, setImportPreview] = useState("");
   const [importPreviewData, setImportPreviewData] = useState<ExternalInventoryImportPreview | null>(null);
   const [importApplyResult, setImportApplyResult] = useState("");
+  const [redfishUrl, setRedfishUrl] = useState("");
+  const [redfishBundleId, setRedfishBundleId] = useState("");
+  const [redfishPayload, setRedfishPayload] = useState("{}");
+  const [redfishPreview, setRedfishPreview] = useState<RedfishInventoryPreview | null>(null);
+  const [redfishPreviewRaw, setRedfishPreviewRaw] = useState("");
+  const [redfishApplyRaw, setRedfishApplyRaw] = useState("");
 
   const classesQ = useQuery({ queryKey: ["dcim", "component-classes"], queryFn: api.listComponentClasses });
   const fieldsQ = useQuery({
@@ -118,6 +124,12 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
   const deviceModelIdentitiesQ = useQuery({
     queryKey: ["dcim", "device-model-identities", identitySearch],
     queryFn: () => api.listDeviceModelIdentities(identitySearch.trim() ? { q: identitySearch.trim() } : undefined),
+  });
+  const redfishBundlesQ = useQuery({ queryKey: ["dcim", "redfish-schema-bundles"], queryFn: api.listRedfishSchemaBundles });
+  const redfishResourcesQ = useQuery({
+    queryKey: ["dcim", "redfish-schema-resources", redfishBundleId],
+    queryFn: () => api.listRedfishSchemaResources(Number(redfishBundleId)),
+    enabled: redfishBundleId !== "",
   });
 
   const selectedClass = useMemo(
@@ -469,6 +481,63 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
     },
     onError: onMutError,
   });
+  const uploadRedfishBundleM = useMutation({
+    mutationFn: (file: File) => api.uploadRedfishSchemaBundle(file),
+    onSuccess: (bundle) => {
+      onError(null);
+      setRedfishBundleId(String(bundle.id));
+      void qc.invalidateQueries({ queryKey: ["dcim", "redfish-schema-bundles"] });
+    },
+    onError: onMutError,
+  });
+  const downloadRedfishBundleM = useMutation({
+    mutationFn: () => api.downloadRedfishSchemaBundle({ url: redfishUrl.trim() }),
+    onSuccess: (bundle) => {
+      onError(null);
+      setRedfishUrl("");
+      setRedfishBundleId(String(bundle.id));
+      void qc.invalidateQueries({ queryKey: ["dcim", "redfish-schema-bundles"] });
+    },
+    onError: onMutError,
+  });
+  const previewRedfishInventoryM = useMutation({
+    mutationFn: () => {
+      const parsed = JSON.parse(redfishPayload) as unknown;
+      if (parsed == null || Array.isArray(parsed) || typeof parsed !== "object") {
+        throw new Error(t("dcim.components.mappingPayloadObject"));
+      }
+      return api.previewRedfishInventory({
+        bundle_id: redfishBundleId === "" ? null : Number(redfishBundleId),
+        payload: parsed as Record<string, unknown>,
+      });
+    },
+    onSuccess: (res) => {
+      onError(null);
+      setRedfishPreview(res);
+      setRedfishPreviewRaw(JSON.stringify(res, null, 2));
+      setRedfishApplyRaw("");
+    },
+    onError: onMutError,
+  });
+  const applyRedfishInventoryM = useMutation({
+    mutationFn: () => {
+      const parsed = JSON.parse(redfishPayload) as unknown;
+      if (parsed == null || Array.isArray(parsed) || typeof parsed !== "object") {
+        throw new Error(t("dcim.components.mappingPayloadObject"));
+      }
+      return api.applyRedfishInventory({
+        bundle_id: redfishBundleId === "" ? null : Number(redfishBundleId),
+        payload: parsed as Record<string, unknown>,
+      });
+    },
+    onSuccess: (res) => {
+      onError(null);
+      setRedfishApplyRaw(JSON.stringify(res, null, 2));
+      void qc.invalidateQueries({ queryKey: ["dcim", "components"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "component-identities"] });
+    },
+    onError: onMutError,
+  });
   const applyMappingPreview = () => {
     if (mappingPreviewData == null) return;
     const targetClass = mappingTargetClass;
@@ -723,6 +792,100 @@ export function DcimComponentLibraryPanel({ onError }: { onError: (msg: string |
               ))}
             </tbody>
           </table>
+        </>
+      ) : null}
+
+      <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.components.redfishSchemas")}</h3>
+      <p className={styles.muted}>{t("dcim.components.redfishSchemasHint")}</p>
+      <div className={styles.formRow}>
+        <label>{t("dcim.components.redfishUpload")}
+          <input
+            type="file"
+            accept=".zip,application/zip"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadRedfishBundleM.mutate(file);
+              e.currentTarget.value = "";
+            }}
+          />
+        </label>
+        <label style={{ flex: "1 1 20rem" }}>{t("dcim.components.redfishDownloadUrl")}
+          <input value={redfishUrl} onChange={(e) => setRedfishUrl(e.target.value)} placeholder="https://www.dmtf.org/..." />
+        </label>
+        <button type="button" className={styles.btn} disabled={downloadRedfishBundleM.isPending || redfishUrl.trim() === ""} onClick={() => downloadRedfishBundleM.mutate()}>
+          {downloadRedfishBundleM.isPending ? "…" : t("dcim.components.redfishDownload")}
+        </button>
+      </div>
+      <div className={styles.formRow}>
+        <label>{t("dcim.components.redfishBundle")}
+          <select value={redfishBundleId} onChange={(e) => { setRedfishBundleId(e.target.value); setRedfishPreview(null); setRedfishPreviewRaw(""); setRedfishApplyRaw(""); }}>
+            <option value="">{t("dcim.common.choose")}</option>
+            {(redfishBundlesQ.data ?? []).map((bundle) => (
+              <option key={bundle.id} value={String(bundle.id)}>
+                {bundle.name} ({bundle.schema_count})
+              </option>
+            ))}
+          </select>
+        </label>
+        {redfishBundleId !== "" ? (
+          <span className={styles.muted}>
+            {t("dcim.components.redfishResourceCount", { count: String(redfishResourcesQ.data?.length ?? 0) })}
+          </span>
+        ) : null}
+      </div>
+      {redfishBundleId !== "" && (redfishResourcesQ.data ?? []).length > 0 ? (
+        <details className={styles.catalogTreeGroup}>
+          <summary>{t("dcim.components.redfishResources")}</summary>
+          <table className={styles.table}>
+            <thead><tr><th>{t("dcim.components.mappingResourceType")}</th><th>{t("dcim.components.redfishFormat")}</th><th>{t("dcim.components.redfishVersion")}</th><th>{t("dcim.components.redfishSchemaUri")}</th></tr></thead>
+            <tbody>
+              {(redfishResourcesQ.data ?? []).slice(0, 200).map((resource) => (
+                <tr key={resource.id}>
+                  <td>{resource.resource_type}</td>
+                  <td><code>{resource.format}</code></td>
+                  <td>{resource.schema_version ?? "—"}</td>
+                  <td><code>{resource.schema_uri}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {(redfishResourcesQ.data ?? []).length > 200 ? <p className={styles.muted}>{t("dcim.components.redfishResourceLimit")}</p> : null}
+        </details>
+      ) : null}
+      <form className={styles.formRow} onSubmit={(e) => { e.preventDefault(); previewRedfishInventoryM.mutate(); }}>
+        <label style={{ flex: "1 1 100%" }}>{t("dcim.components.redfishInventoryPayload")}
+          <textarea value={redfishPayload} onChange={(e) => { setRedfishPayload(e.target.value); setRedfishPreview(null); setRedfishPreviewRaw(""); setRedfishApplyRaw(""); }} rows={6} spellCheck={false} />
+        </label>
+        <button type="submit" className={styles.btnMuted} disabled={previewRedfishInventoryM.isPending}>
+          {previewRedfishInventoryM.isPending ? "…" : t("dcim.components.redfishInventoryPreview")}
+        </button>
+        <button type="button" className={styles.btn} disabled={applyRedfishInventoryM.isPending} onClick={() => applyRedfishInventoryM.mutate()}>
+          {applyRedfishInventoryM.isPending ? "…" : t("dcim.components.redfishInventoryApply")}
+        </button>
+      </form>
+      {redfishPreview ? (
+        <>
+          <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.components.redfishInventoryPreviewResult")}</h4>
+          <table className={styles.table}>
+            <thead><tr><th>{t("dcim.components.mappingResourceType")}</th><th>{t("dcim.components.redfishSchema")}</th><th>{t("dcim.components.importPreview")}</th><th>{t("dcim.components.notes")}</th></tr></thead>
+            <tbody>
+              {redfishPreview.resources.map((resource) => (
+                <tr key={`${resource.path}-${resource.resource_type}`}>
+                  <td>{resource.resource_type}<br /><span className={styles.muted}>{resource.name ?? resource.path}</span></td>
+                  <td>{resource.validation.schema_known ? (resource.validation.valid ? "OK" : t("dcim.components.redfishSchemaInvalid")) : t("dcim.components.redfishSchemaUnknown")}</td>
+                  <td>{resource.component_preview?.proposed_action ?? resource.proposed_action}</td>
+                  <td>{[...resource.validation.errors, ...resource.validation.warnings, ...resource.notes].join(" ") || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <pre className={styles.codeBlock}>{redfishPreviewRaw}</pre>
+        </>
+      ) : null}
+      {redfishApplyRaw ? (
+        <>
+          <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.components.redfishInventoryApplyResult")}</h4>
+          <pre className={styles.codeBlock}>{redfishApplyRaw}</pre>
         </>
       ) : null}
 

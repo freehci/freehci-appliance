@@ -38,6 +38,10 @@ import type {
   ManufacturerIdentity,
   Rack,
   RackPlacement,
+  RedfishInventoryApply,
+  RedfishInventoryPreview,
+  RedfishSchemaBundle,
+  RedfishSchemaResource,
   Room,
   Site,
   SiteAccessGrant,
@@ -396,6 +400,40 @@ export function applyComponentImport(body: {
   payload: Record<string, unknown>;
 }): Promise<ExternalInventoryImportApply> {
   return apiPost(`${P}/component-imports/apply`, body);
+}
+
+export function uploadRedfishSchemaBundle(file: File): Promise<RedfishSchemaBundle> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/redfish/schema-bundles/upload`, fd);
+}
+
+export function downloadRedfishSchemaBundle(body: { url: string; name?: string | null }): Promise<RedfishSchemaBundle> {
+  return apiPost(`${P}/redfish/schema-bundles/download`, body);
+}
+
+export function listRedfishSchemaBundles(): Promise<RedfishSchemaBundle[]> {
+  return apiGet(`${P}/redfish/schema-bundles`);
+}
+
+export function listRedfishSchemaResources(bundleId: number): Promise<RedfishSchemaResource[]> {
+  return apiGet(`${P}/redfish/schema-bundles/${bundleId}/resources`);
+}
+
+export function previewRedfishInventory(body: {
+  bundle_id?: number | null;
+  payload: Record<string, unknown>;
+  apply_components?: boolean;
+}): Promise<RedfishInventoryPreview> {
+  return apiPost(`${P}/redfish/inventory/preview`, body);
+}
+
+export function applyRedfishInventory(body: {
+  bundle_id?: number | null;
+  payload: Record<string, unknown>;
+  apply_components?: boolean;
+}): Promise<RedfishInventoryApply> {
+  return apiPost(`${P}/redfish/inventory/apply`, body);
 }
 
 export function updateComponentClass(

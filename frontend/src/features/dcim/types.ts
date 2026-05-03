@@ -227,6 +227,71 @@ export type ExternalInventoryImportApply = {
   notes: string[];
 };
 
+export type RedfishSchemaBundle = {
+  id: number;
+  name: string;
+  version: string | null;
+  source: string;
+  source_url: string | null;
+  file_relpath: string;
+  extract_relpath: string;
+  sha256: string;
+  status: string;
+  schema_count: number;
+  json_schema_count: number;
+  csdl_count: number;
+  openapi_count: number;
+  dictionaries_count: number;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type RedfishSchemaResource = {
+  id: number;
+  bundle_id: number;
+  resource_type: string;
+  schema_version: string | null;
+  schema_uri: string;
+  format: string;
+  file_relpath: string;
+  title: string | null;
+  description: string | null;
+  metadata_json: Record<string, unknown>;
+};
+
+export type RedfishSchemaValidation = {
+  resource_type: string;
+  odata_type: string | null;
+  schema_resource_id: number | null;
+  schema_known: boolean;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+};
+
+export type RedfishInventoryResourcePreview = {
+  resource_type: string;
+  odata_type: string | null;
+  path: string | null;
+  name: string | null;
+  supported: boolean;
+  proposed_action: string;
+  validation: RedfishSchemaValidation;
+  component_preview: ExternalInventoryImportPreview | null;
+  apply_result: ExternalInventoryImportApply | null;
+  notes: string[];
+};
+
+export type RedfishInventoryPreview = {
+  bundle_id: number | null;
+  resources: RedfishInventoryResourcePreview[];
+  notes: string[];
+};
+
+export type RedfishInventoryApply = RedfishInventoryPreview & {
+  applied_count: number;
+};
+
 export type ComponentClassField = {
   id: number;
   class_id: number;

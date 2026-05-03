@@ -13,6 +13,8 @@ _upload_root = Path(tempfile.mkdtemp(prefix="freehci-uploads-"))
 os.environ["UPLOAD_ROOT"] = str(_upload_root)
 _mib_root = Path(tempfile.mkdtemp(prefix="freehci-mibs-"))
 os.environ["MIB_ROOT"] = str(_mib_root)
+_redfish_schema_root = Path(tempfile.mkdtemp(prefix="freehci-redfish-schemas-"))
+os.environ["REDFISH_SCHEMA_ROOT"] = str(_redfish_schema_root)
 
 from app.core.config import get_settings  # noqa: E402
 
