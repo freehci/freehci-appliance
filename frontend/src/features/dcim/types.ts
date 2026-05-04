@@ -336,7 +336,19 @@ export type DeviceModelTemplate = {
   label: string | null;
   sort_order: number;
   raw_json: Record<string, unknown>;
+  normalized_json: Record<string, unknown>;
+  quality_score: number;
+  quality_warnings_json: string[];
   created_at: string;
+};
+
+export type DeviceModelTemplateQuality = {
+  device_model_id: number;
+  template_count: number;
+  average_quality_score: number;
+  warning_count: number;
+  type_counts: Record<string, number>;
+  warnings_by_type: Record<string, number>;
 };
 
 export type NetBoxDtlItemPreview = {

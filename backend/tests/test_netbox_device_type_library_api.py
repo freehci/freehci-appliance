@@ -31,10 +31,19 @@ interfaces:
   - name: ge-0/0/0
     type: 1000base-t
   - name: ge-0/0/1
-    type: 1000base-t
+    type: weird-fabric-port
 power-ports:
   - name: PSU 1
     type: iec-60320-c14
+    maximum_draw: 750
+front-ports:
+  - name: Front 1
+    type: 8p8c
+    rear_port: Rear 1
+rear-ports:
+  - name: Rear 1
+    type: 8p8c
+    positions: 1
 """
     svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="20"></svg>'
     return _zip_bytes(
@@ -68,13 +77,13 @@ def test_netbox_dtl_upload_indexes_preview_and_apply_is_idempotent() -> None:
         assert import_run["item_count"] == 1
         assert import_run["manufacturer_count"] == 1
         assert import_run["image_count"] == 2
-        assert import_run["component_template_count"] == 3
+        assert import_run["component_template_count"] == 5
 
         items = client.get(f"/api/v1/dcim/netbox-dtl/items?import_id={import_run['id']}")
         assert items.status_code == 200, items.text
         item = items.json()[0]
         assert item["manufacturer"] == "Example Networks"
-        assert item["component_counts_json"] == {"interfaces": 2, "power-ports": 1}
+        assert item["component_counts_json"] == {"interfaces": 2, "power-ports": 1, "front-ports": 1, "rear-ports": 1}
 
         preview = client.post(
             "/api/v1/dcim/netbox-dtl/preview",
@@ -93,7 +102,7 @@ def test_netbox_dtl_upload_indexes_preview_and_apply_is_idempotent() -> None:
         assert applied["created_count"] == 1
         assert applied["updated_count"] == 0
         assert applied["items"][0]["images_imported"] == 2
-        assert applied["items"][0]["templates_imported"] == 3
+        assert applied["items"][0]["templates_imported"] == 5
         model_id = applied["items"][0]["device_model_id"]
 
         model = client.get(f"/api/v1/dcim/device-models/{model_id}")
@@ -103,7 +112,26 @@ def test_netbox_dtl_upload_indexes_preview_and_apply_is_idempotent() -> None:
 
         templates = client.get(f"/api/v1/dcim/device-models/{model_id}/templates")
         assert templates.status_code == 200, templates.text
-        assert len(templates.json()) == 3
+        template_rows = templates.json()
+        assert len(template_rows) == 5
+        ge0 = next(row for row in template_rows if row["name"] == "ge-0/0/0")
+        assert ge0["normalized_json"]["speed_mbps"] == 1000
+        assert ge0["normalized_json"]["media_type"] == "copper"
+        assert ge0["quality_score"] == 100
+        weird = next(row for row in template_rows if row["name"] == "ge-0/0/1")
+        assert "unknown_interface_type:weird-fabric-port" in weird["quality_warnings_json"]
+        power = next(row for row in template_rows if row["component_type"] == "power-ports")
+        assert power["normalized_json"]["maximum_draw_watts"] == 750
+        assert power["normalized_json"]["connector_type"] == "iec-60320-c14"
+
+        quality = client.get(f"/api/v1/dcim/device-models/{model_id}/template-quality")
+        assert quality.status_code == 200, quality.text
+        assert quality.json()["template_count"] == 5
+        assert quality.json()["warning_count"] >= 1
+
+        renormalized = client.post(f"/api/v1/dcim/device-models/{model_id}/templates/renormalize")
+        assert renormalized.status_code == 200, renormalized.text
+        assert len(renormalized.json()) == 5
 
         apply_two = client.post(
             "/api/v1/dcim/netbox-dtl/apply",

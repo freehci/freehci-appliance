@@ -59,6 +59,7 @@ from app.schemas.dcim import (
     ExternalInventoryImportPreviewRead,
     ExternalInventoryImportPreviewRequest,
     DeviceModelTemplateRead,
+    DeviceModelTemplateQualityRead,
     NetBoxDtlApplyRead,
     NetBoxDtlApplyRequest,
     NetBoxDtlDownloadImportRequest,
@@ -1127,6 +1128,22 @@ def list_device_model_templates(mid: int, db: Session = Depends(get_db)) -> list
     if row is None:
         raise HTTPException(status_code=404, detail="device_model ikke funnet")
     return netbox_dtl_svc.list_device_model_templates(db, mid)
+
+
+@router.post("/device-models/{mid}/templates/renormalize", response_model=list[DeviceModelTemplateRead])
+def renormalize_device_model_templates(mid: int, db: Session = Depends(get_db)) -> list[DeviceModelTemplateRead]:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    return netbox_dtl_svc.renormalize_device_model_templates(db, mid)
+
+
+@router.get("/device-models/{mid}/template-quality", response_model=DeviceModelTemplateQualityRead)
+def get_device_model_template_quality(mid: int, db: Session = Depends(get_db)) -> DeviceModelTemplateQualityRead:
+    row = dcim_svc.get_device_model(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_model ikke funnet")
+    return DeviceModelTemplateQualityRead.model_validate(netbox_dtl_svc.device_model_template_quality(db, mid))
 
 
 @router.post("/device-models/{mid}/components", response_model=DeviceModelComponentRead)

@@ -294,6 +294,11 @@ export const nb = {
   "dcim.netbox.templatesEmpty": "Ingen NetBox component templates er importert for denne modellen.",
   "dcim.netbox.componentType": "Type",
   "dcim.netbox.label": "Label",
+  "dcim.netbox.templateQualitySummary": "{count} templates, snittscore {score}, {warnings} varsler.",
+  "dcim.netbox.renormalizeTemplates": "Re-normaliser templates",
+  "dcim.netbox.normalized": "Normalisert",
+  "dcim.netbox.quality": "Kvalitet",
+  "dcim.netbox.warnings": "Varsler",
   "dcim.components.externalMappings": "Eksterne mappinger",
   "dcim.components.externalMappingsHint":
     "Referansemappinger fra eksterne inventory-kilder inn i FreeHCI-normalmodellen. Importere bør bruke disse mappingene i stedet for å endre intern modell.",

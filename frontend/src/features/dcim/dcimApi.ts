@@ -37,6 +37,7 @@ import type {
   ManufacturerDetail,
   ManufacturerIdentity,
   DeviceModelTemplate,
+  DeviceModelTemplateQuality,
   NetBoxDtlApply,
   NetBoxDtlImport,
   NetBoxDtlItem,
@@ -500,6 +501,14 @@ export function applyNetBoxDtlImport(body: {
 
 export function listDeviceModelTemplates(modelId: number): Promise<DeviceModelTemplate[]> {
   return apiGet(`${P}/device-models/${modelId}/templates`);
+}
+
+export function renormalizeDeviceModelTemplates(modelId: number): Promise<DeviceModelTemplate[]> {
+  return apiPost(`${P}/device-models/${modelId}/templates/renormalize`, {});
+}
+
+export function getDeviceModelTemplateQuality(modelId: number): Promise<DeviceModelTemplateQuality> {
+  return apiGet(`${P}/device-models/${modelId}/template-quality`);
 }
 
 export function updateComponentClass(

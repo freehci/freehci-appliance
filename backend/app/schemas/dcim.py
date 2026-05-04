@@ -706,7 +706,19 @@ class DeviceModelTemplateRead(BaseModel):
     label: str | None
     sort_order: int
     raw_json: dict[str, Any] = Field(default_factory=dict)
+    normalized_json: dict[str, Any] = Field(default_factory=dict)
+    quality_score: int = 0
+    quality_warnings_json: list[str] = Field(default_factory=list)
     created_at: dt.datetime
+
+
+class DeviceModelTemplateQualityRead(BaseModel):
+    device_model_id: int
+    template_count: int = 0
+    average_quality_score: float = 0
+    warning_count: int = 0
+    type_counts: dict[str, int] = Field(default_factory=dict)
+    warnings_by_type: dict[str, int] = Field(default_factory=dict)
 
 
 class NetBoxDtlApplyRequest(BaseModel):

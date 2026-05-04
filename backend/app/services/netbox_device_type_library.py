@@ -35,6 +35,7 @@ from app.schemas.dcim import (
     NetBoxDtlPreviewRead,
 )
 from app.services import dcim as dcim_svc
+from app.services.netbox_dtl_normalizer import normalize_template
 
 NETBOX_DTL_GITHUB_ZIP = "https://github.com/netbox-community/devicetype-library/archive/refs/heads/{branch}.zip"
 COMPONENT_KEYS = (
@@ -94,6 +95,41 @@ def list_device_model_templates(db: Session, device_model_id: int) -> list[Devic
         .order_by(DeviceModelTemplate.component_type, DeviceModelTemplate.sort_order, DeviceModelTemplate.name)
     )
     return list(db.scalars(stmt))
+
+
+def device_model_template_quality(db: Session, device_model_id: int) -> dict[str, object]:
+    templates = list_device_model_templates(db, device_model_id)
+    type_counts: dict[str, int] = {}
+    warnings_by_type: dict[str, int] = {}
+    warning_count = 0
+    score_sum = 0
+    for tpl in templates:
+        type_counts[tpl.component_type] = type_counts.get(tpl.component_type, 0) + 1
+        warnings = tpl.quality_warnings_json or []
+        warning_count += len(warnings)
+        if warnings:
+            warnings_by_type[tpl.component_type] = warnings_by_type.get(tpl.component_type, 0) + len(warnings)
+        score_sum += tpl.quality_score
+    return {
+        "device_model_id": device_model_id,
+        "template_count": len(templates),
+        "average_quality_score": round(score_sum / len(templates), 1) if templates else 0,
+        "warning_count": warning_count,
+        "type_counts": type_counts,
+        "warnings_by_type": warnings_by_type,
+    }
+
+
+def renormalize_device_model_templates(db: Session, device_model_id: int) -> list[DeviceModelTemplate]:
+    templates = list_device_model_templates(db, device_model_id)
+    for tpl in templates:
+        normalized = normalize_template(tpl.component_type, tpl.raw_json or {})
+        tpl.normalized_json = normalized.normalized
+        tpl.quality_score = normalized.quality_score
+        tpl.quality_warnings_json = normalized.warnings
+        db.add(tpl)
+    db.commit()
+    return list_device_model_templates(db, device_model_id)
 
 
 async def import_github(db: Session, settings: Settings, branch: str = "master") -> NetBoxDeviceTypeLibraryImport:
@@ -485,6 +521,7 @@ def _sync_templates(db: Session, device_model_id: int, item: NetBoxDeviceTypeLib
             if not isinstance(row, dict):
                 continue
             name = str(row.get("name") or row.get("label") or f"{component_type}-{idx + 1}").strip()
+            normalized = normalize_template(component_type, row)
             db.add(
                 DeviceModelTemplate(
                     device_model_id=device_model_id,
@@ -494,6 +531,9 @@ def _sync_templates(db: Session, device_model_id: int, item: NetBoxDeviceTypeLib
                     label=str(row["label"]).strip() if row.get("label") else None,
                     sort_order=idx,
                     raw_json=row,
+                    normalized_json=normalized.normalized,
+                    quality_score=normalized.quality_score,
+                    quality_warnings_json=normalized.warnings,
                 )
             )
             created += 1

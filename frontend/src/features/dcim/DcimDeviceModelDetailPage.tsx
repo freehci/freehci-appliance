@@ -47,6 +47,11 @@ export function DcimDeviceModelDetailPage() {
     queryFn: () => api.listDeviceModelTemplates(id),
     enabled: !isNew && Number.isFinite(id) && id > 0,
   });
+  const templateQualityQ = useQuery({
+    queryKey: ["dcim", "device-model-template-quality", id],
+    queryFn: () => api.getDeviceModelTemplateQuality(id),
+    enabled: !isNew && Number.isFinite(id) && id > 0,
+  });
 
   const mo = modelQ.data;
 
@@ -179,6 +184,15 @@ export function DcimDeviceModelDetailPage() {
       setErr(null);
       setImgVersion(String(Date.now()));
       void qc.invalidateQueries({ queryKey: ["dcim", "device-models", id] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const renormalizeTemplatesM = useMutation({
+    mutationFn: () => api.renormalizeDeviceModelTemplates(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-model-templates", id] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-model-template-quality", id] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -337,19 +351,38 @@ export function DcimDeviceModelDetailPage() {
         {!isNew && mo ? (
           <section className={styles.mfrDetailSection} style={{ marginTop: "var(--space-4)" }}>
             <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.netbox.templatesTitle")}</h3>
+            {templateQualityQ.data ? (
+              <p className={styles.muted}>
+                {t("dcim.netbox.templateQualitySummary", {
+                  count: String(templateQualityQ.data.template_count),
+                  score: String(templateQualityQ.data.average_quality_score),
+                  warnings: String(templateQualityQ.data.warning_count),
+                })}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className={styles.btnMuted}
+              disabled={renormalizeTemplatesM.isPending || (templatesQ.data ?? []).length === 0}
+              onClick={() => renormalizeTemplatesM.mutate()}
+            >
+              {renormalizeTemplatesM.isPending ? "…" : t("dcim.netbox.renormalizeTemplates")}
+            </button>
             {templatesQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
             {(templatesQ.data ?? []).length === 0 && !templatesQ.isLoading ? (
               <p className={styles.muted}>{t("dcim.netbox.templatesEmpty")}</p>
             ) : null}
             {(templatesQ.data ?? []).length > 0 ? (
               <table className={styles.table}>
-                <thead><tr><th>{t("dcim.netbox.componentType")}</th><th>{t("dcim.common.name")}</th><th>{t("dcim.netbox.label")}</th></tr></thead>
+                <thead><tr><th>{t("dcim.netbox.componentType")}</th><th>{t("dcim.common.name")}</th><th>{t("dcim.netbox.normalized")}</th><th>{t("dcim.netbox.quality")}</th><th>{t("dcim.netbox.warnings")}</th></tr></thead>
                 <tbody>
                   {(templatesQ.data ?? []).map((tpl) => (
                     <tr key={tpl.id}>
                       <td><code>{tpl.component_type}</code></td>
-                      <td>{tpl.name}</td>
-                      <td>{tpl.label ?? "—"}</td>
+                      <td>{tpl.name}<br /><span className={styles.muted}>{tpl.label ?? "—"}</span></td>
+                      <td><code>{Object.entries(tpl.normalized_json ?? {}).filter(([key]) => !["source", "component_type", "name", "label", "description"].includes(key)).map(([key, value]) => `${key}: ${String(value)}`).join(", ") || "—"}</code></td>
+                      <td>{tpl.quality_score}</td>
+                      <td>{tpl.quality_warnings_json.length ? tpl.quality_warnings_json.join(", ") : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
