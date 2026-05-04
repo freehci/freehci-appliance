@@ -62,6 +62,12 @@ class Settings(BaseSettings):
         default="data/uploads",
         description="Rotkatalog for opplastede filer (logoer m.m.), relativ til arbeidskatalog eller absolutt sti",
     )
+    device_model_image_max_bytes: int = Field(
+        default=25 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=100 * 1024 * 1024,
+        description="Maks størrelse per device-model bilde (bytes), standard 25 MiB",
+    )
 
     mib_root: str = Field(
         default="data/mibs",

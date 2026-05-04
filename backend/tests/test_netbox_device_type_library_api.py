@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
-def _zip_bytes(files: dict[str, str]) -> bytes:
+def _zip_bytes(files: dict[str, str | bytes]) -> bytes:
     bio = io.BytesIO()
     with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, content in files.items():
@@ -140,6 +140,45 @@ def test_netbox_dtl_upload_indexes_preview_and_apply_is_idempotent() -> None:
         assert apply_two.status_code == 200, apply_two.text
         assert apply_two.json()["created_count"] == 0
         assert apply_two.json()["updated_count"] == 1
+
+
+def test_netbox_dtl_apply_accepts_large_device_model_images() -> None:
+    yaml_text = """manufacturer: Example Networks
+model: Large Image Switch
+slug: large-image-switch
+front_image: true
+"""
+    large_svg = b'<svg xmlns="http://www.w3.org/2000/svg">' + (b" " * (3 * 1024 * 1024)) + b"</svg>"
+    app = create_app()
+    with TestClient(app) as client:
+        upload = client.post(
+            "/api/v1/dcim/netbox-dtl/imports/upload",
+            files={
+                "file": (
+                    "netbox-dtl.zip",
+                    _zip_bytes(
+                        {
+                            "devicetype-library-master/device-types/Example Networks/large-image-switch.yaml": yaml_text,
+                            "devicetype-library-master/elevation-images/Example Networks/large-image-switch.front.svg": large_svg,
+                        }
+                    ),
+                    "application/zip",
+                )
+            },
+        )
+        assert upload.status_code == 200, upload.text
+
+        apply_res = client.post(
+            "/api/v1/dcim/netbox-dtl/apply",
+            json={"import_id": upload.json()["id"], "limit": 10},
+        )
+        assert apply_res.status_code == 200, apply_res.text
+        applied = apply_res.json()
+        assert applied["items"][0]["images_imported"] == 1
+
+        model = client.get(f"/api/v1/dcim/device-models/{applied['items'][0]['device_model_id']}")
+        assert model.status_code == 200, model.text
+        assert model.json()["has_image_front_file"] is True
 
 
 def test_netbox_dtl_github_download_can_be_mocked(monkeypatch) -> None:

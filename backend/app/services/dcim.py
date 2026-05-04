@@ -136,10 +136,14 @@ from app.schemas.dcim import (
 )
 
 LOGO_MAX_BYTES = 512 * 1024
-DM_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+ROOM_FLOORPLAN_MAX_BYTES = 2 * 1024 * 1024
 ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
 
 _SITE_QUERY = object()
+
+
+def _format_mib(byte_count: int) -> str:
+    return f"{byte_count / (1024 * 1024):g} MiB"
 
 
 def device_effective_site_id(db: Session, device_id: int) -> int | None:
@@ -538,7 +542,7 @@ def update_room(db: Session, room: Room, data: RoomUpdate) -> Room:
 
 
 def set_room_floorplan(db: Session, room: Room, content: bytes, mime: str) -> None:
-    if len(content) > DM_IMAGE_MAX_BYTES:
+    if len(content) > ROOM_FLOORPLAN_MAX_BYTES:
         raise HTTPException(status_code=413, detail="plantegning for stor (maks 2 MiB)")
     if mime not in ALLOWED_LOGO_MIME:
         raise HTTPException(
@@ -898,8 +902,9 @@ def get_device_model(db: Session, mid: int) -> DeviceModel | None:
 def set_device_model_image(db: Session, row: DeviceModel, slot: str, content: bytes, mime: str) -> None:
     if slot not in ("front", "back", "product"):
         raise HTTPException(status_code=400, detail="slot må være front, back eller product")
-    if len(content) > DM_IMAGE_MAX_BYTES:
-        raise HTTPException(status_code=413, detail="bilde for stort (maks 2 MiB)")
+    max_bytes = get_settings().device_model_image_max_bytes
+    if len(content) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"bilde for stort (maks {_format_mib(max_bytes)})")
     if mime not in ALLOWED_LOGO_MIME:
         raise HTTPException(
             status_code=400,
