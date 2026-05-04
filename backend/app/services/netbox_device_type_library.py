@@ -31,6 +31,7 @@ from app.schemas.dcim import (
     NetBoxDtlApplyItemRead,
     NetBoxDtlApplyRead,
     NetBoxDtlApplyRequest,
+    NetBoxDtlItemListRead,
     NetBoxDtlItemPreviewRead,
     NetBoxDtlPreviewRead,
 )
@@ -74,18 +75,61 @@ def list_items(
     manufacturer: str | None = None,
     limit: int = 200,
 ) -> list[NetBoxDeviceTypeLibraryItem]:
-    stmt = select(NetBoxDeviceTypeLibraryItem)
+    stmt = _filtered_items_select(import_id=import_id, q=q, manufacturer=manufacturer)
+    stmt = stmt.order_by(NetBoxDeviceTypeLibraryItem.manufacturer, NetBoxDeviceTypeLibraryItem.model).limit(limit)
+    return list(db.scalars(stmt))
+
+
+def search_items(
+    db: Session,
+    import_id: int | None = None,
+    q: str | None = None,
+    manufacturer: str | None = None,
+    limit: int = 200,
+) -> NetBoxDtlItemListRead:
+    items = list_items(db, import_id=import_id, q=q, manufacturer=manufacturer, limit=limit)
+    total_count = count_items(db, import_id=import_id, q=q, manufacturer=manufacturer)
+    return NetBoxDtlItemListRead(items=items, total_count=total_count, limit=limit)
+
+
+def count_items(
+    db: Session,
+    import_id: int | None = None,
+    q: str | None = None,
+    manufacturer: str | None = None,
+) -> int:
+    stmt = _apply_item_filters(
+        select(func.count()).select_from(NetBoxDeviceTypeLibraryItem),
+        import_id=import_id,
+        q=q,
+        manufacturer=manufacturer,
+    )
+    return int(db.scalar(stmt) or 0)
+
+
+def _filtered_items_select(
+    import_id: int | None = None,
+    q: str | None = None,
+    manufacturer: str | None = None,
+):
+    return _apply_item_filters(
+        select(NetBoxDeviceTypeLibraryItem),
+        import_id=import_id,
+        q=q,
+        manufacturer=manufacturer,
+    )
+
+
+def _apply_item_filters(stmt, import_id: int | None = None, q: str | None = None, manufacturer: str | None = None):
     if import_id is not None:
         stmt = stmt.where(NetBoxDeviceTypeLibraryItem.import_id == import_id)
     if manufacturer:
         stmt = stmt.where(func.lower(NetBoxDeviceTypeLibraryItem.manufacturer) == manufacturer.strip().lower())
     if q:
         needle = f"%{q.strip().lower()}%"
-        stmt = stmt.where(
-            func.lower(NetBoxDeviceTypeLibraryItem.manufacturer + " " + NetBoxDeviceTypeLibraryItem.model + " " + NetBoxDeviceTypeLibraryItem.slug).like(needle)
-        )
-    stmt = stmt.order_by(NetBoxDeviceTypeLibraryItem.manufacturer, NetBoxDeviceTypeLibraryItem.model).limit(limit)
-    return list(db.scalars(stmt))
+        haystack = NetBoxDeviceTypeLibraryItem.manufacturer + " " + NetBoxDeviceTypeLibraryItem.model + " " + NetBoxDeviceTypeLibraryItem.slug
+        stmt = stmt.where(func.lower(haystack).like(needle))
+    return stmt
 
 
 def list_device_model_templates(db: Session, device_model_id: int) -> list[DeviceModelTemplate]:
@@ -222,7 +266,8 @@ def import_bytes(
 def preview_apply(db: Session, data: NetBoxDtlApplyRequest) -> NetBoxDtlPreviewRead:
     items = _candidate_items(db, data)
     previews = [_preview_item(db, item) for item in items]
-    return NetBoxDtlPreviewRead(import_id=data.import_id, items=previews, total_candidates=len(previews))
+    total_candidates = count_items(db, import_id=data.import_id, q=data.q, manufacturer=data.manufacturer)
+    return NetBoxDtlPreviewRead(import_id=data.import_id, items=previews, total_candidates=total_candidates)
 
 
 def apply_import(db: Session, settings: Settings, data: NetBoxDtlApplyRequest) -> NetBoxDtlApplyRead:

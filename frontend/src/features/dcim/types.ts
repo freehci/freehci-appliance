@@ -327,6 +327,12 @@ export type NetBoxDtlItem = {
   raw_json: Record<string, unknown>;
 };
 
+export type NetBoxDtlItemList = {
+  items: NetBoxDtlItem[];
+  total_count: number;
+  limit: number;
+};
+
 export type DeviceModelTemplate = {
   id: number;
   device_model_id: number;

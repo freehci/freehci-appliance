@@ -41,6 +41,7 @@ import type {
   NetBoxDtlApply,
   NetBoxDtlImport,
   NetBoxDtlItem,
+  NetBoxDtlItemList,
   NetBoxDtlPreview,
   Rack,
   RackPlacement,
@@ -473,6 +474,21 @@ export function listNetBoxDtlItems(params?: {
   if (params?.limit != null) qs.set("limit", String(params.limit));
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   return apiGet(`${P}/netbox-dtl/items${suffix}`);
+}
+
+export function searchNetBoxDtlItems(params?: {
+  import_id?: number;
+  q?: string;
+  manufacturer?: string;
+  limit?: number;
+}): Promise<NetBoxDtlItemList> {
+  const qs = new URLSearchParams();
+  if (params?.import_id != null) qs.set("import_id", String(params.import_id));
+  if (params?.q) qs.set("q", params.q);
+  if (params?.manufacturer) qs.set("manufacturer", params.manufacturer);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return apiGet(`${P}/netbox-dtl/items/search${suffix}`);
 }
 
 export function previewNetBoxDtlImport(body: {

@@ -65,6 +65,7 @@ from app.schemas.dcim import (
     NetBoxDtlDownloadImportRequest,
     NetBoxDtlGithubImportRequest,
     NetBoxDtlImportRead,
+    NetBoxDtlItemListRead,
     NetBoxDtlItemRead,
     NetBoxDtlPreviewRead,
     RedfishInventoryApplyRead,
@@ -672,6 +673,17 @@ def list_netbox_dtl_items(
     db: Session = Depends(get_db),
 ) -> list[NetBoxDtlItemRead]:
     return netbox_dtl_svc.list_items(db, import_id=import_id, q=q, manufacturer=manufacturer, limit=limit)
+
+
+@router.get("/netbox-dtl/items/search", response_model=NetBoxDtlItemListRead)
+def search_netbox_dtl_items(
+    import_id: int | None = Query(None),
+    q: str | None = Query(None),
+    manufacturer: str | None = Query(None),
+    limit: int = Query(200, ge=1, le=10000),
+    db: Session = Depends(get_db),
+) -> NetBoxDtlItemListRead:
+    return netbox_dtl_svc.search_items(db, import_id=import_id, q=q, manufacturer=manufacturer, limit=limit)
 
 
 @router.post("/netbox-dtl/preview", response_model=NetBoxDtlPreviewRead)

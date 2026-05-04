@@ -142,6 +142,37 @@ def test_netbox_dtl_upload_indexes_preview_and_apply_is_idempotent() -> None:
         assert apply_two.json()["updated_count"] == 1
 
 
+def test_netbox_dtl_item_search_returns_total_count_before_limit() -> None:
+    files = {}
+    for idx in range(3):
+        slug = f"count-switch-{idx}"
+        files[f"devicetype-library-master/device-types/Example Networks/{slug}.yaml"] = f"""manufacturer: Example Networks
+model: Count Switch {idx}
+slug: {slug}
+"""
+    app = create_app()
+    with TestClient(app) as client:
+        upload = client.post(
+            "/api/v1/dcim/netbox-dtl/imports/upload",
+            files={"file": ("netbox-dtl.zip", _zip_bytes(files), "application/zip")},
+        )
+        assert upload.status_code == 200, upload.text
+
+        res = client.get(f"/api/v1/dcim/netbox-dtl/items/search?import_id={upload.json()['id']}&q=Count&limit=1")
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["total_count"] == 3
+        assert len(body["items"]) == 1
+
+        preview = client.post(
+            "/api/v1/dcim/netbox-dtl/preview",
+            json={"import_id": upload.json()["id"], "q": "Count", "limit": 1},
+        )
+        assert preview.status_code == 200, preview.text
+        assert preview.json()["total_candidates"] == 3
+        assert len(preview.json()["items"]) == 1
+
+
 def test_netbox_dtl_apply_accepts_large_device_model_images() -> None:
     yaml_text = """manufacturer: Example Networks
 model: Large Image Switch

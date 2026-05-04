@@ -11,9 +11,45 @@ import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { deviceTypeResolvedFaIconClass } from "./dcimTypeIcons";
 import { deviceInstanceListThumbSrc, deviceModelListThumbSrc } from "./modelImages";
-import type { DeviceInstance, DeviceModel, DeviceType, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
+import type { DeviceInstance, DeviceModel, DeviceType, NetBoxDtlItem, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
 
 type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl" | "cmp";
+type NetBoxTreeGroup = "manufacturer" | "device_type";
+
+function netboxDeviceTypeLabel(item: NetBoxDtlItem): string {
+  const raw = item.raw_json;
+  for (const key of ["device_type", "type", "device_role", "role", "subdevice_role"]) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim() !== "") return value.trim();
+  }
+  if (item.u_height != null) {
+    const depth = item.is_full_depth === false ? "shallow" : "full-depth";
+    return `${item.u_height}U ${depth}`;
+  }
+  return "Unknown";
+}
+
+function groupNetBoxItems(items: NetBoxDtlItem[], groupBy: NetBoxTreeGroup): Array<[string, Array<[string, NetBoxDtlItem[]]>]> {
+  const first = new Map<string, Map<string, NetBoxDtlItem[]>>();
+  for (const item of items) {
+    const deviceType = netboxDeviceTypeLabel(item);
+    const primary = groupBy === "manufacturer" ? item.manufacturer : deviceType;
+    const secondary = groupBy === "manufacturer" ? deviceType : item.manufacturer;
+    const secondaryMap = first.get(primary) ?? new Map<string, NetBoxDtlItem[]>();
+    const rows = secondaryMap.get(secondary) ?? [];
+    rows.push(item);
+    secondaryMap.set(secondary, rows);
+    first.set(primary, secondaryMap);
+  }
+  return Array.from(first.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([primary, secondaryMap]) => [
+      primary,
+      Array.from(secondaryMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([secondary, rows]) => [secondary, rows.sort((a, b) => a.model.localeCompare(b.model))]),
+    ]);
+}
 
 export function DcimEquipmentPage() {
   const { t } = useI18n();
@@ -41,6 +77,8 @@ export function DcimEquipmentPage() {
   const [netboxLimit, setNetboxLimit] = useState("25");
   const [netboxPreview, setNetboxPreview] = useState<NetBoxDtlPreview | null>(null);
   const [netboxApplyResult, setNetboxApplyResult] = useState("");
+  const [netboxTreeOpen, setNetboxTreeOpen] = useState(false);
+  const [netboxTreeGroup, setNetboxTreeGroup] = useState<NetBoxTreeGroup>("manufacturer");
   const [plMount, setPlMount] = useState("front");
   const [rackFilter, setRackFilter] = useState<string>("");
   const [devListFilter, setDevListFilter] = useState("");
@@ -60,15 +98,26 @@ export function DcimEquipmentPage() {
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
   const netboxImportsQ = useQuery({ queryKey: ["dcim", "netbox-dtl-imports"], queryFn: api.listNetBoxDtlImports });
   const netboxItemsQ = useQuery({
-    queryKey: ["dcim", "netbox-dtl-items", netboxImportId, netboxSearch, netboxManufacturer],
+    queryKey: ["dcim", "netbox-dtl-items-search", netboxImportId, netboxSearch, netboxManufacturer],
     queryFn: () =>
-      api.listNetBoxDtlItems({
+      api.searchNetBoxDtlItems({
         import_id: netboxImportId === "" ? undefined : Number(netboxImportId),
         q: netboxSearch.trim() || undefined,
         manufacturer: netboxManufacturer.trim() || undefined,
         limit: 100,
       }),
     enabled: netboxImportId !== "",
+  });
+  const netboxTreeQ = useQuery({
+    queryKey: ["dcim", "netbox-dtl-items-tree", netboxImportId, netboxSearch, netboxManufacturer],
+    queryFn: () =>
+      api.searchNetBoxDtlItems({
+        import_id: netboxImportId === "" ? undefined : Number(netboxImportId),
+        q: netboxSearch.trim() || undefined,
+        manufacturer: netboxManufacturer.trim() || undefined,
+        limit: 10000,
+      }),
+    enabled: netboxTreeOpen && netboxImportId !== "",
   });
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: api.listDevices });
   const racksQ = useQuery({ queryKey: ["dcim", "racks", "all-equip"], queryFn: () => api.listRacks() });
@@ -119,6 +168,11 @@ export function DcimEquipmentPage() {
     for (const mo of modelsQ.data ?? []) m.set(mo.id, mo);
     return m;
   }, [modelsQ.data]);
+
+  const netboxTreeGroups = useMemo(
+    () => groupNetBoxItems(netboxTreeQ.data?.items ?? [], netboxTreeGroup),
+    [netboxTreeQ.data?.items, netboxTreeGroup],
+  );
 
   const devicesById = useMemo(() => {
     const m = new Map<number, DeviceInstance>();
@@ -593,10 +647,16 @@ export function DcimEquipmentPage() {
               <button type="button" className={styles.btn} disabled={applyNetboxM.isPending || netboxImportId === ""} onClick={() => applyNetboxM.mutate()}>
                 {applyNetboxM.isPending ? "…" : t("dcim.netbox.apply")}
               </button>
+              <button type="button" className={styles.btnMuted} disabled={netboxImportId === ""} onClick={() => setNetboxTreeOpen(true)}>
+                {t("dcim.netbox.browseTree")}
+              </button>
             </div>
             {netboxImportId !== "" ? (
               <p className={styles.muted}>
-                {t("dcim.netbox.indexedCount", { count: String(netboxItemsQ.data?.length ?? 0) })}
+                {t("dcim.netbox.indexedCount", {
+                  total: String(netboxItemsQ.data?.total_count ?? 0),
+                  shown: String(netboxItemsQ.data?.items.length ?? 0),
+                })}
               </p>
             ) : null}
             {netboxPreview ? (
@@ -615,6 +675,100 @@ export function DcimEquipmentPage() {
               </table>
             ) : null}
             {netboxApplyResult ? <pre className={styles.codeBlock}>{netboxApplyResult}</pre> : null}
+            {netboxTreeOpen ? (
+              <div
+                role="presentation"
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 5000,
+                  background: "rgba(0,0,0,0.45)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "var(--space-3)",
+                }}
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setNetboxTreeOpen(false);
+                }}
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="netbox-tree-title"
+                  style={{
+                    width: "min(64rem, 100%)",
+                    maxHeight: "88vh",
+                    overflow: "auto",
+                    background: "var(--color-bg-elevated)",
+                    border: "1px solid var(--shell-border)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "var(--space-4)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className={styles.formRow} style={{ alignItems: "center", justifyContent: "space-between", marginTop: 0 }}>
+                    <div>
+                      <h3 id="netbox-tree-title" className={styles.mfrDetailSectionTitle}>{t("dcim.netbox.treeTitle")}</h3>
+                      <p className={styles.muted} style={{ marginBottom: 0 }}>
+                        {t("dcim.netbox.treeSummary", {
+                          total: String(netboxTreeQ.data?.total_count ?? netboxItemsQ.data?.total_count ?? 0),
+                          shown: String(netboxTreeQ.data?.items.length ?? 0),
+                        })}
+                      </p>
+                    </div>
+                    <button type="button" className={styles.btnMuted} onClick={() => setNetboxTreeOpen(false)}>
+                      {t("dcim.common.close")}
+                    </button>
+                  </div>
+                  <div className={styles.formRow} style={{ alignItems: "flex-end" }}>
+                    <label>{t("dcim.netbox.groupBy")}
+                      <select value={netboxTreeGroup} onChange={(e) => setNetboxTreeGroup(e.target.value as NetBoxTreeGroup)}>
+                        <option value="manufacturer">{t("dcim.netbox.vendor")}</option>
+                        <option value="device_type">{t("dcim.netbox.deviceType")}</option>
+                      </select>
+                    </label>
+                  </div>
+                  {netboxTreeQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+                  {!netboxTreeQ.isLoading && netboxTreeGroups.length === 0 ? (
+                    <p className={styles.muted}>{t("dcim.netbox.noMatches")}</p>
+                  ) : null}
+                  {netboxTreeGroups.map(([primary, secondaryGroups]) => (
+                    <details key={primary} className={styles.catalogTreeGroup} open>
+                      <summary>{primary} ({secondaryGroups.reduce((sum, [, rows]) => sum + rows.length, 0)})</summary>
+                      {secondaryGroups.map(([secondary, rows]) => (
+                        <details key={`${primary}-${secondary}`} className={styles.catalogTreeVendor}>
+                          <summary>{secondary} ({rows.length})</summary>
+                          <table className={styles.table}>
+                            <thead>
+                              <tr>
+                                <th>{t("dcim.netbox.model")}</th>
+                                <th>{t("dcim.netbox.vendor")}</th>
+                                <th>{t("dcim.netbox.deviceType")}</th>
+                                <th>{t("dcim.netbox.images")}</th>
+                                <th>{t("dcim.netbox.templates")}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((item) => (
+                                <tr key={item.id}>
+                                  <td>{item.model}<br /><code>{item.slug}</code></td>
+                                  <td>{item.manufacturer}</td>
+                                  <td>{netboxDeviceTypeLabel(item)}</td>
+                                  <td>{[item.front_image_relpath ? "front" : "", item.rear_image_relpath ? "rear" : ""].filter(Boolean).join(", ") || "—"}</td>
+                                  <td>{Object.entries(item.component_counts_json).map(([k, v]) => `${k}: ${String(v)}`).join(", ") || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </details>
+                      ))}
+                    </details>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
           <div className={styles.formRow} style={{ marginTop: "var(--space-3)", alignItems: "flex-end" }}>
             <label style={{ flex: "1 1 14rem" }}>

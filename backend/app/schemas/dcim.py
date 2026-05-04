@@ -695,6 +695,12 @@ class NetBoxDtlItemRead(BaseModel):
     raw_json: dict[str, Any] = Field(default_factory=dict)
 
 
+class NetBoxDtlItemListRead(BaseModel):
+    items: list[NetBoxDtlItemRead] = Field(default_factory=list)
+    total_count: int = 0
+    limit: int = 0
+
+
 class DeviceModelTemplateRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
