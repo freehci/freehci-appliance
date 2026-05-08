@@ -43,6 +43,7 @@ export function DcimDeviceDetailPage() {
   const { deviceId } = useParams<{ deviceId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const id = Number(deviceId);
+  const backToDevices = "/dcim/equipment?tab=dev";
 
   const tabParam = searchParams.get("tab");
   const detailTab: DeviceDetailTab =
@@ -582,7 +583,7 @@ export function DcimDeviceDetailPage() {
     return (
       <Panel title={t("dcim.equip.dev.detailTitle")}>
         <p className={styles.err}>{t("dcim.equip.dev.invalidId")}</p>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToDevices} className={styles.tableLink}>
           {t("dcim.equip.dev.backToList")}
         </Link>
       </Panel>
@@ -593,7 +594,7 @@ export function DcimDeviceDetailPage() {
     return (
       <Panel title={t("dcim.equip.dev.detailTitle")}>
         <p className={styles.err}>{(deviceQ.error as Error).message}</p>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToDevices} className={styles.tableLink}>
           {t("dcim.equip.dev.backToList")}
         </Link>
       </Panel>
@@ -615,7 +616,7 @@ export function DcimDeviceDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToDevices} className={styles.tableLink}>
           ← {t("dcim.equip.dev.backToList")}
         </Link>
       </p>

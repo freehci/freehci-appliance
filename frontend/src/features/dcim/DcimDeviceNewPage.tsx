@@ -13,6 +13,7 @@ export function DcimDeviceNewPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const backToDevices = "/dcim/equipment?tab=dev";
   const [err, setErr] = useState<string | null>(null);
   const [devModel, setDevModel] = useState("");
   const [devDt, setDevDt] = useState("");
@@ -80,7 +81,7 @@ export function DcimDeviceNewPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToDevices} className={styles.tableLink}>
           ← {t("dcim.equip.dev.backToList")}
         </Link>
       </p>

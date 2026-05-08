@@ -55,7 +55,7 @@ export function DcimEquipmentPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [err, setErr] = useState<string | null>(null);
 
   const [mfrName, setMfrName] = useState("");
@@ -82,7 +82,10 @@ export function DcimEquipmentPage() {
   const [plMount, setPlMount] = useState("front");
   const [rackFilter, setRackFilter] = useState<string>("");
   const [devListFilter, setDevListFilter] = useState("");
-  const [equipTab, setEquipTab] = useState<EquipTab>("mfr");
+  const [equipTab, setEquipTab] = useState<EquipTab>(() => {
+    const tab = searchParams.get("tab");
+    return tab === "dt" || tab === "dm" || tab === "dev" || tab === "pl" || tab === "cmp" ? tab : "mfr";
+  });
   const [mfrPendingDelete, setMfrPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [dtPendingDelete, setDtPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [plPendingRemove, setPlPendingRemove] = useState<RackPlacement | null>(null);
@@ -179,6 +182,13 @@ export function DcimEquipmentPage() {
     for (const d of devicesQ.data ?? []) m.set(d.id, d);
     return m;
   }, [devicesQ.data]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "mfr" || tab === "dt" || tab === "dm" || tab === "dev" || tab === "pl" || tab === "cmp") {
+      setEquipTab(tab);
+    }
+  }, [searchParams]);
 
   const filteredDevices = useMemo(() => {
     const rows = devicesQ.data ?? [];
@@ -397,7 +407,15 @@ export function DcimEquipmentPage() {
           { id: "cmp", label: t("dcim.components.title"), icon: "deviceHardware" },
         ]}
         activeId={equipTab}
-        onChange={(id) => setEquipTab(id as EquipTab)}
+        onChange={(id) => {
+          const nextTab = id as EquipTab;
+          setEquipTab(nextTab);
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("tab", nextTab);
+            return next;
+          });
+        }}
         ariaLabel={t("dcim.innerNavAria")}
       />
       {equipTab === "mfr" ? (

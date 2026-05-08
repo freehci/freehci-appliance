@@ -14,6 +14,7 @@ export function DcimManufacturerDetailPage() {
   const navigate = useNavigate();
   const { manufacturerId } = useParams<{ manufacturerId: string }>();
   const id = Number(manufacturerId);
+  const backToManufacturers = "/dcim/equipment?tab=mfr";
   const fileRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
 
@@ -86,7 +87,7 @@ export function DcimManufacturerDetailPage() {
     mutationFn: () => api.deleteManufacturer(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["dcim", "manufacturers"] });
-      void navigate("/dcim/equipment");
+      void navigate(backToManufacturers);
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -95,7 +96,7 @@ export function DcimManufacturerDetailPage() {
     return (
       <Panel title={t("dcim.equip.mfr.detailTitle")}>
         <p className={styles.err}>{t("dcim.equip.mfr.invalidId")}</p>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToManufacturers} className={styles.tableLink}>
           {t("dcim.equip.mfr.backToList")}
         </Link>
       </Panel>
@@ -106,7 +107,7 @@ export function DcimManufacturerDetailPage() {
     return (
       <Panel title={t("dcim.equip.mfr.detailTitle")}>
         <p className={styles.err}>{(detailQ.error as Error).message}</p>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToManufacturers} className={styles.tableLink}>
           {t("dcim.equip.mfr.backToList")}
         </Link>
       </Panel>
@@ -126,7 +127,7 @@ export function DcimManufacturerDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToManufacturers} className={styles.tableLink}>
           ← {t("dcim.equip.mfr.backToList")}
         </Link>
         {" · "}

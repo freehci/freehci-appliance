@@ -18,6 +18,7 @@ export function DcimDeviceModelDetailPage() {
   const [searchParams] = useSearchParams();
   const isNew = deviceModelId === "new";
   const id = isNew ? NaN : Number(deviceModelId);
+  const backToDeviceModels = "/dcim/equipment?tab=dm";
   const fileFrontRef = useRef<HTMLInputElement | null>(null);
   const fileBackRef = useRef<HTMLInputElement | null>(null);
   const fileProductRef = useRef<HTMLInputElement | null>(null);
@@ -155,7 +156,7 @@ export function DcimDeviceModelDetailPage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["dcim", "device-models"] });
       void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
-      void navigate("/dcim/equipment");
+      void navigate(backToDeviceModels);
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -201,7 +202,7 @@ export function DcimDeviceModelDetailPage() {
     return (
       <Panel title={t("dcim.equip.dm.detailTitle")}>
         <p className={styles.err}>{t("dcim.equip.dm.invalidId")}</p>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToDeviceModels} className={styles.tableLink}>
           {t("dcim.equip.dev.backToList")}
         </Link>
       </Panel>
@@ -212,7 +213,7 @@ export function DcimDeviceModelDetailPage() {
     return (
       <Panel title={t("dcim.equip.dm.detailTitle")}>
         <p className={styles.err}>{(modelQ.error as Error).message}</p>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToDeviceModels} className={styles.tableLink}>
           {t("dcim.equip.dev.backToList")}
         </Link>
       </Panel>
@@ -248,7 +249,7 @@ export function DcimDeviceModelDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        <Link to="/dcim/equipment" className={styles.tableLink}>
+        <Link to={backToDeviceModels} className={styles.tableLink}>
           ← {t("dcim.equip.dev.backToList")}
         </Link>
       </p>
