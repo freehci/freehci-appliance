@@ -1,6 +1,6 @@
 """IPAM REST API (IPv4 prefiks per site)."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -63,12 +63,14 @@ from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
 from app.services import ipam_audit as audit_svc
+from app.services import ipam_etag as etag_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
 
 
 @router.get("/ipv4-prefixes", response_model=list[Ipv4PrefixRead])
 def list_ipv4_prefixes(
+    response: Response,
     site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
     tenant_id: int | None = Query(None, description="Filtrer på tenant-id (colo/kunde)"),
     vlan_id: int | None = Query(None, description="Filtrer på VLAN-id"),
@@ -84,7 +86,7 @@ def list_ipv4_prefixes(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Ipv4PrefixRead]:
-    return ipam_svc.list_ipv4_prefixes(
+    items, total = ipam_svc.list_ipv4_prefixes(
         db,
         site_id=site_id,
         tenant_id=tenant_id,
@@ -100,6 +102,8 @@ def list_ipv4_prefixes(
         limit=limit,
         offset=offset,
     )
+    etag_svc.attach_page(response, total=total, offset=offset, count=len(items))
+    return items
 
 
 @router.post("/ipv4-prefixes", response_model=Ipv4PrefixRead)
@@ -167,10 +171,11 @@ def get_available_ranges(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4A
 
 
 @router.get("/ipv4-prefixes/{prefix_id}", response_model=Ipv4PrefixRead)
-def get_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4PrefixRead:
+def get_ipv4_prefix(prefix_id: int, response: Response, db: Session = Depends(get_db)) -> Ipv4PrefixRead:
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    etag_svc.attach_etag(response, row)
     return ipam_svc.ipv4_prefix_read(db, row)
 
 
@@ -178,12 +183,17 @@ def get_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4Prefix
 def patch_ipv4_prefix(
     prefix_id: int,
     data: Ipv4PrefixUpdate,
+    response: Response,
     db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
 ) -> Ipv4PrefixRead:
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
-    return ipam_svc.update_ipv4_prefix(db, row, data)
+    etag_svc.require_if_match(row, if_match)
+    body = ipam_svc.update_ipv4_prefix(db, row, data)
+    etag_svc.attach_etag(response, row)
+    return body
 
 
 @router.delete("/ipv4-prefixes/{prefix_id}", status_code=204)
@@ -191,10 +201,12 @@ def delete_ipv4_prefix(
     prefix_id: int,
     cascade: bool = Query(False, description="Slett underprefiks og inventory-adresser"),
     db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
 ) -> None:
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    etag_svc.require_if_match(row, if_match)
     ipam_svc.delete_ipv4_prefix(db, row, cascade=cascade)
 
 
@@ -267,6 +279,7 @@ def ensure_ipv4_address(
 
 @router.get("/ipv4-addresses", response_model=list[Ipv4AddressRead])
 def list_ipv4_addresses(
+    response: Response,
     site_id: int | None = Query(None),
     ipv4_prefix_id: int | None = Query(None),
     status: str | None = Query(None),
@@ -278,7 +291,7 @@ def list_ipv4_addresses(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Ipv4AddressRead]:
-    return addr_svc.list_ipv4_addresses(
+    items, total = addr_svc.list_ipv4_addresses(
         db,
         site_id=site_id,
         ipv4_prefix_id=ipv4_prefix_id,
@@ -290,27 +303,48 @@ def list_ipv4_addresses(
         device_id=device_id,
         role=role,
     )
+    etag_svc.attach_page(response, total=total, offset=offset, count=len(items))
+    return items
 
 
 @router.get("/ipv4-addresses/{addr_id}", response_model=Ipv4AddressRead)
-def get_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+def get_ipv4_address(addr_id: int, response: Response, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+    row = addr_svc.get_ipv4_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
+    etag_svc.attach_etag(response, row)
     return addr_svc.get_ipv4_address_read(db, addr_id)
 
 
 @router.patch("/ipv4-addresses/{addr_id}", response_model=Ipv4AddressRead)
-def patch_ipv4_address(addr_id: int, data: Ipv4AddressPatch, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+def patch_ipv4_address(
+    addr_id: int,
+    data: Ipv4AddressPatch,
+    response: Response,
+    db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
+) -> Ipv4AddressRead:
     row = addr_svc.get_ipv4_address(db, addr_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
-    return addr_svc.patch_ipv4_address(db, row, data)
+        raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
+    etag_svc.require_if_match(row, if_match)
+    body = addr_svc.patch_ipv4_address(db, row, data)
+    etag_svc.attach_etag(response, row)
+    return body
 
 
 @router.delete("/ipv4-addresses/{addr_id}", status_code=204)
-def delete_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> None:
+def delete_ipv4_address(
+    addr_id: int,
+    force: bool = Query(False, description="Hard-slett reserved/assigned uten release"),
+    db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
+) -> None:
     row = addr_svc.get_ipv4_address(db, addr_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
-    addr_svc.delete_ipv4_address(db, row)
+        raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
+    etag_svc.require_if_match(row, if_match)
+    addr_svc.delete_ipv4_address(db, row, force=force)
 
 
 @router.post("/ipv4-addresses/request", response_model=Ipv4AddressRead)
@@ -344,19 +378,36 @@ def request_ipv4_addresses_batch(
 
 
 @router.post("/ipv4-addresses/{addr_id}/bind", response_model=Ipv4AddressRead)
-def bind_ipv4_address(addr_id: int, data: Ipv4AddressBind, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+def bind_ipv4_address(
+    addr_id: int,
+    data: Ipv4AddressBind,
+    response: Response,
+    db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
+) -> Ipv4AddressRead:
     row = addr_svc.get_ipv4_address(db, addr_id)
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
-    return addr_svc.bind_ipv4_address(db, row, data.device_id, data.interface_id)
+    etag_svc.require_if_match(row, if_match)
+    body = addr_svc.bind_ipv4_address(db, row, data.device_id, data.interface_id)
+    etag_svc.attach_etag(response, row)
+    return body
 
 
 @router.post("/ipv4-addresses/{addr_id}/release", response_model=Ipv4AddressRead)
-def release_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+def release_ipv4_address(
+    addr_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
+) -> Ipv4AddressRead:
     row = addr_svc.get_ipv4_address(db, addr_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
-    return addr_svc.release_ipv4_address(db, row)
+        raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
+    etag_svc.require_if_match(row, if_match)
+    body = addr_svc.release_ipv4_address(db, row)
+    etag_svc.attach_etag(response, row)
+    return body
 
 
 # --- VRF / VLAN / samband ---
@@ -561,11 +612,16 @@ def upsert_circuit_termination(
 
 @router.get("/ipv6-prefixes", response_model=list[Ipv6PrefixRead])
 def list_ipv6_prefixes(
+    response: Response,
     site_id: int | None = Query(None),
     slug: str | None = Query(None),
+    limit: int | None = Query(None, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Ipv6PrefixRead]:
-    return ipv6_svc.list_ipv6_prefixes(db, site_id=site_id, slug=slug)
+    items, total = ipv6_svc.list_ipv6_prefixes(db, site_id=site_id, slug=slug, limit=limit, offset=offset)
+    etag_svc.attach_page(response, total=total, offset=offset, count=len(items))
+    return items
 
 
 @router.post("/ipv6-prefixes", response_model=Ipv6PrefixRead)
@@ -583,10 +639,11 @@ def ensure_ipv6_prefix(
 
 
 @router.get("/ipv6-prefixes/{prefix_id}", response_model=Ipv6PrefixRead)
-def get_ipv6_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv6PrefixRead:
+def get_ipv6_prefix(prefix_id: int, response: Response, db: Session = Depends(get_db)) -> Ipv6PrefixRead:
     row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    etag_svc.attach_etag(response, row)
     return ipv6_svc.ipv6_prefix_read(db, row)
 
 
@@ -627,13 +684,49 @@ def request_ipv6_address(data: Ipv6AddressRequest, db: Session = Depends(get_db)
 
 @router.get("/ipv6-addresses", response_model=list[Ipv6AddressRead])
 def list_ipv6_addresses(
+    response: Response,
     site_id: int | None = Query(None),
     ipv6_prefix_id: int | None = Query(None),
     address: str | None = Query(None),
     limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Ipv6AddressRead]:
-    return ipv6_svc.list_ipv6_addresses(db, site_id=site_id, ipv6_prefix_id=ipv6_prefix_id, address=address, limit=limit)
+    items, total = ipv6_svc.list_ipv6_addresses(
+        db, site_id=site_id, ipv6_prefix_id=ipv6_prefix_id, address=address, limit=limit, offset=offset,
+    )
+    etag_svc.attach_page(response, total=total, offset=offset, count=len(items))
+    return items
+
+
+@router.post("/ipv6-addresses/{addr_id}/release", response_model=Ipv6AddressRead)
+def release_ipv6_address(
+    addr_id: int,
+    response: Response,
+    db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
+) -> Ipv6AddressRead:
+    row = ipv6_svc.get_ipv6_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
+    etag_svc.require_if_match(row, if_match)
+    body = ipv6_svc.release_ipv6_address(db, row)
+    etag_svc.attach_etag(response, row)
+    return body
+
+
+@router.delete("/ipv6-addresses/{addr_id}", status_code=204)
+def delete_ipv6_address(
+    addr_id: int,
+    force: bool = Query(False, description="Hard-slett reserved/assigned uten release"),
+    db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
+) -> None:
+    row = ipv6_svc.get_ipv6_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
+    etag_svc.require_if_match(row, if_match)
+    ipv6_svc.delete_ipv6_address(db, row, force=force)
 
 
 @router.get("/audit", response_model=list[IpamAuditEventRead])

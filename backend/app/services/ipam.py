@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import ipaddress
 import re
 
@@ -37,6 +38,7 @@ from app.services import tenant as tenant_svc
 from app.services import ipam_facilities as fac_svc
 from app.services.ipam_errors import ipam_error
 from app.services import ipam_audit as audit_svc
+from app.services import ipam_etag as etag_svc
 
 _INVENTORY_USED_STATUSES = frozenset({"reserved", "assigned"})
 OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
@@ -443,6 +445,7 @@ def ipv4_prefix_read(
         subnet_services=services,
         overlap_policy=getattr(row, "overlap_policy", None) or "site-local",
         dual_stack_group_id=getattr(row, "dual_stack_group_id", None),
+        etag=etag_svc.format_etag(row),
     )
 
 
@@ -560,7 +563,7 @@ def list_ipv4_prefixes(
     status: str | None = None,
     limit: int | None = None,
     offset: int = 0,
-) -> list[Ipv4PrefixRead]:
+) -> tuple[list[Ipv4PrefixRead], int]:
     stmt = select(IpamIpv4Prefix).order_by(IpamIpv4Prefix.site_id, IpamIpv4Prefix.cidr)
     if site_id is not None:
         stmt = stmt.where(IpamIpv4Prefix.site_id == site_id)
@@ -613,6 +616,7 @@ def list_ipv4_prefixes(
             ]
 
     rows.sort(key=_prefix_sort_key)
+    total = len(rows)
     if offset:
         rows = rows[offset:]
     if limit is not None:
@@ -628,10 +632,13 @@ def list_ipv4_prefixes(
     by_site: dict[int, list[IpamIpv4Prefix]] = {}
     for r in all_site:
         by_site.setdefault(r.site_id, []).append(r)
-    return [
-        ipv4_prefix_read(db, r, _cache=cache, _inventory_cache=inv_cache, _same_site=by_site.get(r.site_id, []))
-        for r in rows
-    ]
+    return (
+        [
+            ipv4_prefix_read(db, r, _cache=cache, _inventory_cache=inv_cache, _same_site=by_site.get(r.site_id, []))
+            for r in rows
+        ],
+        total,
+    )
 
 
 def get_ipv4_prefix(db: Session, prefix_id: int) -> IpamIpv4Prefix | None:
@@ -897,6 +904,7 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
                 raise ipam_error(400, "vrf_site_mismatch", "vrf tilhører ikke samme site")
             row.vrf_id = int(vrf_id)
             row.vrf_scope = vrf_scope_of(int(vrf_id))
+    row.updated_at = dt.datetime.now(dt.UTC)
     try:
         db.commit()
     except IntegrityError:

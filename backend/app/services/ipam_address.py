@@ -13,6 +13,7 @@ from app.models.dcim import DeviceInterface, InterfaceIpAssignment
 from app.models.iam import User
 from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix
 from app.schemas.ipam import (
+    ADDRESS_STATUSES,
     Ipv4AddressBatchRead,
     Ipv4AddressBatchRequest,
     Ipv4AddressEnsure,
@@ -24,7 +25,10 @@ from app.schemas.ipam import (
 )
 from app.services import dcim as dcim_svc
 from app.services import ipam as ipam_svc
+from app.services import ipam_etag as etag_svc
 from app.services.ipam_errors import ipam_error
+
+_HELD_STATUSES = frozenset({"reserved", "assigned"})
 
 _IN_USE_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp"})
 _MODE_TO_STATUS = {"reserve": "reserved", "assign": "assigned"}
@@ -37,7 +41,8 @@ def _ipv4_address_read(
     interface_names: dict[int, str] | None = None,
     created: bool | None = None,
 ) -> Ipv4AddressRead:
-    base = Ipv4AddressRead.model_validate(row)
+    status = row.status if row.status in ADDRESS_STATUSES else "discovered"
+    base = Ipv4AddressRead.model_validate(row).model_copy(update={"status": status, "etag": etag_svc.format_etag(row)})
     extra = {"created": created}
     if row.interface_id is None:
         return base.model_copy(update={**extra, "interface_name": None})
@@ -89,7 +94,7 @@ def list_ipv4_addresses(
     q: str | None = None,
     device_id: int | None = None,
     role: str | None = None,
-) -> list[Ipv4AddressRead]:
+) -> tuple[list[Ipv4AddressRead], int]:
     stmt: Select = select(IpamIpv4Address).order_by(IpamIpv4Address.address)
     if site_id is not None:
         stmt = stmt.where(IpamIpv4Address.site_id == site_id)
@@ -120,6 +125,7 @@ def list_ipv4_addresses(
                 or needle in (getattr(r, "fqdn", None) or "").lower()
                 or needle in (getattr(r, "dns_name", None) or "").lower()
             ]
+    total = len(rows)
     if offset:
         rows = rows[offset:]
     rows = rows[:limit]
@@ -128,7 +134,7 @@ def list_ipv4_addresses(
     if if_ids:
         qi = select(DeviceInterface.id, DeviceInterface.name).where(DeviceInterface.id.in_(if_ids))
         names = dict(db.execute(qi).all())
-    return [_ipv4_address_read(db, r, interface_names=names) for r in rows]
+    return [_ipv4_address_read(db, r, interface_names=names) for r in rows], total
 
 
 def get_ipv4_address(db: Session, addr_id: int) -> IpamIpv4Address | None:
@@ -142,7 +148,15 @@ def get_ipv4_address_read(db: Session, addr_id: int) -> Ipv4AddressRead:
     return _ipv4_address_read(db, row)
 
 
-def delete_ipv4_address(db: Session, row: IpamIpv4Address) -> None:
+def delete_ipv4_address(db: Session, row: IpamIpv4Address, *, force: bool = False) -> None:
+    """Hard-slett inventory-rad. reserved/assigned krever release eller force=true."""
+    if not force and (row.status or "") in _HELD_STATUSES:
+        raise ipam_error(
+            409,
+            "address_must_release",
+            "release adressen først (beholder raden) eller DELETE med ?force=true",
+            address_status=row.status,
+        )
     if row.interface_ip_assignment_id is not None:
         assign = db.get(InterfaceIpAssignment, row.interface_ip_assignment_id)
         if assign is not None:

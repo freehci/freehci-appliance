@@ -10,6 +10,7 @@ export type Ipv4Prefix = {
   status?: string;
   overlap_policy?: string;
   dual_stack_group_id?: number | null;
+  etag?: string | null;
   cidr: string;
   description: string | null;
   created_at: string;
@@ -146,6 +147,7 @@ export type Ipv4Address = {
   interface_ip_assignment_id: number | null;
   created_at: string;
   updated_at: string;
+  etag?: string | null;
 };
 
 export type PrefixAddressGridRow = {

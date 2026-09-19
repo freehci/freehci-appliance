@@ -14,6 +14,7 @@ from app.core.db import SessionLocal
 from app.core.logging import setup_logging
 from app.integrations.registry import registry
 from app.services.auth_admin import ensure_default_admin
+from app.services import ipam_etag as etag_svc
 
 settings = get_settings()
 setup_logging(settings.debug)
@@ -45,7 +46,9 @@ Machine-readable connect info: `GET /api/v1/auth/agent` (no auth).
 - Circuits may omit `tenant_id` and terminate on `a_site_id`/`z_site_id` (WireGuard).
 - Audit: `GET /ipam/audit`. API tokens accept `scopes`: `ipam:read`, `ipam:alloc`, `ipam:admin`.
 - Pin or allocate hosts: `POST /api/v1/ipam/ipv4-addresses/ensure` and `/request` (`mode=reserve|assign`, interface optional)
-- Hard-delete address: `DELETE /api/v1/ipam/ipv4-addresses/{id}`
+- `POST .../release` frees the address but keeps the inventory row (`status=discovered`). `DELETE` of reserved/assigned is 409 `address_must_release` unless `?force=true`.
+- Lists send `X-Total-Count` and `X-Truncated` so a default limit of 200 cannot hide remaining rows.
+- Optimistic concurrency: GET returns `ETag` and `etag` on the body. PATCH/DELETE/release/bind accept optional `If-Match` (412 `precondition_failed` on mismatch).
 - Prefix delete is 409 if children or addresses exist; pass `?cascade=true` to remove them
 """
 
@@ -87,6 +90,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=list(etag_svc.EXPOSE_HEADERS),
     )
     application.add_middleware(ApiAuthMiddleware, settings=get_settings())
     application.include_router(api_router, prefix=settings.api_v1_prefix)

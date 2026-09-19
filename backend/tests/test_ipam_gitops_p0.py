@@ -193,7 +193,10 @@ def test_hard_delete_address_and_prefix_409_or_cascade() -> None:
         blocked = client.delete(f"/api/v1/ipam/ipv4-prefixes/{pid}")
         assert blocked.status_code == 409, blocked.text
 
-        gone = client.delete(f"/api/v1/ipam/ipv4-addresses/{addr_id}")
+        blocked_del = client.delete(f"/api/v1/ipam/ipv4-addresses/{addr_id}")
+        assert blocked_del.status_code == 409
+        assert blocked_del.json()["detail"]["code"] == "address_must_release"
+        gone = client.delete(f"/api/v1/ipam/ipv4-addresses/{addr_id}?force=true")
         assert gone.status_code == 204
         missing = client.get(f"/api/v1/ipam/ipv4-addresses/{addr_id}")
         assert missing.status_code == 404

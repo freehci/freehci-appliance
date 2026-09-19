@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.ipam import IpamIpv6Address, IpamIpv6Prefix
 from app.schemas.ipam import (
+    ADDRESS_STATUSES,
     Ipv6AddressEnsure,
     Ipv6AddressRead,
     Ipv6AddressRequest,
@@ -21,7 +22,10 @@ from app.schemas.ipam import (
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_audit as audit_svc
+from app.services import ipam_etag as etag_svc
 from app.services.ipam_errors import ipam_error
+
+_HELD_STATUSES = frozenset({"reserved", "assigned"})
 
 _IN_USE = frozenset({"planned", "reserved", "assigned", "dhcp"})
 _MODE_TO_STATUS = {"reserve": "reserved", "assign": "assigned"}
@@ -95,6 +99,7 @@ def ipv6_prefix_read(db: Session, row: IpamIpv6Prefix, *, created: bool | None =
         subnet_services=ipam_svc.dump_subnet_services(row.subnet_services) if row.subnet_services else None,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        etag=etag_svc.format_etag(row),
     )
 
 
@@ -102,13 +107,30 @@ def get_ipv6_prefix(db: Session, prefix_id: int) -> IpamIpv6Prefix | None:
     return db.get(IpamIpv6Prefix, prefix_id)
 
 
-def list_ipv6_prefixes(db: Session, *, site_id: int | None = None, slug: str | None = None) -> list[Ipv6PrefixRead]:
+def get_ipv6_address(db: Session, addr_id: int) -> IpamIpv6Address | None:
+    return db.get(IpamIpv6Address, addr_id)
+
+
+def list_ipv6_prefixes(
+    db: Session,
+    *,
+    site_id: int | None = None,
+    slug: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> tuple[list[Ipv6PrefixRead], int]:
     q = select(IpamIpv6Prefix).order_by(IpamIpv6Prefix.site_id, IpamIpv6Prefix.cidr)
     if site_id is not None:
         q = q.where(IpamIpv6Prefix.site_id == site_id)
     if slug is not None:
         q = q.where(IpamIpv6Prefix.slug == ipam_svc.slugify_prefix(slug))
-    return [ipv6_prefix_read(db, r) for r in db.execute(q).scalars().all()]
+    rows = list(db.execute(q).scalars().all())
+    total = len(rows)
+    if offset:
+        rows = rows[offset:]
+    if limit is not None:
+        rows = rows[:limit]
+    return [ipv6_prefix_read(db, r) for r in rows], total
 
 
 def find_by_site_vrf_cidr(db: Session, *, site_id: int, cidr: str, vrf_id: int | None) -> IpamIpv6Prefix | None:
@@ -293,7 +315,10 @@ def list_available_child_ipv6(db: Session, parent: IpamIpv6Prefix, prefixlen: in
 
 
 def _addr_read(row: IpamIpv6Address, *, created: bool | None = None) -> Ipv6AddressRead:
-    return Ipv6AddressRead.model_validate(row).model_copy(update={"created": created})
+    status = row.status if row.status in ADDRESS_STATUSES else "discovered"
+    return Ipv6AddressRead.model_validate(row).model_copy(
+        update={"created": created, "status": status, "etag": etag_svc.format_etag(row)},
+    )
 
 
 def ensure_ipv6_address(db: Session, data: Ipv6AddressEnsure, *, update: bool = False) -> Ipv6AddressRead:
@@ -406,7 +431,8 @@ def list_ipv6_addresses(
     ipv6_prefix_id: int | None = None,
     address: str | None = None,
     limit: int = 200,
-) -> list[Ipv6AddressRead]:
+    offset: int = 0,
+) -> tuple[list[Ipv6AddressRead], int]:
     q = select(IpamIpv6Address).order_by(IpamIpv6Address.address)
     if site_id is not None:
         q = q.where(IpamIpv6Address.site_id == site_id)
@@ -414,5 +440,30 @@ def list_ipv6_addresses(
         q = q.where(IpamIpv6Address.ipv6_prefix_id == ipv6_prefix_id)
     if address is not None:
         q = q.where(IpamIpv6Address.address == str(ipaddress.ip_address(address.strip())))
-    rows = list(db.execute(q.limit(limit)).scalars().all())
-    return [_addr_read(r) for r in rows]
+    rows = list(db.execute(q).scalars().all())
+    total = len(rows)
+    if offset:
+        rows = rows[offset:]
+    rows = rows[:limit]
+    return [_addr_read(r) for r in rows], total
+
+
+def release_ipv6_address(db: Session, row: IpamIpv6Address) -> Ipv6AddressRead:
+    row.status = "discovered"
+    row.device_id = None
+    row.interface_id = None
+    db.commit()
+    db.refresh(row)
+    return _addr_read(row)
+
+
+def delete_ipv6_address(db: Session, row: IpamIpv6Address, *, force: bool = False) -> None:
+    if not force and (row.status or "") in _HELD_STATUSES:
+        raise ipam_error(
+            409,
+            "address_must_release",
+            "release adressen først (beholder raden) eller DELETE med ?force=true",
+            address_status=row.status,
+        )
+    db.delete(row)
+    db.commit()

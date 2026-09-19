@@ -10,7 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "wireguard", "radio", "leased_line", "other"})
 _OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
 _OWNER_TYPES = frozenset({"user", "token", "cluster", "system"})
-_ADDRESS_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp", "discovered", "deprecated"})
+ADDRESS_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp", "discovered", "deprecated"})
+_ADDRESS_STATUSES = ADDRESS_STATUSES
 _ADDRESS_MODES = frozenset({"reserve", "assign"})
 _ADDRESS_ROLES = frozenset({"gateway", "vip", "anycast", "lb", "host", "dhcp", "reserved"})
 PREFIX_ROLES = frozenset(
@@ -262,6 +263,7 @@ class Ipv4PrefixRead(BaseModel):
     )
     overlap_policy: str = "site-local"
     dual_stack_group_id: int | None = None
+    etag: str | None = Field(None, description="Optimistic concurrency; send som If-Match på PATCH/DELETE")
 
 
 class Ipv4AssignmentInPrefixRead(BaseModel):
@@ -389,6 +391,7 @@ class Ipv4AddressRead(BaseModel):
     interface_ip_assignment_id: int | None
     created_at: dt.datetime
     updated_at: dt.datetime
+    etag: str | None = Field(None, description="Optimistic concurrency; send som If-Match på PATCH/DELETE/release")
 
 
 class PrefixAddressGridRow(BaseModel):
@@ -904,6 +907,7 @@ class Ipv6PrefixRead(BaseModel):
     subnet_services: dict[str, Any] | None = None
     created_at: dt.datetime
     updated_at: dt.datetime | None = None
+    etag: str | None = None
 
 
 class Ipv6PrefixAllocate(Ipv4PrefixAllocate):
@@ -975,6 +979,7 @@ class Ipv6AddressRead(BaseModel):
     created: bool | None = None
     created_at: dt.datetime
     updated_at: dt.datetime
+    etag: str | None = None
 
 
 class IpamAuditEventRead(BaseModel):
