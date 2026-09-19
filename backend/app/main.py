@@ -29,6 +29,14 @@ Send `Authorization: Bearer <token>` on `/api/v1` routes.
 - **Login JWT:** `POST /api/v1/auth/login` with username and password, then use `access_token`.
 
 Machine-readable connect info: `GET /api/v1/auth/agent` (no auth).
+
+## IPAM (IPv4, GitOps)
+
+- Look up prefixes: `GET /api/v1/ipam/ipv4-prefixes?cidr=` / `?slug=` / `?q=` / `?address=`
+- Idempotent create: `POST /api/v1/ipam/ipv4-prefixes/ensure` (`site_id` + `cidr`)
+- Pin or allocate hosts: `POST /api/v1/ipam/ipv4-addresses/ensure` and `/request` (`mode=reserve|assign`, interface optional)
+- Hard-delete address: `DELETE /api/v1/ipam/ipv4-addresses/{id}`
+- Prefix delete is 409 if children or addresses exist; pass `?cascade=true` to remove them
 """
 
 

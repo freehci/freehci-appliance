@@ -15,6 +15,7 @@ from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix
 from app.schemas.ipam import (
     Ipv4AddressBatchRead,
     Ipv4AddressBatchRequest,
+    Ipv4AddressEnsure,
     Ipv4AddressPatch,
     Ipv4AddressRead,
     Ipv4AddressRequest,
@@ -22,6 +23,9 @@ from app.schemas.ipam import (
     UserRead,
 )
 from app.services import dcim as dcim_svc
+
+_IN_USE_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp"})
+_MODE_TO_STATUS = {"reserve": "reserved", "assign": "assigned"}
 
 
 def _ipv4_address_read(
@@ -97,6 +101,116 @@ def get_ipv4_address(db: Session, addr_id: int) -> IpamIpv4Address | None:
     return db.get(IpamIpv4Address, addr_id)
 
 
+def get_ipv4_address_read(db: Session, addr_id: int) -> Ipv4AddressRead:
+    row = get_ipv4_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
+    return _ipv4_address_read(db, row)
+
+
+def delete_ipv4_address(db: Session, row: IpamIpv4Address) -> None:
+    if row.interface_ip_assignment_id is not None:
+        assign = db.get(InterfaceIpAssignment, row.interface_ip_assignment_id)
+        if assign is not None:
+            db.delete(assign)
+    db.delete(row)
+    db.commit()
+
+
+def _parse_ipv4_in_prefix(pfx: IpamIpv4Prefix, address: str) -> ipaddress.IPv4Address:
+    try:
+        ip = ipaddress.ip_address(address.strip())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"ugyldig adresse: {e}") from e
+    if not isinstance(ip, ipaddress.IPv4Address):
+        raise HTTPException(status_code=400, detail="kun IPv4")
+    net = ipaddress.ip_network(pfx.cidr, strict=False)
+    if ip not in net:
+        raise HTTPException(status_code=400, detail="adressen ligger ikke i prefiksnettet")
+    return ip
+
+
+def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure) -> Ipv4AddressRead:
+    pfx = db.get(IpamIpv4Prefix, data.ipv4_prefix_id)
+    if pfx is None:
+        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+    ip = _parse_ipv4_in_prefix(pfx, data.address)
+    ip_s = str(ip)
+
+    status = data.status
+    if data.mode is not None:
+        status = _MODE_TO_STATUS[data.mode]
+    if status in ("reserved", "assigned") and ip_s in _network_broadcast_ips(pfx):
+        raise HTTPException(
+            status_code=400,
+            detail="kan ikke reservere eller tildele nettverks- eller broadcast-adresse",
+        )
+
+    iface = _resolve_assign_interface(db, pfx, data)
+    if data.mode == "assign" and data.interface_id is not None and iface is None:
+        raise HTTPException(status_code=404, detail="interface ikke funnet")
+
+    row = _inventory_row_for_site_address(db, site_id=pfx.site_id, address=ip_s)
+    assign: InterfaceIpAssignment | None = None
+    if status == "assigned" and iface is not None and (row is None or row.interface_ip_assignment_id is None):
+        assign = InterfaceIpAssignment(
+            interface_id=iface.id,
+            ipv4_prefix_id=pfx.id,
+            family="ipv4",
+            address=ip_s,
+            is_primary=False,
+        )
+        db.add(assign)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="adressen er allerede tildelt i DCIM") from None
+
+    if row is None:
+        row = IpamIpv4Address(
+            site_id=pfx.site_id,
+            ipv4_prefix_id=pfx.id,
+            address=ip_s,
+            status=status or "discovered",
+            owner_user_id=data.owner_user_id,
+            note=data.note,
+            mac_address=None,
+            last_seen_at=None,
+            device_type_id=data.device_type_id,
+            device_model_id=data.device_model_id,
+            device_id=data.device_id or (iface.device_id if iface is not None else None),
+            interface_id=iface.id if iface is not None else None,
+            interface_ip_assignment_id=assign.id if assign is not None else None,
+        )
+        db.add(row)
+    else:
+        if row.ipv4_prefix_id is None:
+            row.ipv4_prefix_id = pfx.id
+        if status is not None:
+            row.status = status
+        if data.note is not None:
+            row.note = data.note
+        if data.owner_user_id is not None:
+            row.owner_user_id = data.owner_user_id
+        if data.device_type_id is not None:
+            row.device_type_id = data.device_type_id
+        if data.device_model_id is not None:
+            row.device_model_id = data.device_model_id
+        if data.device_id is not None:
+            row.device_id = data.device_id
+        elif iface is not None:
+            row.device_id = iface.device_id
+        if iface is not None:
+            row.interface_id = iface.id
+        if assign is not None:
+            row.interface_ip_assignment_id = assign.id
+
+    db.commit()
+    db.refresh(row)
+    return _ipv4_address_read(db, row)
+
+
 def patch_ipv4_address(db: Session, row: IpamIpv4Address, data: Ipv4AddressPatch) -> Ipv4AddressRead:
     patch = data.model_dump(exclude_unset=True)
     if not patch:
@@ -124,8 +238,13 @@ def _existing_ipv4_addresses_in_use(db: Session) -> set[str]:
     return out
 
 
-def _existing_ipam_inventory_site(db: Session, *, site_id: int) -> set[str]:
-    rows = db.execute(select(IpamIpv4Address.address).where(IpamIpv4Address.site_id == site_id)).scalars().all()
+def _existing_ipam_in_use(db: Session, *, site_id: int) -> set[str]:
+    rows = db.execute(
+        select(IpamIpv4Address.address).where(
+            IpamIpv4Address.site_id == site_id,
+            IpamIpv4Address.status.in_(tuple(_IN_USE_STATUSES)),
+        ),
+    ).scalars().all()
     out: set[str] = set()
     for a in rows:
         s = str(a).strip()
@@ -138,6 +257,46 @@ def _existing_ipam_inventory_site(db: Session, *, site_id: int) -> set[str]:
     return out
 
 
+def _gateway_ips(pfx: IpamIpv4Prefix) -> set[str]:
+    services = getattr(pfx, "subnet_services", None) or {}
+    if not isinstance(services, dict):
+        return set()
+    raw = services.get("gateway")
+    values: list[str] = []
+    if isinstance(raw, str):
+        values.append(raw)
+    elif isinstance(raw, list):
+        values.extend(str(x) for x in raw if x is not None)
+    out: set[str] = set()
+    try:
+        net = ipaddress.ip_network(pfx.cidr, strict=False)
+    except ValueError:
+        return out
+    for v in values:
+        try:
+            ip = ipaddress.ip_address(str(v).strip())
+        except ValueError:
+            continue
+        if isinstance(ip, ipaddress.IPv4Address) and ip in net:
+            out.add(str(ip))
+    return out
+
+
+def _network_broadcast_ips(pfx: IpamIpv4Prefix) -> set[str]:
+    try:
+        net = ipaddress.ip_network(pfx.cidr, strict=False)
+    except ValueError:
+        return set()
+    if net.version != 4 or net.prefixlen > 30:
+        return set()
+    return {str(net.network_address), str(net.broadcast_address)}
+
+
+def infra_reserved_ips(pfx: IpamIpv4Prefix) -> set[str]:
+    """Nettverk, broadcast og gateway — hoppes over ved host-allokering."""
+    return _network_broadcast_ips(pfx) | _gateway_ips(pfx)
+
+
 def _ordered_ip_candidates_for_batch(pfx: IpamIpv4Prefix, preferred_raw: list[str]) -> list[str]:
     """Foretrukne (gyldige i nettet, unike) først; deretter øvrige vertsadresser (hosts)."""
     try:
@@ -146,6 +305,7 @@ def _ordered_ip_candidates_for_batch(pfx: IpamIpv4Prefix, preferred_raw: list[st
         raise HTTPException(status_code=400, detail=f"ugyldig prefiks CIDR: {e}") from e
     if net.version != 4:
         raise HTTPException(status_code=400, detail="kun IPv4 støttes")
+    blocked = infra_reserved_ips(pfx)
     host_ips = list(net.hosts()) if net.prefixlen <= 30 else list(net)
     pref_order: list[str] = []
     seen: set[str] = set()
@@ -160,17 +320,21 @@ def _ordered_ip_candidates_for_batch(pfx: IpamIpv4Prefix, preferred_raw: list[st
         if not isinstance(ip, ipaddress.IPv4Address) or ip not in net:
             continue
         t = str(ip)
-        if t in seen:
+        if t in seen or t in blocked:
             continue
         pref_order.append(t)
         seen.add(t)
-    rest = [str(ip) for ip in host_ips if str(ip) not in seen]
+    rest = [str(ip) for ip in host_ips if str(ip) not in seen and str(ip) not in blocked]
     return pref_order + rest
 
 
-def _resolve_assign_interface(db: Session, pfx: IpamIpv4Prefix, data: Ipv4AddressRequest | Ipv4AddressBatchRequest) -> DeviceInterface:
+def _resolve_assign_interface(
+    db: Session,
+    pfx: IpamIpv4Prefix,
+    data: Ipv4AddressRequest | Ipv4AddressBatchRequest | Ipv4AddressEnsure,
+) -> DeviceInterface | None:
     if data.interface_id is None:
-        raise HTTPException(status_code=400, detail="interface_id er påkrevd når mode=assign")
+        return None
     iface = db.get(DeviceInterface, data.interface_id)
     if iface is None:
         raise HTTPException(status_code=404, detail="interface ikke funnet")
@@ -185,6 +349,44 @@ def _resolve_assign_interface(db: Session, pfx: IpamIpv4Prefix, data: Ipv4Addres
     if dev_site != pfx.site_id:
         raise HTTPException(status_code=400, detail="interface tilhører en annen site enn prefikset")
     return iface
+
+
+def _inventory_row_for_site_address(db: Session, *, site_id: int, address: str) -> IpamIpv4Address | None:
+    return db.execute(
+        select(IpamIpv4Address).where(
+            IpamIpv4Address.site_id == site_id,
+            IpamIpv4Address.address == address,
+        ),
+    ).scalar_one_or_none()
+
+
+def _fill_inventory_fields(
+    row: IpamIpv4Address,
+    *,
+    status: str,
+    owner_user_id: int | None,
+    note: str | None,
+    device_type_id: int | None,
+    device_model_id: int | None,
+    device_id: int | None,
+    interface_id: int | None,
+    interface_ip_assignment_id: int | None,
+    ipv4_prefix_id: int,
+) -> None:
+    row.status = status
+    row.ipv4_prefix_id = ipv4_prefix_id
+    if owner_user_id is not None:
+        row.owner_user_id = owner_user_id
+    if note is not None:
+        row.note = note
+    if device_type_id is not None:
+        row.device_type_id = device_type_id
+    if device_model_id is not None:
+        row.device_model_id = device_model_id
+    if device_id is not None:
+        row.device_id = device_id
+    row.interface_id = interface_id
+    row.interface_ip_assignment_id = interface_ip_assignment_id
 
 
 def _try_allocate_one_ip(
@@ -205,73 +407,74 @@ def _try_allocate_one_ip(
     if ip_s in used_dcim or ip_s in used_ipam:
         return None
 
-    if mode == "reserve":
+    existing = _inventory_row_for_site_address(db, site_id=pfx.site_id, address=ip_s)
+    if existing is not None and existing.status in _IN_USE_STATUSES:
+        used_ipam.add(ip_s)
+        return None
+
+    status = _MODE_TO_STATUS[mode]
+    bind_iface = iface if mode == "assign" else None
+    assign: InterfaceIpAssignment | None = None
+    if bind_iface is not None:
+        assign = InterfaceIpAssignment(
+            interface_id=bind_iface.id,
+            ipv4_prefix_id=pfx.id,
+            family="ipv4",
+            address=ip_s,
+            is_primary=False,
+        )
+        db.add(assign)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            used_dcim.add(ip_s)
+            return None
+
+    if existing is None:
         row = IpamIpv4Address(
             site_id=pfx.site_id,
             ipv4_prefix_id=pfx.id,
             address=ip_s,
-            status="reserved",
+            status=status,
             owner_user_id=owner_user_id,
             note=note,
             mac_address=None,
             last_seen_at=None,
             device_type_id=device_type_id,
             device_model_id=device_model_id,
-            device_id=device_id,
-            interface_id=None,
-            interface_ip_assignment_id=None,
+            device_id=device_id or (bind_iface.device_id if bind_iface is not None else None),
+            interface_id=bind_iface.id if bind_iface is not None else None,
+            interface_ip_assignment_id=assign.id if assign is not None else None,
         )
         db.add(row)
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            used_ipam.add(ip_s)
-            return None
-        db.refresh(row)
-        return row
+    else:
+        _fill_inventory_fields(
+            existing,
+            status=status,
+            owner_user_id=owner_user_id,
+            note=note,
+            device_type_id=device_type_id,
+            device_model_id=device_model_id,
+            device_id=device_id or (bind_iface.device_id if bind_iface is not None else existing.device_id),
+            interface_id=bind_iface.id if bind_iface is not None else None,
+            interface_ip_assignment_id=assign.id if assign is not None else None,
+            ipv4_prefix_id=pfx.id,
+        )
+        row = existing
 
-    assert iface is not None
-    assign = InterfaceIpAssignment(
-        interface_id=iface.id,
-        ipv4_prefix_id=pfx.id,
-        family="ipv4",
-        address=ip_s,
-        is_primary=False,
-    )
-    db.add(assign)
-    try:
-        db.flush()
-    except IntegrityError:
-        db.rollback()
-        used_dcim.add(ip_s)
-        return None
-
-    row = IpamIpv4Address(
-        site_id=pfx.site_id,
-        ipv4_prefix_id=pfx.id,
-        address=ip_s,
-        status="assigned",
-        owner_user_id=owner_user_id,
-        note=note,
-        mac_address=None,
-        last_seen_at=None,
-        device_type_id=device_type_id,
-        device_model_id=device_model_id,
-        device_id=device_id or iface.device_id,
-        interface_id=iface.id,
-        interface_ip_assignment_id=assign.id,
-    )
-    db.add(row)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        try:
-            db.delete(assign)
-            db.commit()
-        except Exception:  # noqa: BLE001
-            db.rollback()
+        if assign is not None:
+            try:
+                gone = db.get(InterfaceIpAssignment, assign.id)
+                if gone is not None:
+                    db.delete(gone)
+                    db.commit()
+            except Exception:  # noqa: BLE001
+                db.rollback()
         used_ipam.add(ip_s)
         return None
 
@@ -284,13 +487,11 @@ def request_ipv4_addresses_batch(db: Session, data: Ipv4AddressBatchRequest) -> 
     if pfx is None:
         raise HTTPException(status_code=404, detail="prefiks ikke funnet")
 
-    iface: DeviceInterface | None = None
-    if data.mode == "assign":
-        iface = _resolve_assign_interface(db, pfx, data)
+    iface = _resolve_assign_interface(db, pfx, data)
 
     order = _ordered_ip_candidates_for_batch(pfx, data.preferred_addresses)
     used_dcim = _existing_ipv4_addresses_in_use(db)
-    used_ipam = _existing_ipam_inventory_site(db, site_id=pfx.site_id)
+    used_ipam = _existing_ipam_in_use(db, site_id=pfx.site_id)
     reads: list[Ipv4AddressRead] = []
 
     for _ in range(data.count):

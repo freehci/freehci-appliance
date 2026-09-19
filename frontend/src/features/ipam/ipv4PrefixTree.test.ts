@@ -21,6 +21,7 @@ function p(
     vlan_id: null,
     vrf_id: null,
     name,
+    slug: name.toLowerCase().replace(/\s+/g, "-"),
     cidr,
     description: null,
     created_at: "2026-01-01T00:00:00Z",

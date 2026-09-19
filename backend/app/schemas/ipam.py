@@ -8,12 +8,15 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "radio", "leased_line", "other"})
+_ADDRESS_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp", "discovered", "deprecated"})
+_ADDRESS_MODES = frozenset({"reserve", "assign"})
 
 
 class Ipv4PrefixCreate(BaseModel):
     site_id: int
     name: str = Field(..., min_length=1, max_length=255)
     cidr: str = Field(..., min_length=1, max_length=32)
+    slug: str | None = Field(None, min_length=1, max_length=128, description="Stabil nøkkel; genereres fra name hvis utelatt")
     description: str | None = None
     subnet_services: dict[str, Any] | None = None
     tenant_id: int | None = Field(None, ge=1, description="Valgfritt: kunde-/colo-tenant for prefikset")
@@ -28,9 +31,52 @@ class Ipv4PrefixCreate(BaseModel):
             raise ValueError("cidr kan ikke være tom")
         return s
 
+    @field_validator("slug")
+    @classmethod
+    def slug_strip(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+
+class Ipv4PrefixEnsure(BaseModel):
+    """Idempotent opprett/hent prefiks på (site_id, cidr)."""
+
+    site_id: int
+    cidr: str = Field(..., min_length=1, max_length=32)
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+    subnet_services: dict[str, Any] | None = None
+    tenant_id: int | None = Field(None, ge=1)
+    vlan_id: int | None = Field(None, ge=1)
+    vrf_id: int | None = Field(None, ge=1)
+
+    @field_validator("cidr")
+    @classmethod
+    def cidr_not_empty(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("cidr kan ikke være tom")
+        return s
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
 
 class Ipv4PrefixUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
     cidr: str | None = Field(None, min_length=1, max_length=32)
     description: str | None = None
     subnet_services: dict[str, Any] | None = None
@@ -48,9 +94,19 @@ class Ipv4PrefixUpdate(BaseModel):
             raise ValueError("cidr kan ikke være tom")
         return s
 
+    @field_validator("slug")
+    @classmethod
+    def slug_strip(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
 
 class Ipv4PrefixRead(BaseModel):
-    """Returneres fra tjenestelaget med telling fra DCIM IP-tildelinger."""
+    """Returneres fra tjenestelaget med telling fra inventory + DCIM."""
 
     id: int
     site_id: int
@@ -58,13 +114,14 @@ class Ipv4PrefixRead(BaseModel):
     vlan_id: int | None = None
     vrf_id: int | None = None
     name: str
+    slug: str
     cidr: str
     description: str | None
     created_at: dt.datetime
     used_count: int = Field(
         description=(
-            "Antall IPv4-tildelinger der adressen ligger i dette CIDR-et og enheten er "
-            "plassert på samme site (uavhengig av om tildelingen peker på et mer spesifikt prefiks, f.eks. /32)"
+            "Unike IPv4-adresser i CIDR som er inventory reserved|assigned "
+            "eller DCIM-tildelt på samme site"
         ),
     )
     address_total: int = Field(description="Totalt antall IPv4-adresser i CIDR (inkl. nettverk/broadcast der relevant)")
@@ -223,6 +280,34 @@ class PrefixAddressGridRead(BaseModel):
 class Ipv4AddressEnsure(BaseModel):
     ipv4_prefix_id: int = Field(..., ge=1)
     address: str = Field(..., min_length=1, max_length=45)
+    mode: str | None = Field(None, description="reserve | assign — overstyrer status hvis satt")
+    status: str | None = Field(None, description="planned | reserved | assigned | dhcp | discovered | deprecated")
+    note: str | None = None
+    owner_user_id: int | None = Field(None, ge=1)
+    device_type_id: int | None = Field(None, ge=1)
+    device_model_id: int | None = Field(None, ge=1)
+    device_id: int | None = Field(None, ge=1)
+    interface_id: int | None = Field(None, ge=1)
+
+    @field_validator("mode")
+    @classmethod
+    def mode_valid(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in _ADDRESS_MODES:
+            raise ValueError("mode må være reserve eller assign")
+        return s
+
+    @field_validator("status")
+    @classmethod
+    def status_valid(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in _ADDRESS_STATUSES:
+            raise ValueError("ugyldig status")
+        return s
 
 
 class Ipv4AddressPatch(BaseModel):
@@ -234,6 +319,16 @@ class Ipv4AddressPatch(BaseModel):
     device_model_id: int | None = Field(default=None)
     device_id: int | None = Field(default=None)
     interface_id: int | None = Field(default=None)
+
+    @field_validator("status")
+    @classmethod
+    def status_valid_patch(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in _ADDRESS_STATUSES:
+            raise ValueError("ugyldig status")
+        return s
 
     @field_validator("owner_user_id", "device_type_id", "device_model_id", "device_id", "interface_id")
     @classmethod

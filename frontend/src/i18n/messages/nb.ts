@@ -1400,7 +1400,7 @@ export const nb = {
   "ipam.subnetSvc.save": "Lagre subnet-tjenester",
   "ipam.ipv4.requestIps": "Request IP",
   "ipam.ipv4.deletePrefixConfirm":
-    "Slette prefiks «{name}» ({cidr})? Underprefiks, adresser og relaterte data kan bli fjernet.",
+    "Slette prefiks «{name}» ({cidr})? Underprefiks og inventory-adresser slettes også.",
   "ipam.grid.colRole": "Rolle",
   "ipam.grid.role.network": "Nettverk",
   "ipam.grid.role.broadcast": "Broadcast",

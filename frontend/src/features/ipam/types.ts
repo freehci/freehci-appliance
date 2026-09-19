@@ -5,6 +5,7 @@ export type Ipv4Prefix = {
   vlan_id?: number | null;
   vrf_id?: number | null;
   name: string;
+  slug: string;
   cidr: string;
   description: string | null;
   created_at: string;

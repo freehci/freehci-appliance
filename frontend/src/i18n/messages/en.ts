@@ -1390,7 +1390,7 @@ export const en = {
   "ipam.subnetSvc.save": "Save subnet services",
   "ipam.ipv4.requestIps": "Request IPs",
   "ipam.ipv4.deletePrefixConfirm":
-    "Delete prefix «{name}» ({cidr})? Child prefixes, addresses and related data may be removed.",
+    "Delete prefix «{name}» ({cidr})? Child prefixes and inventory addresses will also be removed.",
   "ipam.grid.colRole": "Role",
   "ipam.grid.role.network": "Network",
   "ipam.grid.role.broadcast": "Broadcast",

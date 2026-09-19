@@ -13,6 +13,7 @@ from app.schemas.ipam import (
     Ipv4AddressRead,
     Ipv4AddressRequest,
     Ipv4PrefixCreate,
+    Ipv4PrefixEnsure,
     Ipv4PrefixExploreRead,
     Ipv4PrefixRead,
     Ipv4PrefixSplitEqualRequest,
@@ -51,14 +52,36 @@ def list_ipv4_prefixes(
     site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
     tenant_id: int | None = Query(None, description="Filtrer på tenant-id (colo/kunde)"),
     vlan_id: int | None = Query(None, description="Filtrer på VLAN-id"),
+    vrf_id: int | None = Query(None, description="Filtrer på VRF-id"),
+    cidr: str | None = Query(None, description="Eksakt IPv4 CIDR (normaliseres)"),
+    name: str | None = Query(None, description="Eksakt prefiksnavn (case-insensitive)"),
+    slug: str | None = Query(None, description="Eksakt slug"),
+    q: str | None = Query(None, description="Søk i name, slug og cidr"),
+    address: str | None = Query(None, description="Prefiks som inneholder denne IPv4-adressen"),
     db: Session = Depends(get_db),
 ) -> list[Ipv4PrefixRead]:
-    return ipam_svc.list_ipv4_prefixes(db, site_id=site_id, tenant_id=tenant_id, vlan_id=vlan_id)
+    return ipam_svc.list_ipv4_prefixes(
+        db,
+        site_id=site_id,
+        tenant_id=tenant_id,
+        vlan_id=vlan_id,
+        vrf_id=vrf_id,
+        cidr=cidr,
+        name=name,
+        slug=slug,
+        q=q,
+        address=address,
+    )
 
 
 @router.post("/ipv4-prefixes", response_model=Ipv4PrefixRead)
 def create_ipv4_prefix(data: Ipv4PrefixCreate, db: Session = Depends(get_db)) -> Ipv4PrefixRead:
     return ipam_svc.create_ipv4_prefix(db, data)
+
+
+@router.post("/ipv4-prefixes/ensure", response_model=Ipv4PrefixRead)
+def ensure_ipv4_prefix(data: Ipv4PrefixEnsure, db: Session = Depends(get_db)) -> Ipv4PrefixRead:
+    return ipam_svc.ensure_ipv4_prefix(db, data)
 
 
 @router.get("/ipv4-prefixes/{prefix_id}/explore", response_model=Ipv4PrefixExploreRead)
@@ -92,11 +115,15 @@ def patch_ipv4_prefix(
 
 
 @router.delete("/ipv4-prefixes/{prefix_id}", status_code=204)
-def delete_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> None:
+def delete_ipv4_prefix(
+    prefix_id: int,
+    cascade: bool = Query(False, description="Slett underprefiks og inventory-adresser"),
+    db: Session = Depends(get_db),
+) -> None:
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
         raise HTTPException(status_code=404, detail="prefiks ikke funnet")
-    ipam_svc.delete_ipv4_prefix(db, row)
+    ipam_svc.delete_ipv4_prefix(db, row, cascade=cascade)
 
 
 @router.post("/ipv4-prefixes/{prefix_id}/split", response_model=Ipv4PrefixSplitResponse)
@@ -159,8 +186,7 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)) -> UserRead:
 
 @router.post("/ipv4-addresses/ensure", response_model=Ipv4AddressRead)
 def ensure_ipv4_address(data: Ipv4AddressEnsure, db: Session = Depends(get_db)) -> Ipv4AddressRead:
-    row = grid_svc.ensure_ipv4_address_row(db, ipv4_prefix_id=data.ipv4_prefix_id, address=data.address)
-    return addr_svc._ipv4_address_read(db, row)
+    return addr_svc.ensure_ipv4_address(db, data)
 
 
 @router.get("/ipv4-addresses", response_model=list[Ipv4AddressRead])
@@ -174,12 +200,25 @@ def list_ipv4_addresses(
     return addr_svc.list_ipv4_addresses(db, site_id=site_id, ipv4_prefix_id=ipv4_prefix_id, status=status, limit=limit)
 
 
+@router.get("/ipv4-addresses/{addr_id}", response_model=Ipv4AddressRead)
+def get_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+    return addr_svc.get_ipv4_address_read(db, addr_id)
+
+
 @router.patch("/ipv4-addresses/{addr_id}", response_model=Ipv4AddressRead)
 def patch_ipv4_address(addr_id: int, data: Ipv4AddressPatch, db: Session = Depends(get_db)) -> Ipv4AddressRead:
     row = addr_svc.get_ipv4_address(db, addr_id)
     if row is None:
         raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
     return addr_svc.patch_ipv4_address(db, row, data)
+
+
+@router.delete("/ipv4-addresses/{addr_id}", status_code=204)
+def delete_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> None:
+    row = addr_svc.get_ipv4_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
+    addr_svc.delete_ipv4_address(db, row)
 
 
 @router.post("/ipv4-addresses/request", response_model=Ipv4AddressRead)

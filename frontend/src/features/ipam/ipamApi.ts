@@ -34,7 +34,15 @@ export function getPrefixAddressGrid(prefixId: number): Promise<PrefixAddressGri
   return apiGet(`${P}/ipv4-prefixes/${prefixId}/address-grid`);
 }
 
-export function ensureIpv4Address(body: { ipv4_prefix_id: number; address: string }): Promise<Ipv4Address> {
+export function ensureIpv4Address(body: {
+  ipv4_prefix_id: number;
+  address: string;
+  mode?: "reserve" | "assign";
+  status?: string;
+  note?: string | null;
+  device_id?: number | null;
+  interface_id?: number | null;
+}): Promise<Ipv4Address> {
   return apiPost(`${P}/ipv4-addresses/ensure`, body);
 }
 
@@ -42,6 +50,7 @@ export function createIpv4Prefix(body: {
   site_id: number;
   name: string;
   cidr: string;
+  slug?: string | null;
   description?: string | null;
   tenant_id?: number | null;
   vlan_id?: number | null;
@@ -65,8 +74,9 @@ export function updateIpv4Prefix(
   return apiPatch(`${P}/ipv4-prefixes/${id}`, body);
 }
 
-export function deleteIpv4Prefix(id: number): Promise<void> {
-  return apiDelete(`${P}/ipv4-prefixes/${id}`);
+export function deleteIpv4Prefix(id: number, cascade = true): Promise<void> {
+  const q = cascade ? "?cascade=true" : "";
+  return apiDelete(`${P}/ipv4-prefixes/${id}${q}`);
 }
 
 export function ipv4PrefixSplit(
@@ -131,6 +141,10 @@ export function createUser(body: {
   return apiPost(`${P}/users`, body);
 }
 
+export function getIpv4Address(id: number): Promise<Ipv4Address> {
+  return apiGet(`${P}/ipv4-addresses/${id}`);
+}
+
 export function listIpv4Addresses(params?: {
   site_id?: number;
   ipv4_prefix_id?: number;
@@ -164,6 +178,10 @@ export function patchIpv4Address(
 
 export function releaseIpv4Address(id: number): Promise<Ipv4Address> {
   return apiPost(`${P}/ipv4-addresses/${id}/release`, {});
+}
+
+export function deleteIpv4Address(id: number): Promise<void> {
+  return apiDelete(`${P}/ipv4-addresses/${id}`);
 }
 
 export function requestIpv4Address(body: {

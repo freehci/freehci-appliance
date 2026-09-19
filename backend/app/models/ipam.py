@@ -20,7 +20,10 @@ if TYPE_CHECKING:
 
 class IpamIpv4Prefix(Base):
     __tablename__ = "ipam_ipv4_prefixes"
-    __table_args__ = (UniqueConstraint("site_id", "cidr", name="uq_ipam_ipv4_site_cidr"),)
+    __table_args__ = (
+        UniqueConstraint("site_id", "cidr", name="uq_ipam_ipv4_site_cidr"),
+        UniqueConstraint("site_id", "slug", name="uq_ipam_ipv4_site_slug"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(
@@ -40,6 +43,7 @@ class IpamIpv4Prefix(Base):
         nullable=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Kanonisk IPv4 CIDR-streng, f.eks. 192.168.1.0/24 (normaliseres i tjenestelaget).
     cidr: Mapped[str] = mapped_column(String(32), nullable=False)

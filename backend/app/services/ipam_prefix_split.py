@@ -270,25 +270,26 @@ def ipv4_prefix_split(db: Session, parent_id: int, data: Ipv4PrefixSplitRequest)
     ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=out.first_cidr)  # type: ignore[attr-defined]
     ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=out.second_cidr)  # type: ignore[attr-defined]
 
-    left = IpamIpv4Prefix(
+    reserved_slugs: set[str] = set()
+    left = ipam_svc.new_ipv4_prefix_orm(
+        db,
         site_id=parent.site_id,
-        tenant_id=parent.tenant_id,
-        vlan_id=parent.vlan_id,
-        vrf_id=parent.vrf_id,
         name=data.first.name.strip(),
         cidr=out.first_cidr,
-        description=None,
-        subnet_services=None,
-    )
-    right = IpamIpv4Prefix(
-        site_id=parent.site_id,
         tenant_id=parent.tenant_id,
         vlan_id=parent.vlan_id,
         vrf_id=parent.vrf_id,
+        reserved_slugs=reserved_slugs,
+    )
+    right = ipam_svc.new_ipv4_prefix_orm(
+        db,
+        site_id=parent.site_id,
         name=data.second.name.strip(),
         cidr=out.second_cidr,
-        description=None,
-        subnet_services=None,
+        tenant_id=parent.tenant_id,
+        vlan_id=parent.vlan_id,
+        vrf_id=parent.vrf_id,
+        reserved_slugs=reserved_slugs,
     )
     db.add(left)
     db.add(right)
@@ -600,6 +601,7 @@ def ipv4_prefix_split_equal(db: Session, parent_id: int, data: Ipv4PrefixSplitEq
         ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=str(s))  # type: ignore[attr-defined]
 
     created_orms: list[IpamIpv4Prefix] = []
+    reserved_slugs: set[str] = set()
     for s in subnets:
         cidr_s = str(s)
         name = (names_map.get(cidr_s) or cidr_s).strip()
@@ -607,15 +609,15 @@ def ipv4_prefix_split_equal(db: Session, parent_id: int, data: Ipv4PrefixSplitEq
             name = cidr_s
         if len(name) > 255:
             name = name[:255]
-        pr = IpamIpv4Prefix(
+        pr = ipam_svc.new_ipv4_prefix_orm(
+            db,
             site_id=parent.site_id,
+            name=name,
+            cidr=cidr_s,
             tenant_id=parent.tenant_id,
             vlan_id=parent.vlan_id,
             vrf_id=parent.vrf_id,
-            name=name,
-            cidr=cidr_s,
-            description=None,
-            subnet_services=None,
+            reserved_slugs=reserved_slugs,
         )
         db.add(pr)
         created_orms.append(pr)

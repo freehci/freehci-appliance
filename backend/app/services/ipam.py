@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,10 +18,11 @@ from app.models.dcim import (
     RackPlacement,
     Room,
 )
-from app.models.ipam import IpamIpv4Prefix
+from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix
 from app.schemas.ipam import (
     Ipv4AssignmentInPrefixRead,
     Ipv4PrefixCreate,
+    Ipv4PrefixEnsure,
     Ipv4PrefixExploreRead,
     Ipv4PrefixRead,
     Ipv4PrefixUpdate,
@@ -28,6 +30,82 @@ from app.schemas.ipam import (
 from app.services import dcim as dcim_svc
 from app.services import tenant as tenant_svc
 from app.services import ipam_facilities as fac_svc
+
+_INVENTORY_USED_STATUSES = frozenset({"reserved", "assigned"})
+
+
+def slugify_prefix(value: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return (s or "prefix")[:128]
+
+
+def allocate_prefix_slug(
+    db: Session,
+    *,
+    site_id: int,
+    desired: str,
+    exclude_prefix_id: int | None = None,
+    reserved: set[str] | None = None,
+    allow_suffix: bool = True,
+) -> str:
+    base = slugify_prefix(desired)
+    candidate = base
+    n = 2
+    while True:
+        taken = reserved is not None and candidate in reserved
+        if not taken:
+            q = select(IpamIpv4Prefix.id).where(
+                IpamIpv4Prefix.site_id == site_id,
+                IpamIpv4Prefix.slug == candidate,
+            )
+            if exclude_prefix_id is not None:
+                q = q.where(IpamIpv4Prefix.id != exclude_prefix_id)
+            taken = db.execute(q).scalar_one_or_none() is not None
+        if not taken:
+            if reserved is not None:
+                reserved.add(candidate)
+            return candidate
+        if not allow_suffix:
+            raise HTTPException(status_code=409, detail="slug finnes allerede på denne siten")
+        suffix = f"-{n}"
+        candidate = f"{base[: 128 - len(suffix)]}{suffix}"
+        n += 1
+        if n > 1000:
+            raise HTTPException(status_code=400, detail="kunne ikke lage unik slug")
+
+
+def new_ipv4_prefix_orm(
+    db: Session,
+    *,
+    site_id: int,
+    name: str,
+    cidr: str,
+    slug: str | None = None,
+    description: str | None = None,
+    subnet_services: dict | None = None,
+    tenant_id: int | None = None,
+    vlan_id: int | None = None,
+    vrf_id: int | None = None,
+    reserved_slugs: set[str] | None = None,
+) -> IpamIpv4Prefix:
+    explicit = slug is not None
+    return IpamIpv4Prefix(
+        site_id=site_id,
+        tenant_id=tenant_id,
+        vlan_id=vlan_id,
+        vrf_id=vrf_id,
+        name=name.strip(),
+        slug=allocate_prefix_slug(
+            db,
+            site_id=site_id,
+            desired=slug or name or cidr,
+            reserved=reserved_slugs,
+            allow_suffix=not explicit,
+        ),
+        description=description,
+        cidr=cidr,
+        subnet_services=subnet_services,
+    )
 
 
 def _ipv4_address_total(cidr: str) -> int:
@@ -171,20 +249,38 @@ def explore_ipv4_prefix(db: Session, prefix_id: int) -> Ipv4PrefixExploreRead:
         db.execute(select(IpamIpv4Prefix).where(IpamIpv4Prefix.site_id == row.site_id)).scalars().all(),
     )
     cache = _ipv4_assignments_with_site(db)
+    inv_cache = _ipv4_inventory_used_with_site(db)
     children = _child_prefix_orms(row, same_site)
-    child_reads = [ipv4_prefix_read(db, c, _cache=cache) for c in children]
+    child_reads = [ipv4_prefix_read(db, c, _cache=cache, _inventory_cache=inv_cache) for c in children]
     assigns = _assignment_rows_in_prefix(db, row)
     return Ipv4PrefixExploreRead(
-        prefix=ipv4_prefix_read(db, row, _cache=cache),
+        prefix=ipv4_prefix_read(db, row, _cache=cache, _inventory_cache=inv_cache),
         child_prefixes=child_reads,
         assignments=assigns,
     )
 
 
+def _ipv4_inventory_used_with_site(db: Session) -> list[tuple[ipaddress.IPv4Address, int]]:
+    """Inventory-adresser med status reserved|assigned: (adresse, site_id)."""
+    q = select(IpamIpv4Address.address, IpamIpv4Address.site_id).where(
+        IpamIpv4Address.status.in_(tuple(_INVENTORY_USED_STATUSES)),
+    )
+    out: list[tuple[ipaddress.IPv4Address, int]] = []
+    for addr, sid in db.execute(q).all():
+        try:
+            ip = ipaddress.ip_address(str(addr).strip())
+            if isinstance(ip, ipaddress.IPv4Address):
+                out.append((ip, int(sid)))
+        except ValueError:
+            continue
+    return out
+
+
 def _used_count_in_network(
     cidr: str,
     site_id: int,
-    cache: list[tuple[ipaddress.IPv4Address, int]],
+    dcim_cache: list[tuple[ipaddress.IPv4Address, int]],
+    inventory_cache: list[tuple[ipaddress.IPv4Address, int]],
 ) -> int:
     try:
         net = ipaddress.ip_network(cidr, strict=False)
@@ -192,7 +288,14 @@ def _used_count_in_network(
         return 0
     if net.version != 4:
         return 0
-    return sum(1 for ip, sid in cache if sid == site_id and ip in net)
+    used: set[str] = set()
+    for ip, sid in dcim_cache:
+        if sid == site_id and ip in net:
+            used.add(str(ip))
+    for ip, sid in inventory_cache:
+        if sid == site_id and ip in net:
+            used.add(str(ip))
+    return len(used)
 
 
 def ipv4_prefix_read(
@@ -200,9 +303,12 @@ def ipv4_prefix_read(
     row: IpamIpv4Prefix,
     *,
     _cache: list[tuple[ipaddress.IPv4Address, int]] | None = None,
+    _inventory_cache: list[tuple[ipaddress.IPv4Address, int]] | None = None,
 ) -> Ipv4PrefixRead:
     cache = _ipv4_assignments_with_site(db) if _cache is None else _cache
-    used = _used_count_in_network(row.cidr, row.site_id, cache)
+    inv_cache = _ipv4_inventory_used_with_site(db) if _inventory_cache is None else _inventory_cache
+    used = _used_count_in_network(row.cidr, row.site_id, cache, inv_cache)
+    slug = getattr(row, "slug", None) or slugify_prefix(row.name or row.cidr)
     return Ipv4PrefixRead(
         id=row.id,
         site_id=row.site_id,
@@ -210,6 +316,7 @@ def ipv4_prefix_read(
         vlan_id=getattr(row, "vlan_id", None),
         vrf_id=getattr(row, "vrf_id", None),
         name=row.name,
+        slug=slug,
         cidr=row.cidr,
         description=row.description,
         created_at=row.created_at,
@@ -276,51 +383,131 @@ def list_ipv4_prefixes(
     site_id: int | None,
     tenant_id: int | None = None,
     vlan_id: int | None = None,
+    vrf_id: int | None = None,
+    cidr: str | None = None,
+    name: str | None = None,
+    slug: str | None = None,
+    q: str | None = None,
+    address: str | None = None,
 ) -> list[Ipv4PrefixRead]:
-    q = select(IpamIpv4Prefix).order_by(IpamIpv4Prefix.site_id, IpamIpv4Prefix.cidr)
+    stmt = select(IpamIpv4Prefix).order_by(IpamIpv4Prefix.site_id, IpamIpv4Prefix.cidr)
     if site_id is not None:
-        q = q.where(IpamIpv4Prefix.site_id == site_id)
+        stmt = stmt.where(IpamIpv4Prefix.site_id == site_id)
     if tenant_id is not None:
-        q = q.where(IpamIpv4Prefix.tenant_id == tenant_id)
+        stmt = stmt.where(IpamIpv4Prefix.tenant_id == tenant_id)
     if vlan_id is not None:
-        q = q.where(IpamIpv4Prefix.vlan_id == vlan_id)
-    rows = list(db.execute(q).scalars().all())
+        stmt = stmt.where(IpamIpv4Prefix.vlan_id == vlan_id)
+    if vrf_id is not None:
+        stmt = stmt.where(IpamIpv4Prefix.vrf_id == vrf_id)
+    if slug is not None:
+        stmt = stmt.where(IpamIpv4Prefix.slug == slugify_prefix(slug))
+    if name is not None:
+        stmt = stmt.where(func.lower(IpamIpv4Prefix.name) == name.strip().lower())
+    rows = list(db.execute(stmt).scalars().all())
+
+    if cidr is not None:
+        want = _normalize_ipv4_cidr(cidr)
+        rows = [r for r in rows if r.cidr == want]
+
+    if address is not None:
+        try:
+            ip = ipaddress.ip_address(address.strip())
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"ugyldig adresse: {e}") from e
+        if not isinstance(ip, ipaddress.IPv4Address):
+            raise HTTPException(status_code=400, detail="kun IPv4")
+        filtered: list[IpamIpv4Prefix] = []
+        for r in rows:
+            try:
+                net = ipaddress.ip_network(r.cidr, strict=False)
+            except ValueError:
+                continue
+            if net.version == 4 and ip in net:
+                filtered.append(r)
+        rows = filtered
+
+    if q is not None:
+        needle = q.strip().lower()
+        if needle:
+            rows = [
+                r
+                for r in rows
+                if needle in (r.name or "").lower()
+                or needle in (getattr(r, "slug", "") or "").lower()
+                or needle in (r.cidr or "").lower()
+            ]
+
     rows.sort(key=_prefix_sort_key)
     cache = _ipv4_assignments_with_site(db)
-    return [ipv4_prefix_read(db, r, _cache=cache) for r in rows]
+    inv_cache = _ipv4_inventory_used_with_site(db)
+    return [ipv4_prefix_read(db, r, _cache=cache, _inventory_cache=inv_cache) for r in rows]
 
 
 def get_ipv4_prefix(db: Session, prefix_id: int) -> IpamIpv4Prefix | None:
     return db.get(IpamIpv4Prefix, prefix_id)
 
 
-def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
-    if dcim_svc.get_site(db, data.site_id) is None:
+def _validate_prefix_refs(
+    db: Session,
+    *,
+    site_id: int,
+    tenant_id: int | None,
+    vlan_id: int | None,
+    vrf_id: int | None,
+) -> None:
+    if dcim_svc.get_site(db, site_id) is None:
         raise HTTPException(status_code=404, detail="site ikke funnet")
-    if data.tenant_id is not None and tenant_svc.get_tenant(db, data.tenant_id) is None:
+    if tenant_id is not None and tenant_svc.get_tenant(db, tenant_id) is None:
         raise HTTPException(status_code=404, detail="tenant ikke funnet")
-    if data.vlan_id is not None:
-        v = fac_svc.get_vlan(db, int(data.vlan_id))
+    if vlan_id is not None:
+        v = fac_svc.get_vlan(db, int(vlan_id))
         if v is None:
             raise HTTPException(status_code=404, detail="vlan ikke funnet")
-        if v.site_id != data.site_id:
+        if v.site_id != site_id:
             raise HTTPException(status_code=400, detail="vlan tilhører ikke samme site")
-    if data.vrf_id is not None:
-        vrf = fac_svc.get_vrf(db, int(data.vrf_id))
+    if vrf_id is not None:
+        vrf = fac_svc.get_vrf(db, int(vrf_id))
         if vrf is None:
             raise HTTPException(status_code=404, detail="vrf ikke funnet")
-        if vrf.site_id != data.site_id:
+        if vrf.site_id != site_id:
             raise HTTPException(status_code=400, detail="vrf tilhører ikke samme site")
-    cidr = _normalize_ipv4_cidr(data.cidr)
-    _require_no_partial_overlap(db, site_id=data.site_id, cidr=cidr)
-    row = IpamIpv4Prefix(
+
+
+def find_ipv4_prefix_by_site_cidr(
+    db: Session,
+    *,
+    site_id: int,
+    cidr: str,
+) -> IpamIpv4Prefix | None:
+    return db.execute(
+        select(IpamIpv4Prefix).where(
+            IpamIpv4Prefix.site_id == site_id,
+            IpamIpv4Prefix.cidr == cidr,
+        ),
+    ).scalar_one_or_none()
+
+
+def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
+    _validate_prefix_refs(
+        db,
         site_id=data.site_id,
         tenant_id=data.tenant_id,
         vlan_id=data.vlan_id,
         vrf_id=data.vrf_id,
-        name=data.name.strip(),
+    )
+    cidr = _normalize_ipv4_cidr(data.cidr)
+    _require_no_partial_overlap(db, site_id=data.site_id, cidr=cidr)
+    row = new_ipv4_prefix_orm(
+        db,
+        site_id=data.site_id,
+        name=data.name,
         cidr=cidr,
+        slug=data.slug,
         description=data.description,
+        subnet_services=data.subnet_services,
+        tenant_id=data.tenant_id,
+        vlan_id=data.vlan_id,
+        vrf_id=data.vrf_id,
     )
     db.add(row)
     try:
@@ -329,10 +516,38 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="prefiks med samme CIDR finnes allerede på denne siten",
+            detail="prefiks med samme CIDR eller slug finnes allerede på denne siten",
         ) from None
     db.refresh(row)
     return ipv4_prefix_read(db, row)
+
+
+def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure) -> Ipv4PrefixRead:
+    cidr = _normalize_ipv4_cidr(data.cidr)
+    existing = find_ipv4_prefix_by_site_cidr(db, site_id=data.site_id, cidr=cidr)
+    if existing is not None:
+        return ipv4_prefix_read(db, existing)
+    name = (data.name or data.slug or cidr).strip()
+    create = Ipv4PrefixCreate(
+        site_id=data.site_id,
+        name=name,
+        cidr=cidr,
+        slug=data.slug,
+        description=data.description,
+        subnet_services=data.subnet_services,
+        tenant_id=data.tenant_id,
+        vlan_id=data.vlan_id,
+        vrf_id=data.vrf_id,
+    )
+    try:
+        return create_ipv4_prefix(db, create)
+    except HTTPException as e:
+        if e.status_code != 409:
+            raise
+        existing = find_ipv4_prefix_by_site_cidr(db, site_id=data.site_id, cidr=cidr)
+        if existing is not None:
+            return ipv4_prefix_read(db, existing)
+        raise
 
 
 def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate) -> Ipv4PrefixRead:
@@ -341,6 +556,14 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
     if "name" in patch and patch["name"] is not None:
         row.name = str(patch["name"]).strip()
+    if "slug" in patch and patch["slug"] is not None:
+        row.slug = allocate_prefix_slug(
+            db,
+            site_id=row.site_id,
+            desired=str(patch["slug"]),
+            exclude_prefix_id=row.id,
+            allow_suffix=False,
+        )
     if "description" in patch:
         v = patch["description"]
         row.description = None if v is None else (str(v).strip() or None)
@@ -383,12 +606,49 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="prefiks med samme CIDR finnes allerede på denne siten",
+            detail="prefiks med samme CIDR eller slug finnes allerede på denne siten",
         ) from None
     db.refresh(row)
     return ipv4_prefix_read(db, row)
 
 
-def delete_ipv4_prefix(db: Session, row: IpamIpv4Prefix) -> None:
-    db.delete(row)
+def _prefix_address_count(db: Session, prefix_id: int) -> int:
+    return int(
+        db.execute(
+            select(func.count()).select_from(IpamIpv4Address).where(IpamIpv4Address.ipv4_prefix_id == prefix_id),
+        ).scalar_one(),
+    )
+
+
+def delete_ipv4_prefix(db: Session, row: IpamIpv4Prefix, *, cascade: bool = False) -> None:
+    _delete_ipv4_prefix_tree(db, row, cascade=cascade)
     db.commit()
+
+
+def _delete_ipv4_prefix_tree(db: Session, row: IpamIpv4Prefix, *, cascade: bool) -> None:
+    same_site = list(
+        db.execute(select(IpamIpv4Prefix).where(IpamIpv4Prefix.site_id == row.site_id)).scalars().all(),
+    )
+    children = _child_prefix_orms(row, same_site)
+    addr_count = _prefix_address_count(db, row.id)
+    if (children or addr_count) and not cascade:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"prefiks har {len(children)} underprefiks og {addr_count} adresser — "
+                "slett dem først eller bruk cascade=true"
+            ),
+        )
+    if cascade:
+        for child in children:
+            _delete_ipv4_prefix_tree(db, child, cascade=True)
+        addrs = list(
+            db.execute(select(IpamIpv4Address).where(IpamIpv4Address.ipv4_prefix_id == row.id)).scalars().all(),
+        )
+        for addr in addrs:
+            if addr.interface_ip_assignment_id is not None:
+                assign = db.get(InterfaceIpAssignment, addr.interface_ip_assignment_id)
+                if assign is not None:
+                    db.delete(assign)
+            db.delete(addr)
+    db.delete(row)
