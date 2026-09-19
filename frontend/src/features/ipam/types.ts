@@ -6,11 +6,18 @@ export type Ipv4Prefix = {
   vrf_id?: number | null;
   name: string;
   slug: string;
+  role?: string;
+  status?: string;
   cidr: string;
   description: string | null;
   created_at: string;
+  updated_at?: string | null;
+  parent_id?: number | null;
   used_count: number;
   address_total: number;
+  usable_hosts?: number;
+  utilization?: number;
+  created?: boolean | null;
   subnet_services?: Record<string, unknown> | null;
 };
 
@@ -120,6 +127,11 @@ export type Ipv4Address = {
   ipv4_prefix_id: number | null;
   address: string;
   status: string;
+  role?: string;
+  hostname?: string | null;
+  fqdn?: string | null;
+  dns_name?: string | null;
+  created?: boolean | null;
   owner_user_id: number | null;
   note: string | null;
   mac_address: string | null;
@@ -154,7 +166,9 @@ export type IpamVrf = {
   id: number;
   site_id: number;
   name: string;
+  slug: string;
   route_distinguisher: string | null;
+  created?: boolean | null;
   description: string | null;
   created_at: string;
 };
@@ -165,7 +179,9 @@ export type IpamVlan = {
   tenant_id?: number | null;
   vid: number;
   name: string;
+  slug: string;
   vrf_id: number | null;
+  created?: boolean | null;
   description: string | null;
   created_at: string;
 };

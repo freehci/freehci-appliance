@@ -33,9 +33,13 @@ from app.schemas.ipam import (
     IpamCircuitTerminationRead,
     IpamCircuitUpdate,
     IpamVlanCreate,
+    IpamVlanEnsure,
     IpamVlanRead,
+    IpamVlanUpdate,
     IpamVrfCreate,
+    IpamVrfEnsure,
     IpamVrfRead,
+    IpamVrfUpdate,
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
@@ -58,6 +62,10 @@ def list_ipv4_prefixes(
     slug: str | None = Query(None, description="Eksakt slug"),
     q: str | None = Query(None, description="Søk i name, slug og cidr"),
     address: str | None = Query(None, description="Prefiks som inneholder denne IPv4-adressen"),
+    role: str | None = Query(None),
+    status: str | None = Query(None),
+    limit: int | None = Query(None, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Ipv4PrefixRead]:
     return ipam_svc.list_ipv4_prefixes(
@@ -71,6 +79,10 @@ def list_ipv4_prefixes(
         slug=slug,
         q=q,
         address=address,
+        role=role,
+        status=status,
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -80,8 +92,12 @@ def create_ipv4_prefix(data: Ipv4PrefixCreate, db: Session = Depends(get_db)) ->
 
 
 @router.post("/ipv4-prefixes/ensure", response_model=Ipv4PrefixRead)
-def ensure_ipv4_prefix(data: Ipv4PrefixEnsure, db: Session = Depends(get_db)) -> Ipv4PrefixRead:
-    return ipam_svc.ensure_ipv4_prefix(db, data)
+def ensure_ipv4_prefix(
+    data: Ipv4PrefixEnsure,
+    update: bool = Query(False, description="Oppdater eksisterende prefiks til desired state"),
+    db: Session = Depends(get_db),
+) -> Ipv4PrefixRead:
+    return ipam_svc.ensure_ipv4_prefix(db, data, update=update)
 
 
 @router.get("/ipv4-prefixes/{prefix_id}/explore", response_model=Ipv4PrefixExploreRead)
@@ -98,7 +114,7 @@ def get_prefix_address_grid(prefix_id: int, db: Session = Depends(get_db)) -> Pr
 def get_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4PrefixRead:
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
     return ipam_svc.ipv4_prefix_read(db, row)
 
 
@@ -110,7 +126,7 @@ def patch_ipv4_prefix(
 ) -> Ipv4PrefixRead:
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
     return ipam_svc.update_ipv4_prefix(db, row, data)
 
 
@@ -122,7 +138,7 @@ def delete_ipv4_prefix(
 ) -> None:
     row = ipam_svc.get_ipv4_prefix(db, prefix_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
     ipam_svc.delete_ipv4_prefix(db, row, cascade=cascade)
 
 
@@ -185,8 +201,12 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)) -> UserRead:
 
 
 @router.post("/ipv4-addresses/ensure", response_model=Ipv4AddressRead)
-def ensure_ipv4_address(data: Ipv4AddressEnsure, db: Session = Depends(get_db)) -> Ipv4AddressRead:
-    return addr_svc.ensure_ipv4_address(db, data)
+def ensure_ipv4_address(
+    data: Ipv4AddressEnsure,
+    update: bool = Query(False, description="Oppdater eksisterende adresse til desired state"),
+    db: Session = Depends(get_db),
+) -> Ipv4AddressRead:
+    return addr_svc.ensure_ipv4_address(db, data, update=update)
 
 
 @router.get("/ipv4-addresses", response_model=list[Ipv4AddressRead])
@@ -194,10 +214,26 @@ def list_ipv4_addresses(
     site_id: int | None = Query(None),
     ipv4_prefix_id: int | None = Query(None),
     status: str | None = Query(None),
+    address: str | None = Query(None, description="Eksakt IPv4-adresse"),
+    q: str | None = Query(None, description="Søk i address, note, hostname, fqdn, dns_name"),
+    device_id: int | None = Query(None),
+    role: str | None = Query(None),
     limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Ipv4AddressRead]:
-    return addr_svc.list_ipv4_addresses(db, site_id=site_id, ipv4_prefix_id=ipv4_prefix_id, status=status, limit=limit)
+    return addr_svc.list_ipv4_addresses(
+        db,
+        site_id=site_id,
+        ipv4_prefix_id=ipv4_prefix_id,
+        status=status,
+        limit=limit,
+        offset=offset,
+        address=address,
+        q=q,
+        device_id=device_id,
+        role=role,
+    )
 
 
 @router.get("/ipv4-addresses/{addr_id}", response_model=Ipv4AddressRead)
@@ -255,17 +291,54 @@ def create_ipam_vrf(data: IpamVrfCreate, db: Session = Depends(get_db)) -> IpamV
     try:
         row = fac_svc.create_vrf(db, data)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        raise HTTPException(status_code=404, detail={"code": "vrf_ref_missing", "detail": str(e)}) from e
     except IntegrityError as e:
-        raise HTTPException(status_code=409, detail="VRF med samme navn finnes på denne siten") from e
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "vrf_conflict", "detail": "VRF med samme navn eller slug finnes på denne siten"},
+        ) from e
+    return fac_svc.vrf_to_read(row, created=True)
+
+
+@router.post("/vrfs/ensure", response_model=IpamVrfRead)
+def ensure_ipam_vrf(
+    data: IpamVrfEnsure,
+    update: bool = Query(False),
+    db: Session = Depends(get_db),
+) -> IpamVrfRead:
+    try:
+        row, created = fac_svc.ensure_vrf(db, data, update=update)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"code": "vrf_ref_missing", "detail": str(e)}) from e
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "vrf_conflict", "detail": "VRF med samme navn eller slug finnes på denne siten"},
+        ) from e
+    return fac_svc.vrf_to_read(row, created=created)
+
+
+@router.get("/vrfs/{vrf_id}", response_model=IpamVrfRead)
+def get_ipam_vrf(vrf_id: int, db: Session = Depends(get_db)) -> IpamVrfRead:
+    row = fac_svc.get_vrf(db, vrf_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
     return fac_svc.vrf_to_read(row)
+
+
+@router.patch("/vrfs/{vrf_id}", response_model=IpamVrfRead)
+def patch_ipam_vrf(vrf_id: int, data: IpamVrfUpdate, db: Session = Depends(get_db)) -> IpamVrfRead:
+    row = fac_svc.get_vrf(db, vrf_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
+    return fac_svc.vrf_to_read(fac_svc.update_vrf(db, row, data))
 
 
 @router.delete("/vrfs/{vrf_id}", status_code=204)
 def delete_ipam_vrf(vrf_id: int, db: Session = Depends(get_db)) -> None:
     row = fac_svc.get_vrf(db, vrf_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="VRF ikke funnet")
+        raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
     fac_svc.delete_vrf(db, row)
 
 
@@ -282,17 +355,57 @@ def create_ipam_vlan(data: IpamVlanCreate, db: Session = Depends(get_db)) -> Ipa
     try:
         row = fac_svc.create_vlan(db, data)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        raise HTTPException(status_code=404, detail={"code": "vlan_ref_missing", "detail": str(e)}) from e
     except IntegrityError as e:
-        raise HTTPException(status_code=409, detail="VLAN-ID finnes allerede på denne siten") from e
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "vlan_conflict", "detail": "VLAN-ID eller slug finnes allerede på denne siten"},
+        ) from e
+    return fac_svc.vlan_to_read(row, created=True)
+
+
+@router.post("/vlans/ensure", response_model=IpamVlanRead)
+def ensure_ipam_vlan(
+    data: IpamVlanEnsure,
+    update: bool = Query(False),
+    db: Session = Depends(get_db),
+) -> IpamVlanRead:
+    try:
+        row, created = fac_svc.ensure_vlan(db, data, update=update)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"code": "vlan_ref_missing", "detail": str(e)}) from e
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "vlan_conflict", "detail": "VLAN-ID eller slug finnes allerede på denne siten"},
+        ) from e
+    return fac_svc.vlan_to_read(row, created=created)
+
+
+@router.get("/vlans/{vlan_id}", response_model=IpamVlanRead)
+def get_ipam_vlan(vlan_id: int, db: Session = Depends(get_db)) -> IpamVlanRead:
+    row = fac_svc.get_vlan(db, vlan_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vlan_not_found", "detail": "VLAN ikke funnet"})
     return fac_svc.vlan_to_read(row)
+
+
+@router.patch("/vlans/{vlan_id}", response_model=IpamVlanRead)
+def patch_ipam_vlan(vlan_id: int, data: IpamVlanUpdate, db: Session = Depends(get_db)) -> IpamVlanRead:
+    row = fac_svc.get_vlan(db, vlan_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vlan_not_found", "detail": "VLAN ikke funnet"})
+    try:
+        return fac_svc.vlan_to_read(fac_svc.update_vlan(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"code": "vlan_ref_missing", "detail": str(e)}) from e
 
 
 @router.delete("/vlans/{vlan_id}", status_code=204)
 def delete_ipam_vlan(vlan_id: int, db: Session = Depends(get_db)) -> None:
     row = fac_svc.get_vlan(db, vlan_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="VLAN ikke funnet")
+        raise HTTPException(status_code=404, detail={"code": "vlan_not_found", "detail": "VLAN ikke funnet"})
     fac_svc.delete_vlan(db, row)
 
 

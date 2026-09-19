@@ -267,8 +267,8 @@ def ipv4_prefix_split(db: Session, parent_id: int, data: Ipv4PrefixSplitRequest)
         if str(row.cidr) in (out.first_cidr, out.second_cidr):
             raise HTTPException(status_code=409, detail=f"CIDR finnes allerede: {row.cidr}")
 
-    ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=out.first_cidr)  # type: ignore[attr-defined]
-    ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=out.second_cidr)  # type: ignore[attr-defined]
+    ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=out.first_cidr, vrf_id=parent.vrf_id)  # type: ignore[attr-defined]
+    ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=out.second_cidr, vrf_id=parent.vrf_id)  # type: ignore[attr-defined]
 
     reserved_slugs: set[str] = set()
     left = ipam_svc.new_ipv4_prefix_orm(
@@ -598,7 +598,7 @@ def ipv4_prefix_split_equal(db: Session, parent_id: int, data: Ipv4PrefixSplitEq
         )
 
     for s in subnets:
-        ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=str(s))  # type: ignore[attr-defined]
+        ipam_svc._require_no_partial_overlap(db, site_id=parent.site_id, cidr=str(s), vrf_id=parent.vrf_id)  # type: ignore[attr-defined]
 
     created_orms: list[IpamIpv4Prefix] = []
     reserved_slugs: set[str] = set()

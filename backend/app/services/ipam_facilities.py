@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,10 +18,38 @@ from app.schemas.ipam import (
     IpamCircuitTerminationRead,
     IpamCircuitUpdate,
     IpamVlanCreate,
+    IpamVlanEnsure,
     IpamVlanRead,
+    IpamVlanUpdate,
     IpamVrfCreate,
+    IpamVrfEnsure,
     IpamVrfRead,
+    IpamVrfUpdate,
 )
+from app.services.ipam_errors import ipam_error
+
+
+def _slugify(value: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return (s or "item")[:128]
+
+
+def _unique_slug(db: Session, *, site_id: int, desired: str, kind: str, exclude_id: int | None = None) -> str:
+    model = IpamVrf if kind == "vrf" else IpamVlan
+    base = _slugify(desired)
+    candidate = base
+    n = 2
+    while True:
+        q = select(model.id).where(model.site_id == site_id, model.slug == candidate)
+        if exclude_id is not None:
+            q = q.where(model.id != exclude_id)
+        if db.execute(q).scalar_one_or_none() is None:
+            return candidate
+        suffix = f"-{n}"
+        candidate = f"{base[: 128 - len(suffix)]}{suffix}"
+        n += 1
+        if n > 1000:
+            raise ipam_error(400, "slug_exhausted", "kunne ikke lage unik slug")
 
 
 def _require_site(db: Session, site_id: int) -> Site:
@@ -51,6 +81,7 @@ def create_vrf(db: Session, data: IpamVrfCreate) -> IpamVrf:
     row = IpamVrf(
         site_id=data.site_id,
         name=data.name.strip(),
+        slug=_unique_slug(db, site_id=data.site_id, desired=data.slug or data.name, kind="vrf"),
         route_distinguisher=data.route_distinguisher.strip() if data.route_distinguisher else None,
         description=data.description,
     )
@@ -71,6 +102,52 @@ def get_vrf(db: Session, vrf_id: int) -> IpamVrf | None:
 def delete_vrf(db: Session, row: IpamVrf) -> None:
     db.delete(row)
     db.commit()
+
+
+def update_vrf(db: Session, row: IpamVrf, data: IpamVrfUpdate) -> IpamVrf:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise ipam_error(400, "empty_patch", "ingen felter å oppdatere")
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "slug" in patch and patch["slug"] is not None:
+        row.slug = _unique_slug(db, site_id=row.site_id, desired=str(patch["slug"]), kind="vrf", exclude_id=row.id)
+    if "route_distinguisher" in patch:
+        v = patch["route_distinguisher"]
+        row.route_distinguisher = v.strip() if isinstance(v, str) and v.strip() else None
+    if "description" in patch:
+        row.description = patch["description"]
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "vrf_conflict", "VRF med samme navn eller slug finnes på denne siten") from None
+    db.refresh(row)
+    return row
+
+
+def ensure_vrf(db: Session, data: IpamVrfEnsure, *, update: bool = False) -> tuple[IpamVrf, bool]:
+    existing = db.execute(
+        select(IpamVrf).where(IpamVrf.site_id == data.site_id, IpamVrf.name == data.name.strip()),
+    ).scalar_one_or_none()
+    if existing is None and data.slug:
+        existing = db.execute(
+            select(IpamVrf).where(IpamVrf.site_id == data.site_id, IpamVrf.slug == _slugify(data.slug)),
+        ).scalar_one_or_none()
+    if existing is not None:
+        if update:
+            existing = update_vrf(
+                db,
+                existing,
+                IpamVrfUpdate(
+                    name=data.name,
+                    slug=data.slug,
+                    route_distinguisher=data.route_distinguisher,
+                    description=data.description,
+                ),
+            )
+        return existing, False
+    return create_vrf(db, data), True
 
 
 # --- VLAN ---
@@ -98,6 +175,7 @@ def create_vlan(db: Session, data: IpamVlanCreate) -> IpamVlan:
         tenant_id=data.tenant_id,
         vid=data.vid,
         name=data.name.strip(),
+        slug=_unique_slug(db, site_id=data.site_id, desired=data.slug or data.name or f"vlan-{data.vid}", kind="vlan"),
         description=data.description,
         vrf_id=data.vrf_id,
     )
@@ -118,6 +196,60 @@ def get_vlan(db: Session, vlan_id: int) -> IpamVlan | None:
 def delete_vlan(db: Session, row: IpamVlan) -> None:
     db.delete(row)
     db.commit()
+
+
+def update_vlan(db: Session, row: IpamVlan, data: IpamVlanUpdate) -> IpamVlan:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise ipam_error(400, "empty_patch", "ingen felter å oppdatere")
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "slug" in patch and patch["slug"] is not None:
+        row.slug = _unique_slug(db, site_id=row.site_id, desired=str(patch["slug"]), kind="vlan", exclude_id=row.id)
+    if "description" in patch:
+        row.description = patch["description"]
+    if "tenant_id" in patch:
+        tid = patch["tenant_id"]
+        if tid is not None:
+            _require_tenant(db, int(tid))
+        row.tenant_id = tid
+    if "vrf_id" in patch:
+        vrf_id = patch["vrf_id"]
+        if vrf_id is None:
+            row.vrf_id = None
+        else:
+            vrf = get_vrf(db, int(vrf_id))
+            if vrf is None or vrf.site_id != row.site_id:
+                raise ValueError("vrf ikke funnet eller tilhører ikke samme site")
+            row.vrf_id = int(vrf_id)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "vlan_conflict", "VLAN-ID eller slug finnes allerede på denne siten") from None
+    db.refresh(row)
+    return row
+
+
+def ensure_vlan(db: Session, data: IpamVlanEnsure, *, update: bool = False) -> tuple[IpamVlan, bool]:
+    existing = db.execute(
+        select(IpamVlan).where(IpamVlan.site_id == data.site_id, IpamVlan.vid == data.vid),
+    ).scalar_one_or_none()
+    if existing is not None:
+        if update:
+            existing = update_vlan(
+                db,
+                existing,
+                IpamVlanUpdate(
+                    name=data.name,
+                    slug=data.slug,
+                    vrf_id=data.vrf_id,
+                    description=data.description,
+                    tenant_id=data.tenant_id,
+                ),
+            )
+        return existing, False
+    return create_vlan(db, data), True
 
 
 # --- Circuits ---
@@ -231,12 +363,12 @@ def upsert_circuit_termination(
     return row
 
 
-def vrf_to_read(row: IpamVrf) -> IpamVrfRead:
-    return IpamVrfRead.model_validate(row)
+def vrf_to_read(row: IpamVrf, *, created: bool | None = None) -> IpamVrfRead:
+    return IpamVrfRead.model_validate(row).model_copy(update={"created": created})
 
 
-def vlan_to_read(row: IpamVlan) -> IpamVlanRead:
-    return IpamVlanRead.model_validate(row)
+def vlan_to_read(row: IpamVlan, *, created: bool | None = None) -> IpamVlanRead:
+    return IpamVlanRead.model_validate(row).model_copy(update={"created": created})
 
 
 def circuit_to_read(row: IpamCircuit) -> IpamCircuitRead:

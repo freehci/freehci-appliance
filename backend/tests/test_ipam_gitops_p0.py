@@ -27,7 +27,7 @@ def test_prefix_lookup_filters_and_ensure() -> None:
         site_id, pfx = _site_and_prefix(client, slug="p0-lookup")
         pid = pfx["id"]
         assert pfx["slug"] == "p0-lookup-lan"
-        assert pfx["subnet_services"] == {"gateway": "192.0.2.1"}
+        assert pfx["subnet_services"]["gateway"] == "192.0.2.1"
 
         by_cidr = client.get("/api/v1/ipam/ipv4-prefixes", params={"cidr": "192.0.2.0/24"})
         assert by_cidr.status_code == 200
@@ -60,6 +60,7 @@ def test_prefix_lookup_filters_and_ensure() -> None:
         assert ens.status_code == 200, ens.text
         assert ens.json()["id"] == pid
         assert ens.json()["name"] == "LAN"
+        assert ens.json()["created"] is False
 
         created = client.post(
             "/api/v1/ipam/ipv4-prefixes/ensure",
@@ -128,8 +129,17 @@ def test_ensure_address_mode_note_and_reject_network() -> None:
         assert pin.json()["note"] == "cilium-lb"
         assert pin.json()["address"] == "192.0.2.10"
 
-        again = client.post(
+        lookup = client.post(
             "/api/v1/ipam/ipv4-addresses/ensure",
+            json={"ipv4_prefix_id": pid, "address": "192.0.2.10", "note": "should-not-stick"},
+        )
+        assert lookup.status_code == 200
+        assert lookup.json()["id"] == pin.json()["id"]
+        assert lookup.json()["note"] == "cilium-lb"
+        assert lookup.json()["created"] is False
+
+        again = client.post(
+            "/api/v1/ipam/ipv4-addresses/ensure?update=true",
             json={"ipv4_prefix_id": pid, "address": "192.0.2.10", "note": "updated"},
         )
         assert again.status_code == 200

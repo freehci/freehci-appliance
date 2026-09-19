@@ -1,7 +1,8 @@
 """IPAM (IPv4 først): prefiks er alltid scoped til én DCIM-site.
 
 Samme CIDR (f.eks. 192.168.1.0/24) kan finnes på flere sites — typisk avdelingskontor
-med identisk adresseplan. Unikhet er (site_id, cidr), ikke globalt på CIDR alene.
+med identisk adresseplan. Unikhet er (site_id, vrf_scope, cidr): samme CIDR i ulike VRF
+på samme site er tillatt (overlay vs underlay).
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 class IpamIpv4Prefix(Base):
     __tablename__ = "ipam_ipv4_prefixes"
     __table_args__ = (
-        UniqueConstraint("site_id", "cidr", name="uq_ipam_ipv4_site_cidr"),
+        UniqueConstraint("site_id", "vrf_scope", "cidr", name="uq_ipam_ipv4_site_vrf_cidr"),
         UniqueConstraint("site_id", "slug", name="uq_ipam_ipv4_site_slug"),
     )
 
@@ -42,16 +43,26 @@ class IpamIpv4Prefix(Base):
         ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # 0 når vrf_id er NULL — gjør unikhet (site, vrf, cidr) deterministisk i SQLite/Postgres.
+    vrf_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Kanonisk IPv4 CIDR-streng, f.eks. 192.168.1.0/24 (normaliseres i tjenestelaget).
     cidr: Mapped[str] = mapped_column(String(32), nullable=False)
-    # Valgfritt: gateway, DNS, DHCP m.m. for integrasjoner (strukturert som JSON-objekt).
+    # Typet JSON: gateway, dns[], ntp[], dhcp_server, dhcp_range, domain, mtu.
     subnet_services: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
 
@@ -124,6 +135,10 @@ class IpamIpv4Address(Base):
     )
     address: Mapped[str] = mapped_column(String(45), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="discovered")
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="host")
+    hostname: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    fqdn: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dns_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -168,7 +183,10 @@ class IpamVrf(Base):
     """L3-VRF (rutekontekst) per site — navn unikt innenfor site."""
 
     __tablename__ = "ipam_vrfs"
-    __table_args__ = (UniqueConstraint("site_id", "name", name="uq_ipam_vrf_site_name"),)
+    __table_args__ = (
+        UniqueConstraint("site_id", "name", name="uq_ipam_vrf_site_name"),
+        UniqueConstraint("site_id", "slug", name="uq_ipam_vrf_site_slug"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(
@@ -176,6 +194,7 @@ class IpamVrf(Base):
         nullable=False,
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
     route_distinguisher: Mapped[str | None] = mapped_column(String(64), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
@@ -191,7 +210,10 @@ class IpamVlan(Base):
     """802.1Q VLAN per site; valgfritt koblet til VRF for L3-kontekst."""
 
     __tablename__ = "ipam_vlans"
-    __table_args__ = (UniqueConstraint("site_id", "vid", name="uq_ipam_vlan_site_vid"),)
+    __table_args__ = (
+        UniqueConstraint("site_id", "vid", name="uq_ipam_vlan_site_vid"),
+        UniqueConstraint("site_id", "slug", name="uq_ipam_vlan_site_slug"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(
@@ -204,6 +226,7 @@ class IpamVlan(Base):
     )
     vid: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     vrf_id: Mapped[int | None] = mapped_column(
         ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),

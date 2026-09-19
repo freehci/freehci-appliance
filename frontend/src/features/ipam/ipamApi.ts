@@ -205,10 +205,18 @@ export function listIpamVrfs(siteId?: number): Promise<IpamVrf[]> {
 export function createIpamVrf(body: {
   site_id: number;
   name: string;
+  slug?: string | null;
   route_distinguisher?: string | null;
   description?: string | null;
 }): Promise<IpamVrf> {
   return apiPost(`${P}/vrfs`, body);
+}
+
+export function patchIpamVrf(
+  id: number,
+  body: Partial<{ name: string; slug: string; route_distinguisher: string | null; description: string | null }>,
+): Promise<IpamVrf> {
+  return apiPatch(`${P}/vrfs/${id}`, body);
 }
 
 export function deleteIpamVrf(id: number): Promise<void> {
@@ -224,11 +232,25 @@ export function createIpamVlan(body: {
   site_id: number;
   vid: number;
   name: string;
+  slug?: string | null;
   vrf_id?: number | null;
   description?: string | null;
   tenant_id?: number | null;
 }): Promise<IpamVlan> {
   return apiPost(`${P}/vlans`, body);
+}
+
+export function patchIpamVlan(
+  id: number,
+  body: Partial<{
+    name: string;
+    slug: string;
+    vrf_id: number | null;
+    description: string | null;
+    tenant_id: number | null;
+  }>,
+): Promise<IpamVlan> {
+  return apiPatch(`${P}/vlans/${id}`, body);
 }
 
 export function deleteIpamVlan(id: number): Promise<void> {

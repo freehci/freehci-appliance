@@ -34,6 +34,9 @@ async function failMessage(res: Response, fallback: string): Promise<string> {
     if (j && typeof j === "object" && "detail" in j) {
       const d = (j as { detail: unknown }).detail;
       if (typeof d === "string") return d;
+      if (d && typeof d === "object" && "detail" in d && typeof (d as { detail: unknown }).detail === "string") {
+        return String((d as { detail: string }).detail);
+      }
       if (Array.isArray(d))
         return d
           .map((x) => (typeof x === "object" && x && "msg" in x ? String((x as { msg: unknown }).msg) : String(x)))

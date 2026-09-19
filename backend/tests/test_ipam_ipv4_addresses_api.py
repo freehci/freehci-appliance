@@ -55,7 +55,9 @@ def test_ipam_patch_prefix_subnet_services() -> None:
         svc = {"gateway": "10.11.0.1", "dns": "10.11.0.2", "dhcp_server": "10.11.0.3"}
         u = client.patch(f"/api/v1/ipam/ipv4-prefixes/{pid}", json={"subnet_services": svc})
         assert u.status_code == 200, u.text
-        assert u.json()["subnet_services"] == svc
+        assert u.json()["subnet_services"]["gateway"] == "10.11.0.1"
+        assert u.json()["subnet_services"]["dns"] == ["10.11.0.2"]
+        assert u.json()["subnet_services"]["dhcp_server"] == "10.11.0.3"
 
 
 def test_ipam_request_ipv4_reserve_next_free() -> None:

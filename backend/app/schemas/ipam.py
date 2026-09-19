@@ -10,6 +10,71 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "radio", "leased_line", "other"})
 _ADDRESS_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp", "discovered", "deprecated"})
 _ADDRESS_MODES = frozenset({"reserve", "assign"})
+_ADDRESS_ROLES = frozenset({"gateway", "vip", "anycast", "lb", "host", "dhcp", "reserved"})
+PREFIX_ROLES = frozenset(
+    {"container", "active", "reserved", "overlay-pod", "overlay-service", "lb-pool", "p2p"},
+)
+PREFIX_STATUSES = frozenset({"planned", "active", "reserved", "deprecated"})
+NO_HOST_ALLOC_ROLES = frozenset({"container", "reserved", "overlay-pod", "overlay-service"})
+NO_VLAN_ROLES = frozenset({"container", "reserved", "overlay-pod", "overlay-service", "p2p"})
+NO_HOST_ALLOC_STATUSES = frozenset({"reserved", "deprecated"})
+
+
+def _csv_or_list(v: Any) -> list[str]:
+    if v is None:
+        return []
+    if isinstance(v, str):
+        return [p.strip() for p in v.split(",") if p.strip()]
+    if isinstance(v, list):
+        return [str(x).strip() for x in v if str(x).strip()]
+    return [str(v).strip()] if str(v).strip() else []
+
+
+class DhcpRange(BaseModel):
+    start: str
+    end: str
+
+
+class SubnetServices(BaseModel):
+    """Typet kontrakt for gateway/DNS/DHCP — gamle streng-verdier normaliseres til lister."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    gateway: str | None = None
+    dns: list[str] = Field(default_factory=list)
+    ntp: list[str] = Field(default_factory=list)
+    dhcp_server: str | None = None
+    dhcp_range: DhcpRange | None = None
+    domain: str | None = None
+    mtu: int | None = Field(None, ge=576, le=9216)
+
+    @field_validator("dns", "ntp", mode="before")
+    @classmethod
+    def split_servers(cls, v: Any) -> list[str]:
+        return _csv_or_list(v)
+
+    @field_validator("gateway", "dhcp_server", "domain")
+    @classmethod
+    def strip_opt(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
+
+
+def parse_subnet_services(raw: Any) -> dict[str, Any] | None:
+    if raw is None:
+        return None
+    return SubnetServices.model_validate(raw).model_dump()
+
+
+def _role_ok(v: str | None, allowed: frozenset[str], label: str) -> str | None:
+    if v is None:
+        return None
+    s = v.strip().lower()
+    if s not in allowed:
+        raise ValueError(f"{label} må være en av: {', '.join(sorted(allowed))}")
+    return s
 
 
 class Ipv4PrefixCreate(BaseModel):
@@ -17,8 +82,10 @@ class Ipv4PrefixCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     cidr: str = Field(..., min_length=1, max_length=32)
     slug: str | None = Field(None, min_length=1, max_length=128, description="Stabil nøkkel; genereres fra name hvis utelatt")
+    role: str = Field("active", description="container | active | reserved | overlay-pod | overlay-service | lb-pool | p2p")
+    status: str = Field("active", description="planned | active | reserved | deprecated")
     description: str | None = None
-    subnet_services: dict[str, Any] | None = None
+    subnet_services: SubnetServices | dict[str, Any] | None = None
     tenant_id: int | None = Field(None, ge=1, description="Valgfritt: kunde-/colo-tenant for prefikset")
     vlan_id: int | None = Field(None, ge=1, description="Valgfritt: VLAN (må tilhøre samme site)")
     vrf_id: int | None = Field(None, ge=1, description="Valgfritt: VRF (må tilhøre samme site)")
@@ -41,16 +108,28 @@ class Ipv4PrefixCreate(BaseModel):
             raise ValueError("slug kan ikke være tom")
         return s
 
+    @field_validator("role")
+    @classmethod
+    def role_ok(cls, v: str) -> str:
+        return _role_ok(v, PREFIX_ROLES, "role") or "active"
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str) -> str:
+        return _role_ok(v, PREFIX_STATUSES, "status") or "active"
+
 
 class Ipv4PrefixEnsure(BaseModel):
-    """Idempotent opprett/hent prefiks på (site_id, cidr)."""
+    """Idempotent opprett/hent prefiks på (site_id, vrf_id, cidr)."""
 
     site_id: int
     cidr: str = Field(..., min_length=1, max_length=32)
     name: str | None = Field(None, min_length=1, max_length=255)
     slug: str | None = Field(None, min_length=1, max_length=128)
+    role: str | None = None
+    status: str | None = None
     description: str | None = None
-    subnet_services: dict[str, Any] | None = None
+    subnet_services: SubnetServices | dict[str, Any] | None = None
     tenant_id: int | None = Field(None, ge=1)
     vlan_id: int | None = Field(None, ge=1)
     vrf_id: int | None = Field(None, ge=1)
@@ -73,13 +152,25 @@ class Ipv4PrefixEnsure(BaseModel):
             raise ValueError("slug kan ikke være tom")
         return s
 
+    @field_validator("role")
+    @classmethod
+    def role_ok_ens(cls, v: str | None) -> str | None:
+        return _role_ok(v, PREFIX_ROLES, "role")
+
+    @field_validator("status")
+    @classmethod
+    def status_ok_ens(cls, v: str | None) -> str | None:
+        return _role_ok(v, PREFIX_STATUSES, "status")
+
 
 class Ipv4PrefixUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     slug: str | None = Field(None, min_length=1, max_length=128)
     cidr: str | None = Field(None, min_length=1, max_length=32)
+    role: str | None = None
+    status: str | None = None
     description: str | None = None
-    subnet_services: dict[str, Any] | None = None
+    subnet_services: SubnetServices | dict[str, Any] | None = None
     tenant_id: int | None = None
     vlan_id: int | None = None
     vrf_id: int | None = None
@@ -104,6 +195,16 @@ class Ipv4PrefixUpdate(BaseModel):
             raise ValueError("slug kan ikke være tom")
         return s
 
+    @field_validator("role")
+    @classmethod
+    def role_ok_up(cls, v: str | None) -> str | None:
+        return _role_ok(v, PREFIX_ROLES, "role")
+
+    @field_validator("status")
+    @classmethod
+    def status_ok_up(cls, v: str | None) -> str | None:
+        return _role_ok(v, PREFIX_STATUSES, "status")
+
 
 class Ipv4PrefixRead(BaseModel):
     """Returneres fra tjenestelaget med telling fra inventory + DCIM."""
@@ -115,9 +216,13 @@ class Ipv4PrefixRead(BaseModel):
     vrf_id: int | None = None
     name: str
     slug: str
+    role: str = "active"
+    status: str = "active"
     cidr: str
     description: str | None
     created_at: dt.datetime
+    updated_at: dt.datetime | None = None
+    parent_id: int | None = None
     used_count: int = Field(
         description=(
             "Unike IPv4-adresser i CIDR som er inventory reserved|assigned "
@@ -125,9 +230,12 @@ class Ipv4PrefixRead(BaseModel):
         ),
     )
     address_total: int = Field(description="Totalt antall IPv4-adresser i CIDR (inkl. nettverk/broadcast der relevant)")
+    usable_hosts: int = Field(0, description="Adresser som kan tildeles (hopper over net/bcast)")
+    utilization: float = Field(0, description="used_count / usable_hosts")
+    created: bool | None = Field(None, description="Satt av ensure: true hvis raden ble opprettet i dette kallet")
     subnet_services: dict[str, Any] | None = Field(
         default=None,
-        description="Valgfritt: gateway, DNS, DHCP-server m.m. (JSON for integrasjoner)",
+        description="Typet: gateway, dns[], ntp[], dhcp_server, dhcp_range, domain, mtu",
     )
 
 
@@ -235,6 +343,11 @@ class Ipv4AddressRead(BaseModel):
     ipv4_prefix_id: int | None
     address: str
     status: str
+    role: str = "host"
+    hostname: str | None = None
+    fqdn: str | None = None
+    dns_name: str | None = None
+    created: bool | None = None
     owner_user_id: int | None
     note: str | None
     mac_address: str | None
@@ -288,6 +401,10 @@ class Ipv4AddressEnsure(BaseModel):
     device_model_id: int | None = Field(None, ge=1)
     device_id: int | None = Field(None, ge=1)
     interface_id: int | None = Field(None, ge=1)
+    role: str | None = None
+    hostname: str | None = Field(None, max_length=255)
+    fqdn: str | None = Field(None, max_length=255)
+    dns_name: str | None = Field(None, max_length=255)
 
     @field_validator("mode")
     @classmethod
@@ -309,9 +426,18 @@ class Ipv4AddressEnsure(BaseModel):
             raise ValueError("ugyldig status")
         return s
 
+    @field_validator("role")
+    @classmethod
+    def role_ok_ens_addr(cls, v: str | None) -> str | None:
+        return _role_ok(v, _ADDRESS_ROLES, "role")
+
 
 class Ipv4AddressPatch(BaseModel):
     status: str | None = Field(None, max_length=32)
+    role: str | None = None
+    hostname: str | None = Field(None, max_length=255)
+    fqdn: str | None = Field(None, max_length=255)
+    dns_name: str | None = Field(None, max_length=255)
     owner_user_id: int | None = Field(default=None)
     note: str | None = None
     mac_address: str | None = Field(None, max_length=32)
@@ -329,6 +455,11 @@ class Ipv4AddressPatch(BaseModel):
         if s not in _ADDRESS_STATUSES:
             raise ValueError("ugyldig status")
         return s
+
+    @field_validator("role")
+    @classmethod
+    def role_ok_patch_addr(cls, v: str | None) -> str | None:
+        return _role_ok(v, _ADDRESS_ROLES, "role")
 
     @field_validator("owner_user_id", "device_type_id", "device_model_id", "device_id", "interface_id")
     @classmethod
@@ -405,8 +536,20 @@ class Ipv4AddressBatchRead(BaseModel):
 class IpamVrfCreate(BaseModel):
     site_id: int = Field(..., ge=1)
     name: str = Field(..., min_length=1, max_length=128)
+    slug: str | None = Field(None, min_length=1, max_length=128)
     route_distinguisher: str | None = Field(None, max_length=64)
     description: str | None = None
+
+
+class IpamVrfUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=128)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    route_distinguisher: str | None = Field(None, max_length=64)
+    description: str | None = None
+
+
+class IpamVrfEnsure(IpamVrfCreate):
+    pass
 
 
 class IpamVrfRead(BaseModel):
@@ -415,8 +558,10 @@ class IpamVrfRead(BaseModel):
     id: int
     site_id: int
     name: str
+    slug: str
     route_distinguisher: str | None
     description: str | None
+    created: bool | None = None
     created_at: dt.datetime
 
 
@@ -424,9 +569,22 @@ class IpamVlanCreate(BaseModel):
     site_id: int = Field(..., ge=1)
     vid: int = Field(..., ge=1, le=4094)
     name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
     vrf_id: int | None = None
     description: str | None = None
     tenant_id: int | None = Field(None, ge=1)
+
+
+class IpamVlanUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    vrf_id: int | None = None
+    description: str | None = None
+    tenant_id: int | None = Field(None, ge=1)
+
+
+class IpamVlanEnsure(IpamVlanCreate):
+    pass
 
 
 class IpamVlanRead(BaseModel):
@@ -437,8 +595,10 @@ class IpamVlanRead(BaseModel):
     tenant_id: int | None = None
     vid: int
     name: str
+    slug: str
     vrf_id: int | None
     description: str | None
+    created: bool | None = None
     created_at: dt.datetime
 
 

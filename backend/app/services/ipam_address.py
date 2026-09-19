@@ -23,6 +23,8 @@ from app.schemas.ipam import (
     UserRead,
 )
 from app.services import dcim as dcim_svc
+from app.services import ipam as ipam_svc
+from app.services.ipam_errors import ipam_error
 
 _IN_USE_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp"})
 _MODE_TO_STATUS = {"reserve": "reserved", "assign": "assigned"}
@@ -33,16 +35,18 @@ def _ipv4_address_read(
     row: IpamIpv4Address,
     *,
     interface_names: dict[int, str] | None = None,
+    created: bool | None = None,
 ) -> Ipv4AddressRead:
     base = Ipv4AddressRead.model_validate(row)
+    extra = {"created": created}
     if row.interface_id is None:
-        return base.model_copy(update={"interface_name": None})
+        return base.model_copy(update={**extra, "interface_name": None})
     if interface_names is not None:
         iname = interface_names.get(row.interface_id)
     else:
         iface = db.get(DeviceInterface, row.interface_id)
         iname = iface.name if iface is not None else None
-    return base.model_copy(update={"interface_name": iname})
+    return base.model_copy(update={**extra, "interface_name": iname})
 
 
 def list_users(db: Session, *, limit: int = 200, kind: str | None = None) -> list[UserRead]:
@@ -80,15 +84,45 @@ def list_ipv4_addresses(
     ipv4_prefix_id: int | None,
     status: str | None,
     limit: int,
+    offset: int = 0,
+    address: str | None = None,
+    q: str | None = None,
+    device_id: int | None = None,
+    role: str | None = None,
 ) -> list[Ipv4AddressRead]:
-    q: Select = select(IpamIpv4Address).order_by(IpamIpv4Address.address).limit(limit)
+    stmt: Select = select(IpamIpv4Address).order_by(IpamIpv4Address.address)
     if site_id is not None:
-        q = q.where(IpamIpv4Address.site_id == site_id)
+        stmt = stmt.where(IpamIpv4Address.site_id == site_id)
     if ipv4_prefix_id is not None:
-        q = q.where(IpamIpv4Address.ipv4_prefix_id == ipv4_prefix_id)
+        stmt = stmt.where(IpamIpv4Address.ipv4_prefix_id == ipv4_prefix_id)
     if status is not None:
-        q = q.where(IpamIpv4Address.status == status)
-    rows = list(db.execute(q).scalars().all())
+        stmt = stmt.where(IpamIpv4Address.status == status)
+    if role is not None:
+        stmt = stmt.where(IpamIpv4Address.role == role)
+    if device_id is not None:
+        stmt = stmt.where(IpamIpv4Address.device_id == device_id)
+    if address is not None:
+        try:
+            ip = ipaddress.ip_address(address.strip())
+        except ValueError as e:
+            raise ipam_error(400, "invalid_address", f"ugyldig adresse: {e}") from e
+        stmt = stmt.where(IpamIpv4Address.address == str(ip))
+    rows = list(db.execute(stmt).scalars().all())
+    if q is not None:
+        needle = q.strip().lower()
+        if needle:
+            rows = [
+                r
+                for r in rows
+                if needle in (r.address or "").lower()
+                or needle in (r.note or "").lower()
+                or needle in (getattr(r, "hostname", None) or "").lower()
+                or needle in (getattr(r, "fqdn", None) or "").lower()
+                or needle in (getattr(r, "dns_name", None) or "").lower()
+            ]
+    if offset:
+        rows = rows[offset:]
+    rows = rows[:limit]
     if_ids = {r.interface_id for r in rows if r.interface_id is not None}
     names: dict[int, str] = {}
     if if_ids:
@@ -104,7 +138,7 @@ def get_ipv4_address(db: Session, addr_id: int) -> IpamIpv4Address | None:
 def get_ipv4_address_read(db: Session, addr_id: int) -> Ipv4AddressRead:
     row = get_ipv4_address(db, addr_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="IP-adresse ikke funnet")
+        raise ipam_error(404, "address_not_found", "IP-adresse ikke funnet")
     return _ipv4_address_read(db, row)
 
 
@@ -121,36 +155,54 @@ def _parse_ipv4_in_prefix(pfx: IpamIpv4Prefix, address: str) -> ipaddress.IPv4Ad
     try:
         ip = ipaddress.ip_address(address.strip())
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"ugyldig adresse: {e}") from e
+        raise ipam_error(400, "invalid_address", f"ugyldig adresse: {e}") from e
     if not isinstance(ip, ipaddress.IPv4Address):
-        raise HTTPException(status_code=400, detail="kun IPv4")
+        raise ipam_error(400, "ipv4_only", "kun IPv4")
     net = ipaddress.ip_network(pfx.cidr, strict=False)
     if ip not in net:
-        raise HTTPException(status_code=400, detail="adressen ligger ikke i prefiksnettet")
+        raise ipam_error(400, "address_outside_prefix", "adressen ligger ikke i prefiksnettet")
     return ip
 
 
-def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure) -> Ipv4AddressRead:
+def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure, *, update: bool = False) -> Ipv4AddressRead:
     pfx = db.get(IpamIpv4Prefix, data.ipv4_prefix_id)
     if pfx is None:
-        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+        raise ipam_error(404, "prefix_not_found", "prefiks ikke funnet")
     ip = _parse_ipv4_in_prefix(pfx, data.address)
     ip_s = str(ip)
 
     status = data.status
     if data.mode is not None:
         status = _MODE_TO_STATUS[data.mode]
-    if status in ("reserved", "assigned") and ip_s in _network_broadcast_ips(pfx):
-        raise HTTPException(
-            status_code=400,
-            detail="kan ikke reservere eller tildele nettverks- eller broadcast-adresse",
-        )
+    addr_role = data.role
+    static_alloc = status in ("reserved", "assigned") or data.mode in ("reserve", "assign")
+    if static_alloc:
+        ipam_svc.require_host_allocation(pfx)
+        if ip_s in _network_broadcast_ips(pfx):
+            raise ipam_error(
+                400,
+                "network_broadcast_forbidden",
+                "kan ikke reservere eller tildele nettverks- eller broadcast-adresse",
+            )
+        if ip_s in _gateway_ips(pfx) and addr_role != "gateway":
+            raise ipam_error(
+                409,
+                "gateway_protected",
+                "gateway er urørlig med mindre role=gateway settes bevisst",
+            )
+        if ip_s in _dhcp_range_ips(pfx) and addr_role != "dhcp":
+            raise ipam_error(
+                409,
+                "dhcp_range_protected",
+                "adressen ligger i dhcp_range og kan ikke tildeles statisk uten role=dhcp",
+            )
 
     iface = _resolve_assign_interface(db, pfx, data)
-    if data.mode == "assign" and data.interface_id is not None and iface is None:
-        raise HTTPException(status_code=404, detail="interface ikke funnet")
 
     row = _inventory_row_for_site_address(db, site_id=pfx.site_id, address=ip_s)
+    if row is not None and not update:
+        return _ipv4_address_read(db, row, created=False)
+
     assign: InterfaceIpAssignment | None = None
     if status == "assigned" and iface is not None and (row is None or row.interface_ip_assignment_id is None):
         assign = InterfaceIpAssignment(
@@ -165,14 +217,19 @@ def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure) -> Ipv4AddressRead
             db.flush()
         except IntegrityError:
             db.rollback()
-            raise HTTPException(status_code=409, detail="adressen er allerede tildelt i DCIM") from None
+            raise ipam_error(409, "address_already_assigned", "adressen er allerede tildelt i DCIM") from None
 
+    created = row is None
     if row is None:
         row = IpamIpv4Address(
             site_id=pfx.site_id,
             ipv4_prefix_id=pfx.id,
             address=ip_s,
             status=status or "discovered",
+            role=addr_role or ("gateway" if ip_s in _gateway_ips(pfx) else "host"),
+            hostname=data.hostname,
+            fqdn=data.fqdn,
+            dns_name=data.dns_name,
             owner_user_id=data.owner_user_id,
             note=data.note,
             mac_address=None,
@@ -189,6 +246,14 @@ def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure) -> Ipv4AddressRead
             row.ipv4_prefix_id = pfx.id
         if status is not None:
             row.status = status
+        if addr_role is not None:
+            row.role = addr_role
+        if data.hostname is not None:
+            row.hostname = data.hostname
+        if data.fqdn is not None:
+            row.fqdn = data.fqdn
+        if data.dns_name is not None:
+            row.dns_name = data.dns_name
         if data.note is not None:
             row.note = data.note
         if data.owner_user_id is not None:
@@ -208,13 +273,13 @@ def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure) -> Ipv4AddressRead
 
     db.commit()
     db.refresh(row)
-    return _ipv4_address_read(db, row)
+    return _ipv4_address_read(db, row, created=created)
 
 
 def patch_ipv4_address(db: Session, row: IpamIpv4Address, data: Ipv4AddressPatch) -> Ipv4AddressRead:
     patch = data.model_dump(exclude_unset=True)
     if not patch:
-        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+        raise ipam_error(400, "empty_patch", "ingen felter å oppdatere")
 
     for k, v in patch.items():
         setattr(row, k, v)
@@ -292,9 +357,35 @@ def _network_broadcast_ips(pfx: IpamIpv4Prefix) -> set[str]:
     return {str(net.network_address), str(net.broadcast_address)}
 
 
+def _dhcp_range_ips(pfx: IpamIpv4Prefix) -> set[str]:
+    services = getattr(pfx, "subnet_services", None) or {}
+    if not isinstance(services, dict):
+        return set()
+    rng = services.get("dhcp_range")
+    if not isinstance(rng, dict):
+        return set()
+    try:
+        start = ipaddress.ip_address(str(rng.get("start", "")).strip())
+        end = ipaddress.ip_address(str(rng.get("end", "")).strip())
+        net = ipaddress.ip_network(pfx.cidr, strict=False)
+    except ValueError:
+        return set()
+    if not isinstance(start, ipaddress.IPv4Address) or not isinstance(end, ipaddress.IPv4Address):
+        return set()
+    if int(start) > int(end):
+        start, end = end, start
+    last = min(int(end), int(start) + 65536)
+    out: set[str] = set()
+    for n in range(int(start), last + 1):
+        ip = ipaddress.IPv4Address(n)
+        if ip in net:
+            out.add(str(ip))
+    return out
+
+
 def infra_reserved_ips(pfx: IpamIpv4Prefix) -> set[str]:
-    """Nettverk, broadcast og gateway — hoppes over ved host-allokering."""
-    return _network_broadcast_ips(pfx) | _gateway_ips(pfx)
+    """Nettverk, broadcast, gateway og DHCP-intervall — hoppes over ved statisk host-alloc."""
+    return _network_broadcast_ips(pfx) | _gateway_ips(pfx) | _dhcp_range_ips(pfx)
 
 
 def _ordered_ip_candidates_for_batch(pfx: IpamIpv4Prefix, preferred_raw: list[str]) -> list[str]:
@@ -485,7 +576,8 @@ def _try_allocate_one_ip(
 def request_ipv4_addresses_batch(db: Session, data: Ipv4AddressBatchRequest) -> Ipv4AddressBatchRead:
     pfx = db.get(IpamIpv4Prefix, data.ipv4_prefix_id)
     if pfx is None:
-        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+        raise ipam_error(404, "prefix_not_found", "prefiks ikke funnet")
+    ipam_svc.require_host_allocation(pfx)
 
     iface = _resolve_assign_interface(db, pfx, data)
 
@@ -520,7 +612,7 @@ def request_ipv4_addresses_batch(db: Session, data: Ipv4AddressBatchRequest) -> 
         reads.append(_ipv4_address_read(db, got_row))
 
     if not reads:
-        raise HTTPException(status_code=409, detail="ingen ledig adresse i prefikset")
+        raise ipam_error(409, "no_free_address", "ingen ledig adresse i prefikset")
     return Ipv4AddressBatchRead(
         addresses=reads,
         requested_count=data.count,
