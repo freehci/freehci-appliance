@@ -1,0 +1,10 @@
+---
+description: Bump .ver on every push; test instance URL
+alwaysApply: true
+---
+
+# Versjon og test-instans
+
+- Før **hver** git push: øk rotfilen `.ver` (semver-patch, f.eks. 0.0.58 → 0.0.59) i samme commit. GitHub-sjekken leser `main/.ver`.
+- Test-instans: http://192.168.41.51:8080 — verifiser UI der når det er mulig.
+- Se også `AGENTS.md`.
