@@ -166,6 +166,7 @@ def new_ipv4_prefix_orm(
 ) -> IpamIpv4Prefix:
     explicit = slug is not None
     require_vlan_allowed(role, vlan_id)
+    now = dt.datetime.now(dt.UTC)
     return IpamIpv4Prefix(
         site_id=site_id,
         tenant_id=tenant_id,
@@ -187,6 +188,7 @@ def new_ipv4_prefix_orm(
         description=description,
         cidr=cidr,
         subnet_services=subnet_services,
+        updated_at=now,
     )
 
 
@@ -729,8 +731,15 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
             family="ipv4",
         )
         db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+        raw = str(getattr(e, "orig", e)).lower()
+        if "not null" in raw or "null value" in raw or "updated_at" in raw:
+            raise ipam_error(
+                500,
+                "prefix_insert_failed",
+                "kunne ikke opprette IPv4-prefiks (påkrevd databasefelt mangler)",
+            ) from None
         raise ipam_error(
             409,
             "prefix_conflict",

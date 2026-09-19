@@ -61,8 +61,11 @@ class IpamIpv4Prefix(Base):
         server_default=func.now(),
         nullable=False,
     )
+    # Python-default er påkrevd: Alembic 20260511 la til kolonnen uten server_default.
+    # INSERT uten verdi ble NOT NULL → IntegrityError, maskert som prefix_conflict.
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
+        default=lambda: dt.datetime.now(dt.UTC),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,

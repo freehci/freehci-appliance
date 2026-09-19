@@ -191,6 +191,60 @@ def test_prefix_ensure_update_and_error_code_on_delete() -> None:
         assert locked.json()["detail"]["code"] == "prefix_cidr_locked"
 
 
+def test_ipv4_create_fresh_cidr_and_nested_child() -> None:
+    """Nye, ikke-overlappende IPv4-CIDR-er og lovlige barn må ikke bli prefix_conflict."""
+    app = create_app()
+    with TestClient(app) as client:
+        site = client.post("/api/v1/dcim/sites", json={"name": "S-v4new", "slug": "s-v4new"}).json()
+        site_id = site["id"]
+
+        doc = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site_id, "name": "TEST-NET-3", "cidr": "203.0.113.0/24"},
+        )
+        assert doc.status_code == 200, doc.text
+        assert doc.json()["cidr"] == "203.0.113.0/24"
+        assert doc.json()["created"] is True
+        assert doc.json()["updated_at"]
+
+        agg = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site_id, "name": "axionet-70", "cidr": "10.70.0.0/16"},
+        )
+        assert agg.status_code == 200, agg.text
+        assert agg.json()["parent_id"] is None
+
+        parent = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site_id, "name": "lan-91", "cidr": "10.41.91.0/24"},
+        )
+        assert parent.status_code == 200, parent.text
+        child = client.post(
+            "/api/v1/ipam/ipv4-prefixes",
+            json={"site_id": site_id, "name": "lan-91-hi", "cidr": "10.41.91.128/25"},
+        )
+        assert child.status_code == 200, child.text
+        assert child.json()["parent_id"] == parent.json()["id"]
+
+        ens = client.post(
+            "/api/v1/ipam/ipv4-prefixes/ensure",
+            json={"site_id": site_id, "cidr": "198.51.100.0/22", "name": "TEST-NET-2"},
+        )
+        assert ens.status_code == 200, ens.text
+        assert ens.json()["created"] is True
+        again = client.post(
+            "/api/v1/ipam/ipv4-prefixes/ensure",
+            json={"site_id": site_id, "cidr": "198.51.100.0/22"},
+        )
+        assert again.status_code == 200, again.text
+        assert again.json()["created"] is False
+        assert again.json()["id"] == ens.json()["id"]
+
+        found = client.get("/api/v1/ipam/ipv4-prefixes", params={"cidr": "203.0.113.0/24", "site_id": site_id})
+        assert found.status_code == 200
+        assert [x["cidr"] for x in found.json()] == ["203.0.113.0/24"]
+
+
 def test_address_filter_and_offset() -> None:
     app = create_app()
     with TestClient(app) as client:
