@@ -8,6 +8,8 @@ export type Ipv4Prefix = {
   slug: string;
   role?: string;
   status?: string;
+  overlap_policy?: string;
+  dual_stack_group_id?: number | null;
   cidr: string;
   description: string | null;
   created_at: string;
@@ -213,7 +215,9 @@ export type IpamVlan = {
 
 export type IpamCircuit = {
   id: number;
-  tenant_id: number;
+  tenant_id: number | null;
+  a_site_id?: number | null;
+  z_site_id?: number | null;
   circuit_number: string;
   name: string;
   description: string | null;
@@ -230,5 +234,6 @@ export type IpamCircuitTermination = {
   circuit_id: number;
   endpoint: string;
   interface_id: number | null;
+  site_id?: number | null;
   label: string | null;
 };

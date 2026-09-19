@@ -44,6 +44,14 @@ from app.schemas.ipam import (
     IpamVrfEnsure,
     IpamVrfRead,
     IpamVrfUpdate,
+    IpamAuditEventRead,
+    Ipv6AddressEnsure,
+    Ipv6AddressRead,
+    Ipv6AddressRequest,
+    Ipv6PrefixAllocate,
+    Ipv6PrefixCreate,
+    Ipv6PrefixEnsure,
+    Ipv6PrefixRead,
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
@@ -53,6 +61,8 @@ from app.services import ipam_prefix_split as split_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
+from app.services import ipam_ipv6 as ipv6_svc
+from app.services import ipam_audit as audit_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
 
@@ -486,9 +496,10 @@ def delete_ipam_vlan(vlan_id: int, db: Session = Depends(get_db)) -> None:
 @router.get("/circuits", response_model=list[IpamCircuitRead])
 def list_ipam_circuits(
     tenant_id: int | None = Query(None, description="Filtrer på tenant-id"),
+    site_id: int | None = Query(None, description="Filtrer på A- eller Z-site"),
     db: Session = Depends(get_db),
 ) -> list[IpamCircuitRead]:
-    return [fac_svc.circuit_to_read(r) for r in fac_svc.list_circuits(db, tenant_id=tenant_id)]
+    return [fac_svc.circuit_to_read(r) for r in fac_svc.list_circuits(db, tenant_id=tenant_id, site_id=site_id)]
 
 
 @router.post("/circuits", response_model=IpamCircuitRead)
@@ -546,3 +557,94 @@ def upsert_circuit_termination(
     except IntegrityError as e:
         raise HTTPException(status_code=409, detail="kunne ikke lagre terminering") from e
     return fac_svc.termination_to_read(t)
+
+
+@router.get("/ipv6-prefixes", response_model=list[Ipv6PrefixRead])
+def list_ipv6_prefixes(
+    site_id: int | None = Query(None),
+    slug: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[Ipv6PrefixRead]:
+    return ipv6_svc.list_ipv6_prefixes(db, site_id=site_id, slug=slug)
+
+
+@router.post("/ipv6-prefixes", response_model=Ipv6PrefixRead)
+def create_ipv6_prefix(data: Ipv6PrefixCreate, db: Session = Depends(get_db)) -> Ipv6PrefixRead:
+    return ipv6_svc.create_ipv6_prefix(db, data)
+
+
+@router.post("/ipv6-prefixes/ensure", response_model=Ipv6PrefixRead)
+def ensure_ipv6_prefix(
+    data: Ipv6PrefixEnsure,
+    update: bool = Query(False),
+    db: Session = Depends(get_db),
+) -> Ipv6PrefixRead:
+    return ipv6_svc.ensure_ipv6_prefix(db, data, update=update)
+
+
+@router.get("/ipv6-prefixes/{prefix_id}", response_model=Ipv6PrefixRead)
+def get_ipv6_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv6PrefixRead:
+    row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return ipv6_svc.ipv6_prefix_read(db, row)
+
+
+@router.get("/ipv6-prefixes/{prefix_id}/available-prefixes", response_model=Ipv4AvailablePrefixesRead)
+def list_available_ipv6_children(
+    prefix_id: int,
+    prefixlen: int = Query(..., ge=1, le=128),
+    limit: int = Query(64, ge=1, le=256),
+    db: Session = Depends(get_db),
+) -> Ipv4AvailablePrefixesRead:
+    row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return ipv6_svc.list_available_child_ipv6(db, row, prefixlen, limit=limit)
+
+
+@router.post("/ipv6-prefixes/{prefix_id}/allocate", response_model=Ipv6PrefixRead)
+def allocate_ipv6_child(prefix_id: int, data: Ipv6PrefixAllocate, db: Session = Depends(get_db)) -> Ipv6PrefixRead:
+    row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return ipv6_svc.allocate_child_ipv6(db, row, data)
+
+
+@router.post("/ipv6-addresses/ensure", response_model=Ipv6AddressRead)
+def ensure_ipv6_address(
+    data: Ipv6AddressEnsure,
+    update: bool = Query(False),
+    db: Session = Depends(get_db),
+) -> Ipv6AddressRead:
+    return ipv6_svc.ensure_ipv6_address(db, data, update=update)
+
+
+@router.post("/ipv6-addresses/request", response_model=Ipv6AddressRead)
+def request_ipv6_address(data: Ipv6AddressRequest, db: Session = Depends(get_db)) -> Ipv6AddressRead:
+    return ipv6_svc.request_ipv6_address(db, data)
+
+
+@router.get("/ipv6-addresses", response_model=list[Ipv6AddressRead])
+def list_ipv6_addresses(
+    site_id: int | None = Query(None),
+    ipv6_prefix_id: int | None = Query(None),
+    address: str | None = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[Ipv6AddressRead]:
+    return ipv6_svc.list_ipv6_addresses(db, site_id=site_id, ipv6_prefix_id=ipv6_prefix_id, address=address, limit=limit)
+
+
+@router.get("/audit", response_model=list[IpamAuditEventRead])
+def list_ipam_audit(
+    site_id: int | None = Query(None),
+    resource_type: str | None = Query(None),
+    action: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[IpamAuditEventRead]:
+    return [
+        IpamAuditEventRead.model_validate(r)
+        for r in audit_svc.list_events(db, site_id=site_id, resource_type=resource_type, action=action, limit=limit)
+    ]

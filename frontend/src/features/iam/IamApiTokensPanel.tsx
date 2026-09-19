@@ -24,6 +24,11 @@ export function IamApiTokensPanel({ personId }: { personId: number }) {
   const [created, setCreated] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revoke, setRevoke] = useState<api.IamApiToken | null>(null);
+  const [scopes, setScopes] = useState<string[]>([]);
+
+  function toggleScope(scope: string) {
+    setScopes((cur) => (cur.includes(scope) ? cur.filter((s) => s !== scope) : [...cur, scope]));
+  }
 
   const q = useQuery({
     queryKey: ["iam", "person", personId, "tokens"],
@@ -31,10 +36,11 @@ export function IamApiTokensPanel({ personId }: { personId: number }) {
   });
 
   const createM = useMutation({
-    mutationFn: () => api.createPersonToken(personId, name.trim()),
+    mutationFn: () => api.createPersonToken(personId, name.trim(), scopes.length ? scopes : null),
     onSuccess: (row) => {
       setErr(null);
       setName("");
+      setScopes([]);
       setCreated(row.token);
       setCopied(false);
       void qc.invalidateQueries({ queryKey: ["iam", "person", personId, "tokens"] });
@@ -71,6 +77,15 @@ export function IamApiTokensPanel({ personId }: { personId: number }) {
           {t("auth.createToken")}
         </Button>
       </div>
+      <p className={styles.intro}>{t("auth.tokenScopesHint")}</p>
+      <div className={styles.rowActions}>
+        {(["ipam:read", "ipam:alloc", "ipam:admin"] as const).map((scope) => (
+          <label key={scope} className={styles.field} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+            <input type="checkbox" checked={scopes.includes(scope)} onChange={() => toggleScope(scope)} />
+            {scope}
+          </label>
+        ))}
+      </div>
       {created ? (
         <div className={authStyles.tokenBox}>
           <p className={authStyles.success}>{t("auth.tokenCreatedOnce")}</p>
@@ -94,6 +109,7 @@ export function IamApiTokensPanel({ personId }: { personId: number }) {
             <th>{t("auth.colPrefix")}</th>
             <th>{t("auth.colCreated")}</th>
             <th>{t("auth.colLastUsed")}</th>
+            <th>{t("auth.colScopes")}</th>
             <th />
           </tr>
         </thead>
@@ -106,6 +122,7 @@ export function IamApiTokensPanel({ personId }: { personId: number }) {
               </td>
               <td>{fmtDate(tok.created_at)}</td>
               <td>{fmtDate(tok.last_used_at)}</td>
+              <td>{tok.scopes?.length ? tok.scopes.join(", ") : t("auth.scopeUnrestricted")}</td>
               <td>
                 <button type="button" className={styles.tableLink} onClick={() => setRevoke(tok)}>
                   {t("auth.revokeToken")}

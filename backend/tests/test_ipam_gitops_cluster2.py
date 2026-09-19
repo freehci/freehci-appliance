@@ -56,7 +56,7 @@ def test_allocate_next_child_prefix_and_slug_idempotent() -> None:
 
         overlay = client.post(
             "/api/v1/ipam/ipv4-prefixes",
-            json={"site_id": sid, "name": "pods", "cidr": "10.80.0.0/16", "role": "overlay-pod"},
+            json={"site_id": sid, "name": "pods", "cidr": "10.86.0.0/16", "role": "overlay-pod"},
         )
         bad = client.post(
             f"/api/v1/ipam/ipv4-prefixes/{overlay.json()['id']}/allocate",
@@ -89,7 +89,7 @@ def test_available_ranges_and_grid_limit() -> None:
 
         big = client.post(
             "/api/v1/ipam/ipv4-prefixes",
-            json={"site_id": sid, "name": "pods", "cidr": "10.80.0.0/16", "role": "overlay-pod"},
+            json={"site_id": sid, "name": "pods", "cidr": "10.87.0.0/16", "role": "overlay-pod"},
         )
         grid = client.get(f"/api/v1/ipam/ipv4-prefixes/{big.json()['id']}/address-grid")
         assert grid.status_code == 400

@@ -23,9 +23,13 @@ export function IpamCircuitsPage() {
   const [termCircuitId, setTermCircuitId] = useState<number | null>(null);
   const [termEndpoint, setTermEndpoint] = useState<"a" | "z">("a");
   const [termIface, setTermIface] = useState("");
+  const [termSite, setTermSite] = useState("");
+  const [aSiteId, setASiteId] = useState("");
+  const [zSiteId, setZSiteId] = useState("");
 
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
+  const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const circuitsQ = useQuery({
     queryKey: ["ipam", "circuits", tenantIdFilter ?? "all"],
     queryFn: () => ipamApi.listIpamCircuits(tenantIdFilter),
@@ -40,7 +44,7 @@ export function IpamCircuitsPage() {
   const createM = useMutation({
     mutationFn: () =>
       ipamApi.createIpamCircuit({
-        tenant_id: Number(tenantId),
+        tenant_id: tenantId === "" ? null : Number(tenantId),
         circuit_number: circuitNumber.trim(),
         name: name.trim(),
         circuit_type: circuitType,
@@ -48,6 +52,8 @@ export function IpamCircuitsPage() {
         provider_name: provider.trim() === "" ? null : provider.trim(),
         established_on: established.trim() === "" ? null : established.trim(),
         contract_end_on: contractEnd.trim() === "" ? null : contractEnd.trim(),
+        a_site_id: aSiteId === "" ? null : Number(aSiteId),
+        z_site_id: zSiteId === "" ? null : Number(zSiteId),
       }),
     onSuccess: () => {
       setErr(null);
@@ -76,6 +82,7 @@ export function IpamCircuitsPage() {
       ipamApi.upsertCircuitTermination(termCircuitId!, {
         endpoint: termEndpoint,
         interface_id: termIface.trim() === "" ? null : Number(termIface),
+        site_id: termSite === "" ? null : Number(termSite),
       }),
     onSuccess: () => {
       setErr(null);
@@ -117,8 +124,8 @@ export function IpamCircuitsPage() {
       >
         <label>
           {t("ipam.circuits.tenant")}
-          <select value={tenantId} onChange={(e) => setTenantId(e.target.value)} required>
-            <option value="">{t("ipam.circuits.chooseTenant")}</option>
+          <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+            <option value="">{t("ipam.circuits.noTenant")}</option>
             {(tenantsQ.data ?? []).map((tn) => (
               <option key={tn.id} value={String(tn.id)}>
                 {tn.name}
@@ -139,9 +146,32 @@ export function IpamCircuitsPage() {
           <select value={circuitType} onChange={(e) => setCircuitType(e.target.value)}>
             <option value="fiber">{t("ipam.circuits.type.fiber")}</option>
             <option value="vpn">{t("ipam.circuits.type.vpn")}</option>
+            <option value="wireguard">{t("ipam.circuits.type.wireguard")}</option>
             <option value="radio">{t("ipam.circuits.type.radio")}</option>
             <option value="leased_line">{t("ipam.circuits.type.leased_line")}</option>
             <option value="other">{t("ipam.circuits.type.other")}</option>
+          </select>
+        </label>
+        <label>
+          {t("ipam.circuits.aSite")}
+          <select value={aSiteId} onChange={(e) => setASiteId(e.target.value)}>
+            <option value="">{t("ipam.circuits.noSite")}</option>
+            {(sitesQ.data ?? []).map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("ipam.circuits.zSite")}
+          <select value={zSiteId} onChange={(e) => setZSiteId(e.target.value)}>
+            <option value="">{t("ipam.circuits.noSite")}</option>
+            {(sitesQ.data ?? []).map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.name}
+              </option>
+            ))}
           </select>
         </label>
         <label style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
@@ -175,6 +205,8 @@ export function IpamCircuitsPage() {
               <th>{t("ipam.circuits.number")}</th>
               <th>{t("ipam.ipv4.name")}</th>
               <th>{t("ipam.circuits.type")}</th>
+              <th>{t("ipam.circuits.aSite")}</th>
+              <th>{t("ipam.circuits.zSite")}</th>
               <th>{t("ipam.circuits.leased")}</th>
               <th>{t("ipam.circuits.provider")}</th>
               <th>{t("ipam.ipv4.actionsCol")}</th>
@@ -186,6 +218,8 @@ export function IpamCircuitsPage() {
                 <td>{c.circuit_number}</td>
                 <td>{c.name}</td>
                 <td>{c.circuit_type}</td>
+                <td>{(sitesQ.data ?? []).find((s) => s.id === c.a_site_id)?.name ?? "—"}</td>
+                <td>{(sitesQ.data ?? []).find((s) => s.id === c.z_site_id)?.name ?? "—"}</td>
                 <td>{c.is_leased ? t("ipam.circuits.yes") : t("ipam.circuits.no")}</td>
                 <td>{c.provider_name ?? "—"}</td>
                 <td>
@@ -218,7 +252,8 @@ export function IpamCircuitsPage() {
           <ul className={dcimStyles.ipList}>
             {(termsQ.data ?? []).map((x) => (
               <li key={x.id}>
-                {x.endpoint.toUpperCase()}: iface #{x.interface_id ?? "—"} {x.label ? `(${x.label})` : ""}
+                {x.endpoint.toUpperCase()}: site {x.site_id ?? "—"} / iface #{x.interface_id ?? "—"}{" "}
+                {x.label ? `(${x.label})` : ""}
               </li>
             ))}
           </ul>
@@ -236,6 +271,17 @@ export function IpamCircuitsPage() {
               <select value={termEndpoint} onChange={(e) => setTermEndpoint(e.target.value as "a" | "z")}>
                 <option value="a">A</option>
                 <option value="z">Z</option>
+              </select>
+            </label>
+            <label>
+              {t("ipam.circuits.termSite")}
+              <select value={termSite} onChange={(e) => setTermSite(e.target.value)}>
+                <option value="">{t("ipam.circuits.noSite")}</option>
+                {(sitesQ.data ?? []).map((s) => (
+                  <option key={s.id} value={String(s.id)}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </label>
             <label>

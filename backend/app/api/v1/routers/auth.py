@@ -99,7 +99,7 @@ def create_token(
     db: Session = Depends(get_db),
     admin: AdminAccount = Depends(get_current_admin),
 ) -> ApiTokenCreated:
-    return auth_svc.create_api_token(db, admin, data.name)
+    return auth_svc.create_api_token(db, admin, data.name, scopes=data.scopes)
 
 
 @router.delete("/tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)

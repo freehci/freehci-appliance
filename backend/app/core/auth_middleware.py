@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.request_context import AuthActor, ipam_scope_allows, set_actor
 from app.services.auth_admin import API_TOKEN_PREFIX, authenticate_api_token, decode_token_payload
 
 
@@ -33,6 +34,7 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         if self.settings.freehci_skip_auth:
+            set_actor(AuthActor(actor_type="system", actor_name="test"))
             return await call_next(request)
         if request.method == "OPTIONS":
             return await call_next(request)
@@ -59,12 +61,34 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
         if token.startswith(API_TOKEN_PREFIX):
             db = SessionLocal()
             try:
-                admin_id = authenticate_api_token(db, token)
+                row = authenticate_api_token(db, token)
+                if row is None:
+                    admin_id = token_id = None
+                    token_name = None
+                    scopes = None
+                else:
+                    admin_id = row.admin_id
+                    token_id = row.id
+                    token_name = row.name
+                    raw_scopes = getattr(row, "scopes", None) or []
+                    scopes = frozenset(str(s) for s in raw_scopes) if raw_scopes else None
             finally:
                 db.close()
-            if admin_id is None:
+            if token_id is None:
                 return JSONResponse({"detail": "ugyldig innlogging"}, status_code=401)
             request.state.admin_id = admin_id
+            set_actor(
+                AuthActor(
+                    actor_type="token",
+                    actor_id=token_id,
+                    actor_name=token_name,
+                    scopes=scopes,
+                    token_id=token_id,
+                ),
+            )
+            denied = _deny_ipam_scope(request, scopes)
+            if denied is not None:
+                return denied
             return await call_next(request)
 
         try:
@@ -83,4 +107,17 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
         if request.state.admin_id is None:
             return JSONResponse({"detail": "ugyldig innlogging"}, status_code=401)
 
+        set_actor(AuthActor(actor_type="admin", actor_id=request.state.admin_id, actor_name="admin"))
         return await call_next(request)
+
+
+def _deny_ipam_scope(request: Request, scopes: frozenset[str] | None) -> JSONResponse | None:
+    path = request.url.path
+    if "/ipam/" not in path:
+        return None
+    if ipam_scope_allows(request.method, path, scopes):
+        return None
+    return JSONResponse(
+        {"detail": {"code": "insufficient_scope", "detail": "API-nøkkelen mangler nødvendig IPAM-scope"}},
+        status_code=403,
+    )

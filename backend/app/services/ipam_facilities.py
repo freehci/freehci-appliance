@@ -255,17 +255,32 @@ def ensure_vlan(db: Session, data: IpamVlanEnsure, *, update: bool = False) -> t
 # --- Circuits ---
 
 
-def list_circuits(db: Session, *, tenant_id: int | None = None) -> list[IpamCircuit]:
-    q = select(IpamCircuit).order_by(IpamCircuit.tenant_id, IpamCircuit.circuit_number)
+def list_circuits(
+    db: Session,
+    *,
+    tenant_id: int | None = None,
+    site_id: int | None = None,
+) -> list[IpamCircuit]:
+    q = select(IpamCircuit).order_by(IpamCircuit.circuit_number)
     if tenant_id is not None:
         q = q.where(IpamCircuit.tenant_id == tenant_id)
+    if site_id is not None:
+        q = q.where((IpamCircuit.a_site_id == site_id) | (IpamCircuit.z_site_id == site_id))
     return list(db.execute(q).scalars().all())
 
 
 def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
-    _require_tenant(db, data.tenant_id)
+    if data.tenant_id is not None:
+        _require_tenant(db, data.tenant_id)
+    if data.a_site_id is not None:
+        _require_site(db, data.a_site_id)
+    if data.z_site_id is not None:
+        _require_site(db, data.z_site_id)
     row = IpamCircuit(
         tenant_id=data.tenant_id,
+        tenant_scope=int(data.tenant_id) if data.tenant_id is not None else 0,
+        a_site_id=data.a_site_id,
+        z_site_id=data.z_site_id,
         circuit_number=data.circuit_number.strip(),
         name=data.name.strip(),
         description=data.description,
@@ -304,6 +319,16 @@ def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> Ip
         row.established_on = data.established_on
     if data.contract_end_on is not None:
         row.contract_end_on = data.contract_end_on
+    if data.tenant_id is not None:
+        _require_tenant(db, data.tenant_id)
+        row.tenant_id = data.tenant_id
+        row.tenant_scope = int(data.tenant_id)
+    if data.a_site_id is not None:
+        _require_site(db, data.a_site_id)
+        row.a_site_id = data.a_site_id
+    if data.z_site_id is not None:
+        _require_site(db, data.z_site_id)
+        row.z_site_id = data.z_site_id
     db.commit()
     db.refresh(row)
     return row
@@ -332,6 +357,8 @@ def upsert_circuit_termination(
         iface = db.get(DeviceInterface, data.interface_id)
         if iface is None:
             raise ValueError("grensesnitt ikke funnet")
+    if data.site_id is not None:
+        _require_site(db, data.site_id)
 
     existing = db.execute(
         select(IpamCircuitTermination).where(
@@ -342,6 +369,7 @@ def upsert_circuit_termination(
 
     if existing is not None:
         existing.interface_id = data.interface_id
+        existing.site_id = data.site_id
         existing.label = data.label.strip() if data.label else None
         db.commit()
         db.refresh(existing)
@@ -351,6 +379,7 @@ def upsert_circuit_termination(
         circuit_id=circuit.id,
         endpoint=data.endpoint,
         interface_id=data.interface_id,
+        site_id=data.site_id,
         label=data.label.strip() if data.label else None,
     )
     db.add(row)

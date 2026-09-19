@@ -15,7 +15,7 @@ def test_prefix_role_blocks_host_alloc() -> None:
                 "site_id": site["id"],
                 "name": "Pod",
                 "slug": "site-a-pod",
-                "cidr": "10.80.0.0/16",
+                "cidr": "10.81.0.0/16",
                 "role": "overlay-pod",
             },
         )
@@ -29,7 +29,7 @@ def test_prefix_role_blocks_host_alloc() -> None:
 
         ens = client.post(
             "/api/v1/ipam/ipv4-addresses/ensure",
-            json={"ipv4_prefix_id": pid, "address": "10.80.0.5", "mode": "reserve"},
+            json={"ipv4_prefix_id": pid, "address": "10.81.0.5", "mode": "reserve"},
         )
         assert ens.status_code == 409
         assert ens.json()["detail"]["code"] == "prefix_role_forbids_alloc"
@@ -47,7 +47,7 @@ def test_same_cidr_allowed_in_different_vrf() -> None:
             json={
                 "site_id": site["id"],
                 "name": "Under",
-                "cidr": "10.80.0.0/16",
+                "cidr": "10.88.0.0/16",
                 "vrf_id": under.json()["id"],
                 "role": "active",
             },
@@ -57,7 +57,7 @@ def test_same_cidr_allowed_in_different_vrf() -> None:
             json={
                 "site_id": site["id"],
                 "name": "Over",
-                "cidr": "10.80.0.0/16",
+                "cidr": "10.88.0.0/16",
                 "vrf_id": over.json()["id"],
                 "role": "overlay-pod",
             },

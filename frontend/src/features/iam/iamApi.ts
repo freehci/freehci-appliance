@@ -25,6 +25,7 @@ export type IamApiToken = {
   last_used_at: string | null;
   expires_at: string | null;
   user_id: number | null;
+  scopes?: string[] | null;
 };
 
 export type IamApiTokenCreated = IamApiToken & { token: string };
@@ -95,8 +96,12 @@ export function listPersonTokens(personId: number): Promise<IamApiToken[]> {
   return apiGet(`${P}/persons/${personId}/tokens`);
 }
 
-export function createPersonToken(personId: number, name: string): Promise<IamApiTokenCreated> {
-  return apiPost(`${P}/persons/${personId}/tokens`, { name });
+export function createPersonToken(
+  personId: number,
+  name: string,
+  scopes?: string[] | null,
+): Promise<IamApiTokenCreated> {
+  return apiPost(`${P}/persons/${personId}/tokens`, { name, scopes: scopes ?? undefined });
 }
 
 export function deletePersonToken(personId: number, tokenId: number): Promise<void> {

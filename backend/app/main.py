@@ -40,6 +40,10 @@ Machine-readable connect info: `GET /api/v1/auth/agent` (no auth).
 - Next child prefix: `GET /ipv4-prefixes/{id}/available-prefixes?prefixlen=` and `POST /ipv4-prefixes/{id}/allocate`. Idempotent on `slug` or `Idempotency-Key`.
 - LB/pool ranges: `GET /ipv4-prefixes/{id}/available-ranges`. `address-grid` is 400 for prefixes larger than /22.
 - `request` / `request-batch` are atomic and accept `Idempotency-Key`. Bind inventory IP: `POST /ipv4-addresses/{id}/bind`.
+- Overlay/p2p prefixes default to `overlap_policy=global-unique` (no CIDR overlap across sites).
+- IPv6: `/ipv6-prefixes` and `/ipv6-addresses` with the same ensure/request/allocate contract. Pair stacks with `dual_stack_group_id`.
+- Circuits may omit `tenant_id` and terminate on `a_site_id`/`z_site_id` (WireGuard).
+- Audit: `GET /ipam/audit`. API tokens accept `scopes`: `ipam:read`, `ipam:alloc`, `ipam:admin`.
 - Pin or allocate hosts: `POST /api/v1/ipam/ipv4-addresses/ensure` and `/request` (`mode=reserve|assign`, interface optional)
 - Hard-delete address: `DELETE /api/v1/ipam/ipv4-addresses/{id}`
 - Prefix delete is 409 if children or addresses exist; pass `?cascade=true` to remove them

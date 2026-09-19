@@ -110,7 +110,7 @@ def create_person_token(
     row = iam_svc.get_person(db, person_id)
     if row is None:
         raise HTTPException(status_code=404, detail="person ikke funnet")
-    return auth_svc.create_api_token(db, admin, data.name, user=row)
+    return auth_svc.create_api_token(db, admin, data.name, user=row, scopes=data.scopes)
 
 
 @router.delete("/persons/{person_id}/tokens/{token_id}", status_code=204)

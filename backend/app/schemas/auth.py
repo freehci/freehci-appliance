@@ -2,7 +2,9 @@
 
 import datetime as dt
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.request_context import IPAM_SCOPES
 
 
 class LoginRequest(BaseModel):
@@ -49,10 +51,23 @@ class ApiTokenRead(BaseModel):
     last_used_at: dt.datetime | None
     expires_at: dt.datetime | None
     user_id: int | None = None
+    scopes: list[str] | None = None
 
 
 class ApiTokenCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
+    scopes: list[str] | None = None
+
+    @field_validator("scopes")
+    @classmethod
+    def scopes_ok(cls, v: list[str] | None) -> list[str] | None:
+        if not v:
+            return None
+        cleaned = [s.strip() for s in v if s and s.strip()]
+        unknown = [s for s in cleaned if s not in IPAM_SCOPES]
+        if unknown:
+            raise ValueError(f"ukjent scope: {', '.join(unknown)}")
+        return cleaned or None
 
 
 class ApiTokenCreated(ApiTokenRead):

@@ -24,6 +24,7 @@ export type ApiToken = {
   created_at: string;
   last_used_at: string | null;
   expires_at: string | null;
+  scopes?: string[] | null;
 };
 
 export type ApiTokenCreated = ApiToken & {
@@ -77,8 +78,8 @@ export function listApiTokens(): Promise<ApiToken[]> {
   return apiGet("/api/v1/auth/tokens");
 }
 
-export function createApiToken(name: string): Promise<ApiTokenCreated> {
-  return apiPost("/api/v1/auth/tokens", { name });
+export function createApiToken(name: string, scopes?: string[] | null): Promise<ApiTokenCreated> {
+  return apiPost("/api/v1/auth/tokens", { name, scopes: scopes ?? undefined });
 }
 
 export function deleteApiToken(tokenId: number): Promise<void> {

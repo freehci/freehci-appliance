@@ -36,8 +36,20 @@ from app.services import dcim as dcim_svc
 from app.services import tenant as tenant_svc
 from app.services import ipam_facilities as fac_svc
 from app.services.ipam_errors import ipam_error
+from app.services import ipam_audit as audit_svc
 
 _INVENTORY_USED_STATUSES = frozenset({"reserved", "assigned"})
+OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
+GLOBAL_UNIQUE_ROLES = frozenset({"overlay-pod", "overlay-service", "lb-pool", "p2p"})
+
+
+def resolve_overlap_policy(role: str, explicit: str | None = None) -> str:
+    if explicit:
+        s = explicit.strip().lower()
+        if s not in OVERLAP_POLICIES:
+            raise ipam_error(400, "invalid_overlap_policy", "overlap_policy må være site-local eller global-unique")
+        return s
+    return "global-unique" if role in GLOBAL_UNIQUE_ROLES else "site-local"
 
 
 def slugify_prefix(value: str) -> str:
@@ -147,6 +159,8 @@ def new_ipv4_prefix_orm(
     vlan_id: int | None = None,
     vrf_id: int | None = None,
     reserved_slugs: set[str] | None = None,
+    overlap_policy: str | None = None,
+    dual_stack_group_id: int | None = None,
 ) -> IpamIpv4Prefix:
     explicit = slug is not None
     require_vlan_allowed(role, vlan_id)
@@ -166,6 +180,8 @@ def new_ipv4_prefix_orm(
         ),
         role=role,
         status=status,
+        overlap_policy=resolve_overlap_policy(role, overlap_policy),
+        dual_stack_group_id=dual_stack_group_id,
         description=description,
         cidr=cidr,
         subnet_services=subnet_services,
@@ -425,6 +441,8 @@ def ipv4_prefix_read(
         utilization=(used / usable) if usable else 0.0,
         created=created,
         subnet_services=services,
+        overlap_policy=getattr(row, "overlap_policy", None) or "site-local",
+        dual_stack_group_id=getattr(row, "dual_stack_group_id", None),
     )
 
 
@@ -479,6 +497,51 @@ def _require_no_partial_overlap(
             other_id=r.id,
             other_cidr=r.cidr,
         )
+
+
+def require_no_global_overlap(
+    db: Session,
+    *,
+    site_id: int,
+    cidr: str,
+    policy: str,
+    exclude_prefix_id: int | None = None,
+    version: int = 4,
+) -> None:
+    """global-unique: CIDR kan ikke overlappe et prefiks på en annen site."""
+    try:
+        new_net = ipaddress.ip_network(cidr, strict=False)
+    except ValueError:
+        return
+    if new_net.version != version:
+        return
+    from app.models.ipam import IpamIpv6Prefix
+
+    model = IpamIpv4Prefix if version == 4 else IpamIpv6Prefix
+    q = select(model)
+    if exclude_prefix_id is not None:
+        q = q.where(model.id != exclude_prefix_id)
+    for r in db.execute(q).scalars().all():
+        if int(r.site_id) == site_id:
+            continue
+        other_policy = getattr(r, "overlap_policy", None) or "site-local"
+        if policy != "global-unique" and other_policy != "global-unique":
+            continue
+        try:
+            other = ipaddress.ip_network(r.cidr, strict=False)
+        except ValueError:
+            continue
+        if other.version != version:
+            continue
+        if new_net.overlaps(other):
+            raise ipam_error(
+                409,
+                "prefix_global_overlap",
+                f"prefiks {cidr} overlapper {r.cidr} på site {r.site_id} (global-unique)",
+                other_id=r.id,
+                other_cidr=r.cidr,
+                other_site_id=r.site_id,
+            )
 
 
 def list_ipv4_prefixes(
@@ -626,7 +689,9 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
         vrf_id=data.vrf_id,
     )
     cidr = _normalize_ipv4_cidr(data.cidr)
+    policy = resolve_overlap_policy(data.role, data.overlap_policy)
     _require_no_partial_overlap(db, site_id=data.site_id, cidr=cidr, vrf_id=data.vrf_id)
+    require_no_global_overlap(db, site_id=data.site_id, cidr=cidr, policy=policy)
     row = new_ipv4_prefix_orm(
         db,
         site_id=data.site_id,
@@ -640,9 +705,22 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
         tenant_id=data.tenant_id,
         vlan_id=data.vlan_id,
         vrf_id=data.vrf_id,
+        overlap_policy=policy,
+        dual_stack_group_id=data.dual_stack_group_id,
     )
     db.add(row)
     try:
+        db.flush()
+        audit_svc.record(
+            db,
+            action="create",
+            resource_type="prefix",
+            resource_id=row.id,
+            site_id=data.site_id,
+            cidr=cidr,
+            role=data.role,
+            family="ipv4",
+        )
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -680,6 +758,10 @@ def _apply_prefix_ensure_update(db: Session, row: IpamIpv4Prefix, data: Ipv4Pref
     if data.vlan_id is not None:
         require_vlan_allowed(prefix_role(row), data.vlan_id)
         row.vlan_id = data.vlan_id
+    if data.overlap_policy is not None:
+        row.overlap_policy = resolve_overlap_policy(prefix_role(row), data.overlap_policy)
+    if data.dual_stack_group_id is not None:
+        row.dual_stack_group_id = data.dual_stack_group_id
     return row
 
 
@@ -712,6 +794,8 @@ def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure, *, update: bool = Fa
         tenant_id=data.tenant_id,
         vlan_id=data.vlan_id,
         vrf_id=data.vrf_id,
+        overlap_policy=data.overlap_policy,
+        dual_stack_group_id=data.dual_stack_group_id,
     )
     try:
         return create_ipv4_prefix(db, create)
@@ -743,6 +827,17 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         row.role = str(patch["role"])
     if "status" in patch and patch["status"] is not None:
         row.status = str(patch["status"])
+    if "overlap_policy" in patch and patch["overlap_policy"] is not None:
+        row.overlap_policy = resolve_overlap_policy(prefix_role(row), str(patch["overlap_policy"]))
+        require_no_global_overlap(
+            db,
+            site_id=row.site_id,
+            cidr=row.cidr,
+            policy=row.overlap_policy,
+            exclude_prefix_id=row.id,
+        )
+    if "dual_stack_group_id" in patch:
+        row.dual_stack_group_id = patch["dual_stack_group_id"]
     if "description" in patch:
         v = patch["description"]
         row.description = None if v is None else (str(v).strip() or None)

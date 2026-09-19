@@ -7,7 +7,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-_CIRCUIT_TYPES = frozenset({"fiber", "vpn", "radio", "leased_line", "other"})
+_CIRCUIT_TYPES = frozenset({"fiber", "vpn", "wireguard", "radio", "leased_line", "other"})
+_OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
+_OWNER_TYPES = frozenset({"user", "token", "cluster", "system"})
 _ADDRESS_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp", "discovered", "deprecated"})
 _ADDRESS_MODES = frozenset({"reserve", "assign"})
 _ADDRESS_ROLES = frozenset({"gateway", "vip", "anycast", "lb", "host", "dhcp", "reserved"})
@@ -89,6 +91,8 @@ class Ipv4PrefixCreate(BaseModel):
     tenant_id: int | None = Field(None, ge=1, description="Valgfritt: kunde-/colo-tenant for prefikset")
     vlan_id: int | None = Field(None, ge=1, description="Valgfritt: VLAN (må tilhøre samme site)")
     vrf_id: int | None = Field(None, ge=1, description="Valgfritt: VRF (må tilhøre samme site)")
+    overlap_policy: str | None = Field(None, description="site-local | global-unique; overlay/p2p default global-unique")
+    dual_stack_group_id: int | None = Field(None, ge=1)
 
     @field_validator("cidr")
     @classmethod
@@ -118,6 +122,11 @@ class Ipv4PrefixCreate(BaseModel):
     def status_ok(cls, v: str) -> str:
         return _role_ok(v, PREFIX_STATUSES, "status") or "active"
 
+    @field_validator("overlap_policy")
+    @classmethod
+    def overlap_ok(cls, v: str | None) -> str | None:
+        return _role_ok(v, _OVERLAP_POLICIES, "overlap_policy")
+
 
 class Ipv4PrefixEnsure(BaseModel):
     """Idempotent opprett/hent prefiks på (site_id, vrf_id, cidr)."""
@@ -133,6 +142,8 @@ class Ipv4PrefixEnsure(BaseModel):
     tenant_id: int | None = Field(None, ge=1)
     vlan_id: int | None = Field(None, ge=1)
     vrf_id: int | None = Field(None, ge=1)
+    overlap_policy: str | None = None
+    dual_stack_group_id: int | None = Field(None, ge=1)
 
     @field_validator("cidr")
     @classmethod
@@ -162,6 +173,11 @@ class Ipv4PrefixEnsure(BaseModel):
     def status_ok_ens(cls, v: str | None) -> str | None:
         return _role_ok(v, PREFIX_STATUSES, "status")
 
+    @field_validator("overlap_policy")
+    @classmethod
+    def overlap_ok_ens(cls, v: str | None) -> str | None:
+        return _role_ok(v, _OVERLAP_POLICIES, "overlap_policy")
+
 
 class Ipv4PrefixUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
@@ -174,6 +190,8 @@ class Ipv4PrefixUpdate(BaseModel):
     tenant_id: int | None = None
     vlan_id: int | None = None
     vrf_id: int | None = None
+    overlap_policy: str | None = None
+    dual_stack_group_id: int | None = Field(None, ge=1)
 
     @field_validator("cidr")
     @classmethod
@@ -204,6 +222,11 @@ class Ipv4PrefixUpdate(BaseModel):
     @classmethod
     def status_ok_up(cls, v: str | None) -> str | None:
         return _role_ok(v, PREFIX_STATUSES, "status")
+
+    @field_validator("overlap_policy")
+    @classmethod
+    def overlap_ok_up(cls, v: str | None) -> str | None:
+        return _role_ok(v, _OVERLAP_POLICIES, "overlap_policy")
 
 
 class Ipv4PrefixRead(BaseModel):
@@ -237,6 +260,8 @@ class Ipv4PrefixRead(BaseModel):
         default=None,
         description="Typet: gateway, dns[], ntp[], dhcp_server, dhcp_range, domain, mtu",
     )
+    overlap_policy: str = "site-local"
+    dual_stack_group_id: int | None = None
 
 
 class Ipv4AssignmentInPrefixRead(BaseModel):
@@ -349,6 +374,9 @@ class Ipv4AddressRead(BaseModel):
     dns_name: str | None = None
     created: bool | None = None
     owner_user_id: int | None
+    owner_type: str | None = None
+    owner_ref: str | None = None
+    expires_at: dt.datetime | None = None
     note: str | None
     mac_address: str | None
     last_seen_at: dt.datetime | None
@@ -620,7 +648,7 @@ class IpamVlanRead(BaseModel):
 
 
 class IpamCircuitCreate(BaseModel):
-    tenant_id: int = Field(..., ge=1)
+    tenant_id: int | None = Field(None, ge=1, description="Valgfri; intern WireGuard trenger ikke colo-tenant")
     circuit_number: str = Field(..., min_length=1, max_length=128)
     name: str = Field(..., min_length=1, max_length=255)
     circuit_type: str = Field(..., min_length=1, max_length=32)
@@ -629,6 +657,8 @@ class IpamCircuitCreate(BaseModel):
     provider_name: str | None = Field(None, max_length=255)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
+    a_site_id: int | None = Field(None, ge=1)
+    z_site_id: int | None = Field(None, ge=1)
 
     @field_validator("circuit_type")
     @classmethod
@@ -647,6 +677,9 @@ class IpamCircuitUpdate(BaseModel):
     provider_name: str | None = Field(None, max_length=255)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
+    tenant_id: int | None = Field(None, ge=1)
+    a_site_id: int | None = Field(None, ge=1)
+    z_site_id: int | None = Field(None, ge=1)
 
     @field_validator("circuit_type")
     @classmethod
@@ -663,7 +696,9 @@ class IpamCircuitRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    tenant_id: int
+    tenant_id: int | None = None
+    a_site_id: int | None = None
+    z_site_id: int | None = None
     circuit_number: str
     name: str
     description: str | None
@@ -678,6 +713,7 @@ class IpamCircuitRead(BaseModel):
 class IpamCircuitTerminationCreate(BaseModel):
     endpoint: Literal["a", "z"]
     interface_id: int | None = Field(None, ge=1)
+    site_id: int | None = Field(None, ge=1)
     label: str | None = Field(None, max_length=255)
 
 
@@ -688,6 +724,7 @@ class IpamCircuitTerminationRead(BaseModel):
     circuit_id: int
     endpoint: str
     interface_id: int | None
+    site_id: int | None = None
     label: str | None
 
 
@@ -833,3 +870,123 @@ class Ipv4PrefixSplitResponse(BaseModel):
     conflicts: list[Ipv4PrefixSplitConflictRead] = Field(default_factory=list)
     first_prefix: Ipv4PrefixRead | None = None
     second_prefix: Ipv4PrefixRead | None = None
+
+
+class Ipv6PrefixCreate(Ipv4PrefixCreate):
+    cidr: str = Field(..., min_length=1, max_length=64)
+
+
+class Ipv6PrefixEnsure(Ipv4PrefixEnsure):
+    cidr: str = Field(..., min_length=1, max_length=64)
+
+
+class Ipv6PrefixUpdate(Ipv4PrefixUpdate):
+    cidr: str | None = Field(None, min_length=1, max_length=64)
+
+
+class Ipv6PrefixRead(BaseModel):
+    id: int
+    site_id: int
+    tenant_id: int | None = None
+    vlan_id: int | None = None
+    vrf_id: int | None = None
+    name: str
+    slug: str
+    role: str = "active"
+    status: str = "active"
+    cidr: str
+    description: str | None = None
+    overlap_policy: str = "site-local"
+    dual_stack_group_id: int | None = None
+    parent_id: int | None = None
+    used_count: int = 0
+    created: bool | None = None
+    subnet_services: dict[str, Any] | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime | None = None
+
+
+class Ipv6PrefixAllocate(Ipv4PrefixAllocate):
+    pass
+
+
+class Ipv6AddressEnsure(BaseModel):
+    ipv6_prefix_id: int = Field(..., ge=1)
+    address: str = Field(..., min_length=1, max_length=64)
+    mode: str | None = None
+    status: str | None = None
+    note: str | None = None
+    role: str | None = None
+    hostname: str | None = None
+    fqdn: str | None = None
+    dns_name: str | None = None
+    owner_type: str | None = None
+    owner_ref: str | None = None
+
+    @field_validator("mode")
+    @classmethod
+    def mode_ok_v6(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in _ADDRESS_MODES:
+            raise ValueError("mode må være reserve eller assign")
+        return s
+
+    @field_validator("role")
+    @classmethod
+    def role_ok_v6(cls, v: str | None) -> str | None:
+        return _role_ok(v, _ADDRESS_ROLES, "role")
+
+
+class Ipv6AddressRequest(BaseModel):
+    ipv6_prefix_id: int = Field(..., ge=1)
+    mode: str = "reserve"
+    preferred_address: str | None = None
+    role: str | None = None
+    note: str | None = None
+
+    @field_validator("mode")
+    @classmethod
+    def mode_ok_req_v6(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in _ADDRESS_MODES:
+            raise ValueError("mode må være reserve eller assign")
+        return s
+
+
+class Ipv6AddressRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    ipv6_prefix_id: int | None
+    address: str
+    status: str
+    role: str = "host"
+    hostname: str | None = None
+    fqdn: str | None = None
+    dns_name: str | None = None
+    owner_type: str | None = None
+    owner_ref: str | None = None
+    note: str | None = None
+    device_id: int | None = None
+    interface_id: int | None = None
+    created: bool | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class IpamAuditEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: dt.datetime
+    actor_type: str
+    actor_id: int | None
+    actor_name: str | None
+    action: str
+    resource_type: str
+    resource_id: int | None
+    site_id: int | None
+    detail: dict[str, Any] | None = None

@@ -35,6 +35,11 @@ export function AccountAccessPage() {
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokeToken, setRevokeToken] = useState<api.ApiToken | null>(null);
+  const [tokenScopes, setTokenScopes] = useState<string[]>([]);
+
+  function toggleTokenScope(scope: string) {
+    setTokenScopes((cur) => (cur.includes(scope) ? cur.filter((s) => s !== scope) : [...cur, scope]));
+  }
 
   const accountsQ = useQuery({ queryKey: ["auth", "accounts"], queryFn: api.listAccounts });
   const tokensQ = useQuery({ queryKey: ["auth", "tokens"], queryFn: api.listApiTokens });
@@ -75,10 +80,11 @@ export function AccountAccessPage() {
   });
 
   const createTokM = useMutation({
-    mutationFn: () => api.createApiToken(tokenName.trim()),
+    mutationFn: () => api.createApiToken(tokenName.trim(), tokenScopes.length ? tokenScopes : null),
     onSuccess: (row) => {
       setErr(null);
       setTokenName("");
+      setTokenScopes([]);
       setCreatedToken(row.token);
       setCopied(false);
       void qc.invalidateQueries({ queryKey: ["auth", "tokens"] });
@@ -265,6 +271,19 @@ export function AccountAccessPage() {
             {t("auth.createToken")}
           </Button>
         </div>
+        <p className={iamStyles.intro}>{t("auth.tokenScopesHint")}</p>
+        <div className={iamStyles.rowActions}>
+          {(["ipam:read", "ipam:alloc", "ipam:admin"] as const).map((scope) => (
+            <label key={scope} className={iamStyles.field} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={tokenScopes.includes(scope)}
+                onChange={() => toggleTokenScope(scope)}
+              />
+              {scope}
+            </label>
+          ))}
+        </div>
 
         {createdToken ? (
           <div className={styles.tokenBox}>
@@ -290,6 +309,7 @@ export function AccountAccessPage() {
               <th>{t("auth.colPrefix")}</th>
               <th>{t("auth.colCreated")}</th>
               <th>{t("auth.colLastUsed")}</th>
+              <th>{t("auth.colScopes")}</th>
               <th />
             </tr>
           </thead>
@@ -302,6 +322,7 @@ export function AccountAccessPage() {
                 </td>
                 <td>{fmtDate(tok.created_at)}</td>
                 <td>{fmtDate(tok.last_used_at)}</td>
+                <td>{tok.scopes?.length ? tok.scopes.join(", ") : t("auth.scopeUnrestricted")}</td>
                 <td>
                   <button type="button" className={iamStyles.tableLink} onClick={() => setRevokeToken(tok)}>
                     {t("auth.revokeToken")}

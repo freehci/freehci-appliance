@@ -301,7 +301,7 @@ export function listIpamCircuits(tenantId?: number): Promise<IpamCircuit[]> {
 }
 
 export function createIpamCircuit(body: {
-  tenant_id: number;
+  tenant_id?: number | null;
   circuit_number: string;
   name: string;
   circuit_type: string;
@@ -310,6 +310,8 @@ export function createIpamCircuit(body: {
   provider_name?: string | null;
   established_on?: string | null;
   contract_end_on?: string | null;
+  a_site_id?: number | null;
+  z_site_id?: number | null;
 }): Promise<IpamCircuit> {
   return apiPost(`${P}/circuits`, body);
 }
@@ -339,7 +341,7 @@ export function listCircuitTerminations(circuitId: number): Promise<IpamCircuitT
 
 export function upsertCircuitTermination(
   circuitId: number,
-  body: { endpoint: "a" | "z"; interface_id?: number | null; label?: string | null },
+  body: { endpoint: "a" | "z"; interface_id?: number | null; site_id?: number | null; label?: string | null },
 ): Promise<IpamCircuitTermination> {
   return apiPost(`${P}/circuits/${circuitId}/terminations`, body);
 }

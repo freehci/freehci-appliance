@@ -154,6 +154,7 @@ def _token_read(row: ApiToken) -> ApiTokenRead:
         last_used_at=row.last_used_at,
         expires_at=row.expires_at,
         user_id=row.user_id,
+        scopes=list(row.scopes) if getattr(row, "scopes", None) else None,
     )
 
 
@@ -171,6 +172,7 @@ def create_api_token(
     name: str,
     *,
     user: User | None = None,
+    scopes: list[str] | None = None,
 ) -> ApiTokenCreated:
     if user is not None and (user.kind or "person") != "service_account":
         raise HTTPException(status_code=400, detail="API-nøkler kan bare knyttes til servicekontoer")
@@ -182,6 +184,7 @@ def create_api_token(
         token_hash=_hash_api_token(token),
         admin_id=admin.id,
         user_id=user.id if user is not None else None,
+        scopes=scopes,
     )
     db.add(row)
     db.commit()
@@ -197,8 +200,8 @@ def delete_api_token(db: Session, token_id: int, *, user_id: int | None = None) 
     db.commit()
 
 
-def authenticate_api_token(db: Session, token: str) -> int | None:
-    """Returner admin_id for gyldig API-nøkkel, ellers None."""
+def authenticate_api_token(db: Session, token: str) -> ApiToken | None:
+    """Returner gyldig API-nøkkel, ellers None."""
     if not token.startswith(API_TOKEN_PREFIX):
         return None
     digest = _hash_api_token(token)
@@ -213,4 +216,4 @@ def authenticate_api_token(db: Session, token: str) -> int | None:
     if last is None or (now - last).total_seconds() >= 60:
         row.last_used_at = now
         db.commit()
-    return row.admin_id
+    return row
