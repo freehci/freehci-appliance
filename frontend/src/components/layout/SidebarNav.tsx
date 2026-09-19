@@ -58,6 +58,36 @@ export function SidebarNav() {
             </li>
             <li>
               <NavLink
+                to="/ipam/ipv6"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="ipam" size={16} />
+                  </span>
+                  <span>{t("ipam.tabIpv6")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/ipam/gitops"
+                className={({ isActive }) =>
+                  `${styles.link} ${isActive ? styles.active : ""}`.trim()
+                }
+              >
+                <span className={styles.linkInner}>
+                  <span className={styles.navIconWrap}>
+                    <SidebarNavIcon name="ipam" size={16} />
+                  </span>
+                  <span>{t("ipam.tabGitops")}</span>
+                </span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
                 to="/ipam/vlans"
                 className={({ isActive }) =>
                   `${styles.link} ${isActive ? styles.active : ""}`.trim()

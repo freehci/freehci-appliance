@@ -317,6 +317,72 @@ export type Ipv6PrefixSplitResponse = {
   second_prefix: Ipv6Prefix | null;
 };
 
+export const PREFIX_ROLES = [
+  "container",
+  "active",
+  "reserved",
+  "overlay-pod",
+  "overlay-service",
+  "lb-pool",
+  "p2p",
+] as const;
+
+export const PREFIX_STATUSES = ["planned", "active", "reserved", "deprecated"] as const;
+export const OVERLAP_POLICIES = ["site-local", "global-unique"] as const;
+
+export type IpamAuditEvent = {
+  id: number;
+  created_at: string;
+  actor_type: string;
+  actor_id: number | null;
+  actor_name: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: number | null;
+  site_id: number | null;
+  detail?: Record<string, unknown> | null;
+};
+
+export type IpamDriftAddress = {
+  address: string;
+  status?: string | null;
+  role?: string | null;
+  mac_address?: string | null;
+};
+
+export type PrefixDrift = {
+  prefix_id: number;
+  cidr: string;
+  scan_id?: number | null;
+  scanned_at?: string | null;
+  aligned: string[];
+  seen_unmanaged: IpamDriftAddress[];
+  reserved_missing: IpamDriftAddress[];
+};
+
+export type SiteDrift = {
+  site_id: number;
+  prefixes: PrefixDrift[];
+};
+
+export type IpamWebhook = {
+  id: number;
+  url: string;
+  events?: string[] | null;
+  enabled: boolean;
+  created_at: string;
+};
+
+export type IpamWebhookDelivery = {
+  id: number;
+  webhook_id: number;
+  event: string;
+  status: string;
+  status_code?: number | null;
+  error?: string | null;
+  created_at: string;
+};
+
 export type Ipv6PrefixSplitEqualResponse = {
   dry_run: boolean;
   has_child_prefixes: boolean;

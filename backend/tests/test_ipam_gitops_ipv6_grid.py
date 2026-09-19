@@ -179,3 +179,23 @@ def test_ipv6_subnet_scan(monkeypatch) -> None:
 
         inv = client.get("/api/v1/ipam/ipv6-addresses", params={"ipv6_prefix_id": pid})
         assert any(x["address"] == "fd91:40::1" and x["status"] == "discovered" for x in inv.json())
+
+
+def test_ipv6_prefix_delete_cascade() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        sid = _site(client, "site-v6-del")
+        p = client.post(
+            "/api/v1/ipam/ipv6-prefixes",
+            json={"site_id": sid, "name": "del64", "cidr": "fd91:50::/64", "role": "active"},
+        )
+        assert p.status_code == 200, p.text
+        pid = p.json()["id"]
+        client.post(
+            "/api/v1/ipam/ipv6-addresses/ensure",
+            json={"ipv6_prefix_id": pid, "address": "fd91:50::2", "mode": "reserve"},
+        )
+        blocked = client.delete(f"/api/v1/ipam/ipv6-prefixes/{pid}")
+        assert blocked.status_code == 409
+        gone = client.delete(f"/api/v1/ipam/ipv6-prefixes/{pid}?cascade=true")
+        assert gone.status_code == 204

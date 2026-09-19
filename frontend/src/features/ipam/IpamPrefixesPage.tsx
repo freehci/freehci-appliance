@@ -9,6 +9,7 @@ import * as dcimApi from "@/features/dcim/dcimApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "@/features/dcim/interfaceTreeLabels";
 import type { Ipv4Prefix, PrefixAddressGridRow } from "./types";
+import { OVERLAP_POLICIES, PREFIX_ROLES, PREFIX_STATUSES } from "./types";
 import {
   buildPrefixTreeIndex,
   flattenVisiblePrefixTree,
@@ -50,6 +51,10 @@ export function IpamPrefixesPage() {
   const [newPrefixTenant, setNewPrefixTenant] = useState("");
   const [newPrefixVlan, setNewPrefixVlan] = useState("");
   const [newPrefixVrf, setNewPrefixVrf] = useState("");
+  const [newRole, setNewRole] = useState("active");
+  const [newStatus, setNewStatus] = useState("active");
+  const [newOverlap, setNewOverlap] = useState("");
+  const [newDualStack, setNewDualStack] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editCidr, setEditCidr] = useState("");
@@ -130,6 +135,18 @@ export function IpamPrefixesPage() {
       const st = query.state.data?.active_scan?.status;
       return st === "pending" || st === "running" ? 1500 : false;
     },
+  });
+
+  const rangesQ = useQuery({
+    queryKey: ["ipam", "available-ranges", exploreId],
+    queryFn: () => ipamApi.getAvailableRanges(exploreId!),
+    enabled: exploreId != null && exploreId > 0 && gridQ.isError,
+  });
+
+  const driftQ = useQuery({
+    queryKey: ["ipam", "prefix-drift", exploreId],
+    queryFn: () => ipamApi.getPrefixDrift(exploreId!),
+    enabled: exploreId != null && exploreId > 0,
   });
 
   useEffect(() => {
@@ -243,6 +260,10 @@ export function IpamPrefixesPage() {
         tenant_id: newPrefixTenant === "" ? undefined : Number(newPrefixTenant),
         vlan_id: newPrefixVlan === "" ? undefined : Number(newPrefixVlan),
         vrf_id: newPrefixVrf === "" ? undefined : Number(newPrefixVrf),
+        role: newRole,
+        status: newStatus,
+        overlap_policy: newOverlap || undefined,
+        dual_stack_group_id: newDualStack.trim() === "" ? undefined : Number(newDualStack),
       }),
     onSuccess: () => {
       setNewName("");
@@ -250,6 +271,10 @@ export function IpamPrefixesPage() {
       setNewPrefixTenant("");
       setNewPrefixVlan("");
       setNewPrefixVrf("");
+      setNewRole("active");
+      setNewStatus("active");
+      setNewOverlap("");
+      setNewDualStack("");
       setErr(null);
       invalidateIpam();
     },
@@ -767,8 +792,23 @@ export function IpamPrefixesPage() {
                 <span className={dcimStyles.muted} style={{ fontWeight: 400 }}>
                   {" "}
                   · {siteNameById.get(exploreQ.data.prefix.site_id) ?? `#${exploreQ.data.prefix.site_id}`}
+                  {exploreQ.data.prefix.role ? ` · ${exploreQ.data.prefix.role}` : ""}
+                  {exploreQ.data.prefix.status ? ` · ${exploreQ.data.prefix.status}` : ""}
+                  {exploreQ.data.prefix.overlap_policy ? ` · ${exploreQ.data.prefix.overlap_policy}` : ""}
+                  {exploreQ.data.prefix.dual_stack_group_id != null
+                    ? ` · dual-stack #${exploreQ.data.prefix.dual_stack_group_id}`
+                    : ""}
                 </span>
               </h3>
+              {driftQ.data ? (
+                <p className={dcimStyles.muted}>
+                  {t("ipam.gitops.driftTitle")}: {driftQ.data.aligned.length} {t("ipam.gitops.aligned").toLowerCase()}
+                  {", "}
+                  {driftQ.data.seen_unmanaged.length} {t("ipam.gitops.seenUnmanaged").toLowerCase()}
+                  {", "}
+                  {driftQ.data.reserved_missing.length} {t("ipam.gitops.reservedMissing").toLowerCase()}
+                </p>
+              ) : null}
 
               <h4 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.ipv4.childPrefixes")}</h4>
               {exploreQ.data.child_prefixes.length > 0 ? (
@@ -1104,7 +1144,20 @@ export function IpamPrefixesPage() {
               </div>
 
               {gridQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
-              {gridQ.isError ? <p className={dcimStyles.err}>{(gridQ.error as Error).message}</p> : null}
+              {gridQ.isError ? (
+                <>
+                  <p className={dcimStyles.err}>{(gridQ.error as Error).message}</p>
+                  <p className={dcimStyles.muted}>{t("ipam.ipv6.rangesHint")}</p>
+                  {rangesQ.data ? (
+                    <p className={dcimStyles.muted}>
+                      {t("ipam.ipv6.usedCount")}: {rangesQ.data.used_count}
+                      {". "}
+                      {t("ipam.ipv6.freeCidrs")}: {rangesQ.data.free_cidrs.slice(0, 12).join(", ")}
+                      {rangesQ.data.free_cidrs.length > 12 ? " …" : ""}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
               {filteredGridRows.length > 0 ? (
                 <>
                   <div
@@ -1502,6 +1555,41 @@ export function IpamPrefixesPage() {
               ))}
             </select>
           </label>
+          <label>
+            {t("ipam.gitops.role")}
+            <select value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+              {PREFIX_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.gitops.status")}
+            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+              {PREFIX_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.gitops.overlap")}
+            <select value={newOverlap} onChange={(e) => setNewOverlap(e.target.value)}>
+              <option value="">{t("ipam.gitops.overlapDefault")}</option>
+              {OVERLAP_POLICIES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.gitops.dualStack")}
+            <input value={newDualStack} onChange={(e) => setNewDualStack(e.target.value)} placeholder="80" />
+          </label>
           <button type="submit" className={dcimStyles.btn} disabled={createPfx.isPending}>
             {createPfx.isPending ? "…" : t("dcim.common.add")}
           </button>
@@ -1582,6 +1670,9 @@ export function IpamPrefixesPage() {
               <th>{t("ipam.ipv4.tenantCol")}</th>
               <th>{t("ipam.ipv4.name")}</th>
               <th>{t("ipam.ipv4.cidr")}</th>
+              <th>{t("ipam.gitops.role")}</th>
+              <th>{t("ipam.gitops.status")}</th>
+              <th>{t("ipam.gitops.overlap")}</th>
               <th>{t("ipam.ipv4.usageCol")}</th>
               <th>{t("ipam.ipv4.exploreCol")}</th>
               <th>{t("ipam.ipv4.actionsCol")}</th>
@@ -1711,6 +1802,9 @@ export function IpamPrefixesPage() {
                     <code>{x.cidr}</code>
                   )}
                 </td>
+                <td>{x.role ?? "active"}</td>
+                <td>{x.status ?? "active"}</td>
+                <td>{x.overlap_policy ?? "site-local"}</td>
                 <td>
                   {x.address_total > 0 ? (
                     <>

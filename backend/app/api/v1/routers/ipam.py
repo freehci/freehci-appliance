@@ -701,6 +701,20 @@ def allocate_ipv6_child(prefix_id: int, data: Ipv6PrefixAllocate, db: Session = 
     return ipv6_svc.allocate_child_ipv6(db, row, data)
 
 
+@router.delete("/ipv6-prefixes/{prefix_id}", status_code=204)
+def delete_ipv6_prefix(
+    prefix_id: int,
+    cascade: bool = Query(False, description="Slett underprefiks og inventory-adresser"),
+    db: Session = Depends(get_db),
+    if_match: str | None = Header(None, alias="If-Match"),
+) -> None:
+    row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    etag_svc.require_if_match(row, if_match)
+    ipv6_svc.delete_ipv6_prefix(db, row, cascade=cascade)
+
+
 @router.get("/ipv6-prefixes/{prefix_id}/address-grid", response_model=Ipv6PrefixAddressGridRead)
 def get_ipv6_address_grid(prefix_id: int, db: Session = Depends(get_db)) -> Ipv6PrefixAddressGridRead:
     return ipv6_grid_svc.build_ipv6_address_grid(db, prefix_id)

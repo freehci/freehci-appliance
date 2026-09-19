@@ -599,6 +599,36 @@ def release_ipv6_address(db: Session, row: IpamIpv6Address) -> Ipv6AddressRead:
     return _addr_read(row)
 
 
+def delete_ipv6_prefix(db: Session, row: IpamIpv6Prefix, *, cascade: bool = False) -> None:
+    _delete_ipv6_prefix_tree(db, row, cascade=cascade)
+    db.commit()
+
+
+def _delete_ipv6_prefix_tree(db: Session, row: IpamIpv6Prefix, *, cascade: bool) -> None:
+    same = list(db.execute(select(IpamIpv6Prefix).where(IpamIpv6Prefix.site_id == row.site_id)).scalars().all())
+    children = child_prefix_orms(row, same)
+    addrs = list(
+        db.execute(select(IpamIpv6Address).where(IpamIpv6Address.ipv6_prefix_id == row.id)).scalars().all(),
+    )
+    if (children or addrs) and not cascade:
+        raise ipam_error(
+            409,
+            "prefix_has_children",
+            f"prefiks har {len(children)} underprefiks og {len(addrs)} adresser — slett dem først eller bruk cascade=true",
+            child_count=len(children),
+            address_count=len(addrs),
+        )
+    if cascade:
+        for child in children:
+            _delete_ipv6_prefix_tree(db, child, cascade=True)
+        leftover = list(
+            db.execute(select(IpamIpv6Address).where(IpamIpv6Address.ipv6_prefix_id == row.id)).scalars().all(),
+        )
+        for addr in leftover:
+            db.delete(addr)
+    db.delete(row)
+
+
 def delete_ipv6_address(db: Session, row: IpamIpv6Address, *, force: bool = False) -> None:
     if not force and (row.status or "") in _HELD_STATUSES:
         raise ipam_error(

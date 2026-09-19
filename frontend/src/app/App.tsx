@@ -18,6 +18,8 @@ import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { DcimTenantsPage } from "@/features/dcim/DcimTenantsPage";
 import { IpamCircuitsPage } from "@/features/ipam/IpamCircuitsPage";
+import { IpamGitopsPage } from "@/features/ipam/IpamGitopsPage";
+import { IpamIpv6PrefixesPage } from "@/features/ipam/IpamIpv6PrefixesPage";
 import { IpamLayout } from "@/features/ipam/IpamLayout";
 import { IpamPrefixesPage } from "@/features/ipam/IpamPrefixesPage";
 import { IpamVlansPage } from "@/features/ipam/IpamVlansPage";
@@ -88,6 +90,8 @@ function AppRoutes() {
           <Route path="/ipam" element={<IpamLayout />}>
             <Route index element={<Navigate to="prefixes" replace />} />
             <Route path="prefixes" element={<IpamPrefixesPage />} />
+            <Route path="ipv6" element={<IpamIpv6PrefixesPage />} />
+            <Route path="gitops" element={<IpamGitopsPage />} />
             <Route path="vlans" element={<IpamVlansPage />} />
             <Route path="vrfs" element={<IpamVrfsPage />} />
             <Route path="circuits" element={<IpamCircuitsPage />} />

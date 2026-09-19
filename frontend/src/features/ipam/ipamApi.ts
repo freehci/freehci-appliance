@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiGetText, apiPatch, apiPost } from "@/lib/api";
 import type {
   Ipv4Address,
   Ipv4AvailablePrefixes,
@@ -7,11 +7,16 @@ import type {
   Ipv4PrefixExplore,
   Ipv4PrefixSplitEqualResponse,
   Ipv4PrefixSplitResponse,
+  IpamAuditEvent,
   IpamCircuit,
   IpamCircuitTermination,
   IpamVlan,
   IpamVrf,
+  IpamWebhook,
+  IpamWebhookDelivery,
   PrefixAddressGridRead,
+  PrefixDrift,
+  SiteDrift,
   SubnetScan,
   SubnetScanDetail,
   User,
@@ -92,6 +97,10 @@ export function createIpv4Prefix(body: {
   tenant_id?: number | null;
   vlan_id?: number | null;
   vrf_id?: number | null;
+  role?: string;
+  status?: string;
+  overlap_policy?: string;
+  dual_stack_group_id?: number | null;
 }): Promise<Ipv4Prefix> {
   return apiPost(`${P}/ipv4-prefixes`, body);
 }
@@ -421,4 +430,107 @@ export function ensureIpv6Address(body: {
   note?: string | null;
 }): Promise<Ipv6Address> {
   return apiPost(`${P}/ipv6-addresses/ensure`, body);
+}
+
+export function listIpv6Prefixes(siteId?: number): Promise<Ipv6Prefix[]> {
+  const params = new URLSearchParams();
+  if (siteId != null) params.set("site_id", String(siteId));
+  const s = params.toString();
+  return apiGet(`${P}/ipv6-prefixes${s ? `?${s}` : ""}`);
+}
+
+export function createIpv6Prefix(body: {
+  site_id: number;
+  name: string;
+  cidr: string;
+  slug?: string | null;
+  role?: string;
+  status?: string;
+  overlap_policy?: string;
+  dual_stack_group_id?: number | null;
+  tenant_id?: number | null;
+  vlan_id?: number | null;
+  vrf_id?: number | null;
+}): Promise<Ipv6Prefix> {
+  return apiPost(`${P}/ipv6-prefixes`, body);
+}
+
+export function deleteIpv6Prefix(id: number, cascade = true): Promise<void> {
+  const q = cascade ? "?cascade=true" : "";
+  return apiDelete(`${P}/ipv6-prefixes/${id}${q}`);
+}
+
+export function listIpv6Addresses(params?: {
+  site_id?: number;
+  ipv6_prefix_id?: number;
+  limit?: number;
+}): Promise<Ipv6Address[]> {
+  const q = new URLSearchParams();
+  if (params?.site_id != null) q.set("site_id", String(params.site_id));
+  if (params?.ipv6_prefix_id != null) q.set("ipv6_prefix_id", String(params.ipv6_prefix_id));
+  if (params?.limit != null) q.set("limit", String(params.limit));
+  const s = q.toString();
+  return apiGet(`${P}/ipv6-addresses${s ? `?${s}` : ""}`);
+}
+
+export function requestIpv6Address(body: {
+  ipv6_prefix_id: number;
+  mode?: "reserve" | "assign";
+  preferred_address?: string | null;
+  role?: string;
+  note?: string | null;
+}): Promise<Ipv6Address> {
+  return apiPost(`${P}/ipv6-addresses/request`, body);
+}
+
+export function releaseIpv6Address(id: number): Promise<Ipv6Address> {
+  return apiPost(`${P}/ipv6-addresses/${id}/release`, {});
+}
+
+export function listIpamAudit(params?: {
+  site_id?: number;
+  resource_type?: string;
+  action?: string;
+  limit?: number;
+}): Promise<IpamAuditEvent[]> {
+  const q = new URLSearchParams();
+  if (params?.site_id != null) q.set("site_id", String(params.site_id));
+  if (params?.resource_type) q.set("resource_type", params.resource_type);
+  if (params?.action) q.set("action", params.action);
+  if (params?.limit != null) q.set("limit", String(params.limit));
+  const s = q.toString();
+  return apiGet(`${P}/audit${s ? `?${s}` : ""}`);
+}
+
+export function getSiteDrift(siteId: number): Promise<SiteDrift> {
+  return apiGet(`${P}/drift?site_id=${encodeURIComponent(String(siteId))}`);
+}
+
+export function getPrefixDrift(prefixId: number): Promise<PrefixDrift> {
+  return apiGet(`${P}/ipv4-prefixes/${prefixId}/drift`);
+}
+
+export function exportSiteIpam(siteId: number, format: "json" | "yaml"): Promise<string> {
+  return apiGetText(`${P}/export?site_id=${encodeURIComponent(String(siteId))}&format=${format}`);
+}
+
+export function listIpamWebhooks(): Promise<IpamWebhook[]> {
+  return apiGet(`${P}/webhooks`);
+}
+
+export function createIpamWebhook(body: {
+  url: string;
+  secret?: string | null;
+  events?: string[] | null;
+  enabled?: boolean;
+}): Promise<IpamWebhook> {
+  return apiPost(`${P}/webhooks`, body);
+}
+
+export function deleteIpamWebhook(id: number): Promise<void> {
+  return apiDelete(`${P}/webhooks/${id}`);
+}
+
+export function listIpamWebhookDeliveries(id: number): Promise<IpamWebhookDelivery[]> {
+  return apiGet(`${P}/webhooks/${id}/deliveries`);
 }
