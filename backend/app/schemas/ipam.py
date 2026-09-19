@@ -285,7 +285,14 @@ class Ipv4PrefixExploreRead(BaseModel):
 
 
 class SubnetScanCreate(BaseModel):
-    ipv4_prefix_id: int = Field(..., ge=1)
+    ipv4_prefix_id: int | None = Field(None, ge=1)
+    ipv6_prefix_id: int | None = Field(None, ge=1)
+
+    @model_validator(mode="after")
+    def one_family(self) -> SubnetScanCreate:
+        if (self.ipv4_prefix_id is None) == (self.ipv6_prefix_id is None):
+            raise ValueError("oppgi nøyaktig én av ipv4_prefix_id eller ipv6_prefix_id")
+        return self
 
 
 class SubnetScanHostRead(BaseModel):
@@ -303,6 +310,7 @@ class SubnetScanRead(BaseModel):
     id: int
     site_id: int
     ipv4_prefix_id: int | None
+    ipv6_prefix_id: int | None = None
     cidr: str
     method: str
     status: str
@@ -911,7 +919,7 @@ class Ipv6PrefixRead(BaseModel):
 
 
 class Ipv6PrefixAllocate(Ipv4PrefixAllocate):
-    pass
+    prefixlen: int = Field(..., ge=1, le=128)
 
 
 class Ipv6AddressEnsure(BaseModel):
@@ -980,6 +988,86 @@ class Ipv6AddressRead(BaseModel):
     created_at: dt.datetime
     updated_at: dt.datetime
     etag: str | None = None
+
+
+class Ipv6PrefixAddressGridRow(BaseModel):
+    address: str
+    address_role: str | None = Field(default=None, description="network | host (IPv6 har ikke broadcast)")
+    inventory: Ipv6AddressRead | None = None
+    scan_ping_responded: bool | None = None
+    scan_mac: str | None = None
+
+
+class Ipv6PrefixAddressGridRead(BaseModel):
+    prefix_id: int
+    cidr: str
+    active_scan: SubnetScanRead | None = None
+    rows: list[Ipv6PrefixAddressGridRow]
+
+
+class Ipv6AvailableRangesRead(BaseModel):
+    prefix_id: int
+    cidr: str
+    role: str
+    used_count: int
+    used_addresses: list[Ipv6AddressRead] = Field(default_factory=list)
+    used_ranges: list[IpRangeRead] = Field(default_factory=list)
+    free_ranges: list[IpRangeRead] = Field(default_factory=list)
+    free_cidrs: list[str] = Field(default_factory=list)
+
+
+class Ipv6PrefixSplitHalfIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    cidr: str = Field(..., min_length=1, max_length=64)
+
+    @field_validator("cidr")
+    @classmethod
+    def cidr_strip_v6(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("cidr kan ikke være tom")
+        return s
+
+
+class Ipv6PrefixSplitRequest(BaseModel):
+    first: Ipv6PrefixSplitHalfIn
+    second: Ipv6PrefixSplitHalfIn
+    migrate_inventory: bool = True
+    dry_run: bool = True
+
+
+class Ipv6PrefixSplitResponse(BaseModel):
+    dry_run: bool
+    has_child_prefixes: bool
+    partition_ok: bool
+    detail: str | None = None
+    first_cidr: str | None = None
+    second_cidr: str | None = None
+    ipam_inventory_on_parent: int = 0
+    ipam_migrate_left: int = 0
+    ipam_migrate_right: int = 0
+    first_prefix: Ipv6PrefixRead | None = None
+    second_prefix: Ipv6PrefixRead | None = None
+
+
+class Ipv6PrefixSplitEqualRequest(BaseModel):
+    new_prefix_len: int = Field(..., ge=1, le=128)
+    migrate_inventory: bool = True
+    dry_run: bool = True
+    names_by_cidr: dict[str, str] | None = None
+
+
+class Ipv6PrefixSplitEqualResponse(BaseModel):
+    dry_run: bool
+    has_child_prefixes: bool
+    parent_cidr: str
+    new_prefix_len: int
+    subnet_count: int
+    partition_ok: bool
+    detail: str | None = None
+    planned: list[Ipv4PrefixSplitEqualPlannedRead] = Field(default_factory=list)
+    ipam_inventory_on_parent: int = 0
+    created_prefixes: list[Ipv6PrefixRead] = Field(default_factory=list)
 
 
 class IpamAuditEventRead(BaseModel):

@@ -55,10 +55,16 @@ from app.schemas.ipam import (
     Ipv6AddressEnsure,
     Ipv6AddressRead,
     Ipv6AddressRequest,
+    Ipv6AvailableRangesRead,
+    Ipv6PrefixAddressGridRead,
     Ipv6PrefixAllocate,
     Ipv6PrefixCreate,
     Ipv6PrefixEnsure,
     Ipv6PrefixRead,
+    Ipv6PrefixSplitEqualRequest,
+    Ipv6PrefixSplitEqualResponse,
+    Ipv6PrefixSplitRequest,
+    Ipv6PrefixSplitResponse,
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
@@ -69,6 +75,8 @@ from app.services import ipam_facilities as fac_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
+from app.services import ipam_ipv6_grid as ipv6_grid_svc
+from app.services import ipam_ipv6_split as ipv6_split_svc
 from app.services import ipam_audit as audit_svc
 from app.services import ipam_etag as etag_svc
 from app.services import ipam_sync as sync_svc
@@ -248,7 +256,11 @@ def create_subnet_scan(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> SubnetScanRead:
-    row = scan_svc.create_pending_scan(db, ipv4_prefix_id=data.ipv4_prefix_id)
+    row = scan_svc.create_pending_scan(
+        db,
+        ipv4_prefix_id=data.ipv4_prefix_id,
+        ipv6_prefix_id=data.ipv6_prefix_id,
+    )
     background_tasks.add_task(scan_svc.run_scan_background, row.id)
     return scan_svc.scan_to_read(row)
 
@@ -257,10 +269,17 @@ def create_subnet_scan(
 def list_subnet_scans(
     site_id: int | None = Query(None),
     ipv4_prefix_id: int | None = Query(None),
+    ipv6_prefix_id: int | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> list[SubnetScanRead]:
-    rows = scan_svc.list_scans(db, site_id=site_id, ipv4_prefix_id=ipv4_prefix_id, limit=limit)
+    rows = scan_svc.list_scans(
+        db,
+        site_id=site_id,
+        ipv4_prefix_id=ipv4_prefix_id,
+        ipv6_prefix_id=ipv6_prefix_id,
+        limit=limit,
+    )
     return [scan_svc.scan_to_read(r) for r in rows]
 
 
@@ -680,6 +699,37 @@ def allocate_ipv6_child(prefix_id: int, data: Ipv6PrefixAllocate, db: Session = 
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
     return ipv6_svc.allocate_child_ipv6(db, row, data)
+
+
+@router.get("/ipv6-prefixes/{prefix_id}/address-grid", response_model=Ipv6PrefixAddressGridRead)
+def get_ipv6_address_grid(prefix_id: int, db: Session = Depends(get_db)) -> Ipv6PrefixAddressGridRead:
+    return ipv6_grid_svc.build_ipv6_address_grid(db, prefix_id)
+
+
+@router.get("/ipv6-prefixes/{prefix_id}/available-ranges", response_model=Ipv6AvailableRangesRead)
+def get_ipv6_available_ranges(prefix_id: int, db: Session = Depends(get_db)) -> Ipv6AvailableRangesRead:
+    row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return ipv6_svc.available_ranges(db, row)
+
+
+@router.post("/ipv6-prefixes/{prefix_id}/split", response_model=Ipv6PrefixSplitResponse)
+def split_ipv6_prefix(
+    prefix_id: int,
+    data: Ipv6PrefixSplitRequest,
+    db: Session = Depends(get_db),
+) -> Ipv6PrefixSplitResponse:
+    return ipv6_split_svc.ipv6_prefix_split(db, prefix_id, data)
+
+
+@router.post("/ipv6-prefixes/{prefix_id}/split-equal", response_model=Ipv6PrefixSplitEqualResponse)
+def split_ipv6_prefix_equal(
+    prefix_id: int,
+    data: Ipv6PrefixSplitEqualRequest,
+    db: Session = Depends(get_db),
+) -> Ipv6PrefixSplitEqualResponse:
+    return ipv6_split_svc.ipv6_prefix_split_equal(db, prefix_id, data)
 
 
 @router.post("/ipv6-addresses/ensure", response_model=Ipv6AddressRead)

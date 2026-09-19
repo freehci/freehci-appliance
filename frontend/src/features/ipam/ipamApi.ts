@@ -15,6 +15,12 @@ import type {
   SubnetScan,
   SubnetScanDetail,
   User,
+  Ipv6Address,
+  Ipv6AvailableRanges,
+  Ipv6Prefix,
+  Ipv6PrefixAddressGridRead,
+  Ipv6PrefixSplitEqualResponse,
+  Ipv6PrefixSplitResponse,
 } from "./types";
 
 const P = "/api/v1/ipam";
@@ -139,11 +145,13 @@ export function ipv4PrefixSplitEqual(
 export function listSubnetScans(params?: {
   site_id?: number;
   ipv4_prefix_id?: number;
+  ipv6_prefix_id?: number;
   limit?: number;
 }): Promise<SubnetScan[]> {
   const q = new URLSearchParams();
   if (params?.site_id != null) q.set("site_id", String(params.site_id));
   if (params?.ipv4_prefix_id != null) q.set("ipv4_prefix_id", String(params.ipv4_prefix_id));
+  if (params?.ipv6_prefix_id != null) q.set("ipv6_prefix_id", String(params.ipv6_prefix_id));
   if (params?.limit != null) q.set("limit", String(params.limit));
   const s = q.toString();
   return apiGet(`${P}/subnet-scans${s ? `?${s}` : ""}`);
@@ -151,6 +159,10 @@ export function listSubnetScans(params?: {
 
 export function createSubnetScan(ipv4_prefix_id: number): Promise<SubnetScan> {
   return apiPost(`${P}/subnet-scans`, { ipv4_prefix_id });
+}
+
+export function createIpv6SubnetScan(ipv6_prefix_id: number): Promise<SubnetScan> {
+  return apiPost(`${P}/subnet-scans`, { ipv6_prefix_id });
 }
 
 export function getSubnetScan(scanId: number): Promise<SubnetScanDetail> {
@@ -359,4 +371,54 @@ export function requestIpv4AddressBatch(body: {
   device_id?: number | null;
 }): Promise<{ addresses: Ipv4Address[]; requested_count: number; allocated_count: number }> {
   return apiPost(`${P}/ipv4-addresses/request-batch`, body);
+}
+
+export function getIpv6PrefixAddressGrid(prefixId: number): Promise<Ipv6PrefixAddressGridRead> {
+  return apiGet(`${P}/ipv6-prefixes/${prefixId}/address-grid`);
+}
+
+export function getIpv6AvailableRanges(prefixId: number): Promise<Ipv6AvailableRanges> {
+  return apiGet(`${P}/ipv6-prefixes/${prefixId}/available-ranges`);
+}
+
+export function ipv6PrefixSplit(
+  prefixId: number,
+  body: {
+    first: { name: string; cidr: string };
+    second: { name: string; cidr: string };
+    migrate_inventory?: boolean;
+    dry_run?: boolean;
+  },
+): Promise<Ipv6PrefixSplitResponse> {
+  return apiPost(`${P}/ipv6-prefixes/${prefixId}/split`, body);
+}
+
+export function ipv6PrefixSplitEqual(
+  prefixId: number,
+  body: {
+    new_prefix_len: number;
+    migrate_inventory?: boolean;
+    dry_run?: boolean;
+    names_by_cidr?: Record<string, string> | null;
+  },
+): Promise<Ipv6PrefixSplitEqualResponse> {
+  return apiPost(`${P}/ipv6-prefixes/${prefixId}/split-equal`, body);
+}
+
+export function allocateIpv6ChildPrefix(
+  prefixId: number,
+  body: { prefixlen: number; name: string; slug?: string | null; role?: string; status?: string },
+): Promise<Ipv6Prefix> {
+  return apiPost(`${P}/ipv6-prefixes/${prefixId}/allocate`, body);
+}
+
+export function ensureIpv6Address(body: {
+  ipv6_prefix_id: number;
+  address: string;
+  mode?: "reserve" | "assign";
+  status?: string;
+  role?: string;
+  note?: string | null;
+}): Promise<Ipv6Address> {
+  return apiPost(`${P}/ipv6-addresses/ensure`, body);
 }

@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 from app.models.ipam import IpamIpv6Address, IpamIpv6Prefix
 from app.schemas.ipam import (
     ADDRESS_STATUSES,
+    IpRangeRead,
     Ipv6AddressEnsure,
     Ipv6AddressRead,
     Ipv6AddressRequest,
+    Ipv6AvailableRangesRead,
     Ipv6PrefixAllocate,
     Ipv6PrefixCreate,
     Ipv6PrefixEnsure,
@@ -100,6 +102,134 @@ def ipv6_prefix_read(db: Session, row: IpamIpv6Prefix, *, created: bool | None =
         created_at=row.created_at,
         updated_at=row.updated_at,
         etag=etag_svc.format_etag(row),
+    )
+
+
+def child_prefix_orms(parent: IpamIpv6Prefix, same_site: list[IpamIpv6Prefix]) -> list[IpamIpv6Prefix]:
+    out: list[IpamIpv6Prefix] = []
+    for c in same_site:
+        if c.id == parent.id:
+            continue
+        ipar = _parent_of(c, same_site)
+        if ipar is not None and ipar.id == parent.id:
+            out.append(c)
+    return out
+
+
+def new_ipv6_prefix_orm(
+    db: Session,
+    *,
+    site_id: int,
+    name: str,
+    cidr: str,
+    slug: str | None = None,
+    role: str = "active",
+    status: str = "active",
+    description: str | None = None,
+    subnet_services: dict | None = None,
+    tenant_id: int | None = None,
+    vlan_id: int | None = None,
+    vrf_id: int | None = None,
+    reserved_slugs: set[str] | None = None,
+    overlap_policy: str | None = None,
+    dual_stack_group_id: int | None = None,
+) -> IpamIpv6Prefix:
+    cidr_n = _normalize_cidr(cidr)
+    slug_s = _unique_v6_slug(db, site_id=site_id, desired=slug or name or cidr_n, explicit=slug is not None)
+    if reserved_slugs is not None:
+        base = slug_s
+        n = 2
+        while slug_s in reserved_slugs:
+            suffix = f"-{n}"
+            slug_s = f"{base[: 128 - len(suffix)]}{suffix}"
+            n += 1
+        reserved_slugs.add(slug_s)
+    return IpamIpv6Prefix(
+        site_id=site_id,
+        tenant_id=tenant_id,
+        vlan_id=vlan_id,
+        vrf_id=vrf_id,
+        vrf_scope=ipam_svc.vrf_scope_of(vrf_id),
+        name=name.strip(),
+        slug=slug_s,
+        role=role,
+        status=status,
+        overlap_policy=ipam_svc.resolve_overlap_policy(role, overlap_policy),
+        dual_stack_group_id=dual_stack_group_id,
+        description=description,
+        cidr=cidr_n,
+        subnet_services=ipam_svc.dump_subnet_services(subnet_services) if subnet_services else None,
+    )
+
+
+def available_ranges(db: Session, pfx: IpamIpv6Prefix) -> Ipv6AvailableRangesRead:
+    from app.services.ipam_prefix_alloc import MAX_USED_ADDRESS_EXPORT, _invert_ranges, _merge_ints
+
+    net = ipaddress.ip_network(pfx.cidr, strict=False)
+    if net.prefixlen <= 126:
+        usable_start = int(net.network_address) + 1
+        usable_end = int(net.broadcast_address)
+    else:
+        usable_start = int(net.network_address)
+        usable_end = int(net.broadcast_address)
+
+    used_ips: set[ipaddress.IPv6Address] = set()
+    inv_rows = list(
+        db.execute(
+            select(IpamIpv6Address)
+            .where(
+                IpamIpv6Address.site_id == pfx.site_id,
+                IpamIpv6Address.status.in_(("reserved", "assigned")),
+            )
+            .order_by(IpamIpv6Address.address),
+        )
+        .scalars()
+        .all(),
+    )
+    used_reads: list[Ipv6AddressRead] = []
+    for row in inv_rows:
+        try:
+            ip = ipaddress.ip_address(row.address)
+        except ValueError:
+            continue
+        if not isinstance(ip, ipaddress.IPv6Address) or ip not in net:
+            continue
+        used_ips.add(ip)
+        if len(used_reads) < MAX_USED_ADDRESS_EXPORT:
+            used_reads.append(_addr_read(row))
+
+    gw = (pfx.subnet_services or {}).get("gateway") if isinstance(pfx.subnet_services, dict) else None
+    if gw:
+        try:
+            gip = ipaddress.ip_address(str(gw))
+        except ValueError:
+            gip = None
+        if isinstance(gip, ipaddress.IPv6Address) and gip in net:
+            used_ips.add(gip)
+
+    used_ints = [int(ip) for ip in used_ips if usable_start <= int(ip) <= usable_end]
+    used_ranges = _merge_ints(used_ints)
+    free_ranges = _invert_ranges(usable_start, usable_end, used_ranges)
+    free_cidrs: list[str] = []
+    for a, b in free_ranges:
+        for block in ipaddress.summarize_address_range(ipaddress.IPv6Address(a), ipaddress.IPv6Address(b)):
+            free_cidrs.append(str(block))
+
+    return Ipv6AvailableRangesRead(
+        prefix_id=pfx.id,
+        cidr=pfx.cidr,
+        role=pfx.role,
+        used_count=len(used_ints),
+        used_addresses=used_reads,
+        used_ranges=[
+            IpRangeRead(start=str(ipaddress.IPv6Address(a)), end=str(ipaddress.IPv6Address(b)), count=b - a + 1)
+            for a, b in used_ranges
+        ],
+        free_ranges=[
+            IpRangeRead(start=str(ipaddress.IPv6Address(a)), end=str(ipaddress.IPv6Address(b)), count=b - a + 1)
+            for a, b in free_ranges
+        ],
+        free_cidrs=free_cidrs,
     )
 
 

@@ -96,6 +96,7 @@ export type SubnetScan = {
   id: number;
   site_id: number;
   ipv4_prefix_id: number | null;
+  ipv6_prefix_id?: number | null;
   cidr: string;
   method: string;
   status: string;
@@ -238,4 +239,93 @@ export type IpamCircuitTermination = {
   interface_id: number | null;
   site_id?: number | null;
   label: string | null;
+};
+
+export type Ipv6Prefix = {
+  id: number;
+  site_id: number;
+  tenant_id?: number | null;
+  vlan_id?: number | null;
+  vrf_id?: number | null;
+  name: string;
+  slug: string;
+  role?: string;
+  status?: string;
+  overlap_policy?: string;
+  dual_stack_group_id?: number | null;
+  cidr: string;
+  description?: string | null;
+  parent_id?: number | null;
+  used_count?: number;
+  created?: boolean | null;
+  created_at: string;
+  updated_at?: string | null;
+  etag?: string | null;
+};
+
+export type Ipv6Address = {
+  id: number;
+  site_id: number;
+  ipv6_prefix_id: number | null;
+  address: string;
+  status: string;
+  role?: string;
+  created?: boolean | null;
+  note?: string | null;
+  device_id?: number | null;
+  interface_id?: number | null;
+  created_at: string;
+  updated_at: string;
+  etag?: string | null;
+};
+
+export type Ipv6PrefixAddressGridRead = {
+  prefix_id: number;
+  cidr: string;
+  active_scan: SubnetScan | null;
+  rows: {
+    address: string;
+    address_role?: string | null;
+    inventory: Ipv6Address | null;
+    scan_ping_responded: boolean | null;
+    scan_mac: string | null;
+  }[];
+};
+
+export type Ipv6AvailableRanges = {
+  prefix_id: number;
+  cidr: string;
+  role: string;
+  used_count: number;
+  used_addresses: Ipv6Address[];
+  used_ranges: { start: string; end: string; count: number }[];
+  free_ranges: { start: string; end: string; count: number }[];
+  free_cidrs: string[];
+};
+
+export type Ipv6PrefixSplitResponse = {
+  dry_run: boolean;
+  has_child_prefixes: boolean;
+  partition_ok: boolean;
+  detail: string | null;
+  first_cidr: string | null;
+  second_cidr: string | null;
+  ipam_inventory_on_parent: number;
+  ipam_migrate_left: number;
+  ipam_migrate_right: number;
+  first_prefix: Ipv6Prefix | null;
+  second_prefix: Ipv6Prefix | null;
+};
+
+export type Ipv6PrefixSplitEqualResponse = {
+  dry_run: boolean;
+  has_child_prefixes: boolean;
+  parent_cidr: string;
+  new_prefix_len: number;
+  subnet_count: number;
+  partition_ok: boolean;
+  detail: string | null;
+  planned: { cidr: string; suggested_name: string }[];
+  ipam_inventory_on_parent: number;
+  created_prefixes: Ipv6Prefix[];
 };

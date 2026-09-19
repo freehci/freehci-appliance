@@ -18,8 +18,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.db import SessionLocal
-from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamScanHost, IpamSubnetScan
+from app.models.ipam import (
+    IpamIpv4Address,
+    IpamIpv4Prefix,
+    IpamIpv6Address,
+    IpamIpv6Prefix,
+    IpamScanHost,
+    IpamSubnetScan,
+)
 from app.schemas.ipam import SubnetScanDetailRead, SubnetScanHostRead, SubnetScanRead
+from app.services.ipam_errors import ipam_error
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +80,9 @@ def _parse_ip_neigh_output(content: str) -> dict[str, str]:
         line = line.strip()
         if not line:
             continue
-        # IPv4 først på linjen: 192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+        # IPv4/IPv6 først på linjen: 192.168.1.1 / fd00::1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
         m = re.match(
-            r"^(\d{1,3}(?:\.\d{1,3}){3})\s+.*?\blladdr\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b",
+            r"^(\d{1,3}(?:\.\d{1,3}){3}|[0-9a-fA-F:]+)\s+.*?\blladdr\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b",
             line,
             re.I,
         )
@@ -106,14 +114,15 @@ def _parse_linux_arp_a(content: str) -> dict[str, str]:
 
 def ping_one_ip(ip: str) -> bool:
     """Én ICMP echo mot én vert (avhengig av OS og rettigheter)."""
+    v6 = ":" in ip
     if sys.platform == "win32":
         cmd = ["ping", "-n", "1", "-w", "1500", ip]
     elif sys.platform == "darwin":
         # macOS/BSD: -W er millisekunder.
-        cmd = ["ping", "-c", "1", "-W", "2000", ip]
+        cmd = ["ping6" if v6 else "ping", "-c", "1", "-W", "2000", ip]
     else:
-        # Linux: -W er sekunder.
-        cmd = ["ping", "-c", "1", "-W", "2", ip]
+        # Linux: -W er sekunder. -6 for IPv6 (ping6 finnes ikke alltid).
+        cmd = ["ping", "-6" if v6 else "-4", "-c", "1", "-W", "2", ip]
     try:
         r = subprocess.run(cmd, capture_output=True, timeout=4)
         return r.returncode == 0
@@ -154,7 +163,7 @@ def load_mac_by_ip() -> dict[str, str]:
     except OSError:
         pass
 
-    for cmd in (["ip", "-4", "neigh", "show"], ["ip", "neigh", "show"]):
+    for cmd in (["ip", "-4", "neigh", "show"], ["ip", "-6", "neigh", "show"], ["ip", "neigh", "show"]):
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=20, errors="replace")
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
@@ -162,7 +171,6 @@ def load_mac_by_ip() -> dict[str, str]:
         if r.returncode != 0:
             continue
         mapping.update(_parse_ip_neigh_output(r.stdout))
-        break
 
     try:
         r = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=20, errors="replace")
@@ -171,7 +179,7 @@ def load_mac_by_ip() -> dict[str, str]:
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         pass
 
-    logger.debug("load_mac_by_ip: %d IPv4->MAC oppføringer", len(mapping))
+    logger.debug("load_mac_by_ip: %d IP->MAC oppføringer", len(mapping))
     return mapping
 
 
@@ -183,19 +191,58 @@ def iter_target_ipv4_addresses(cidr: str) -> list[ipaddress.IPv4Address]:
     return list(net)
 
 
-def create_pending_scan(db: Session, *, ipv4_prefix_id: int) -> IpamSubnetScan:
-    pfx = db.get(IpamIpv4Prefix, ipv4_prefix_id)
-    if pfx is None:
-        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
-    row = IpamSubnetScan(
-        site_id=pfx.site_id,
-        ipv4_prefix_id=pfx.id,
-        cidr=pfx.cidr,
-        method="ping",
-        status="pending",
-        hosts_scanned=0,
-        hosts_responding=0,
-    )
+def iter_target_addresses(cidr: str) -> list[ipaddress.IPv4Address] | list[ipaddress.IPv6Address]:
+    net = ipaddress.ip_network(cidr.strip(), strict=False)
+    if net.num_addresses > MAX_SCAN_HOSTS:
+        raise ValueError(f"for mange adresser (>{MAX_SCAN_HOSTS}), del opp prefikset")
+    return list(net)
+
+
+def create_pending_scan(
+    db: Session,
+    *,
+    ipv4_prefix_id: int | None = None,
+    ipv6_prefix_id: int | None = None,
+) -> IpamSubnetScan:
+    if (ipv4_prefix_id is None) == (ipv6_prefix_id is None):
+        raise ipam_error(400, "invalid_scan_target", "oppgi nøyaktig én av ipv4_prefix_id eller ipv6_prefix_id")
+    if ipv6_prefix_id is not None:
+        pfx = db.get(IpamIpv6Prefix, ipv6_prefix_id)
+        if pfx is None:
+            raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+        try:
+            net = ipaddress.ip_network(pfx.cidr, strict=False)
+        except ValueError as e:
+            raise ipam_error(400, "invalid_cidr", str(e)) from e
+        if net.version != 6 or net.num_addresses > MAX_SCAN_HOSTS:
+            raise ipam_error(
+                400,
+                "prefix_too_large_for_scan",
+                f"subnet-scan støtter høyst {MAX_SCAN_HOSTS} adresser — del opp prefikset",
+                max_addresses=MAX_SCAN_HOSTS,
+            )
+        row = IpamSubnetScan(
+            site_id=pfx.site_id,
+            ipv6_prefix_id=pfx.id,
+            cidr=pfx.cidr,
+            method="ping",
+            status="pending",
+            hosts_scanned=0,
+            hosts_responding=0,
+        )
+    else:
+        pfx = db.get(IpamIpv4Prefix, ipv4_prefix_id)
+        if pfx is None:
+            raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+        row = IpamSubnetScan(
+            site_id=pfx.site_id,
+            ipv4_prefix_id=pfx.id,
+            cidr=pfx.cidr,
+            method="ping",
+            status="pending",
+            hosts_scanned=0,
+            hosts_responding=0,
+        )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -232,6 +279,7 @@ def list_scans(
     *,
     site_id: int | None,
     ipv4_prefix_id: int | None,
+    ipv6_prefix_id: int | None = None,
     limit: int,
 ) -> list[IpamSubnetScan]:
     q = select(IpamSubnetScan).order_by(IpamSubnetScan.started_at.desc()).limit(limit)
@@ -239,6 +287,8 @@ def list_scans(
         q = q.where(IpamSubnetScan.site_id == site_id)
     if ipv4_prefix_id is not None:
         q = q.where(IpamSubnetScan.ipv4_prefix_id == ipv4_prefix_id)
+    if ipv6_prefix_id is not None:
+        q = q.where(IpamSubnetScan.ipv6_prefix_id == ipv6_prefix_id)
     return list(db.execute(q).scalars().all())
 
 
@@ -274,17 +324,10 @@ def run_scan_background(
         db.commit()
 
         try:
-            targets = iter_target_ipv4_addresses(row.cidr)
+            targets = iter_target_addresses(row.cidr)
         except ValueError as e:
             row.status = "failed"
             row.error_message = str(e)
-            row.completed_at = datetime.now(timezone.utc)
-            db.commit()
-            return
-
-        if len(targets) > MAX_SCAN_HOSTS:
-            row.status = "failed"
-            row.error_message = f"for mange adresser (>{MAX_SCAN_HOSTS}), del opp prefikset"
             row.completed_at = datetime.now(timezone.utc)
             db.commit()
             return
@@ -333,7 +376,13 @@ def run_scan_background(
         flush_scan_hosts()
 
         time.sleep(0.75)
-        arp = load_macs()
+        arp_raw = load_macs()
+        arp: dict[str, str] = {}
+        for k, v in arp_raw.items():
+            try:
+                arp[str(ipaddress.ip_address(k))] = v
+            except ValueError:
+                arp[k] = v
 
         # Fyll inn MAC på skannverter som svarte på ping.
         host_rows = list(
@@ -346,33 +395,62 @@ def run_scan_background(
 
         # Upsert responderende IP-er til varig inventory.
         now = datetime.now(timezone.utc)
-        for ip_s in responded:
-            existing = db.execute(
-                select(IpamIpv4Address).where(
-                    IpamIpv4Address.site_id == row.site_id,
-                    IpamIpv4Address.address == ip_s,
-                ),
-            ).scalar_one_or_none()
-            if existing is None:
-                db.add(
-                    IpamIpv4Address(
-                        site_id=row.site_id,
-                        ipv4_prefix_id=row.ipv4_prefix_id,
-                        address=ip_s,
-                        status="discovered",
-                        mac_address=arp.get(ip_s),
-                        last_seen_at=now,
+        arp_canon = arp
+        if row.ipv6_prefix_id is not None:
+            for ip_s in responded:
+                existing = db.execute(
+                    select(IpamIpv6Address).where(
+                        IpamIpv6Address.site_id == row.site_id,
+                        IpamIpv6Address.address == ip_s,
                     ),
-                )
-            else:
-                # Ikke overstyr reserverte/tildelte; ellers marker som oppdaget når den svarer på ping.
-                existing.last_seen_at = now
-                if existing.status not in ("reserved", "assigned"):
-                    existing.status = "discovered"
-                if existing.ipv4_prefix_id is None and row.ipv4_prefix_id is not None:
-                    existing.ipv4_prefix_id = row.ipv4_prefix_id
-                if existing.status == "discovered" and (existing.mac_address is None):
-                    existing.mac_address = arp.get(ip_s) or existing.mac_address
+                ).scalar_one_or_none()
+                mac = arp_canon.get(ip_s)
+                if existing is None:
+                    db.add(
+                        IpamIpv6Address(
+                            site_id=row.site_id,
+                            ipv6_prefix_id=row.ipv6_prefix_id,
+                            address=ip_s,
+                            status="discovered",
+                            mac_address=mac,
+                            last_seen_at=now,
+                        ),
+                    )
+                else:
+                    existing.last_seen_at = now
+                    if existing.status not in ("reserved", "assigned"):
+                        existing.status = "discovered"
+                    if existing.ipv6_prefix_id is None:
+                        existing.ipv6_prefix_id = row.ipv6_prefix_id
+                    if existing.status == "discovered" and existing.mac_address is None:
+                        existing.mac_address = mac or existing.mac_address
+        else:
+            for ip_s in responded:
+                existing = db.execute(
+                    select(IpamIpv4Address).where(
+                        IpamIpv4Address.site_id == row.site_id,
+                        IpamIpv4Address.address == ip_s,
+                    ),
+                ).scalar_one_or_none()
+                if existing is None:
+                    db.add(
+                        IpamIpv4Address(
+                            site_id=row.site_id,
+                            ipv4_prefix_id=row.ipv4_prefix_id,
+                            address=ip_s,
+                            status="discovered",
+                            mac_address=arp_canon.get(ip_s),
+                            last_seen_at=now,
+                        ),
+                    )
+                else:
+                    existing.last_seen_at = now
+                    if existing.status not in ("reserved", "assigned"):
+                        existing.status = "discovered"
+                    if existing.ipv4_prefix_id is None and row.ipv4_prefix_id is not None:
+                        existing.ipv4_prefix_id = row.ipv4_prefix_id
+                    if existing.status == "discovered" and (existing.mac_address is None):
+                        existing.mac_address = arp_canon.get(ip_s) or existing.mac_address
         db.commit()
 
         row.hosts_responding = len(responded)

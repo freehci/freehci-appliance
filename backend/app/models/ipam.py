@@ -83,7 +83,11 @@ class IpamSubnetScan(Base):
         ForeignKey("ipam_ipv4_prefixes.id", ondelete="SET NULL"),
         nullable=True,
     )
-    cidr: Mapped[str] = mapped_column(String(32), nullable=False)
+    ipv6_prefix_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_ipv6_prefixes.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    cidr: Mapped[str] = mapped_column(String(64), nullable=False)
     method: Mapped[str] = mapped_column(String(32), nullable=False, default="ping")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     hosts_scanned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
