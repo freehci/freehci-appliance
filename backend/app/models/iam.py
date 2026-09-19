@@ -35,6 +35,13 @@ class User(Base):
     identity_provider: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # Filnavn for profilbilde lagret under UPLOAD_ROOT (relativ sti).
     avatar_file: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Valgfri innloggingskonto for personer (UI/API-passord). Servicekontoer bruker API-nøkler.
+    admin_account_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("admin_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

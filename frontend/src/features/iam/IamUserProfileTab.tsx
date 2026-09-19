@@ -17,6 +17,9 @@ export function IamUserProfileTab() {
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [newPw, setNewPw] = useState("");
+  const [newPw2, setNewPw2] = useState("");
+  const [pwOk, setPwOk] = useState(false);
 
   const q = useQuery({
     queryKey: ["iam", "person", id],
@@ -60,6 +63,21 @@ export function IamUserProfileTab() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const resetPwM = useMutation({
+    mutationFn: () => api.resetPersonPassword(id, newPw),
+    onSuccess: () => {
+      setErr(null);
+      setPwOk(true);
+      setNewPw("");
+      setNewPw2("");
+      void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
+    },
+    onError: (e: Error) => {
+      setPwOk(false);
+      setErr(e instanceof ApiError ? e.message : e.message);
+    },
+  });
+
   const deleteM = useMutation({
     mutationFn: () => api.deletePerson(id),
     onSuccess: () => {
@@ -100,6 +118,53 @@ export function IamUserProfileTab() {
           <label htmlFor="pu-no">{t("iam.notes")}</label>
           <textarea id="pu-no" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+      </div>
+
+      <h4 className={styles.userDetailSectionTitle}>{t("iam.sectionPassword")}</h4>
+      <p className={styles.intro}>{t("iam.resetPasswordHint")}</p>
+      {pwOk ? <p className={styles.intro}>{t("iam.resetPasswordSuccess")}</p> : null}
+      <div className={styles.userFormGrid}>
+        <div className={styles.field}>
+          <label htmlFor="pu-pw">{t("auth.newPassword")}</label>
+          <input
+            id="pu-pw"
+            type="password"
+            value={newPw}
+            onChange={(e) => setNewPw(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+          />
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="pu-pw2">{t("auth.newPasswordConfirm")}</label>
+          <input
+            id="pu-pw2"
+            type="password"
+            value={newPw2}
+            onChange={(e) => setNewPw2(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+          />
+        </div>
+      </div>
+      <div className={styles.rowActions}>
+        <Button
+          type="button"
+          onClick={() => {
+            if (newPw !== newPw2) {
+              setPwOk(false);
+              setErr(t("auth.mismatch"));
+              return;
+            }
+            resetPwM.mutate();
+          }}
+          disabled={newPw.length < 8 || resetPwM.isPending}
+        >
+          {person.has_login ? t("auth.resetPassword") : t("iam.setPassword")}
+        </Button>
+        <span className={styles.intro} style={{ margin: 0 }}>
+          {t("auth.minLength")}
+        </span>
       </div>
 
       <h4 className={styles.userDetailSectionTitle}>{t("iam.sectionExternal")}</h4>

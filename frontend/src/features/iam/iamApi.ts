@@ -14,7 +14,20 @@ export type PersonDetail = User & {
   roles: IamRef[];
   groups_direct: IamRef[];
   groups_effective: IamRef[];
+  has_login?: boolean;
 };
+
+export type IamApiToken = {
+  id: number;
+  name: string;
+  token_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  user_id: number | null;
+};
+
+export type IamApiTokenCreated = IamApiToken & { token: string };
 
 export type IamRole = {
   id: number;
@@ -72,6 +85,22 @@ export function createPerson(body: {
 
 export function deletePerson(personId: number): Promise<void> {
   return apiDelete(`${P}/persons/${personId}`);
+}
+
+export function resetPersonPassword(personId: number, new_password: string): Promise<void> {
+  return apiPostNoContent(`${P}/persons/${personId}/reset-password`, { new_password });
+}
+
+export function listPersonTokens(personId: number): Promise<IamApiToken[]> {
+  return apiGet(`${P}/persons/${personId}/tokens`);
+}
+
+export function createPersonToken(personId: number, name: string): Promise<IamApiTokenCreated> {
+  return apiPost(`${P}/persons/${personId}/tokens`, { name });
+}
+
+export function deletePersonToken(personId: number, tokenId: number): Promise<void> {
+  return apiDelete(`${P}/persons/${personId}/tokens/${tokenId}`);
 }
 
 export function patchPerson(

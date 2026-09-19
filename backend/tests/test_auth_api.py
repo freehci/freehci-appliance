@@ -151,3 +151,61 @@ def test_api_token_bearer_and_agent_discovery(client_with_auth: TestClient) -> N
     assert client_with_auth.delete(f"/api/v1/auth/tokens/{token_id}", headers=headers).status_code == 204
     denied = client_with_auth.get("/api/v1/dcim/sites", headers={"Authorization": f"Bearer {token}"})
     assert denied.status_code == 401
+
+
+def test_iam_user_password_reset(client_with_auth: TestClient) -> None:
+    login = client_with_auth.post("/api/v1/auth/login", json={"username": "admin", "password": "admin"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    u = client_with_auth.post("/api/v1/iam/persons", json={"username": "iam-login-user", "kind": "person"}, headers=headers)
+    assert u.status_code == 200, u.text
+    uid = u.json()["id"]
+    det = client_with_auth.get(f"/api/v1/iam/persons/{uid}", headers=headers)
+    assert det.status_code == 200
+    assert det.json()["has_login"] is False
+    reset = client_with_auth.post(
+        f"/api/v1/iam/persons/{uid}/reset-password",
+        json={"new_password": "brukerpass1"},
+        headers=headers,
+    )
+    assert reset.status_code == 204, reset.text
+    assert client_with_auth.post("/api/v1/auth/login", json={"username": "iam-login-user", "password": "brukerpass1"}).status_code == 200
+    after = client_with_auth.get(f"/api/v1/iam/persons/{uid}", headers=headers)
+    assert after.json()["has_login"] is True
+
+
+def test_service_account_api_token(client_with_auth: TestClient) -> None:
+    login = client_with_auth.post("/api/v1/auth/login", json={"username": "admin", "password": "admin"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    person = client_with_auth.post("/api/v1/iam/persons", json={"username": "human-no-token", "kind": "person"}, headers=headers)
+    svc = client_with_auth.post(
+        "/api/v1/iam/persons",
+        json={"username": "agent-cursor", "kind": "service_account"},
+        headers=headers,
+    )
+    assert person.status_code == 200 and svc.status_code == 200
+    pid, sid = person.json()["id"], svc.json()["id"]
+    bad_pw = client_with_auth.post(
+        f"/api/v1/iam/persons/{sid}/reset-password",
+        json={"new_password": "skalikke1"},
+        headers=headers,
+    )
+    assert bad_pw.status_code == 400
+    bad_tok = client_with_auth.post(
+        f"/api/v1/iam/persons/{pid}/tokens",
+        json={"name": "nei"},
+        headers=headers,
+    )
+    assert bad_tok.status_code == 400
+    created = client_with_auth.post(
+        f"/api/v1/iam/persons/{sid}/tokens",
+        json={"name": "cursor-agent"},
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["user_id"] == sid
+    token = created.json()["token"]
+    listed = client_with_auth.get(f"/api/v1/iam/persons/{sid}/tokens", headers=headers)
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+    sites = client_with_auth.get("/api/v1/dcim/sites", headers={"Authorization": f"Bearer {token}"})
+    assert sites.status_code == 200

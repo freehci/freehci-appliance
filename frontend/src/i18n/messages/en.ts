@@ -49,7 +49,7 @@ export const en = {
   "iam.intro":
     "People and service accounts share the user catalog (also used by IPAM/DCIM). Service accounts are technical identities for running integrations and jobs. Roles are global application roles. Groups support nested membership for scenarios such as Active Directory sync via an `iam.directory_provider` plugin.",
   "iam.serviceAccountsHint":
-    "These rows use `users.kind = service_account`. They are catalog identities for automation. API tokens for agents are created under Account → Login accounts and API tokens.",
+    "These rows use `users.kind = service_account`. Open a service account to create API tokens for AI agents and automation.",
   "iam.createServiceAccount": "Create service account",
   "iam.emptyServiceAccounts": "No service accounts yet.",
   "iam.detailServiceAccount": "Service account",
@@ -99,7 +99,7 @@ export const en = {
   "iam.invalidId": "Invalid id",
   "iam.notFound": "Not found",
   "iam.introUsersList":
-    "Interactive users (`users.kind = person`). Open a user to edit profile, roles, and group memberships.",
+    "Interactive users (`users.kind = person`). Open a user to edit the profile, reset their appliance password, and manage roles and groups.",
   "iam.createUser": "Create user",
   "iam.emptyUsers": "No users yet.",
   "iam.userDetailLoading": "User",
@@ -123,6 +123,14 @@ export const en = {
     "Delete user {username}? Group memberships and site access are removed. IPAM address ownership is cleared.",
   "iam.deleteServiceAccount": "Delete service account",
   "iam.deleteServiceAccountConfirm": "Delete service account {username}?",
+  "iam.sectionPassword": "Appliance password",
+  "iam.resetPasswordHint":
+    "Set or reset the password this user signs in to the UI and API with (same username). At least 8 characters.",
+  "iam.setPassword": "Set password",
+  "iam.resetPasswordSuccess": "Password saved. The user can sign in with this username and the new password.",
+  "iam.sectionApiTokens": "API tokens",
+  "iam.apiTokensHint":
+    "Long-lived keys for this service account. AI agents should use Authorization: Bearer fhci_…",
 
   "header.search": "Search",
   "header.searchPlaceholder": "Search",
@@ -368,7 +376,7 @@ export const en = {
   "auth.you": "you",
   "auth.tokensTitle": "API tokens",
   "auth.tokensIntro":
-    "Long-lived tokens for AI agents and automation. Send as Authorization: Bearer fhci_… OpenAPI is available at /api/v1/openapi.json.",
+    "Operator tokens. Prefer creating tokens on an IAM service account (IAM → Service accounts) so agents have their own identity.",
   "auth.createToken": "Create token",
   "auth.tokenName": "Token name",
   "auth.emptyTokens": "No API tokens yet.",

@@ -48,6 +48,7 @@ class ApiTokenRead(BaseModel):
     created_at: dt.datetime
     last_used_at: dt.datetime | None
     expires_at: dt.datetime | None
+    user_id: int | None = None
 
 
 class ApiTokenCreate(BaseModel):

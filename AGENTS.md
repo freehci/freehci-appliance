@@ -5,7 +5,7 @@
 GitHub-versjonen som UI-et sammenligner mot, kommer fra rotfilen `.ver`
 (`https://raw.githubusercontent.com/freehci/freehci-appliance/main/.ver`).
 
-- **Øk `.ver` i samme commit som skal pushes** (f.eks. `0.0.58` → `0.0.59`).
+- **Øk `.ver` i samme commit som skal pushes** (f.eks. `0.0.59` → `0.0.60`).
 - Ikke push uten versjonsbump. Ellers viser GitHub/test-instansen gammel versjon,
   og «Oppdater nå» ser ingen ny release.
 

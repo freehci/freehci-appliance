@@ -78,6 +78,7 @@ class PersonDetailRead(UserRead):
     roles: list[IamRef]
     groups_direct: list[IamRef]
     groups_effective: list[IamRef]
+    has_login: bool = False
 
 
 class IamPersonBrief(BaseModel):

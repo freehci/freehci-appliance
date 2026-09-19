@@ -51,7 +51,7 @@ export const nb = {
   "iam.intro":
     "Personer og servicekontoer deler brukerkatalogen (samme som IPAM/DCIM). Servicekontoer er tekniske identiteter for integrasjoner og jobber. Roller er globale applikasjonsroller. Grupper støtter nestede undergrupper, f.eks. for synkronisering fra Active Directory via en plugin med capability `iam.directory_provider`.",
   "iam.serviceAccountsHint":
-    "Radene bruker `users.kind = service_account`. De er katalogidentiteter for automatisering. API-nøkler for agenter opprettes under Konto → Innloggingskontoer og API-nøkler.",
+    "Radene bruker `users.kind = service_account`. Åpne en servicekonto for å lage API-nøkler til AI-agenter og automatisering.",
   "iam.createServiceAccount": "Opprett servicekonto",
   "iam.emptyServiceAccounts": "Ingen servicekontoer ennå.",
   "iam.detailServiceAccount": "Servicekonto",
@@ -101,7 +101,7 @@ export const nb = {
   "iam.invalidId": "Ugyldig id",
   "iam.notFound": "Ikke funnet",
   "iam.introUsersList":
-    "Interaktive brukere (`users.kind = person`). Åpne en bruker for å redigere profil, roller og gruppemedlemskap.",
+    "Interaktive brukere (`users.kind = person`). Åpne en bruker for å redigere profil, tilbakestille appliance-passord, og styre roller og grupper.",
   "iam.createUser": "Opprett bruker",
   "iam.emptyUsers": "Ingen brukere ennå.",
   "iam.userDetailLoading": "Bruker",
@@ -125,6 +125,14 @@ export const nb = {
     "Slette brukeren {username}? Gruppemedlemskap og site-tilgang fjernes. IPAM-eierskap på adresser tømmes.",
   "iam.deleteServiceAccount": "Slett servicekonto",
   "iam.deleteServiceAccountConfirm": "Slette servicekontoen {username}?",
+  "iam.sectionPassword": "Appliance-passord",
+  "iam.resetPasswordHint":
+    "Sett eller tilbakestill passordet denne brukeren logger inn i UI og API med (samme brukernavn). Minst 8 tegn.",
+  "iam.setPassword": "Sett passord",
+  "iam.resetPasswordSuccess": "Passordet er lagret. Brukeren kan logge inn med dette brukernavnet og det nye passordet.",
+  "iam.sectionApiTokens": "API-nøkler",
+  "iam.apiTokensHint":
+    "Langlivede nøkler for denne servicekontoen. AI-agenter skal bruke Authorization: Bearer fhci_…",
 
   "header.search": "Søk",
   "header.searchPlaceholder": "Søk",
@@ -370,7 +378,7 @@ export const nb = {
   "auth.you": "deg",
   "auth.tokensTitle": "API-nøkler",
   "auth.tokensIntro":
-    "Langlivede nøkler for AI-agenter og automatisering. Send som Authorization: Bearer fhci_… OpenAPI ligger på /api/v1/openapi.json.",
+    "Operatørnøkler. Foretrekk å lage nøkler på en IAM-servicekonto (IAM → Servicekontoer) slik at agenter har egen identitet.",
   "auth.createToken": "Opprett nøkkel",
   "auth.tokenName": "Navn på nøkkel",
   "auth.emptyTokens": "Ingen API-nøkler ennå.",

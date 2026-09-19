@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import * as api from "./iamApi";
+import { IamApiTokensPanel } from "./IamApiTokensPanel";
 import styles from "./iam.module.css";
 
 export function IamPersonDetailPage() {
@@ -214,6 +215,8 @@ export function IamPersonDetailPage() {
               </li>
             ))}
           </ul>
+
+          {person.kind === api.IAM_KIND_SERVICE_ACCOUNT ? <IamApiTokensPanel personId={id} /> : null}
 
           <div className={styles.rowActions}>
             <button

@@ -7,7 +7,10 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.auth_password import hash_password
 from app.core.config import get_settings
+from app.models.admin_account import AdminAccount
+from app.models.api_token import ApiToken
 from app.models.dcim import SiteAccessGrant
 from app.models.ipam import IpamIpv4Address
 from app.models.tenant_access import TenantUserMembership
@@ -64,15 +67,56 @@ def patch_person(db: Session, row: User, data: UserPatch) -> UserRead:
     return UserRead.model_validate(row)
 
 
+def _person_has_login(db: Session, row: User) -> bool:
+    aid = getattr(row, "admin_account_id", None)
+    if aid is not None and db.get(AdminAccount, aid) is not None:
+        return True
+    found = db.execute(select(AdminAccount.id).where(AdminAccount.username == row.username)).scalar_one_or_none()
+    return found is not None
+
+
+def set_person_login_password(db: Session, row: User, new_password: str) -> None:
+    if (row.kind or "person") == "service_account":
+        raise HTTPException(status_code=400, detail="servicekontoer bruker API-nøkler, ikke passord")
+    account: AdminAccount | None = None
+    if row.admin_account_id is not None:
+        account = db.get(AdminAccount, row.admin_account_id)
+    if account is None:
+        account = db.execute(select(AdminAccount).where(AdminAccount.username == row.username)).scalar_one_or_none()
+    if account is None:
+        account = AdminAccount(username=row.username, password_hash=hash_password(new_password))
+        db.add(account)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="brukernavn er opptatt som innloggingskonto") from None
+    else:
+        account.password_hash = hash_password(new_password)
+    row.admin_account_id = account.id
+    db.commit()
+
+
 def delete_person(db: Session, row: User) -> None:
     """Slett katalogbruker og rydd relasjoner (SQLite har ikke FK-pragma på)."""
     user_id = row.id
     rel = getattr(row, "avatar_file", None)
+    linked_admin_id = row.admin_account_id
+    db.execute(delete(ApiToken).where(ApiToken.user_id == user_id))
     db.execute(delete(IamGroupUserMember).where(IamGroupUserMember.user_id == user_id))
     db.execute(delete(IamUserRole).where(IamUserRole.user_id == user_id))
     db.execute(delete(TenantUserMembership).where(TenantUserMembership.user_id == user_id))
     db.execute(delete(SiteAccessGrant).where(SiteAccessGrant.user_id == user_id))
     db.execute(update(IpamIpv4Address).where(IpamIpv4Address.owner_user_id == user_id).values(owner_user_id=None))
+    row.admin_account_id = None
+    db.flush()
+    if linked_admin_id is not None:
+        n = db.execute(select(func.count()).select_from(AdminAccount)).scalar_one()
+        if int(n) > 1:
+            acc = db.get(AdminAccount, linked_admin_id)
+            if acc is not None:
+                db.execute(delete(ApiToken).where(ApiToken.admin_id == acc.id))
+                db.delete(acc)
     db.delete(row)
     db.commit()
     if rel:
@@ -128,6 +172,7 @@ def person_detail(db: Session, row: User) -> PersonDetailRead:
         roles=roles,
         groups_direct=groups_direct,
         groups_effective=groups_effective,
+        has_login=_person_has_login(db, row),
     )
 
 

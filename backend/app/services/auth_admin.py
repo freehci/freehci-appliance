@@ -17,6 +17,7 @@ from app.core.auth_password import hash_password, verify_password
 from app.core.config import Settings, get_settings
 from app.models.admin_account import AdminAccount
 from app.models.api_token import ApiToken
+from app.models.iam import User
 from app.schemas.auth import AdminAccountRead, ApiTokenCreated, ApiTokenRead
 
 API_TOKEN_PREFIX = "fhci_"
@@ -152,15 +153,27 @@ def _token_read(row: ApiToken) -> ApiTokenRead:
         created_at=row.created_at,
         last_used_at=row.last_used_at,
         expires_at=row.expires_at,
+        user_id=row.user_id,
     )
 
 
-def list_api_tokens(db: Session) -> list[ApiTokenRead]:
-    rows = db.execute(select(ApiToken).order_by(ApiToken.created_at.desc())).scalars().all()
+def list_api_tokens(db: Session, user_id: int | None = None) -> list[ApiTokenRead]:
+    q = select(ApiToken)
+    if user_id is not None:
+        q = q.where(ApiToken.user_id == user_id)
+    rows = db.execute(q.order_by(ApiToken.created_at.desc())).scalars().all()
     return [_token_read(r) for r in rows]
 
 
-def create_api_token(db: Session, admin: AdminAccount, name: str) -> ApiTokenCreated:
+def create_api_token(
+    db: Session,
+    admin: AdminAccount,
+    name: str,
+    *,
+    user: User | None = None,
+) -> ApiTokenCreated:
+    if user is not None and (user.kind or "person") != "service_account":
+        raise HTTPException(status_code=400, detail="API-nøkler kan bare knyttes til servicekontoer")
     raw = secrets.token_urlsafe(32)
     token = f"{API_TOKEN_PREFIX}{raw}"
     row = ApiToken(
@@ -168,6 +181,7 @@ def create_api_token(db: Session, admin: AdminAccount, name: str) -> ApiTokenCre
         token_prefix=token[:12],
         token_hash=_hash_api_token(token),
         admin_id=admin.id,
+        user_id=user.id if user is not None else None,
     )
     db.add(row)
     db.commit()
@@ -175,9 +189,9 @@ def create_api_token(db: Session, admin: AdminAccount, name: str) -> ApiTokenCre
     return ApiTokenCreated(**_token_read(row).model_dump(), token=token)
 
 
-def delete_api_token(db: Session, token_id: int) -> None:
+def delete_api_token(db: Session, token_id: int, *, user_id: int | None = None) -> None:
     row = db.get(ApiToken, token_id)
-    if row is None:
+    if row is None or (user_id is not None and row.user_id != user_id):
         raise HTTPException(status_code=404, detail="api-nøkkel ikke funnet")
     db.delete(row)
     db.commit()

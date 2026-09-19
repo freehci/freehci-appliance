@@ -11,6 +11,7 @@ from app.api.auth_deps import get_current_admin
 from app.api.deps import get_db
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
+from app.schemas.auth import AdminResetPasswordRequest, ApiTokenCreate, ApiTokenCreated, ApiTokenRead
 from app.schemas.iam import (
     IamAssignRoleBody,
     IamGroupAddSubgroupMember,
@@ -27,6 +28,7 @@ from app.schemas.iam import (
     PersonDetailRead,
 )
 from app.schemas.ipam import UserPatch, UserRead
+from app.services import auth_admin as auth_svc
 from app.services import iam_directory as iam_svc
 
 router = APIRouter(prefix="/iam", tags=["iam"])
@@ -71,6 +73,57 @@ def delete_person(person_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="person ikke funnet")
     iam_svc.delete_person(db, row)
+
+
+@router.post("/persons/{person_id}/reset-password", status_code=204)
+def reset_person_password(
+    person_id: int,
+    data: AdminResetPasswordRequest,
+    db: Session = Depends(get_db),
+    _: AdminAccount = Depends(get_current_admin),
+) -> None:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    iam_svc.set_person_login_password(db, row, data.new_password)
+
+
+@router.get("/persons/{person_id}/tokens", response_model=list[ApiTokenRead])
+def list_person_tokens(
+    person_id: int,
+    db: Session = Depends(get_db),
+    _: AdminAccount = Depends(get_current_admin),
+) -> list[ApiTokenRead]:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    return auth_svc.list_api_tokens(db, user_id=row.id)
+
+
+@router.post("/persons/{person_id}/tokens", response_model=ApiTokenCreated)
+def create_person_token(
+    person_id: int,
+    data: ApiTokenCreate,
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(get_current_admin),
+) -> ApiTokenCreated:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    return auth_svc.create_api_token(db, admin, data.name, user=row)
+
+
+@router.delete("/persons/{person_id}/tokens/{token_id}", status_code=204)
+def delete_person_token(
+    person_id: int,
+    token_id: int,
+    db: Session = Depends(get_db),
+    _: AdminAccount = Depends(get_current_admin),
+) -> None:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    auth_svc.delete_api_token(db, token_id, user_id=row.id)
 
 
 @router.post("/persons/{person_id}/roles", status_code=204)

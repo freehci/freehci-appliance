@@ -129,9 +129,8 @@ def agent_connect_info() -> AgentConnectInfo:
             tokens_url=f"{api}/auth/tokens",
             token_prefix=auth_svc.API_TOKEN_PREFIX,
             notes=[
-                "Preferred for agents: create a long-lived API token (starts with fhci_) and send it as Bearer.",
-                "Interactive login: POST /auth/login with username and password, then use the returned JWT.",
-                "IAM directory users (persons/service accounts) are catalog identities and do not authenticate to this API.",
+                "Preferred for agents: create an IAM service account and issue an API token (fhci_…) on that account.",
+                "Interactive users: set or reset their appliance password on the IAM user profile, then POST /auth/login.",
             ],
         ),
     )
