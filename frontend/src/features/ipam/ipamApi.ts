@@ -1,6 +1,8 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
   Ipv4Address,
+  Ipv4AvailablePrefixes,
+  Ipv4AvailableRanges,
   Ipv4Prefix,
   Ipv4PrefixExplore,
   Ipv4PrefixSplitEqualResponse,
@@ -32,6 +34,35 @@ export function getIpv4PrefixExplore(prefixId: number): Promise<Ipv4PrefixExplor
 
 export function getPrefixAddressGrid(prefixId: number): Promise<PrefixAddressGridRead> {
   return apiGet(`${P}/ipv4-prefixes/${prefixId}/address-grid`);
+}
+
+export function listAvailableChildPrefixes(
+  prefixId: number,
+  prefixlen: number,
+  limit = 64,
+): Promise<Ipv4AvailablePrefixes> {
+  const q = new URLSearchParams({ prefixlen: String(prefixlen), limit: String(limit) });
+  return apiGet(`${P}/ipv4-prefixes/${prefixId}/available-prefixes?${q}`);
+}
+
+export function allocateChildPrefix(
+  prefixId: number,
+  body: {
+    prefixlen: number;
+    name: string;
+    slug?: string | null;
+    role?: string;
+    status?: string;
+    description?: string | null;
+    vlan_id?: number | null;
+    tenant_id?: number | null;
+  },
+): Promise<Ipv4Prefix> {
+  return apiPost(`${P}/ipv4-prefixes/${prefixId}/allocate`, body);
+}
+
+export function getAvailableRanges(prefixId: number): Promise<Ipv4AvailableRanges> {
+  return apiGet(`${P}/ipv4-prefixes/${prefixId}/available-ranges`);
 }
 
 export function ensureIpv4Address(body: {
@@ -174,6 +205,13 @@ export function patchIpv4Address(
   }>,
 ): Promise<Ipv4Address> {
   return apiPatch(`${P}/ipv4-addresses/${id}`, body);
+}
+
+export function bindIpv4Address(
+  id: number,
+  body: { device_id: number; interface_id?: number | null },
+): Promise<Ipv4Address> {
+  return apiPost(`${P}/ipv4-addresses/${id}/bind`, body);
 }
 
 export function releaseIpv4Address(id: number): Promise<Ipv4Address> {

@@ -146,7 +146,30 @@ def _format_mib(byte_count: int) -> str:
     return f"{byte_count / (1024 * 1024):g} MiB"
 
 
+def _rack_site_id(db: Session, rack: Rack) -> int | None:
+    room = db.get(Room, rack.room_id)
+    return None if room is None else int(room.site_id)
+
+
+def _inherit_device_site_from_rack(db: Session, device: DeviceInstance, rack: Rack) -> None:
+    room_site = _rack_site_id(db, rack)
+    if room_site is None:
+        return
+    stored = getattr(device, "site_id", None)
+    if stored is None:
+        device.site_id = room_site
+        return
+    if int(stored) != room_site:
+        raise HTTPException(
+            status_code=400,
+            detail="enhetens site stemmer ikke med racket — flytt enheten eller endre site først",
+        )
+
+
 def device_effective_site_id(db: Session, device_id: int) -> int | None:
+    dev = db.get(DeviceInstance, device_id)
+    if dev is not None and getattr(dev, "site_id", None) is not None:
+        return int(dev.site_id)
     q = (
         select(Room.site_id)
         .join(Rack, Rack.room_id == Room.id)
@@ -160,13 +183,27 @@ def device_effective_site_id(db: Session, device_id: int) -> int | None:
 def _device_site_ids_batch(db: Session, device_ids: list[int]) -> dict[int, int]:
     if not device_ids:
         return {}
+    stored = {
+        int(did): int(sid)
+        for did, sid in db.execute(
+            select(DeviceInstance.id, DeviceInstance.site_id).where(
+                DeviceInstance.id.in_(device_ids),
+                DeviceInstance.site_id.is_not(None),
+            ),
+        ).all()
+        if sid is not None
+    }
+    missing = [d for d in device_ids if d not in stored]
+    if not missing:
+        return stored
     q = (
         select(RackPlacement.device_id, Room.site_id)
         .join(Rack, Rack.id == RackPlacement.rack_id)
         .join(Room, Room.id == Rack.room_id)
-        .where(RackPlacement.device_id.in_(device_ids))
+        .where(RackPlacement.device_id.in_(missing))
     )
-    return {did: sid for did, sid in db.execute(q).all()}
+    stored.update({int(did): int(sid) for did, sid in db.execute(q).all()})
+    return stored
 
 
 def _validate_ipv4_prefix_for_assignment(
@@ -191,7 +228,7 @@ def _validate_ipv4_prefix_for_assignment(
     if site_id is None:
         raise HTTPException(
             status_code=400,
-            detail="enhet uten rack-plassering kan ikke knyttes til site-prefiks — plasser enheten i rack først",
+            detail="enhet uten site kan ikke knyttes til site-prefiks — sett site_id eller plasser enheten i rack",
         )
     if pfx.site_id != site_id:
         raise HTTPException(
@@ -1040,6 +1077,7 @@ def device_instance_read(
         device_model_id=dev.device_model_id,
         device_type_id=dev.device_type_id,
         effective_device_type_id=_effective_device_type_id(db, dev),
+        site_id=getattr(dev, "site_id", None),
         effective_site_id=es,
         name=dev.name,
         serial_number=dev.serial_number,
@@ -1059,10 +1097,13 @@ def create_device(db: Session, data: DeviceInstanceCreate) -> DeviceInstanceRead
         raise HTTPException(status_code=404, detail="device_model ikke funnet")
     if data.device_type_id is not None and get_device_type(db, data.device_type_id) is None:
         raise HTTPException(status_code=404, detail="device_type ikke funnet")
+    if data.site_id is not None and get_site(db, data.site_id) is None:
+        raise HTTPException(status_code=404, detail="site ikke funnet")
     attrs = data.attributes
     row = DeviceInstance(
         device_model_id=data.device_model_id,
         device_type_id=data.device_type_id,
+        site_id=data.site_id,
         name=data.name.strip(),
         serial_number=data.serial_number,
         asset_tag=data.asset_tag,
@@ -1092,6 +1133,19 @@ def update_device(db: Session, row: DeviceInstance, data: DeviceInstanceUpdate) 
         if tid is not None and get_device_type(db, tid) is None:
             raise HTTPException(status_code=404, detail="device_type ikke funnet")
         row.device_type_id = tid
+    if "site_id" in patch:
+        sid = patch["site_id"]
+        if sid is not None and get_site(db, sid) is None:
+            raise HTTPException(status_code=404, detail="site ikke funnet")
+        rack_site = None
+        placement = db.execute(select(RackPlacement).where(RackPlacement.device_id == row.id)).scalar_one_or_none()
+        if placement is not None:
+            rack = get_rack(db, placement.rack_id)
+            if rack is not None:
+                rack_site = _rack_site_id(db, rack)
+        if sid is not None and rack_site is not None and int(sid) != rack_site:
+            raise HTTPException(status_code=400, detail="site_id stemmer ikke med enhetens rack-plassering")
+        row.site_id = sid
     if "name" in patch and patch["name"] is not None:
         row.name = str(patch["name"]).strip()
     if "serial_number" in patch:
@@ -4032,6 +4086,7 @@ def create_placement(db: Session, data: RackPlacementCreate) -> RackPlacement:
     if existing is not None:
         raise HTTPException(status_code=400, detail="enheten har allerede en plassering; slett først")
     assert_placement_fits_rack(db, rack=rack, u_position=data.u_position, device=device)
+    _inherit_device_site_from_rack(db, device, rack)
     row = RackPlacement(
         rack_id=data.rack_id,
         device_id=data.device_id,
@@ -4069,6 +4124,7 @@ def update_placement(db: Session, row: RackPlacement, data: RackPlacementUpdate)
         device=device,
         exclude_placement_id=row.id,
     )
+    _inherit_device_site_from_rack(db, device, rack)
 
     row.rack_id = target_rack_id
     row.u_position = new_u

@@ -1,6 +1,6 @@
 """IPAM REST API (IPv4 prefiks per site)."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -8,10 +8,14 @@ from app.api.deps import get_db
 from app.schemas.ipam import (
     Ipv4AddressBatchRead,
     Ipv4AddressBatchRequest,
+    Ipv4AddressBind,
     Ipv4AddressEnsure,
     Ipv4AddressPatch,
     Ipv4AddressRead,
     Ipv4AddressRequest,
+    Ipv4AvailablePrefixesRead,
+    Ipv4AvailableRangesRead,
+    Ipv4PrefixAllocate,
     Ipv4PrefixCreate,
     Ipv4PrefixEnsure,
     Ipv4PrefixExploreRead,
@@ -43,6 +47,8 @@ from app.schemas.ipam import (
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
+from app.services import ipam_idempotency as idem_svc
+from app.services import ipam_prefix_alloc as alloc_svc
 from app.services import ipam_prefix_split as split_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_prefix_grid as grid_svc
@@ -108,6 +114,46 @@ def explore_ipv4_prefix(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4Pr
 @router.get("/ipv4-prefixes/{prefix_id}/address-grid", response_model=PrefixAddressGridRead)
 def get_prefix_address_grid(prefix_id: int, db: Session = Depends(get_db)) -> PrefixAddressGridRead:
     return grid_svc.build_prefix_address_grid(db, prefix_id)
+
+
+@router.get("/ipv4-prefixes/{prefix_id}/available-prefixes", response_model=Ipv4AvailablePrefixesRead)
+def list_available_child_prefixes(
+    prefix_id: int,
+    prefixlen: int = Query(..., ge=1, le=32),
+    limit: int = Query(64, ge=1, le=256),
+    db: Session = Depends(get_db),
+) -> Ipv4AvailablePrefixesRead:
+    row = ipam_svc.get_ipv4_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return alloc_svc.list_available_child_prefixes(db, row, prefixlen, limit=limit)
+
+
+@router.post("/ipv4-prefixes/{prefix_id}/allocate", response_model=Ipv4PrefixRead)
+def allocate_child_prefix(
+    prefix_id: int,
+    data: Ipv4PrefixAllocate,
+    db: Session = Depends(get_db),
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+) -> Ipv4PrefixRead:
+    row = ipam_svc.get_ipv4_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return idem_svc.run_idempotent(
+        db,
+        idempotency_key,
+        scope="prefix-allocate",
+        payload={"prefix_id": prefix_id, **data.model_dump(mode="json")},
+        fn=lambda: alloc_svc.allocate_child_prefix(db, row, data),
+    )
+
+
+@router.get("/ipv4-prefixes/{prefix_id}/available-ranges", response_model=Ipv4AvailableRangesRead)
+def get_available_ranges(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4AvailableRangesRead:
+    row = ipam_svc.get_ipv4_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return alloc_svc.available_ranges(db, row)
 
 
 @router.get("/ipv4-prefixes/{prefix_id}", response_model=Ipv4PrefixRead)
@@ -258,13 +304,41 @@ def delete_ipv4_address(addr_id: int, db: Session = Depends(get_db)) -> None:
 
 
 @router.post("/ipv4-addresses/request", response_model=Ipv4AddressRead)
-def request_ipv4_address(data: Ipv4AddressRequest, db: Session = Depends(get_db)) -> Ipv4AddressRead:
-    return addr_svc.request_ipv4_address(db, data)
+def request_ipv4_address(
+    data: Ipv4AddressRequest,
+    db: Session = Depends(get_db),
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+) -> Ipv4AddressRead:
+    return idem_svc.run_idempotent(
+        db,
+        idempotency_key,
+        scope="address-request",
+        payload=data.model_dump(mode="json"),
+        fn=lambda: addr_svc.request_ipv4_address(db, data),
+    )
 
 
 @router.post("/ipv4-addresses/request-batch", response_model=Ipv4AddressBatchRead)
-def request_ipv4_addresses_batch(data: Ipv4AddressBatchRequest, db: Session = Depends(get_db)) -> Ipv4AddressBatchRead:
-    return addr_svc.request_ipv4_addresses_batch(db, data)
+def request_ipv4_addresses_batch(
+    data: Ipv4AddressBatchRequest,
+    db: Session = Depends(get_db),
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+) -> Ipv4AddressBatchRead:
+    return idem_svc.run_idempotent(
+        db,
+        idempotency_key,
+        scope="address-request-batch",
+        payload=data.model_dump(mode="json"),
+        fn=lambda: addr_svc.request_ipv4_addresses_batch(db, data),
+    )
+
+
+@router.post("/ipv4-addresses/{addr_id}/bind", response_model=Ipv4AddressRead)
+def bind_ipv4_address(addr_id: int, data: Ipv4AddressBind, db: Session = Depends(get_db)) -> Ipv4AddressRead:
+    row = addr_svc.get_ipv4_address(db, addr_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "address_not_found", "detail": "IP-adresse ikke funnet"})
+    return addr_svc.bind_ipv4_address(db, row, data.device_id, data.interface_id)
 
 
 @router.post("/ipv4-addresses/{addr_id}/release", response_model=Ipv4AddressRead)

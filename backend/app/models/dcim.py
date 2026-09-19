@@ -273,6 +273,10 @@ class DeviceInstance(Base):
         ForeignKey("dcim_device_types.id", ondelete="SET NULL"),
         nullable=True,
     )
+    site_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     serial_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
     asset_tag: Mapped[str | None] = mapped_column(String(128), nullable=True)

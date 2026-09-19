@@ -37,6 +37,9 @@ Machine-readable connect info: `GET /api/v1/auth/agent` (no auth).
 - Prefix `role` (`container|active|reserved|overlay-pod|overlay-service|lb-pool|p2p`) and `status` (`planned|active|reserved|deprecated`) are enforced on host alloc.
 - VLAN/VRF: `GET`/`PATCH`/`POST .../ensure` on `/ipam/vlans` and `/ipam/vrfs`.
 - Errors are `{code, detail}` so agents can match `prefix_has_children`, `gateway_protected`, `prefix_role_forbids_alloc`.
+- Next child prefix: `GET /ipv4-prefixes/{id}/available-prefixes?prefixlen=` and `POST /ipv4-prefixes/{id}/allocate`. Idempotent on `slug` or `Idempotency-Key`.
+- LB/pool ranges: `GET /ipv4-prefixes/{id}/available-ranges`. `address-grid` is 400 for prefixes larger than /22.
+- `request` / `request-batch` are atomic and accept `Idempotency-Key`. Bind inventory IP: `POST /ipv4-addresses/{id}/bind`.
 - Pin or allocate hosts: `POST /api/v1/ipam/ipv4-addresses/ensure` and `/request` (`mode=reserve|assign`, interface optional)
 - Hard-delete address: `DELETE /api/v1/ipam/ipv4-addresses/{id}`
 - Prefix delete is 409 if children or addresses exist; pass `?cascade=true` to remove them

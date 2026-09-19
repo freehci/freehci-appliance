@@ -478,6 +478,7 @@ class Ipv4AddressRequest(BaseModel):
     device_type_id: int | None = Field(None, ge=1)
     device_model_id: int | None = Field(None, ge=1)
     device_id: int | None = Field(None, ge=1)
+    role: str | None = None
 
     @field_validator("mode")
     @classmethod
@@ -486,6 +487,16 @@ class Ipv4AddressRequest(BaseModel):
         if s not in ("reserve", "assign"):
             raise ValueError("mode må være reserve eller assign")
         return s
+
+    @field_validator("role")
+    @classmethod
+    def role_ok_req(cls, v: str | None) -> str | None:
+        return _role_ok(v, _ADDRESS_ROLES, "role")
+
+
+class Ipv4AddressBind(BaseModel):
+    device_id: int = Field(..., ge=1)
+    interface_id: int | None = Field(None, ge=1)
 
 
 class Ipv4AddressBatchRequest(BaseModel):
@@ -501,6 +512,7 @@ class Ipv4AddressBatchRequest(BaseModel):
     device_type_id: int | None = Field(None, ge=1)
     device_model_id: int | None = Field(None, ge=1)
     device_id: int | None = Field(None, ge=1)
+    role: str | None = None
 
     @field_validator("mode")
     @classmethod
@@ -516,6 +528,11 @@ class Ipv4AddressBatchRequest(BaseModel):
         if len(v) > 256:
             raise ValueError("høyst 256 foretrukne adresser")
         return v
+
+    @field_validator("role")
+    @classmethod
+    def role_ok_batch(cls, v: str | None) -> str | None:
+        return _role_ok(v, _ADDRESS_ROLES, "role")
 
     @model_validator(mode="after")
     def assign_only_one(self) -> Ipv4AddressBatchRequest:
@@ -742,6 +759,63 @@ class Ipv4PrefixSplitEqualResponse(BaseModel):
     dcim_device_on_parent: int = 0
     conflicts: list[Ipv4PrefixSplitConflictRead] = Field(default_factory=list)
     created_prefixes: list[Ipv4PrefixRead] = Field(default_factory=list)
+
+
+class Ipv4PrefixAllocate(BaseModel):
+    prefixlen: int = Field(..., ge=1, le=32)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    role: str = "active"
+    status: str = "active"
+    description: str | None = None
+    vlan_id: int | None = Field(None, ge=1)
+    tenant_id: int | None = Field(None, ge=1)
+    subnet_services: SubnetServices | dict[str, Any] | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip_alloc(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+    @field_validator("role")
+    @classmethod
+    def role_ok_alloc(cls, v: str) -> str:
+        return _role_ok(v, PREFIX_ROLES, "role") or "active"
+
+    @field_validator("status")
+    @classmethod
+    def status_ok_alloc(cls, v: str) -> str:
+        return _role_ok(v, PREFIX_STATUSES, "status") or "active"
+
+
+class Ipv4AvailablePrefixesRead(BaseModel):
+    parent_id: int
+    cidr: str
+    prefixlen: int
+    available: list[str]
+    truncated: bool = False
+
+
+class IpRangeRead(BaseModel):
+    start: str
+    end: str
+    count: int
+
+
+class Ipv4AvailableRangesRead(BaseModel):
+    prefix_id: int
+    cidr: str
+    role: str
+    used_count: int
+    used_addresses: list[Ipv4AddressRead] = Field(default_factory=list)
+    used_ranges: list[IpRangeRead] = Field(default_factory=list)
+    free_ranges: list[IpRangeRead] = Field(default_factory=list)
+    free_cidrs: list[str] = Field(default_factory=list)
 
 
 class Ipv4PrefixSplitResponse(BaseModel):

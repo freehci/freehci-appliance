@@ -373,6 +373,7 @@ class DeviceModelRead(BaseModel):
 class DeviceInstanceCreate(BaseModel):
     device_model_id: int | None = None
     device_type_id: int | None = None
+    site_id: int | None = Field(None, ge=1, description="DCIM-site; arves fra rack/rom hvis utelatt")
     name: str = Field(..., min_length=1, max_length=255)
     serial_number: str | None = Field(None, max_length=128)
     asset_tag: str | None = Field(None, max_length=128)
@@ -382,6 +383,7 @@ class DeviceInstanceCreate(BaseModel):
 class DeviceInstanceUpdate(BaseModel):
     device_model_id: int | None = None
     device_type_id: int | None = None
+    site_id: int | None = Field(None, ge=1)
     name: str | None = Field(None, min_length=1, max_length=255)
     serial_number: str | None = Field(None, max_length=128)
     asset_tag: str | None = Field(None, max_length=128)
@@ -395,7 +397,8 @@ class DeviceInstanceRead(BaseModel):
     device_model_id: int | None
     device_type_id: int | None
     effective_device_type_id: int | None
-    # Site fra rack → rom når enheten er plassert; brukes bl.a. for IPAM-prefiks i riktig site.
+    site_id: int | None = None
+    # Lagret site, ellers rack → rom. Brukes for IPAM-prefiks i riktig site.
     effective_site_id: int | None
     name: str
     serial_number: str | None

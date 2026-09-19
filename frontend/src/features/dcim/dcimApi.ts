@@ -1039,6 +1039,7 @@ export function deleteDeviceIpAssignment(deviceId: number, assignmentId: number)
 export function createDevice(body: {
   device_model_id?: number | null;
   device_type_id?: number | null;
+  site_id?: number | null;
   name: string;
   serial_number?: string | null;
   asset_tag?: string | null;
@@ -1052,6 +1053,7 @@ export function updateDevice(
   body: {
     device_model_id?: number | null;
     device_type_id?: number | null;
+    site_id?: number | null;
     name?: string;
     serial_number?: string | null;
     asset_tag?: string | null;

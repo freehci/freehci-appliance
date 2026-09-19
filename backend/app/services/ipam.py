@@ -180,18 +180,21 @@ def _ipv4_address_total(cidr: str) -> int:
 
 
 def _ipv4_assignments_with_site(db: Session) -> list[tuple[ipaddress.IPv4Address, int]]:
-    """IPv4-tildelinger på plasserte enheter: (adresse, site_id)."""
+    """IPv4-tildelinger: (adresse, site_id) fra device.site_id eller rack → rom."""
     q = (
-        select(InterfaceIpAssignment.address, Room.site_id)
+        select(InterfaceIpAssignment.address, DeviceInstance.site_id, Room.site_id)
         .join(DeviceInterface, DeviceInterface.id == InterfaceIpAssignment.interface_id)
         .join(DeviceInstance, DeviceInstance.id == DeviceInterface.device_id)
-        .join(RackPlacement, RackPlacement.device_id == DeviceInstance.id)
-        .join(Rack, Rack.id == RackPlacement.rack_id)
-        .join(Room, Room.id == Rack.room_id)
+        .outerjoin(RackPlacement, RackPlacement.device_id == DeviceInstance.id)
+        .outerjoin(Rack, Rack.id == RackPlacement.rack_id)
+        .outerjoin(Room, Room.id == Rack.room_id)
         .where(InterfaceIpAssignment.family == "ipv4")
     )
     out: list[tuple[ipaddress.IPv4Address, int]] = []
-    for addr, sid in db.execute(q).all():
+    for addr, dev_site, room_site in db.execute(q).all():
+        sid = dev_site if dev_site is not None else room_site
+        if sid is None:
+            continue
         try:
             ip = ipaddress.ip_address(str(addr).strip())
             if isinstance(ip, ipaddress.IPv4Address):

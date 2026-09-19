@@ -119,7 +119,8 @@ export type DeviceInstance = {
   device_model_id: number | null;
   device_type_id: number | null;
   effective_device_type_id: number | null;
-  /** Site fra rack-plassering; null hvis enheten ikke er plassert */
+  site_id: number | null;
+  /** Lagret site, ellers rack → rom */
   effective_site_id: number | null;
   name: string;
   serial_number: string | null;

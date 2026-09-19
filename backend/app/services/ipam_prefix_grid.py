@@ -19,9 +19,11 @@ from app.schemas.ipam import (
 from app.services import ipam as ipam_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services.ipam_address import _ipv4_address_read
+from app.services.ipam_errors import ipam_error
 
-# Samme øvre grense som subnett-skann.
-MAX_GRID_ADDRESSES = scan_svc.MAX_SCAN_HOSTS
+# Hard max: /22 (1024). Overlay-/16 skal bruke available-ranges, ikke grid.
+MAX_GRID_ADDRESSES = 1024
+MIN_GRID_PREFIXLEN = 22
 
 
 def _address_role_for(cidr: str, addr_s: str) -> str | None:
@@ -103,11 +105,25 @@ def build_prefix_address_grid(db: Session, prefix_id: int) -> PrefixAddressGridR
     if pfx is None:
         raise HTTPException(status_code=404, detail="prefiks ikke funnet")
 
+    try:
+        net = ipaddress.ip_network(pfx.cidr, strict=False)
+    except ValueError as e:
+        raise ipam_error(400, "invalid_cidr", str(e)) from e
+    if net.version == 4 and (net.prefixlen < MIN_GRID_PREFIXLEN or net.num_addresses > MAX_GRID_ADDRESSES):
+        raise ipam_error(
+            400,
+            "prefix_too_large_for_grid",
+            f"address-grid støtter høyst /{MIN_GRID_PREFIXLEN} ({MAX_GRID_ADDRESSES} adresser) — bruk available-ranges",
+            max_prefixlen=MIN_GRID_PREFIXLEN,
+            max_addresses=MAX_GRID_ADDRESSES,
+        )
+
     candidates = _candidate_strings_in_prefix(pfx.cidr)
     if len(candidates) > MAX_GRID_ADDRESSES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"for mange adresser (>{MAX_GRID_ADDRESSES}) — del opp prefikset",
+        raise ipam_error(
+            400,
+            "prefix_too_large_for_grid",
+            f"for mange adresser (>{MAX_GRID_ADDRESSES}) — bruk available-ranges",
         )
 
     assigns = ipam_svc.ipv4_assignments_for_prefix_id(db, prefix_id)

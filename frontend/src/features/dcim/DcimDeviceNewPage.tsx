@@ -18,11 +18,13 @@ export function DcimDeviceNewPage() {
   const [devModel, setDevModel] = useState("");
   const [devDt, setDevDt] = useState("");
   const [devName, setDevName] = useState("");
+  const [devSite, setDevSite] = useState("");
   const [devAttrsJson, setDevAttrsJson] = useState("{}");
   const [devIconUrl, setDevIconUrl] = useState("");
 
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
   const deviceTypesQ = useQuery({ queryKey: ["dcim", "device-types"], queryFn: api.listDeviceTypes });
+  const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
 
   useEffect(() => {
     const name = searchParams.get("prefillDeviceName")?.trim() ?? "";
@@ -67,6 +69,7 @@ export function DcimDeviceNewPage() {
         name: devName.trim(),
         device_model_id: devModel === "" ? null : Number(devModel),
         device_type_id: devDt === "" ? null : Number(devDt),
+        site_id: devSite === "" ? null : Number(devSite),
         attributes: attrsOut,
       });
     },
@@ -121,6 +124,17 @@ export function DcimDeviceNewPage() {
           <label>
             {t("dcim.equip.dev.hostname")}
             <input value={devName} onChange={(e) => setDevName(e.target.value)} required />
+          </label>
+          <label>
+            {t("dcim.equip.dev.siteLabel")}
+            <select value={devSite} onChange={(e) => setDevSite(e.target.value)}>
+              <option value="">{t("dcim.equip.dev.siteInherit")}</option>
+              {(sitesQ.data ?? []).map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label title={t("dcim.equip.dev.iconUrlHint")}>
             {t("dcim.equip.dev.iconUrl")}

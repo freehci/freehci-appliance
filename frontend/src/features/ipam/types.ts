@@ -162,6 +162,31 @@ export type PrefixAddressGridRead = {
   rows: PrefixAddressGridRow[];
 };
 
+export type Ipv4AvailablePrefixes = {
+  parent_id: number;
+  cidr: string;
+  prefixlen: number;
+  available: string[];
+  truncated: boolean;
+};
+
+export type IpRange = {
+  start: string;
+  end: string;
+  count: number;
+};
+
+export type Ipv4AvailableRanges = {
+  prefix_id: number;
+  cidr: string;
+  role: string;
+  used_count: number;
+  used_addresses: Ipv4Address[];
+  used_ranges: IpRange[];
+  free_ranges: IpRange[];
+  free_cidrs: string[];
+};
+
 export type IpamVrf = {
   id: number;
   site_id: number;
