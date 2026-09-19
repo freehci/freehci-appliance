@@ -45,6 +45,13 @@ from app.schemas.ipam import (
     IpamVrfRead,
     IpamVrfUpdate,
     IpamAuditEventRead,
+    IpamBulkEnsure,
+    IpamBulkEnsureRead,
+    IpamWebhookCreate,
+    IpamWebhookDeliveryRead,
+    IpamWebhookRead,
+    PrefixDriftRead,
+    SiteDriftRead,
     Ipv6AddressEnsure,
     Ipv6AddressRead,
     Ipv6AddressRequest,
@@ -64,6 +71,8 @@ from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
 from app.services import ipam_audit as audit_svc
 from app.services import ipam_etag as etag_svc
+from app.services import ipam_sync as sync_svc
+from app.services import ipam_webhooks as hook_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
 
@@ -168,6 +177,11 @@ def get_available_ranges(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4A
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
     return alloc_svc.available_ranges(db, row)
+
+
+@router.get("/ipv4-prefixes/{prefix_id}/drift", response_model=PrefixDriftRead)
+def get_ipv4_prefix_drift(prefix_id: int, db: Session = Depends(get_db)) -> PrefixDriftRead:
+    return sync_svc.prefix_drift(db, prefix_id)
 
 
 @router.get("/ipv4-prefixes/{prefix_id}", response_model=Ipv4PrefixRead)
@@ -741,3 +755,55 @@ def list_ipam_audit(
         IpamAuditEventRead.model_validate(r)
         for r in audit_svc.list_events(db, site_id=site_id, resource_type=resource_type, action=action, limit=limit)
     ]
+
+
+@router.get("/drift", response_model=SiteDriftRead)
+def get_site_drift(site_id: int = Query(..., ge=1), db: Session = Depends(get_db)) -> SiteDriftRead:
+    return sync_svc.site_drift(db, site_id)
+
+
+@router.post("/bulk-ensure", response_model=IpamBulkEnsureRead)
+def bulk_ensure_ipam(data: IpamBulkEnsure, db: Session = Depends(get_db)) -> IpamBulkEnsureRead:
+    return sync_svc.bulk_ensure(db, data)
+
+
+@router.get("/export")
+def export_site_ipam(
+    site_id: int = Query(..., ge=1),
+    format: str = Query("json", description="json | yaml"),
+    db: Session = Depends(get_db),
+):
+    if format.strip().lower() == "yaml":
+        text = sync_svc.export_site_yaml(db, site_id)
+        return Response(content=text, media_type="application/yaml")
+    return sync_svc.export_site(db, site_id)
+
+
+@router.get("/webhooks", response_model=list[IpamWebhookRead])
+def list_ipam_webhooks(db: Session = Depends(get_db)) -> list[IpamWebhookRead]:
+    return [hook_svc.webhook_to_read(r) for r in hook_svc.list_webhooks(db)]
+
+
+@router.post("/webhooks", response_model=IpamWebhookRead)
+def create_ipam_webhook(data: IpamWebhookCreate, db: Session = Depends(get_db)) -> IpamWebhookRead:
+    return hook_svc.webhook_to_read(hook_svc.create_webhook(db, data))
+
+
+@router.get("/webhooks/{webhook_id}/deliveries", response_model=list[IpamWebhookDeliveryRead])
+def list_ipam_webhook_deliveries(
+    webhook_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[IpamWebhookDeliveryRead]:
+    row = hook_svc.get_webhook(db, webhook_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "webhook_not_found", "detail": "webhook ikke funnet"})
+    return [hook_svc.delivery_to_read(d) for d in hook_svc.list_deliveries(db, webhook_id, limit=limit)]
+
+
+@router.delete("/webhooks/{webhook_id}", status_code=204)
+def delete_ipam_webhook(webhook_id: int, db: Session = Depends(get_db)) -> None:
+    row = hook_svc.get_webhook(db, webhook_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "webhook_not_found", "detail": "webhook ikke funnet"})
+    hook_svc.delete_webhook(db, row)

@@ -995,3 +995,78 @@ class IpamAuditEventRead(BaseModel):
     resource_id: int | None
     site_id: int | None
     detail: dict[str, Any] | None = None
+
+
+class IpamDriftAddress(BaseModel):
+    address: str
+    status: str | None = None
+    role: str | None = None
+    mac_address: str | None = None
+
+
+class PrefixDriftRead(BaseModel):
+    prefix_id: int
+    cidr: str
+    scan_id: int | None = None
+    scanned_at: dt.datetime | None = None
+    aligned: list[str] = Field(default_factory=list)
+    seen_unmanaged: list[IpamDriftAddress] = Field(default_factory=list)
+    reserved_missing: list[IpamDriftAddress] = Field(default_factory=list)
+
+
+class SiteDriftRead(BaseModel):
+    site_id: int
+    prefixes: list[PrefixDriftRead]
+
+
+class IpamBulkEnsure(BaseModel):
+    update: bool = False
+    prefixes: list[Ipv4PrefixEnsure] = Field(default_factory=list)
+    addresses: list[Ipv4AddressEnsure] = Field(default_factory=list)
+    ipv6_prefixes: list[Ipv6PrefixEnsure] = Field(default_factory=list)
+    ipv6_addresses: list[Ipv6AddressEnsure] = Field(default_factory=list)
+
+
+class IpamBulkItemResult(BaseModel):
+    kind: str
+    key: str
+    ok: bool
+    created: bool | None = None
+    id: int | None = None
+    error: dict[str, Any] | None = None
+
+
+class IpamBulkEnsureRead(BaseModel):
+    results: list[IpamBulkItemResult]
+    created: int = 0
+    unchanged: int = 0
+    failed: int = 0
+
+
+class IpamWebhookCreate(BaseModel):
+    url: str = Field(..., min_length=8, max_length=512)
+    secret: str | None = Field(None, max_length=255)
+    events: list[str] | None = None
+    enabled: bool = True
+
+
+class IpamWebhookRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    url: str
+    events: list[str] | None = None
+    enabled: bool
+    created_at: dt.datetime
+
+
+class IpamWebhookDeliveryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    webhook_id: int
+    event: str
+    status: str
+    status_code: int | None
+    error: str | None
+    created_at: dt.datetime

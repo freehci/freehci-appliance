@@ -193,6 +193,9 @@ def create_ipv6_prefix(db: Session, data: Ipv6PrefixCreate) -> Ipv6PrefixRead:
         db.rollback()
         raise ipam_error(409, "prefix_conflict", "IPv6-prefiks med samme CIDR eller slug finnes allerede") from None
     db.refresh(row)
+    from app.services import ipam_webhooks as hook_svc
+
+    hook_svc.fire("prefix.created", {"id": row.id, "site_id": row.site_id, "cidr": row.cidr, "family": "ipv6"})
     return ipv6_prefix_read(db, row, created=True)
 
 
@@ -370,6 +373,12 @@ def ensure_ipv6_address(db: Session, data: Ipv6AddressEnsure, *, update: bool = 
     audit_svc.record(db, action="ensure", resource_type="address", site_id=pfx.site_id, address=ip_s, family="ipv6")
     db.commit()
     db.refresh(row)
+    from app.services import ipam_webhooks as hook_svc
+
+    hook_svc.fire(
+        "address.ensured",
+        {"id": row.id, "site_id": row.site_id, "address": row.address, "family": "ipv6", "created": created},
+    )
     return _addr_read(row, created=created)
 
 
@@ -454,6 +463,9 @@ def release_ipv6_address(db: Session, row: IpamIpv6Address) -> Ipv6AddressRead:
     row.interface_id = None
     db.commit()
     db.refresh(row)
+    from app.services import ipam_webhooks as hook_svc
+
+    hook_svc.fire("address.released", {"id": row.id, "site_id": row.site_id, "address": row.address, "family": "ipv6"})
     return _addr_read(row)
 
 

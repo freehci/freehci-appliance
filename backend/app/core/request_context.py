@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 IPAM_SCOPES = frozenset({"ipam:read", "ipam:alloc", "ipam:admin"})
 _ALLOC_HINTS = (
     "/ensure",
+    "/bulk-ensure",
     "/request",
     "/request-batch",
     "/allocate",

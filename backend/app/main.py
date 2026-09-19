@@ -50,6 +50,9 @@ Machine-readable connect info: `GET /api/v1/auth/agent` (no auth).
 - Lists send `X-Total-Count` and `X-Truncated` so a default limit of 200 cannot hide remaining rows.
 - Optimistic concurrency: GET returns `ETag` and `etag` on the body. PATCH/DELETE/release/bind accept optional `If-Match` (412 `precondition_failed` on mismatch).
 - Prefix delete is 409 if children or addresses exist; pass `?cascade=true` to remove them
+- Drift vs last ping scan: `GET /ipv4-prefixes/{id}/drift` and `GET /drift?site_id=`.
+- Apply desired state in one call: `POST /bulk-ensure`. Export a site: `GET /export?site_id=&format=yaml`.
+- Webhooks: `POST /webhooks` then events `prefix.created|prefix.updated|address.ensured|address.released` with optional `X-FreeHCI-Signature`.
 """
 
 

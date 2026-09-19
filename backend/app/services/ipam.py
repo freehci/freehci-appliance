@@ -737,7 +737,11 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
             "prefiks med samme CIDR i denne VRF-en eller samme slug finnes allerede på siten",
         ) from None
     db.refresh(row)
-    return ipv4_prefix_read(db, row, created=True)
+    out = ipv4_prefix_read(db, row, created=True)
+    from app.services import ipam_webhooks as hook_svc
+
+    hook_svc.fire("prefix.created", {"id": row.id, "site_id": row.site_id, "cidr": row.cidr, "slug": row.slug})
+    return out
 
 
 def _apply_prefix_ensure_update(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixEnsure) -> IpamIpv4Prefix:
@@ -787,6 +791,12 @@ def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure, *, update: bool = Fa
             _apply_prefix_ensure_update(db, existing, data)
             db.commit()
             db.refresh(existing)
+            from app.services import ipam_webhooks as hook_svc
+
+            hook_svc.fire(
+                "prefix.updated",
+                {"id": existing.id, "site_id": existing.site_id, "cidr": existing.cidr, "slug": existing.slug},
+            )
         return ipv4_prefix_read(db, existing, created=False)
     name = (data.name or data.slug or cidr).strip()
     create = Ipv4PrefixCreate(

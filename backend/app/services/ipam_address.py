@@ -287,6 +287,12 @@ def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure, *, update: bool = 
 
     db.commit()
     db.refresh(row)
+    from app.services import ipam_webhooks as hook_svc
+
+    hook_svc.fire(
+        "address.ensured",
+        {"id": row.id, "site_id": row.site_id, "address": row.address, "status": row.status, "created": created},
+    )
     return _ipv4_address_read(db, row, created=created)
 
 
@@ -715,4 +721,7 @@ def release_ipv4_address(db: Session, row: IpamIpv4Address) -> Ipv4AddressRead:
     row.device_type_id = None
     db.commit()
     db.refresh(row)
+    from app.services import ipam_webhooks as hook_svc
+
+    hook_svc.fire("address.released", {"id": row.id, "site_id": row.site_id, "address": row.address})
     return _ipv4_address_read(db, row)
