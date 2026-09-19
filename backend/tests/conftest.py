@@ -25,6 +25,7 @@ get_settings.cache_clear()
 import pytest  # noqa: E402
 
 import app.models.admin_account  # noqa: E402, F401
+import app.models.api_token  # noqa: E402, F401
 import app.models.tenant  # noqa: E402, F401
 import app.models.dcim  # noqa: E402, F401
 import app.models.iam  # noqa: E402, F401 — users + grupper (FK fra IPAM/DCIM)

@@ -70,6 +70,10 @@ export function createPerson(body: {
   return apiPost(`${P}/persons`, body);
 }
 
+export function deletePerson(personId: number): Promise<void> {
+  return apiDelete(`${P}/persons/${personId}`);
+}
+
 export function patchPerson(
   personId: number,
   body: Partial<{

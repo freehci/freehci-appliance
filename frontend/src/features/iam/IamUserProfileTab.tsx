@@ -1,18 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
+import dcimStyles from "@/features/dcim/dcim.module.css";
 import * as api from "./iamApi";
 import styles from "./iam.module.css";
 
 export function IamUserProfileTab() {
   const { t } = useI18n();
+  const nav = useNavigate();
   const { userId } = useParams<{ userId: string }>();
   const id = Number(userId);
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const q = useQuery({
     queryKey: ["iam", "person", id],
@@ -52,6 +56,15 @@ export function IamUserProfileTab() {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
       void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const deleteM = useMutation({
+    mutationFn: () => api.deletePerson(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
+      void nav("/iam/users");
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -102,6 +115,14 @@ export function IamUserProfileTab() {
       </div>
 
       <div className={styles.userDetailFooter}>
+        <button
+          type="button"
+          className={`${dcimStyles.btnDanger} ${styles.footerDanger}`.trim()}
+          disabled={deleteM.isPending}
+          onClick={() => setConfirmDelete(true)}
+        >
+          {t("iam.deleteUser")}
+        </button>
         <Link to="/iam/users" className={styles.btnOutline}>
           {t("iam.cancel")}
         </Link>
@@ -109,6 +130,19 @@ export function IamUserProfileTab() {
           {t("iam.update")}
         </Button>
       </div>
+      <ConfirmModal
+        open={confirmDelete}
+        onClose={() => {
+          if (!deleteM.isPending) setConfirmDelete(false);
+        }}
+        title={t("ui.confirmTitle")}
+        message={t("iam.deleteUserConfirm", { username: person.username })}
+        confirmLabel={t("iam.deleteUser")}
+        cancelLabel={t("iam.cancel")}
+        danger
+        pending={deleteM.isPending}
+        onConfirm={() => deleteM.mutate()}
+      />
     </div>
   );
 }

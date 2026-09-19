@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from fastapi import HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from app.core.config import get_settings
+from app.models.dcim import SiteAccessGrant
+from app.models.ipam import IpamIpv4Address
+from app.models.tenant_access import TenantUserMembership
 
 from app.models.iam import (
     IamGroup,
@@ -57,6 +62,25 @@ def patch_person(db: Session, row: User, data: UserPatch) -> UserRead:
     db.commit()
     db.refresh(row)
     return UserRead.model_validate(row)
+
+
+def delete_person(db: Session, row: User) -> None:
+    """Slett katalogbruker og rydd relasjoner (SQLite har ikke FK-pragma på)."""
+    user_id = row.id
+    rel = getattr(row, "avatar_file", None)
+    db.execute(delete(IamGroupUserMember).where(IamGroupUserMember.user_id == user_id))
+    db.execute(delete(IamUserRole).where(IamUserRole.user_id == user_id))
+    db.execute(delete(TenantUserMembership).where(TenantUserMembership.user_id == user_id))
+    db.execute(delete(SiteAccessGrant).where(SiteAccessGrant.user_id == user_id))
+    db.execute(update(IpamIpv4Address).where(IpamIpv4Address.owner_user_id == user_id).values(owner_user_id=None))
+    db.delete(row)
+    db.commit()
+    if rel:
+        p = get_settings().upload_root_path / rel
+        try:
+            p.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def _ancestor_group_ids(db: Session, start_ids: set[int]) -> set[int]:

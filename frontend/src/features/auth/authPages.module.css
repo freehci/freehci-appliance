@@ -30,3 +30,22 @@
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+
+.tokenBox {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.tokenValue {
+  display: block;
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  overflow-x: auto;
+  word-break: break-all;
+  font-size: var(--text-xs);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-sm);
+}

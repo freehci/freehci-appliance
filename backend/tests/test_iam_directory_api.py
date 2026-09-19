@@ -94,3 +94,14 @@ def test_iam_roles_assign() -> None:
         assert d.status_code == 200, d.text
         assert d.json()["member_count"] == 1
         assert len(d.json()["assignees"]) == 1
+
+
+def test_iam_delete_person() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        u = client.post("/api/v1/iam/persons", json={"username": f"del-{uuid.uuid4().hex[:8]}"})
+        assert u.status_code == 200, u.text
+        uid = u.json()["id"]
+        assert client.delete(f"/api/v1/iam/persons/{uid}").status_code == 204
+        assert client.get(f"/api/v1/iam/persons/{uid}").status_code == 404
+        assert client.delete(f"/api/v1/iam/persons/{uid}").status_code == 404

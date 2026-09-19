@@ -83,3 +83,71 @@ def test_change_password(client_with_auth: TestClient) -> None:
     assert bad.status_code == 401
     ok = client_with_auth.post("/api/v1/auth/login", json={"username": "admin", "password": "nyttpass8"})
     assert ok.status_code == 200
+
+
+def test_admin_accounts_reset_and_delete(client_with_auth: TestClient) -> None:
+    login = client_with_auth.post("/api/v1/auth/login", json={"username": "admin", "password": "admin"})
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    created = client_with_auth.post(
+        "/api/v1/auth/accounts",
+        json={"username": "operatør", "password": "hemmelig1"},
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    other_id = created.json()["id"]
+    assert created.json()["is_self"] is False
+
+    listed = client_with_auth.get("/api/v1/auth/accounts", headers=headers)
+    assert listed.status_code == 200
+    names = {x["username"] for x in listed.json()}
+    assert {"admin", "operatør"} <= names
+
+    me = client_with_auth.get("/api/v1/auth/me", headers=headers)
+    assert me.status_code == 200
+    self_id = me.json()["id"]
+    assert client_with_auth.delete(f"/api/v1/auth/accounts/{self_id}", headers=headers).status_code == 400
+
+    reset = client_with_auth.post(
+        f"/api/v1/auth/accounts/{other_id}/reset-password",
+        json={"new_password": "nyttpass9"},
+        headers=headers,
+    )
+    assert reset.status_code == 204
+    assert client_with_auth.post("/api/v1/auth/login", json={"username": "operatør", "password": "hemmelig1"}).status_code == 401
+    assert client_with_auth.post("/api/v1/auth/login", json={"username": "operatør", "password": "nyttpass9"}).status_code == 200
+
+    deleted = client_with_auth.delete(f"/api/v1/auth/accounts/{other_id}", headers=headers)
+    assert deleted.status_code == 204
+    leftover = client_with_auth.get("/api/v1/auth/accounts", headers=headers)
+    assert {x["username"] for x in leftover.json()} == {"admin"}
+
+
+def test_api_token_bearer_and_agent_discovery(client_with_auth: TestClient) -> None:
+    login = client_with_auth.post("/api/v1/auth/login", json={"username": "admin", "password": "admin"})
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    created = client_with_auth.post("/api/v1/auth/tokens", json={"name": "agent-cursor"}, headers=headers)
+    assert created.status_code == 200, created.text
+    token = created.json()["token"]
+    assert token.startswith("fhci_")
+    token_id = created.json()["id"]
+
+    sites = client_with_auth.get("/api/v1/dcim/sites", headers={"Authorization": f"Bearer {token}"})
+    assert sites.status_code == 200
+
+    agent = client_with_auth.get("/api/v1/auth/agent")
+    assert agent.status_code == 200
+    body = agent.json()
+    assert body["openapi_url"] == "/api/v1/openapi.json"
+    assert body["docs_url"] == "/api/v1/docs"
+
+    spec = client_with_auth.get("/api/v1/openapi.json")
+    assert spec.status_code == 200
+    assert spec.json()["components"]["securitySchemes"]["BearerAuth"]["scheme"] == "bearer"
+
+    assert client_with_auth.delete(f"/api/v1/auth/tokens/{token_id}", headers=headers).status_code == 204
+    denied = client_with_auth.get("/api/v1/dcim/sites", headers={"Authorization": f"Bearer {token}"})
+    assert denied.status_code == 401

@@ -1,16 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Button } from "@/components/ui/Button";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
+import dcimStyles from "@/features/dcim/dcim.module.css";
 import * as api from "./iamApi";
 import styles from "./iam.module.css";
 
 export function IamPersonDetailPage() {
   const { t } = useI18n();
   const loc = useLocation();
+  const nav = useNavigate();
   const { personId } = useParams<{ personId: string }>();
   const id = Number(personId);
   const qc = useQueryClient();
@@ -18,6 +21,7 @@ export function IamPersonDetailPage() {
   const backTo = fromServiceAccounts ? "/iam/service-accounts" : "/iam/users";
   const [err, setErr] = useState<string | null>(null);
   const [rolePick, setRolePick] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const q = useQuery({
     queryKey: ["iam", "person", id],
@@ -80,6 +84,15 @@ export function IamPersonDetailPage() {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["iam", "person", id] });
       void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const deleteM = useMutation({
+    mutationFn: () => api.deletePerson(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["iam", "directory"] });
+      void nav(backTo);
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -201,10 +214,40 @@ export function IamPersonDetailPage() {
               </li>
             ))}
           </ul>
+
+          <div className={styles.rowActions}>
+            <button
+              type="button"
+              className={dcimStyles.btnDanger}
+              disabled={deleteM.isPending}
+              onClick={() => setConfirmDelete(true)}
+            >
+              {fromServiceAccounts ? t("iam.deleteServiceAccount") : t("iam.deleteUser")}
+            </button>
+          </div>
         </>
       ) : (
         <p className={styles.err}>{t("iam.notFound")}</p>
       )}
+      <ConfirmModal
+        open={confirmDelete}
+        onClose={() => {
+          if (!deleteM.isPending) setConfirmDelete(false);
+        }}
+        title={t("ui.confirmTitle")}
+        message={
+          person
+            ? fromServiceAccounts
+              ? t("iam.deleteServiceAccountConfirm", { username: person.username })
+              : t("iam.deleteUserConfirm", { username: person.username })
+            : null
+        }
+        confirmLabel={fromServiceAccounts ? t("iam.deleteServiceAccount") : t("iam.deleteUser")}
+        cancelLabel={t("iam.cancel")}
+        danger
+        pending={deleteM.isPending}
+        onConfirm={() => deleteM.mutate()}
+      />
     </Panel>
   );
 }

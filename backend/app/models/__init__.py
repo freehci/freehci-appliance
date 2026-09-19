@@ -2,6 +2,8 @@ from app.models.base import Base
 
 # Importer sideeffekt: registrer tabeller på Base.metadata (Alembic, create_all).
 # Tenant før DCIM (sites har FK til tenants).
+import app.models.admin_account  # noqa: F401
+import app.models.api_token  # noqa: F401
 import app.models.tenant  # noqa: F401
 import app.models.dcim  # noqa: F401
 import app.models.iam  # noqa: F401

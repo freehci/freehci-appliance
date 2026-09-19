@@ -51,7 +51,7 @@ export const nb = {
   "iam.intro":
     "Personer og servicekontoer deler brukerkatalogen (samme som IPAM/DCIM). Servicekontoer er tekniske identiteter for integrasjoner og jobber. Roller er globale applikasjonsroller. Grupper støtter nestede undergrupper, f.eks. for synkronisering fra Active Directory via en plugin med capability `iam.directory_provider`.",
   "iam.serviceAccountsHint":
-    "Radene bruker `users.kind = service_account`. Bruk dem til automatisering og tjenestenøkler, ikke som interaktive brukere.",
+    "Radene bruker `users.kind = service_account`. De er katalogidentiteter for automatisering. API-nøkler for agenter opprettes under Konto → Innloggingskontoer og API-nøkler.",
   "iam.createServiceAccount": "Opprett servicekonto",
   "iam.emptyServiceAccounts": "Ingen servicekontoer ennå.",
   "iam.detailServiceAccount": "Servicekonto",
@@ -120,6 +120,11 @@ export const nb = {
   "iam.comingSoonBody": "Denne delen er ikke implementert ennå.",
   "iam.cancel": "Avbryt",
   "iam.update": "Oppdater",
+  "iam.deleteUser": "Slett bruker",
+  "iam.deleteUserConfirm":
+    "Slette brukeren {username}? Gruppemedlemskap og site-tilgang fjernes. IPAM-eierskap på adresser tømmes.",
+  "iam.deleteServiceAccount": "Slett servicekonto",
+  "iam.deleteServiceAccountConfirm": "Slette servicekontoen {username}?",
 
   "header.search": "Søk",
   "header.searchPlaceholder": "Søk",
@@ -130,6 +135,7 @@ export const nb = {
   "header.langNb": "Norsk",
   "header.langEn": "Engelsk",
   "header.langSwitch": "Språk",
+  "header.access": "Innloggingskontoer og API-nøkler",
   "header.changePassword": "Bytt passord",
   "header.logout": "Logg ut",
   "header.updateNow": "Oppdater nå",
@@ -350,6 +356,34 @@ export const nb = {
   "auth.changePasswordSuccess": "Passordet er oppdatert.",
   "auth.mismatch": "De nye passordene er ikke like.",
   "auth.minLength": "Minst 8 tegn.",
+  "auth.accountsTitle": "Innloggingskontoer",
+  "auth.accountsIntro":
+    "Disse kontoene kan logge inn i UI og kalle API-et. IAM-katalogbrukere er identiteter uten appliance-passord.",
+  "auth.createAccount": "Opprett konto",
+  "auth.emptyAccounts": "Ingen innloggingskontoer.",
+  "auth.resetPassword": "Tilbakestill passord",
+  "auth.resetPasswordSubmit": "Sett nytt passord",
+  "auth.resetPasswordSuccess": "Passordet er oppdatert for {username}.",
+  "auth.deleteAccount": "Slett konto",
+  "auth.deleteAccountConfirm": "Slette innloggingskontoen {username}? Dette kan ikke angres.",
+  "auth.colUpdated": "Oppdatert",
+  "auth.you": "deg",
+  "auth.tokensTitle": "API-nøkler",
+  "auth.tokensIntro":
+    "Langlivede nøkler for AI-agenter og automatisering. Send som Authorization: Bearer fhci_… OpenAPI ligger på /api/v1/openapi.json.",
+  "auth.createToken": "Opprett nøkkel",
+  "auth.tokenName": "Navn på nøkkel",
+  "auth.emptyTokens": "Ingen API-nøkler ennå.",
+  "auth.tokenCreatedOnce": "Kopier nøkkelen nå. Den vises ikke igjen.",
+  "auth.copyToken": "Kopier",
+  "auth.tokenCopied": "Kopiert.",
+  "auth.revokeToken": "Tilbakekall",
+  "auth.revokeTokenConfirm": "Tilbakekalle nøkkelen {name}? Agenter som bruker den mister tilgang med en gang.",
+  "auth.colPrefix": "Prefiks",
+  "auth.colCreated": "Opprettet",
+  "auth.colLastUsed": "Sist brukt",
+  "auth.agentDocs": "Swagger UI",
+  "auth.agentOpenapi": "OpenAPI",
 
   "dashboard.title": "Dashboard",
   "dashboard.welcome":

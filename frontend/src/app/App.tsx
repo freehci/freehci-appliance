@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { AccountAccessPage } from "@/features/auth/AccountAccessPage";
 import { ChangePasswordPage } from "@/features/auth/ChangePasswordPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RequireAuth } from "@/features/auth/RequireAuth";
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route element={<AppShellLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/account/password" element={<ChangePasswordPage />} />
+          <Route path="/account/access" element={<AccountAccessPage />} />
           <Route path="/dcim" element={<DcimLayout />}>
             <Route index element={<DcimOverviewPage />} />
             <Route path="sites" element={<DcimSitesPage />} />

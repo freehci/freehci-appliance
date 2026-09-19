@@ -159,6 +159,14 @@ export function TopHeader() {
           </span>
         ) : null}
         <Link
+          to="/account/access"
+          className={styles.iconBtn}
+          title={t("header.access")}
+          aria-label={t("header.access")}
+        >
+          <i className="fas fa-user-gear" aria-hidden />
+        </Link>
+        <Link
           to="/account/password"
           className={styles.iconBtn}
           title={t("header.changePassword")}

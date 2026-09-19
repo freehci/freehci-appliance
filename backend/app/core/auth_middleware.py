@@ -1,4 +1,4 @@
-"""Krever Bearer-JWT for /api/v1 unntatt helse, innlogging og offentlige DCIM-bilder (GET)."""
+"""Krever Bearer-JWT eller API-nøkkel for /api/v1 unntatt helse, innlogging og offentlige stier."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core.config import Settings
-from app.services.auth_admin import decode_token_payload
+from app.core.db import SessionLocal
+from app.services.auth_admin import API_TOKEN_PREFIX, authenticate_api_token, decode_token_payload
 
 
 def _is_public_dcim_media_get(path: str, api_v1_prefix: str) -> bool:
@@ -43,7 +44,9 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
 
         if path.startswith(f"{api}/health"):
             return await call_next(request)
-        if path == f"{api}/auth/login":
+        if path == f"{api}/auth/login" or path == f"{api}/auth/agent":
+            return await call_next(request)
+        if path in {f"{api}/openapi.json", f"{api}/docs", f"{api}/redoc"} or path.startswith(f"{api}/docs/"):
             return await call_next(request)
         if request.method == "GET" and _is_public_dcim_media_get(path, self.settings.api_v1_prefix):
             return await call_next(request)
@@ -52,6 +55,18 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
         if not authz or not authz.lower().startswith("bearer "):
             return JSONResponse({"detail": "mangler innlogging"}, status_code=401)
         token = authz[7:].strip()
+
+        if token.startswith(API_TOKEN_PREFIX):
+            db = SessionLocal()
+            try:
+                admin_id = authenticate_api_token(db, token)
+            finally:
+                db.close()
+            if admin_id is None:
+                return JSONResponse({"detail": "ugyldig innlogging"}, status_code=401)
+            request.state.admin_id = admin_id
+            return await call_next(request)
+
         try:
             payload = decode_token_payload(token, self.settings)
         except jwt.ExpiredSignatureError:

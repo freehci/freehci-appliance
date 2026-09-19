@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from app.api.v1.router import api_router
 from app.core.auth_middleware import ApiAuthMiddleware
@@ -16,6 +17,19 @@ from app.services.auth_admin import ensure_default_admin
 
 settings = get_settings()
 setup_logging(settings.debug)
+
+_OPENAPI_DESCRIPTION = """
+Appliance API for DCIM, IPAM, IAM and integrations.
+
+## Authentication
+
+Send `Authorization: Bearer <token>` on `/api/v1` routes.
+
+- **API token (recommended for agents):** create a token via the UI or `POST /api/v1/auth/tokens`. Tokens start with `fhci_`.
+- **Login JWT:** `POST /api/v1/auth/login` with username and password, then use `access_token`.
+
+Machine-readable connect info: `GET /api/v1/auth/agent` (no auth).
+"""
 
 
 def _load_plugins() -> None:
@@ -40,9 +54,14 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    api = settings.api_v1_prefix.rstrip("/")
     application = FastAPI(
         title=settings.app_name,
+        description=_OPENAPI_DESCRIPTION,
         lifespan=lifespan,
+        openapi_url=f"{api}/openapi.json",
+        docs_url=f"{api}/docs",
+        redoc_url=f"{api}/redoc",
     )
     application.add_middleware(
         CORSMiddleware,
@@ -53,6 +72,29 @@ def create_app() -> FastAPI:
     )
     application.add_middleware(ApiAuthMiddleware, settings=get_settings())
     application.include_router(api_router, prefix=settings.api_v1_prefix)
+
+    def custom_openapi() -> dict:
+        if application.openapi_schema:
+            return application.openapi_schema
+        schema = get_openapi(
+            title=application.title,
+            version=application.version or "0.1.0",
+            description=application.description,
+            routes=application.routes,
+        )
+        components = schema.setdefault("components", {})
+        schemes = components.setdefault("securitySchemes", {})
+        schemes["BearerAuth"] = {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT or API token",
+            "description": "JWT from POST /api/v1/auth/login, or a long-lived API token (fhci_…).",
+        }
+        schema["security"] = [{"BearerAuth": []}]
+        application.openapi_schema = schema
+        return schema
+
+    application.openapi = custom_openapi  # type: ignore[method-assign]
     return application
 
 

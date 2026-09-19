@@ -65,6 +65,14 @@ def patch_person(person_id: int, data: UserPatch, db: Session = Depends(get_db))
     return iam_svc.patch_person(db, row, data)
 
 
+@router.delete("/persons/{person_id}", status_code=204)
+def delete_person(person_id: int, db: Session = Depends(get_db)) -> None:
+    row = iam_svc.get_person(db, person_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="person ikke funnet")
+    iam_svc.delete_person(db, row)
+
+
 @router.post("/persons/{person_id}/roles", status_code=204)
 def assign_role_to_person(person_id: int, body: IamAssignRoleBody, db: Session = Depends(get_db)) -> None:
     row = iam_svc.get_person(db, person_id)

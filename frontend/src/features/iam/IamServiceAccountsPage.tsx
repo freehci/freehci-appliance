@@ -39,6 +39,11 @@ export function IamServiceAccountsPage() {
   return (
     <Panel title={t("nav.iamServiceAccountsNav")}>
       <p className={styles.intro}>{t("iam.serviceAccountsHint")}</p>
+      <p className={styles.intro}>
+        <Link className={styles.tableLink} to="/account/access">
+          {t("header.access")}
+        </Link>
+      </p>
       <div className={styles.rowActions}>
         <div className={styles.field}>
           <label htmlFor="iam-sa-user">{t("iam.colUsername")}</label>
