@@ -262,6 +262,8 @@ export type RackWriteFields = {
   commissioned_date?: string | null;
   notes?: string | null;
   attributes?: Record<string, unknown> | null;
+  mounting?: "floor" | "wall";
+  elevation_mm?: number | null;
 };
 
 export function createRack(

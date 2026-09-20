@@ -64,6 +64,10 @@ export type Rack = {
   notes: string | null;
   /** Tilpassede nøkkel/verdi; f.eks. rack_type for fremtidige skjemaer eller plugin-data. */
   attributes: Record<string, unknown> | null;
+  /** floor = gulvstående, wall = vegghengt. */
+  mounting?: "floor" | "wall";
+  /** Underkant over gulv i mm (kun vegghengt). */
+  elevation_mm?: number | null;
 };
 
 export type Manufacturer = {

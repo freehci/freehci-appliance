@@ -9,6 +9,7 @@ import {
   gridRowStartForPlacement,
   isInsideAnyRange,
   occupiedUnitsForRack,
+  rackElevationU,
 } from "./rackUtils";
 import styles from "./RackPlanner.module.css";
 
@@ -38,6 +39,9 @@ type Props = {
   highlightPlacementId?: number;
   selectedPlacementId?: number | null;
   onSelectPlacement?: (placement: RackPlacement | null) => void;
+  selectedRackId?: number | null;
+  onSelectRack?: (rackId: number) => void;
+  columnU?: number;
   compact?: boolean;
   roomLabel?: string;
   conflictIds?: ReadonlySet<number>;
@@ -63,6 +67,9 @@ export function RackElevation({
   highlightPlacementId,
   selectedPlacementId,
   onSelectPlacement,
+  selectedRackId,
+  onSelectRack,
+  columnU,
   compact = false,
   roomLabel,
   conflictIds,
@@ -74,7 +81,8 @@ export function RackElevation({
   const isHighlightedRack =
     highlightPlacementId != null && rackPlacements.some((p) => p.id === highlightPlacementId);
   const isSelectedRack =
-    selectedPlacementId != null && rackPlacements.some((p) => p.id === selectedPlacementId);
+    selectedRackId === rack.id ||
+    (selectedPlacementId != null && rackPlacements.some((p) => p.id === selectedPlacementId));
 
   useEffect(() => {
     if (!isHighlightedRack) return;
@@ -219,6 +227,9 @@ export function RackElevation({
         onDragOver={(e) => handleDragOverSlot(e, u)}
         onDragLeave={() => setDragOverKey(null)}
         onDrop={(e) => handleDropSlot(e, u)}
+        onClick={() => {
+          if (!dragging) onSelectRack?.(rack.id);
+        }}
       >
         <span className={styles.srOnly}>
           {t("dcim.racks.uLabel")}
@@ -346,6 +357,10 @@ export function RackElevation({
     );
   }
 
+  const scaleU = columnU != null && columnU > 0 ? columnU : n;
+  const liftU = rackElevationU(rack);
+  const refH = compact ? "min(52vh, 560px)" : "min(68vh, 720px)";
+
   return (
     <div
       ref={stageRef}
@@ -358,11 +373,19 @@ export function RackElevation({
         .join(" ")
         .trim()}
     >
-      <div className={styles.rackStageTitle}>
+      <button
+        type="button"
+        className={styles.rackStageTitle}
+        onClick={() => onSelectRack?.(rack.id)}
+      >
         {rack.name} ({n}U)
-      </div>
+      </button>
       {roomLabel ? <p className={styles.rackSub}>{roomLabel}</p> : null}
-      <div className={styles.rackAspect}>
+      <div className={styles.rackStageMain} style={{ minHeight: `calc(${refH})` }}>
+      <div
+        className={styles.rackAspect}
+        style={{ height: `calc(${refH} * ${n} / ${scaleU})` }}
+      >
         <div className={styles.rackFrame}>
           <div className={styles.uRail} style={{ gridTemplateRows: `repeat(${n}, minmax(0, 1fr))` }} aria-hidden>
             {uRail}
@@ -400,6 +423,14 @@ export function RackElevation({
             ) : null}
           </div>
         ) : null}
+      </div>
+      {liftU > 0 ? (
+        <div
+          className={styles.rackLift}
+          style={{ height: `calc(${refH} * ${liftU} / ${scaleU})` }}
+          aria-hidden
+        />
+      ) : null}
       </div>
       <div className={styles.rackStats}>
         <span>

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { canPlaceDeviceAt, findPlacementIssues, firstFitU, occupiedUnitsForRack } from "./rackUtils";
+import {
+  canPlaceDeviceAt,
+  findPlacementIssues,
+  firstFitU,
+  occupiedUnitsForRack,
+  rackColumnU,
+  rackElevationU,
+} from "./rackUtils";
 import type { DeviceInstance, DeviceModel, RackPlacement } from "./types";
 
 function dev(id: number, modelId: number): DeviceInstance {
@@ -60,5 +67,17 @@ describe("rack occupancy", () => {
     ];
     const issues = findPlacementIssues(extra, [{ id: 5, u_height: 42 }], devices, models);
     expect(issues.some((i) => i.kind === "overlap")).toBe(true);
+  });
+});
+
+describe("rack visual scale", () => {
+  it("keeps a 15U floor rack shorter than a 42U neighbor", () => {
+    expect(rackColumnU([{ u_height: 15 }, { u_height: 42 }])).toBe(42);
+  });
+
+  it("adds wall elevation to the shared column", () => {
+    const wall = { u_height: 15, mounting: "wall", elevation_mm: 890 };
+    expect(rackElevationU(wall)).toBeCloseTo(20, 0);
+    expect(rackColumnU([{ u_height: 15 }, wall])).toBeGreaterThan(15);
   });
 });

@@ -16,8 +16,11 @@ import {
   existingRangesForRack,
   findPlacementIssues,
   firstFitU,
+  MM_PER_U,
   occupiedUnitsForRack,
   occupiesRange,
+  rackColumnU,
+  rackMounting,
 } from "./rackUtils";
 import type { DeviceInstance, DeviceModel, Rack, RackPlacement } from "./types";
 
@@ -274,6 +277,8 @@ export function RackPlanner({
   const [zoom, setZoom] = useState(100);
   const [paletteCollapsed, setPaletteCollapsed] = useState(false);
   const [selectedPlacementId, setSelectedPlacementId] = useState<number | null>(null);
+  const [selectedRackId, setSelectedRackId] = useState<number | null>(null);
+  const [elevDraft, setElevDraft] = useState("");
   const [armed, setArmed] = useState<{ kind: "device" | "model"; id: number } | null>(null);
 
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: api.listDevices });
@@ -499,6 +504,16 @@ export function RackPlanner({
     onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const patchRackMu = useMutation({
+    mutationFn: (vars: { id: number; mounting?: "floor" | "wall"; elevation_mm?: number | null }) =>
+      api.updateRack(vars.id, { mounting: vars.mounting, elevation_mm: vars.elevation_mm }),
+    onSuccess: () => {
+      setDropErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "racks"] });
+    },
+    onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   useEffect(() => {
     if (highlightPlacementId != null) setSelectedPlacementId(highlightPlacementId);
   }, [highlightPlacementId]);
@@ -518,6 +533,14 @@ export function RackPlanner({
     }
     return { used, total, free: Math.max(0, total - used) };
   }, [visibleRacks, allPlacements, devicesById, modelsById]);
+
+  const columnU = useMemo(() => rackColumnU(visibleRacks), [visibleRacks]);
+  const selectedDetailRack = selectedRackId != null ? (racks.find((r) => r.id === selectedRackId) ?? null) : null;
+
+  useEffect(() => {
+    if (!selectedDetailRack) return;
+    setElevDraft(selectedDetailRack.elevation_mm != null ? String(selectedDetailRack.elevation_mm) : "");
+  }, [selectedDetailRack?.id, selectedDetailRack?.elevation_mm]);
 
   const selectedPlacement =
     selectedPlacementId != null ? (allPlacements.find((p) => p.id === selectedPlacementId) ?? null) : null;
@@ -868,7 +891,16 @@ export function RackPlanner({
                 setDragOverKey={setDragOverKey}
                 highlightPlacementId={highlightPlacementId}
                 selectedPlacementId={selectedPlacementId}
-                onSelectPlacement={(p) => setSelectedPlacementId(p?.id ?? null)}
+                onSelectPlacement={(p) => {
+                  setSelectedPlacementId(p?.id ?? null);
+                  setSelectedRackId(null);
+                }}
+                selectedRackId={selectedRackId}
+                onSelectRack={(id) => {
+                  setSelectedRackId(id);
+                  setSelectedPlacementId(null);
+                }}
+                columnU={columnU}
                 compact={compact}
                 roomLabel={roomLabelForRack(rack)}
                 conflictIds={conflictIds}
@@ -894,14 +926,110 @@ export function RackPlanner({
 
         <aside className={styles.details}>
           <div className={styles.detailsHead}>
-            <h3 className={styles.detailsTitle}>{t("dcim.racks.detailsTitle")}</h3>
-            {selectedPlacement ? (
-              <button type="button" className={styles.toolbarBtn} onClick={() => setSelectedPlacementId(null)}>
+            <h3 className={styles.detailsTitle}>
+              {selectedDetailRack ? t("dcim.racks.detailsRackTitle") : t("dcim.racks.detailsTitle")}
+            </h3>
+            {selectedPlacement || selectedDetailRack ? (
+              <button
+                type="button"
+                className={styles.toolbarBtn}
+                onClick={() => {
+                  setSelectedPlacementId(null);
+                  setSelectedRackId(null);
+                }}
+              >
                 {t("dcim.racks.closeDetails")}
               </button>
             ) : null}
           </div>
-          {selectedPlacement && selectedDevice && selectedRack ? (
+          {selectedDetailRack ? (
+            <>
+              <div className={styles.detailsHero}>
+                <div>
+                  <strong>{selectedDetailRack.name}</strong>
+                  <div className={styles.paletteItemMeta}>{dash(roomLabelForRack(selectedDetailRack))}</div>
+                </div>
+              </div>
+              <dl className={styles.detailsDl}>
+                <dt>{t("dcim.racks.detailRack")}</dt>
+                <dd>
+                  {selectedDetailRack.name} ({selectedDetailRack.u_height}U)
+                </dd>
+                <dt>{t("dcim.racks.detailLocation")}</dt>
+                <dd>{dash(roomLabelForRack(selectedDetailRack))}</dd>
+                <dt>{t("dcim.racks.brand")}</dt>
+                <dd>{dash(selectedDetailRack.brand)}</dd>
+                <dt>{t("dcim.racks.tableDims")}</dt>
+                <dd>
+                  {selectedDetailRack.height_mm ?? "—"}×{selectedDetailRack.width_mm ?? "—"}×
+                  {selectedDetailRack.depth_mm ?? "—"}
+                </dd>
+                <dt>{t("dcim.racks.mounting")}</dt>
+                <dd>
+                  <div className={styles.toolbarGroup} role="group" aria-label={t("dcim.racks.mounting")}>
+                    <button
+                      type="button"
+                      className={`${styles.toolbarBtn} ${rackMounting(selectedDetailRack) === "floor" ? styles.toolbarBtnOn : ""}`.trim()}
+                      onClick={() => {
+                        if (rackMounting(selectedDetailRack) !== "floor") {
+                          patchRackMu.mutate({ id: selectedDetailRack.id, mounting: "floor", elevation_mm: null });
+                        }
+                      }}
+                    >
+                      {t("dcim.racks.mountFloor")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.toolbarBtn} ${rackMounting(selectedDetailRack) === "wall" ? styles.toolbarBtnOn : ""}`.trim()}
+                      onClick={() => {
+                        if (rackMounting(selectedDetailRack) !== "wall") {
+                          patchRackMu.mutate({ id: selectedDetailRack.id, mounting: "wall" });
+                        }
+                      }}
+                    >
+                      {t("dcim.racks.mountWall")}
+                    </button>
+                  </div>
+                </dd>
+                {rackMounting(selectedDetailRack) === "wall" ? (
+                  <>
+                    <dt>{t("dcim.racks.elevationMm")}</dt>
+                    <dd>
+                      <input
+                        className={styles.paletteSearch}
+                        type="number"
+                        min={0}
+                        max={100000}
+                        value={elevDraft}
+                        onChange={(e) => setElevDraft(e.target.value)}
+                        onBlur={() => {
+                          const raw = elevDraft.trim();
+                          if (raw === "") {
+                            patchRackMu.mutate({ id: selectedDetailRack.id, elevation_mm: null });
+                            return;
+                          }
+                          const n = Number(raw);
+                          if (!Number.isFinite(n) || n < 0) return;
+                          const mm = Math.trunc(n);
+                          if (mm === (selectedDetailRack.elevation_mm ?? null)) return;
+                          patchRackMu.mutate({ id: selectedDetailRack.id, elevation_mm: mm });
+                        }}
+                        aria-label={t("dcim.racks.elevationMm")}
+                      />
+                      <span className={styles.paletteItemMeta}>
+                        {t("dcim.racks.elevationHint")}
+                        {elevDraft.trim() !== "" && Number.isFinite(Number(elevDraft))
+                          ? ` ${t("dcim.racks.elevationApproxU", { u: String(Math.round(Number(elevDraft) / MM_PER_U)) })}`
+                          : ""}
+                      </span>
+                    </dd>
+                  </>
+                ) : null}
+                <dt>{t("dcim.racks.notes")}</dt>
+                <dd>{dash(selectedDetailRack.notes)}</dd>
+              </dl>
+            </>
+          ) : selectedPlacement && selectedDevice && selectedRack ? (
             <>
               <div className={styles.detailsHero}>
                 {selectedThumb ? <img src={selectedThumb} alt="" /> : null}

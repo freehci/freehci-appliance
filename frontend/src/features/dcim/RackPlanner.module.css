@@ -161,21 +161,49 @@
 }
 
 .rackStageTitle {
+  display: block;
+  width: 100%;
+  text-align: left;
   font-size: var(--text-xs);
   font-weight: 600;
   margin-bottom: var(--space-1);
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--color-text);
   line-height: 1.2;
   word-break: break-word;
+  cursor: pointer;
 }
 
-/* EIA-19\" rack: bredde vs. 42×1,75\" høyde ≈ 19 : 73,5 */
+.rackStageTitle:hover {
+  color: var(--color-accent);
+}
+
+.rackStageMain {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
 .rackAspect {
   width: 100%;
-  aspect-ratio: 19 / 73.5;
-  max-height: min(68vh, 720px);
   margin: 0 auto;
-  min-height: 180px;
+  min-height: 0;
+}
+
+.rackLift {
+  width: 100%;
+  border-left: 1px dashed var(--shell-border);
+  border-right: 1px dashed var(--shell-border);
+  background: repeating-linear-gradient(
+    180deg,
+    transparent,
+    transparent 6px,
+    rgba(148, 163, 184, 0.06) 6px,
+    rgba(148, 163, 184, 0.06) 7px
+  );
 }
 
 .rackGrid {
@@ -960,8 +988,8 @@
   border-radius: var(--radius-sm);
 }
 
-.rackStageCompact .rackAspect {
-  max-height: min(52vh, 560px);
+.rackStageCompact .rackStageMain {
+  min-height: min(52vh, 560px);
 }
 
 .paletteExpand {

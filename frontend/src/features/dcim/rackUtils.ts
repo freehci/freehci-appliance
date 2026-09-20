@@ -155,3 +155,32 @@ function isInsideAnyRange(u: number, ranges: { bottom: number; top: number }[]):
 }
 
 export { isInsideAnyRange };
+
+/** EIA RU height used to convert wall-mount elevation to visual U offset. */
+export const MM_PER_U = 44.45;
+
+export type RackScaleInput = {
+  u_height: number;
+  mounting?: string | null;
+  elevation_mm?: number | null;
+};
+
+export function rackMounting(rack: { mounting?: string | null }): "floor" | "wall" {
+  return rack.mounting === "wall" ? "wall" : "floor";
+}
+
+/** Visual U-offset from floor to the bottom of a wall-mounted rack. */
+export function rackElevationU(rack: RackScaleInput): number {
+  if (rackMounting(rack) !== "wall" || rack.elevation_mm == null || rack.elevation_mm <= 0) return 0;
+  return rack.elevation_mm / MM_PER_U;
+}
+
+/** Shared column height in U so mixed 15U/42U racks keep the same unit size. */
+export function rackColumnU(racks: RackScaleInput[]): number {
+  let max = 1;
+  for (const r of racks) {
+    const top = r.u_height + rackElevationU(r);
+    if (top > max) max = top;
+  }
+  return max;
+}

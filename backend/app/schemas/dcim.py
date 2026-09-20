@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -207,6 +207,8 @@ class RackCreate(BaseModel):
     commissioned_date: dt.date | None = None
     notes: str | None = None
     attributes: dict[str, Any] | None = None
+    mounting: Literal["floor", "wall"] = "floor"
+    elevation_mm: int | None = Field(None, ge=0, le=100_000)
 
 
 class RackUpdate(BaseModel):
@@ -222,6 +224,8 @@ class RackUpdate(BaseModel):
     commissioned_date: dt.date | None = None
     notes: str | None = None
     attributes: dict[str, Any] | None = None
+    mounting: Literal["floor", "wall"] | None = None
+    elevation_mm: int | None = Field(None, ge=0, le=100_000)
 
 
 class RackRead(BaseModel):
@@ -241,6 +245,8 @@ class RackRead(BaseModel):
     commissioned_date: dt.date | None
     notes: str | None
     attributes: dict[str, Any] | None
+    mounting: Literal["floor", "wall"] = "floor"
+    elevation_mm: int | None = None
 
 
 class ManufacturerCreate(BaseModel):

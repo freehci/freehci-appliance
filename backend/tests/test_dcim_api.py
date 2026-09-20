@@ -579,3 +579,30 @@ def test_dcim_zero_u_snmp_prefix_device_ip() -> None:
         listed = client.get(f"/api/v1/dcim/devices/{pdu_dev}/device-ip-assignments")
         assert listed.status_code == 200
         assert len(listed.json()) == 1
+
+
+def test_rack_wall_mount_elevation() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        site = client.post("/api/v1/dcim/sites", json={"name": "Wall DC", "slug": f"wall-{uuid.uuid4().hex[:8]}"})
+        assert site.status_code == 200
+        room = client.post("/api/v1/dcim/rooms", json={"site_id": site.json()["id"], "name": "MDF"})
+        assert room.status_code == 200
+        created = client.post(
+            "/api/v1/dcim/racks",
+            json={
+                "room_id": room.json()["id"],
+                "name": "W15",
+                "u_height": 15,
+                "mounting": "wall",
+                "elevation_mm": 800,
+            },
+        )
+        assert created.status_code == 200, created.text
+        assert created.json()["mounting"] == "wall"
+        assert created.json()["elevation_mm"] == 800
+
+        floor = client.patch(f"/api/v1/dcim/racks/{created.json()['id']}", json={"mounting": "floor"})
+        assert floor.status_code == 200, floor.text
+        assert floor.json()["mounting"] == "floor"
+        assert floor.json()["elevation_mm"] is None

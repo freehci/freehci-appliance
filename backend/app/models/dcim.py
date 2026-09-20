@@ -127,6 +127,9 @@ class Rack(Base):
     commissioned_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # floor = gulvstående; wall = vegghengt. elevation_mm = underkant over gulv (vegghengt).
+    mounting: Mapped[str] = mapped_column(String(16), nullable=False, default="floor")
+    elevation_mm: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     room: Mapped["Room"] = relationship(back_populates="racks")
     placements: Mapped[list["RackPlacement"]] = relationship(

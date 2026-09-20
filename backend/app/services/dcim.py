@@ -612,6 +612,16 @@ def delete_room(db: Session, room: Room) -> None:
 
 # --- Racks ---
 
+def _normalize_rack_mounting(value: str | None) -> str:
+    return "wall" if value == "wall" else "floor"
+
+
+def _normalize_rack_elevation(mounting: str | None, elevation_mm: int | None) -> int | None:
+    if _normalize_rack_mounting(mounting) != "wall":
+        return None
+    return elevation_mm
+
+
 def list_racks(db: Session, *, room_id: int | None = None) -> list[Rack]:
     q = select(Rack).order_by(Rack.sort_order, Rack.name)
     if room_id is not None:
@@ -638,6 +648,8 @@ def create_rack(db: Session, data: RackCreate) -> Rack:
         commissioned_date=data.commissioned_date,
         notes=data.notes.strip() if data.notes else None,
         attributes=data.attributes,
+        mounting=_normalize_rack_mounting(data.mounting),
+        elevation_mm=_normalize_rack_elevation(data.mounting, data.elevation_mm),
     )
     db.add(row)
     db.commit()
@@ -704,6 +716,14 @@ def update_rack(db: Session, rack: Rack, data: RackUpdate) -> Rack:
         if tid is not None and tenant_svc.get_tenant(db, int(tid)) is None:
             raise HTTPException(status_code=404, detail="tenant ikke funnet")
         rack.tenant_id = tid
+
+    next_mounting = rack.mounting
+    if "mounting" in payload and payload["mounting"] is not None:
+        next_mounting = _normalize_rack_mounting(str(payload["mounting"]))
+        rack.mounting = next_mounting
+    if "elevation_mm" in payload or "mounting" in payload:
+        elev = payload["elevation_mm"] if "elevation_mm" in payload else rack.elevation_mm
+        rack.elevation_mm = _normalize_rack_elevation(next_mounting, elev)
 
     db.commit()
     db.refresh(rack)

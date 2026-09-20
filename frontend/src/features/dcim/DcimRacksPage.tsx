@@ -18,6 +18,14 @@ function formatDimsMm(k: Rack): string {
   return `${h ?? "—"}×${w ?? "—"}×${d ?? "—"}`;
 }
 
+function parseElevationMm(s: string): "empty" | "invalid" | number {
+  const t = s.trim();
+  if (!t) return "empty";
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0 || n > 100_000) return "invalid";
+  return Math.trunc(n);
+}
+
 function parseMmInput(s: string): "empty" | "invalid" | number {
   const t = s.trim();
   if (!t) return "empty";
@@ -59,6 +67,8 @@ type RackExtraForm = {
   commissionedDate: string;
   notes: string;
   attributesJson: string;
+  mounting: "floor" | "wall";
+  elevationMm: string;
 };
 
 const emptyExtra = (): RackExtraForm => ({
@@ -71,6 +81,8 @@ const emptyExtra = (): RackExtraForm => ({
   commissionedDate: "",
   notes: "",
   attributesJson: "",
+  mounting: "floor",
+  elevationMm: "",
 });
 
 function rackToExtra(k: Rack): RackExtraForm {
@@ -84,6 +96,8 @@ function rackToExtra(k: Rack): RackExtraForm {
     commissionedDate: k.commissioned_date ?? "",
     notes: k.notes ?? "",
     attributesJson: k.attributes != null ? JSON.stringify(k.attributes, null, 2) : "",
+    mounting: k.mounting === "wall" ? "wall" : "floor",
+    elevationMm: k.elevation_mm != null ? String(k.elevation_mm) : "",
   };
 }
 
@@ -209,6 +223,12 @@ export function DcimRacksPage() {
       if (createExtra.tenantId.trim() !== "") {
         body.tenant_id = Number(createExtra.tenantId);
       }
+      body.mounting = createExtra.mounting;
+      if (createExtra.mounting === "wall") {
+        const el = parseElevationMm(createExtra.elevationMm);
+        if (el === "invalid") throw new Error(t("dcim.racks.invalidMm"));
+        if (typeof el === "number") body.elevation_mm = el;
+      }
 
       return api.createRack(body);
     },
@@ -254,6 +274,14 @@ export function DcimRacksPage() {
       body.notes = editExtra.notes.trim() ? editExtra.notes.trim() : null;
       if (attr.value !== undefined) body.attributes = attr.value;
       body.tenant_id = editExtra.tenantId.trim() === "" ? null : Number(editExtra.tenantId);
+      body.mounting = editExtra.mounting;
+      if (editExtra.mounting === "wall") {
+        const el = parseElevationMm(editExtra.elevationMm);
+        if (el === "invalid") throw new Error(t("dcim.racks.invalidMm"));
+        body.elevation_mm = typeof el === "number" ? el : null;
+      } else {
+        body.elevation_mm = null;
+      }
 
       return api.updateRack(editId, body);
     },
@@ -353,6 +381,30 @@ export function DcimRacksPage() {
                 onChange={(e) => setUHeight(e.target.value)}
               />
             </label>
+            <label>
+              {t("dcim.racks.mounting")}
+              <select
+                value={createExtra.mounting}
+                onChange={(e) =>
+                  setCreateExtra((x) => ({ ...x, mounting: e.target.value === "wall" ? "wall" : "floor" }))
+                }
+              >
+                <option value="floor">{t("dcim.racks.mountFloor")}</option>
+                <option value="wall">{t("dcim.racks.mountWall")}</option>
+              </select>
+            </label>
+            {createExtra.mounting === "wall" ? (
+              <label>
+                {t("dcim.racks.elevationMm")}
+                <input
+                  type="number"
+                  min={0}
+                  value={createExtra.elevationMm}
+                  onChange={(e) => setCreateExtra((x) => ({ ...x, elevationMm: e.target.value }))}
+                />
+                <span className={styles.muted}>{t("dcim.racks.elevationHint")}</span>
+              </label>
+            ) : null}
             <label>
               {t("dcim.racks.sortOrder")}
               <input
@@ -465,6 +517,30 @@ export function DcimRacksPage() {
                   onChange={(e) => setEditUHeight(e.target.value)}
                 />
               </label>
+              <label>
+                {t("dcim.racks.mounting")}
+                <select
+                  value={editExtra.mounting}
+                  onChange={(e) =>
+                    setEditExtra((x) => ({ ...x, mounting: e.target.value === "wall" ? "wall" : "floor" }))
+                  }
+                >
+                  <option value="floor">{t("dcim.racks.mountFloor")}</option>
+                  <option value="wall">{t("dcim.racks.mountWall")}</option>
+                </select>
+              </label>
+              {editExtra.mounting === "wall" ? (
+                <label>
+                  {t("dcim.racks.elevationMm")}
+                  <input
+                    type="number"
+                    min={0}
+                    value={editExtra.elevationMm}
+                    onChange={(e) => setEditExtra((x) => ({ ...x, elevationMm: e.target.value }))}
+                  />
+                  <span className={styles.muted}>{t("dcim.racks.elevationHint")}</span>
+                </label>
+              ) : null}
               <label>
                 {t("dcim.racks.sortOrder")}
                 <input
