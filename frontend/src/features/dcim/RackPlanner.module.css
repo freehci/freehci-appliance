@@ -1,6 +1,6 @@
 .planner {
   display: grid;
-  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr) minmax(240px, 300px);
+  grid-template-columns: minmax(176px, 220px) minmax(0, 1fr) minmax(200px, 240px);
   gap: var(--space-3);
   align-items: stretch;
 }
@@ -29,7 +29,7 @@
 .palette {
   border: 1px solid var(--shell-border);
   border-radius: var(--radius-sm);
-  padding: var(--space-3);
+  padding: var(--space-2);
   background: var(--color-bg-elevated);
   position: sticky;
   top: var(--space-2);
@@ -111,6 +111,18 @@
   min-width: 0;
 }
 
+.paletteItemRow > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.paletteItemName {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .paletteItem:active {
   cursor: grabbing;
 }
@@ -136,16 +148,10 @@
 
 .rackMatrix {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-4) var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-3) var(--space-2);
   align-items: start;
   min-width: 0;
-}
-
-@media (min-width: 1200px) {
-  .rackMatrix {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  }
 }
 
 .rackStage {
@@ -167,9 +173,9 @@
 .rackAspect {
   width: 100%;
   aspect-ratio: 19 / 73.5;
-  max-height: min(78vh, 920px);
+  max-height: min(68vh, 720px);
   margin: 0 auto;
-  min-height: 200px;
+  min-height: 180px;
 }
 
 .rackGrid {
@@ -313,20 +319,24 @@
 
 .deviceBlockInner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  padding: 2px var(--space-1);
-  font-size: 0.6rem;
+  gap: 4px;
+  padding: 0 4px;
+  font-size: 0.58rem;
   color: var(--color-text);
-  flex-shrink: 0;
-  background: rgba(26, 35, 58, 0.75);
+  flex: 1;
+  min-height: 0;
+  background: rgba(26, 35, 58, 0.55);
 }
 
 .deviceName {
   font-weight: 600;
   line-height: 1.15;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .deviceMeta {
@@ -596,8 +606,27 @@
 .toolbarSearch {
   flex: 1 1 12rem;
   min-width: 10rem;
+  align-self: center;
+  box-sizing: border-box;
+  height: 1.75rem;
+  max-height: 1.75rem;
   font-size: var(--text-xs);
-  padding: var(--space-1) var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--shell-border);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+}
+
+.paletteSearch {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  flex: none;
+  height: 1.75rem;
+  max-height: 1.75rem;
+  font-size: var(--text-xs);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--shell-border);
   background: var(--color-input-bg);
@@ -673,8 +702,15 @@
 .paletteFilters {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   margin-bottom: var(--space-2);
+  flex: none;
+}
+
+.chipBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .chipRow {
@@ -709,6 +745,9 @@
   display: block;
   font-size: 0.65rem;
   color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .paletteItemArmed {
@@ -748,7 +787,7 @@
 
 .uRail {
   display: grid;
-  font-size: 0.58rem;
+  font-size: 0.48rem;
   color: var(--color-text-muted);
   user-select: none;
 }
@@ -865,6 +904,15 @@
 
 .detailsDl dd {
   margin: 0;
+}
+
+.detailsDl dd .toolbarGroup {
+  width: max-content;
+}
+
+.deviceBlockGrid .uBadge {
+  font-size: 0.55rem;
+  padding: 0.05rem 0.25rem;
 }
 
 .detailsActions {

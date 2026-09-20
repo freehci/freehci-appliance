@@ -9,9 +9,7 @@ import {
   gridRowStartForPlacement,
   isInsideAnyRange,
   occupiedUnitsForRack,
-  occupiesRange,
 } from "./rackUtils";
-import { deviceModelBackSrc, deviceModelRackFaceSrc } from "./modelImages";
 import styles from "./RackPlanner.module.css";
 
 export type DragPayload =
@@ -40,7 +38,6 @@ type Props = {
   highlightPlacementId?: number;
   selectedPlacementId?: number | null;
   onSelectPlacement?: (placement: RackPlacement | null) => void;
-  viewFace?: "front" | "rear";
   compact?: boolean;
   roomLabel?: string;
   conflictIds?: ReadonlySet<number>;
@@ -66,7 +63,6 @@ export function RackElevation({
   highlightPlacementId,
   selectedPlacementId,
   onSelectPlacement,
-  viewFace = "front",
   compact = false,
   roomLabel,
   conflictIds,
@@ -224,7 +220,7 @@ export function RackElevation({
         onDragLeave={() => setDragOverKey(null)}
         onDrop={(e) => handleDropSlot(e, u)}
       >
-        <span className={styles.slotLabel}>
+        <span className={styles.srOnly}>
           {t("dcim.racks.uLabel")}
           {u}
           {occupied ? ` · ${t("dcim.racks.slotBlocked")}` : ""}
@@ -239,22 +235,13 @@ export function RackElevation({
     const h = deviceUHeight(dev, modelsById);
     if (h === 0) return null;
     const rowStart = gridRowStartForPlacement(n, p.u_position, h);
-    const { bottom, top } = occupiesRange(p.u_position, h);
-    const mod = dev.device_model_id != null ? modelsById.get(dev.device_model_id) : undefined;
     const isRear = p.mounting === "rear";
-    const offFace = (isRear && viewFace === "front") || (!isRear && viewFace === "rear");
-    const thumbSrc = mod
-      ? isRear
-        ? deviceModelBackSrc(mod) ?? deviceModelRackFaceSrc(mod)
-        : deviceModelRackFaceSrc(mod)
-      : null;
     return (
       <div
         key={p.id}
         className={[
           styles.deviceBlockGrid,
           isRear ? styles.deviceBlockRear : styles.deviceBlockFront,
-          offFace ? styles.deviceBlockOffFace : "",
           dragging?.kind === "placement" && dragging.placementId === p.id
             ? styles.deviceBlockDragging
             : "",
@@ -265,6 +252,7 @@ export function RackElevation({
           .join(" ")
           .trim()}
         style={{ gridRow: `${rowStart} / span ${h}`, gridColumn: 1 }}
+        title={`${dev.name} · ${h}U · ${isRear ? t("dcim.equip.mountRear") : t("dcim.equip.mountFront")}`}
         draggable
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("button, select, [data-rack-no-drag]")) return;
@@ -286,28 +274,9 @@ export function RackElevation({
           setDragOverKey(null);
         }}
       >
-        <span
-          className={isRear ? styles.mountBadgeRear : styles.mountBadgeFront}
-          title={isRear ? t("dcim.equip.mountRear") : t("dcim.equip.mountFront")}
-          aria-hidden
-        >
-          {isRear ? "R" : "F"}
-        </span>
-        {thumbSrc ? (
-          <img
-            src={thumbSrc}
-            alt=""
-            className={[styles.deviceThumb, isRear ? styles.deviceThumbRear : ""].join(" ").trim()}
-            draggable={false}
-          />
-        ) : null}
         <div className={styles.deviceBlockInner}>
-          <div className={styles.deviceBlockText}>
-            <div className={styles.deviceName}>{dev.name}</div>
-            <div className={styles.deviceMeta}>
-              U{bottom}–{top} · {h}U
-            </div>
-          </div>
+          <div className={styles.deviceName}>{dev.name}</div>
+          <span className={styles.uBadge}>{h}U</span>
         </div>
       </div>
     );
@@ -317,14 +286,7 @@ export function RackElevation({
   for (const p of zeroPlacements) {
     const dev = devicesById.get(p.device_id);
     if (!dev) continue;
-    const mod = dev.device_model_id != null ? modelsById.get(dev.device_model_id) : undefined;
     const isRear = p.mounting === "rear";
-    const offFace = (isRear && viewFace === "front") || (!isRear && viewFace === "rear");
-    const thumbSrc = mod
-      ? isRear
-        ? deviceModelBackSrc(mod) ?? deviceModelRackFaceSrc(mod)
-        : deviceModelRackFaceSrc(mod)
-      : null;
     zeroOverlays.push(
       <div
         key={`zero-${p.id}`}
@@ -332,13 +294,13 @@ export function RackElevation({
           styles.deviceBlockZeroU,
           styles.deviceBlockGrid,
           isRear ? styles.deviceBlockRear : styles.deviceBlockFront,
-          offFace ? styles.deviceBlockOffFace : "",
           dragging?.kind === "placement" && dragging.placementId === p.id ? styles.deviceBlockDragging : "",
           highlightPlacementId === p.id || selectedPlacementId === p.id ? styles.deviceBlockSelected : "",
           conflictIds?.has(p.id) ? styles.deviceBlockConflict : "",
         ]
           .join(" ")
           .trim()}
+        title={`${dev.name} · 0U · ${isRear ? t("dcim.equip.mountRear") : t("dcim.equip.mountFront")}`}
         draggable
         onClick={() => onSelectPlacement?.(p)}
         onDoubleClick={() => onEditPlacement(p)}
@@ -357,26 +319,9 @@ export function RackElevation({
           setDragOverKey(null);
         }}
       >
-        <span
-          className={isRear ? styles.mountBadgeRear : styles.mountBadgeFront}
-          title={isRear ? t("dcim.equip.mountRear") : t("dcim.equip.mountFront")}
-          aria-hidden
-        >
-          {isRear ? "R" : "F"}
-        </span>
-        {thumbSrc ? (
-          <img
-            src={thumbSrc}
-            alt=""
-            className={[styles.deviceThumb, isRear ? styles.deviceThumbRear : ""].join(" ").trim()}
-            draggable={false}
-          />
-        ) : null}
         <div className={styles.deviceBlockInner}>
-          <div className={styles.deviceBlockText}>
-            <div className={styles.deviceName}>{dev.name}</div>
-            <div className={styles.deviceMeta}>{t("dcim.racks.zeroUDeviceMeta").replace(/\{mount\}/g, p.mounting)}</div>
-          </div>
+          <div className={styles.deviceName}>{dev.name}</div>
+          <span className={styles.uBadge}>0U</span>
         </div>
       </div>,
     );
@@ -393,9 +338,10 @@ export function RackElevation({
 
   const uRail: ReactNode[] = [];
   for (let u = n; u >= 1; u -= 1) {
+    const show = u === 1 || u === n || u % 5 === 0;
     uRail.push(
       <div key={`rail-${u}`} className={styles.uRailTick}>
-        {u}
+        {show ? u : ""}
       </div>,
     );
   }

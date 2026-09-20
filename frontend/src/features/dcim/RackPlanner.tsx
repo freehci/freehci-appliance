@@ -36,6 +36,80 @@ function shortInstanceSuffix(): string {
 
 type PaletteTab = "devices" | "models";
 
+const CHIP_PREVIEW = 5;
+
+function ChipOverflow({
+  items,
+  selected,
+  onSelect,
+  allLabel,
+  moreLabel,
+  lessLabel,
+  searchLabel,
+}: {
+  items: { id: string; label: string }[];
+  selected: string;
+  onSelect: (id: string) => void;
+  allLabel: string;
+  moreLabel: string;
+  lessLabel: string;
+  searchLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((x) => x.label.toLowerCase().includes(needle));
+  }, [items, q]);
+  const shown = useMemo(() => {
+    if (open || filtered.length <= CHIP_PREVIEW) return filtered;
+    const head = filtered.slice(0, CHIP_PREVIEW);
+    if (!selected || head.some((x) => x.id === selected)) return head;
+    const extra = filtered.find((x) => x.id === selected);
+    return extra ? [extra, ...head.slice(0, CHIP_PREVIEW - 1)] : head;
+  }, [filtered, open, selected]);
+  const hidden = Math.max(0, filtered.length - shown.length);
+
+  return (
+    <div className={styles.chipBlock}>
+      {open && items.length > CHIP_PREVIEW ? (
+        <input
+          className={styles.paletteSearch}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={searchLabel}
+          aria-label={searchLabel}
+        />
+      ) : null}
+      <div className={styles.chipRow}>
+        <button
+          type="button"
+          className={`${styles.chip} ${selected === "" ? styles.chipOn : ""}`.trim()}
+          onClick={() => onSelect("")}
+        >
+          {allLabel}
+        </button>
+        {shown.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`${styles.chip} ${selected === item.id ? styles.chipOn : ""}`.trim()}
+            onClick={() => onSelect(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+        {filtered.length > CHIP_PREVIEW ? (
+          <button type="button" className={styles.chip} onClick={() => setOpen((v) => !v)}>
+            {open ? lessLabel : hidden > 0 ? `${moreLabel} (${hidden})` : lessLabel}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 type PatchVars = {
   pid: number;
   rack_id?: number;
@@ -187,7 +261,6 @@ export function RackPlanner({
   const { t } = useI18n();
   const qc = useQueryClient();
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("devices");
-  const [viewFace, setViewFace] = useState<"front" | "rear">("front");
   const [editorPlacement, setEditorPlacement] = useState<RackPlacement | null>(null);
   const [dragging, setDragging] = useState<DragPayload>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -312,6 +385,21 @@ export function RackPlanner({
     });
   }, [unplacedDevices, modelsById, paletteQuery, sizeFilter, vendorFilter, typeFilter]);
 
+  const vendorItems = useMemo(
+    () =>
+      [...(mfrQ.data ?? [])]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((m) => ({ id: String(m.id), label: m.name })),
+    [mfrQ.data],
+  );
+  const typeItems = useMemo(
+    () =>
+      [...(typesQ.data ?? [])]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((tp) => ({ id: String(tp.id), label: tp.name })),
+    [typesQ.data],
+  );
+
   const filteredModels = useMemo(() => {
     const q = paletteQuery.trim().toLowerCase();
     return (modelsQ.data ?? []).filter((m) => {
@@ -328,7 +416,7 @@ export function RackPlanner({
 
   const placeDeviceMu = useMutation({
     mutationFn: (body: { rack_id: number; device_id: number; u_position: number }) =>
-      api.createPlacement({ ...body, mounting: viewFace }),
+      api.createPlacement({ ...body, mounting: "front" }),
     onSuccess: (p) => {
       setDropErr(null);
       setSelectedPlacementId(p.id);
@@ -350,7 +438,7 @@ export function RackPlanner({
         rack_id: vars.rackId,
         device_id: dev.id,
         u_position: vars.u,
-        mounting: viewFace,
+        mounting: "front",
       });
     },
     onSuccess: (p) => {
@@ -502,22 +590,6 @@ export function RackPlanner({
       <p className={styles.hint}>{t("dcim.racks.designerIntro")}</p>
 
       <div className={styles.toolbar}>
-        <div className={styles.toolbarGroup} role="group" aria-label={t("dcim.racks.paletteMountHint")}>
-          <button
-            type="button"
-            className={`${styles.toolbarBtn} ${viewFace === "front" ? styles.toolbarBtnOn : ""}`.trim()}
-            onClick={() => setViewFace("front")}
-          >
-            {t("dcim.racks.viewFront")}
-          </button>
-          <button
-            type="button"
-            className={`${styles.toolbarBtn} ${viewFace === "rear" ? styles.toolbarBtnOn : ""}`.trim()}
-            onClick={() => setViewFace("rear")}
-          >
-            {t("dcim.racks.viewRear")}
-          </button>
-        </div>
         <input
           className={styles.toolbarSearch}
           value={layoutQuery}
@@ -617,7 +689,7 @@ export function RackPlanner({
             </div>
             <div className={styles.paletteFilters}>
               <input
-                className={styles.toolbarSearch}
+                className={styles.paletteSearch}
                 value={paletteQuery}
                 onChange={(e) => setPaletteQuery(e.target.value)}
                 placeholder={t("dcim.racks.paletteSearch")}
@@ -636,58 +708,35 @@ export function RackPlanner({
                   </button>
                 ))}
               </div>
-              {(mfrQ.data ?? []).length > 0 ? (
+              {vendorItems.length > 0 ? (
                 <>
                   <p className={styles.filterLabel}>{t("dcim.racks.filterVendor")}</p>
-                  <div className={styles.chipRow}>
-                    <button
-                      type="button"
-                      className={`${styles.chip} ${vendorFilter === "" ? styles.chipOn : ""}`.trim()}
-                      onClick={() => setVendorFilter("")}
-                    >
-                      {t("dcim.racks.filterAll")}
-                    </button>
-                    {(mfrQ.data ?? []).map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        className={`${styles.chip} ${vendorFilter === String(m.id) ? styles.chipOn : ""}`.trim()}
-                        onClick={() => setVendorFilter(String(m.id))}
-                      >
-                        {m.name}
-                      </button>
-                    ))}
-                  </div>
+                  <ChipOverflow
+                    items={vendorItems}
+                    selected={vendorFilter}
+                    onSelect={setVendorFilter}
+                    allLabel={t("dcim.racks.filterAll")}
+                    moreLabel={t("dcim.racks.filterMore")}
+                    lessLabel={t("dcim.racks.filterLess")}
+                    searchLabel={t("dcim.racks.filterChipSearch")}
+                  />
                 </>
               ) : null}
-              {(typesQ.data ?? []).length > 0 ? (
+              {typeItems.length > 0 ? (
                 <>
                   <p className={styles.filterLabel}>{t("dcim.racks.filterCategory")}</p>
-                  <div className={styles.chipRow}>
-                    <button
-                      type="button"
-                      className={`${styles.chip} ${typeFilter === "" ? styles.chipOn : ""}`.trim()}
-                      onClick={() => setTypeFilter("")}
-                    >
-                      {t("dcim.racks.filterAll")}
-                    </button>
-                    {(typesQ.data ?? []).map((tp) => (
-                      <button
-                        key={tp.id}
-                        type="button"
-                        className={`${styles.chip} ${typeFilter === String(tp.id) ? styles.chipOn : ""}`.trim()}
-                        onClick={() => setTypeFilter(String(tp.id))}
-                      >
-                        {tp.name}
-                      </button>
-                    ))}
-                  </div>
+                  <ChipOverflow
+                    items={typeItems}
+                    selected={typeFilter}
+                    onSelect={setTypeFilter}
+                    allLabel={t("dcim.racks.filterAll")}
+                    moreLabel={t("dcim.racks.filterMore")}
+                    lessLabel={t("dcim.racks.filterLess")}
+                    searchLabel={t("dcim.racks.filterChipSearch")}
+                  />
                 </>
               ) : null}
             </div>
-            <p className={styles.paletteHint}>
-              {paletteTab === "devices" ? t("dcim.racks.paletteHint") : t("dcim.racks.paletteModelsHint")}
-            </p>
             <div className={styles.paletteList}>
               {paletteTab === "devices" ? (
                 unplacedDevices.length === 0 ? (
@@ -722,7 +771,7 @@ export function RackPlanner({
                             <img src={deviceModelRackFaceSrc(mod)!} alt="" className={styles.modelThumb} draggable={false} />
                           ) : null}
                           <span>
-                            <span>{d.name}</span>
+                            <span className={styles.paletteItemName}>{d.name}</span>
                             <span className={styles.paletteItemMeta}>
                               {[vendor, typeName].filter(Boolean).join(" · ")}
                             </span>
@@ -760,7 +809,7 @@ export function RackPlanner({
                         <img src={deviceModelRackFaceSrc(m)!} alt="" className={styles.modelThumb} draggable={false} />
                       ) : null}
                       <span>
-                        <span>{m.name}</span>
+                        <span className={styles.paletteItemName}>{m.name}</span>
                         <span className={styles.paletteItemMeta}>
                           {[mfrById.get(m.manufacturer_id ?? -1), typeById.get(m.device_type_id ?? -1)]
                             .filter(Boolean)
@@ -798,7 +847,12 @@ export function RackPlanner({
           </div>
           <div
             className={`${styles.rackMatrix} ${compact ? styles.rackMatrixCompact : ""}`.trim()}
-            style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${colMin}px, 1fr))` }}
+            style={{
+              gridTemplateColumns:
+                visibleRacks.length <= 3
+                  ? `repeat(${Math.max(visibleRacks.length, 1)}, minmax(0, 1fr))`
+                  : `repeat(auto-fill, minmax(${colMin}px, 1fr))`,
+            }}
           >
             {visibleRacks.map((rack) => (
               <RackElevation
@@ -815,7 +869,6 @@ export function RackPlanner({
                 highlightPlacementId={highlightPlacementId}
                 selectedPlacementId={selectedPlacementId}
                 onSelectPlacement={(p) => setSelectedPlacementId(p?.id ?? null)}
-                viewFace={viewFace}
                 compact={compact}
                 roomLabel={roomLabelForRack(rack)}
                 conflictIds={conflictIds}
@@ -872,7 +925,30 @@ export function RackPlanner({
                 </dd>
                 <dt>{t("dcim.racks.detailSide")}</dt>
                 <dd>
-                  {selectedPlacement.mounting === "rear" ? t("dcim.equip.mountRear") : t("dcim.equip.mountFront")}
+                  <div className={styles.toolbarGroup} role="group" aria-label={t("dcim.racks.detailSide")}>
+                    <button
+                      type="button"
+                      className={`${styles.toolbarBtn} ${selectedPlacement.mounting !== "rear" ? styles.toolbarBtnOn : ""}`.trim()}
+                      onClick={() => {
+                        if (selectedPlacement.mounting !== "front") {
+                          patchPlacementMu.mutate({ pid: selectedPlacement.id, mounting: "front" });
+                        }
+                      }}
+                    >
+                      {t("dcim.racks.viewFront")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.toolbarBtn} ${selectedPlacement.mounting === "rear" ? styles.toolbarBtnOn : ""}`.trim()}
+                      onClick={() => {
+                        if (selectedPlacement.mounting !== "rear") {
+                          patchPlacementMu.mutate({ pid: selectedPlacement.id, mounting: "rear" });
+                        }
+                      }}
+                    >
+                      {t("dcim.racks.viewRear")}
+                    </button>
+                  </div>
                 </dd>
                 <dt>{t("dcim.racks.detailRack")}</dt>
                 <dd>
