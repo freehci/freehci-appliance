@@ -115,6 +115,9 @@ export function updateIpv4Prefix(
     tenant_id?: number | null;
     vlan_id?: number | null;
     vrf_id?: number | null;
+    role?: string;
+    status?: string;
+    overlap_policy?: string;
   },
 ): Promise<Ipv4Prefix> {
   return apiPatch(`${P}/ipv4-prefixes/${id}`, body);

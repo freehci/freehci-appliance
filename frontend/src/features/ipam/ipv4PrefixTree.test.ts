@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPrefixTreeIndex,
+  filterPrefixesKeepingAncestors,
   immediateParentFor,
   ipv4EqualSplitOptions,
   splitIpv4IntoHalves,
@@ -74,5 +75,16 @@ describe("prefix tree", () => {
     expect(roots.map((r) => r.id)).toEqual([1]);
     expect((childrenByParentId.get(1) ?? []).map((c) => c.id).sort()).toEqual([2, 3]);
     expect((childrenByParentId.get(2) ?? []).map((c) => c.id)).toEqual([4]);
+  });
+
+  it("keeps ancestors when filtering children", () => {
+    const site = 1;
+    const root = p(1, site, "R", "10.27.13.0/24");
+    const a = p(2, site, "A", "10.27.13.0/25");
+    const b = p(3, site, "B", "10.27.13.128/25");
+    const all = [root, a, b];
+    const { childrenByParentId } = buildPrefixTreeIndex(all);
+    const kept = filterPrefixesKeepingAncestors(all, childrenByParentId, (x) => x.id === 2);
+    expect(kept.map((x) => x.id).sort()).toEqual([1, 2]);
   });
 });

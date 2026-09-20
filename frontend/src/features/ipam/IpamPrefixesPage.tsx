@@ -12,12 +12,23 @@ import type { Ipv4Prefix, PrefixAddressGridRow } from "./types";
 import { OVERLAP_POLICIES, PREFIX_ROLES, PREFIX_STATUSES } from "./types";
 import {
   buildPrefixTreeIndex,
+  filterPrefixesKeepingAncestors,
   flattenVisiblePrefixTree,
   ipv4EqualSplitOptions,
   parseIpv4Cidr,
 } from "./ipv4PrefixTree";
 import * as ipamApi from "./ipamApi";
 import { IpamIpRequestModal } from "./IpamIpRequestModal";
+import prefixStyles from "./prefixPage.module.css";
+import {
+  PrefixDrawer,
+  PrefixRoleBadge,
+  PrefixStatusBadge,
+  RowOverflowMenu,
+  SummaryCards,
+  UtilizationBar,
+  prefixUsage,
+} from "./prefixPageUi";
 
 type ExploreCrumb = { id: number; name: string; cidr: string };
 
@@ -37,6 +48,17 @@ function formatInventoryTimestamp(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
+function parentFromChildrenMap(
+  id: number,
+  all: Ipv4Prefix[],
+  childrenByParentId: Map<number, Ipv4Prefix[]>,
+): Ipv4Prefix | null {
+  for (const [pid, kids] of childrenByParentId) {
+    if (kids.some((k) => k.id === id)) return all.find((p) => p.id === pid) ?? null;
+  }
+  return null;
+}
+
 export function IpamPrefixesPage() {
   const { t } = useI18n();
   const splitDialogTitleId = useId();
@@ -45,6 +67,24 @@ export function IpamPrefixesPage() {
   const [err, setErr] = useState<string | null>(null);
   const [filterSite, setFilterSite] = useState<string>("");
   const [filterTenant, setFilterTenant] = useState<string>("");
+  const [filterVrf, setFilterVrf] = useState("");
+  const [filterRole, setFilterRole] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterQ, setFilterQ] = useState("");
+  const [onlyActive, setOnlyActive] = useState(false);
+  const [onlyRoots, setOnlyRoots] = useState(false);
+  const [onlyWithChildren, setOnlyWithChildren] = useState(false);
+  const [onlyPartial, setOnlyPartial] = useState(false);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const moreFiltersRef = useRef<HTMLDivElement | null>(null);
+  const [drawerMode, setDrawerMode] = useState<null | "create" | "edit">(null);
+  const [createParentHint, setCreateParentHint] = useState<string | null>(null);
+  const [createAdvanced, setCreateAdvanced] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [menuForId, setMenuForId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"tree" | "flat">("tree");
+  const [editRole, setEditRole] = useState("active");
+  const [editStatus, setEditStatus] = useState("active");
   const [newSite, setNewSite] = useState("");
   const [newName, setNewName] = useState("");
   const [newCidr, setNewCidr] = useState("");
@@ -162,15 +202,30 @@ export function IpamPrefixesPage() {
 
   useEffect(() => {
     setPrefixListPage(0);
-  }, [siteIdFilter]);
+  }, [
+    siteIdFilter,
+    tenantIdFilter,
+    prefixListPageSize,
+    filterVrf,
+    filterRole,
+    filterStatus,
+    filterQ,
+    onlyActive,
+    onlyRoots,
+    onlyWithChildren,
+    onlyPartial,
+    viewMode,
+  ]);
 
   useEffect(() => {
-    setPrefixListPage(0);
-  }, [tenantIdFilter]);
-
-  useEffect(() => {
-    setPrefixListPage(0);
-  }, [prefixListPageSize]);
+    if (!moreFiltersOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = moreFiltersRef.current;
+      if (el && e.target instanceof Node && !el.contains(e.target)) setMoreFiltersOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [moreFiltersOpen]);
 
   useEffect(() => {
     setGridPage(0);
@@ -215,9 +270,15 @@ export function IpamPrefixesPage() {
     return m;
   }, [vlansQ.data]);
 
-  const vrfLabelById = useMemo(() => {
+  const vlanShortById = useMemo(() => {
     const m = new Map<number, string>();
-    for (const v of vrfsQ.data ?? []) m.set(v.id, `${v.name} (site ${v.site_id})`);
+    for (const v of vlansQ.data ?? []) m.set(v.id, `VLAN ${v.vid}`);
+    return m;
+  }, [vlansQ.data]);
+
+  const vrfShortById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const v of vrfsQ.data ?? []) m.set(v.id, v.name);
     return m;
   }, [vrfsQ.data]);
 
@@ -242,6 +303,9 @@ export function IpamPrefixesPage() {
 
   const openExplore = (p: Pick<Ipv4Prefix, "id" | "name" | "cidr">) => {
     setEditingId(null);
+    setDrawerMode(null);
+    setSelectedId(null);
+    setMenuForId(null);
     setExploreStack([{ id: p.id, name: p.name, cidr: p.cidr }]);
     setErr(null);
   };
@@ -275,6 +339,8 @@ export function IpamPrefixesPage() {
       setNewStatus("active");
       setNewOverlap("");
       setNewDualStack("");
+      setCreateParentHint(null);
+      setDrawerMode(null);
       setErr(null);
       invalidateIpam();
     },
@@ -298,10 +364,19 @@ export function IpamPrefixesPage() {
       body,
     }: {
       id: number;
-      body: { name: string; cidr: string; tenant_id: number | null; vlan_id: number | null; vrf_id: number | null };
+      body: {
+        name: string;
+        cidr: string;
+        tenant_id: number | null;
+        vlan_id: number | null;
+        vrf_id: number | null;
+        role: string;
+        status: string;
+      };
     }) => ipamApi.updateIpv4Prefix(id, body),
     onSuccess: () => {
       setEditingId(null);
+      setDrawerMode(null);
       setErr(null);
       invalidateIpam();
     },
@@ -429,10 +504,64 @@ export function IpamPrefixesPage() {
     };
   }, [filteredGridRows, gridPage, gridPageSize]);
 
-  const prefixTreeIndex = useMemo(() => buildPrefixTreeIndex(prefixesQ.data ?? []), [prefixesQ.data]);
+  const allPrefixes = prefixesQ.data ?? [];
+  const fullTree = useMemo(() => buildPrefixTreeIndex(allPrefixes), [allPrefixes]);
+
+  const prefixSummary = useMemo(() => {
+    let active = 0;
+    let container = 0;
+    let reserved = 0;
+    for (const p of allPrefixes) {
+      if ((p.status ?? "active") === "active") active += 1;
+      if ((p.role ?? "active") === "container") container += 1;
+      if ((p.status ?? "active") === "reserved" || (p.role ?? "") === "reserved") reserved += 1;
+    }
+    return { total: allPrefixes.length, active, container, reserved };
+  }, [allPrefixes]);
+
+  const filteredPrefixes = useMemo(() => {
+    const q = filterQ.trim().toLowerCase();
+    const vrfId = filterVrf === "" ? null : Number(filterVrf);
+    const match = (p: Ipv4Prefix) => {
+      if (filterRole && (p.role ?? "active") !== filterRole) return false;
+      if (filterStatus && (p.status ?? "active") !== filterStatus) return false;
+      if (vrfId != null && Number.isFinite(vrfId) && p.vrf_id !== vrfId) return false;
+      if (onlyActive && (p.status ?? "active") !== "active") return false;
+      if (onlyWithChildren && !(fullTree.childrenByParentId.get(p.id)?.length)) return false;
+      if (onlyPartial) {
+        const u = prefixUsage(p);
+        if (u.used <= 0 || u.pct >= 99.5) return false;
+      }
+      if (q) {
+        const hay = `${p.name} ${p.cidr} ${p.slug} ${p.description ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    };
+    let kept = filterPrefixesKeepingAncestors(allPrefixes, fullTree.childrenByParentId, match);
+    if (onlyRoots) {
+      kept = buildPrefixTreeIndex(kept).roots;
+    }
+    return kept;
+  }, [
+    allPrefixes,
+    fullTree,
+    filterQ,
+    filterRole,
+    filterStatus,
+    filterVrf,
+    onlyActive,
+    onlyRoots,
+    onlyWithChildren,
+    onlyPartial,
+  ]);
+
+  const prefixTreeIndex = useMemo(() => buildPrefixTreeIndex(filteredPrefixes), [filteredPrefixes]);
+
+  const prefixListSource = viewMode === "tree" ? prefixTreeIndex.roots : filteredPrefixes;
 
   const prefixRootsSlice = useMemo(() => {
-    const roots = prefixTreeIndex.roots;
+    const roots = prefixListSource;
     const total = roots.length;
     const size = prefixListPageSize === 0 ? Math.max(total, 1) : prefixListPageSize;
     const pageCount = Math.max(1, Math.ceil(total / size));
@@ -448,17 +577,28 @@ export function IpamPrefixesPage() {
       rangeStart: total === 0 ? 0 : start + 1,
       rangeEnd: end,
     };
-  }, [prefixTreeIndex.roots, prefixListPage, prefixListPageSize]);
+  }, [prefixListSource, prefixListPage, prefixListPageSize]);
 
-  const visiblePrefixRows = useMemo(
-    () =>
-      flattenVisiblePrefixTree(
-        prefixRootsSlice.rows,
-        prefixTreeIndex.childrenByParentId,
-        expandedPrefixIds,
-      ),
-    [prefixRootsSlice.rows, prefixTreeIndex.childrenByParentId, expandedPrefixIds],
-  );
+  const visiblePrefixRows = useMemo(() => {
+    if (viewMode === "flat") {
+      return prefixRootsSlice.rows.map((prefix) => ({
+        prefix,
+        depth: 0,
+        hasChildren: (fullTree.childrenByParentId.get(prefix.id)?.length ?? 0) > 0,
+      }));
+    }
+    return flattenVisiblePrefixTree(
+      prefixRootsSlice.rows,
+      prefixTreeIndex.childrenByParentId,
+      expandedPrefixIds,
+    );
+  }, [
+    viewMode,
+    prefixRootsSlice.rows,
+    prefixTreeIndex.childrenByParentId,
+    expandedPrefixIds,
+    fullTree.childrenByParentId,
+  ]);
 
   const splitEqualOptions = useMemo(
     () => (splitTarget ? ipv4EqualSplitOptions(splitTarget.cidr) : []),
@@ -476,11 +616,11 @@ export function IpamPrefixesPage() {
   }, [prefixTreeIndex.roots]);
 
   useEffect(() => {
-    const total = prefixTreeIndex.roots.length;
+    const total = prefixListSource.length;
     const size = prefixListPageSize === 0 ? Math.max(total, 1) : prefixListPageSize;
     const pageCount = Math.max(1, Math.ceil(total / size));
     setPrefixListPage((p) => Math.min(Math.max(0, p), pageCount - 1));
-  }, [prefixTreeIndex.roots.length, prefixListPageSize]);
+  }, [prefixListSource.length, prefixListPageSize]);
 
   useEffect(() => {
     if (!splitTarget) {
@@ -696,8 +836,92 @@ export function IpamPrefixesPage() {
     gridQ.data?.active_scan?.status === "pending" || gridQ.data?.active_scan?.status === "running";
   const activeSc = gridQ.data?.active_scan;
 
+  const selectedPrefix = selectedId != null ? (allPrefixes.find((p) => p.id === selectedId) ?? null) : null;
+  const selectedChildren = selectedPrefix
+    ? (fullTree.childrenByParentId.get(selectedPrefix.id) ?? [])
+    : [];
+  const selectedParent =
+    selectedPrefix != null
+      ? (allPrefixes.find((p) => p.id === selectedPrefix.parent_id) ??
+        parentFromChildrenMap(selectedPrefix.id, allPrefixes, fullTree.childrenByParentId))
+      : null;
+
+  const resetListFilters = () => {
+    setFilterSite("");
+    setFilterTenant("");
+    setFilterVrf("");
+    setFilterRole("");
+    setFilterStatus("");
+    setFilterQ("");
+    setOnlyActive(false);
+    setOnlyRoots(false);
+    setOnlyWithChildren(false);
+    setOnlyPartial(false);
+  };
+
+  const openCreateDrawer = (parent?: Ipv4Prefix) => {
+    setErr(null);
+    setMenuForId(null);
+    setSelectedId(null);
+    setCreateAdvanced(false);
+    if (parent) {
+      setNewSite(String(parent.site_id));
+      setNewPrefixTenant(parent.tenant_id != null && parent.tenant_id > 0 ? String(parent.tenant_id) : "");
+      setNewPrefixVlan(parent.vlan_id != null && parent.vlan_id > 0 ? String(parent.vlan_id) : "");
+      setNewPrefixVrf(parent.vrf_id != null && parent.vrf_id > 0 ? String(parent.vrf_id) : "");
+      setCreateParentHint(parent.cidr);
+    } else {
+      setCreateParentHint(null);
+    }
+    setDrawerMode("create");
+  };
+
+  const openEditDrawer = (x: Ipv4Prefix) => {
+    setErr(null);
+    setMenuForId(null);
+    setEditingId(x.id);
+    setEditName(x.name);
+    setEditCidr(x.cidr);
+    setEditTenantId(x.tenant_id != null && x.tenant_id > 0 ? String(x.tenant_id) : "");
+    setEditVlanId(x.vlan_id != null && x.vlan_id > 0 ? String(x.vlan_id) : "");
+    setEditVrfId(x.vrf_id != null && x.vrf_id > 0 ? String(x.vrf_id) : "");
+    setEditRole(x.role ?? "active");
+    setEditStatus(x.status ?? "active");
+    setDrawerMode("edit");
+  };
+
+  const prefixMetaLine = (x: Ipv4Prefix) => {
+    const site = siteNameById.get(x.site_id) ?? `#${x.site_id}`;
+    const vrf = x.vrf_id != null && x.vrf_id > 0 ? (vrfShortById.get(x.vrf_id) ?? `#${x.vrf_id}`) : "—";
+    const vlan = x.vlan_id != null && x.vlan_id > 0 ? (vlanShortById.get(x.vlan_id) ?? `#${x.vlan_id}`) : "—";
+    const tenant =
+      x.tenant_id != null && x.tenant_id > 0 ? (tenantNameById.get(x.tenant_id) ?? `#${x.tenant_id}`) : "—";
+    return `${site} · VRF: ${vrf} · VLAN: ${vlan} · ${t("ipam.ipv4.tenantCol")}: ${tenant}`;
+  };
+
+  const exportSite = () => {
+    if (siteIdFilter == null) {
+      setErr(t("ipam.ipv4.exportNeedSite"));
+      nav("/ipam/gitops");
+      return;
+    }
+    void ipamApi
+      .exportSiteIpam(siteIdFilter, "yaml")
+      .then((text) => {
+        const blob = new Blob([text], { type: "text/yaml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `ipam-site-${siteIdFilter}.yaml`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setErr(null);
+      })
+      .catch((e: Error) => setErr(e instanceof ApiError ? e.message : e.message));
+  };
+
   return (
-    <Panel title={t("ipam.ipv4.title")}>
+    <Panel>
       {ipRequestCtx ? (
         <IpamIpRequestModal
           open
@@ -713,14 +937,48 @@ export function IpamPrefixesPage() {
         />
       ) : null}
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
-      <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
-        {t("ipam.ipv4.intro")}
-      </p>
 
-      <section className={dcimStyles.mfrDetailSection}>
-        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.ipv4.filterTitle")}</h3>
-        <div className={dcimStyles.formRow}>
-          <label>
+      <header className={prefixStyles.pageHead}>
+        <div>
+          <p className={prefixStyles.crumb}>
+            {t("ipam.ipv4.crumbIpam")}
+            <span className={prefixStyles.crumbSep}>/</span>
+            {t("ipam.tabPrefixes")}
+          </p>
+          <h1 className={prefixStyles.title}>{t("ipam.ipv4.title")}</h1>
+          <p className={prefixStyles.intro}>{t("ipam.ipv4.intro")}</p>
+        </div>
+        <div className={prefixStyles.headActions}>
+          <Link to="/ipam/gitops" className={dcimStyles.btn}>
+            {t("ipam.ipv4.docs")}
+          </Link>
+          <button type="button" className={dcimStyles.btn} onClick={exportSite}>
+            {t("ipam.ipv4.export")}
+          </button>
+          <button type="button" className={dcimStyles.btn} onClick={() => openCreateDrawer()}>
+            + {t("ipam.ipv4.newPrefix")}
+          </button>
+        </div>
+      </header>
+
+      {exploreStack.length === 0 ? (
+        <SummaryCards
+          total={prefixSummary.total}
+          active={prefixSummary.active}
+          container={prefixSummary.container}
+          reserved={prefixSummary.reserved}
+          labels={{
+            total: t("ipam.ipv4.statTotal"),
+            active: t("ipam.ipv4.statActive"),
+            container: t("ipam.ipv4.statContainer"),
+            reserved: t("ipam.ipv4.statReserved"),
+          }}
+        />
+      ) : null}
+
+      {exploreStack.length === 0 ? (
+        <div className={prefixStyles.toolbar}>
+          <label className={prefixStyles.toolbarField}>
             {t("ipam.ipv4.filterSite")}
             <select value={filterSite} onChange={(e) => setFilterSite(e.target.value)}>
               <option value="">{t("ipam.ipv4.allSites")}</option>
@@ -731,7 +989,7 @@ export function IpamPrefixesPage() {
               ))}
             </select>
           </label>
-          <label>
+          <label className={prefixStyles.toolbarField}>
             {t("ipam.ipv4.filterTenant")}
             <select value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)}>
               <option value="">{t("ipam.ipv4.allTenants")}</option>
@@ -742,8 +1000,85 @@ export function IpamPrefixesPage() {
               ))}
             </select>
           </label>
+          <label className={prefixStyles.toolbarField}>
+            {t("ipam.ipv4.filterRole")}
+            <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
+              <option value="">{t("ipam.ipv4.allRoles")}</option>
+              {PREFIX_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={prefixStyles.toolbarField}>
+            {t("ipam.ipv4.filterStatus")}
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="">{t("ipam.ipv4.allStatuses")}</option>
+              {PREFIX_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={`${prefixStyles.toolbarField} ${prefixStyles.toolbarFieldGrow}`}>
+            {t("ipam.ipv4.search")}
+            <input
+              value={filterQ}
+              onChange={(e) => setFilterQ(e.target.value)}
+              placeholder={t("ipam.ipv4.searchPlaceholder")}
+            />
+          </label>
+          <div className={prefixStyles.moreWrap} ref={moreFiltersRef}>
+            <button
+              type="button"
+              className={dcimStyles.btn}
+              onClick={() => setMoreFiltersOpen((v) => !v)}
+            >
+              {t("ipam.ipv4.moreFilters")}
+            </button>
+            {moreFiltersOpen ? (
+              <div className={prefixStyles.morePop} role="dialog" aria-label={t("ipam.ipv4.moreFilters")}>
+                <label className={prefixStyles.toolbarField} style={{ minWidth: "100%", marginBottom: "0.5rem" }}>
+                  {t("ipam.ipv4.filterVrf")}
+                  <select value={filterVrf} onChange={(e) => setFilterVrf(e.target.value)}>
+                    <option value="">{t("ipam.ipv4.allVrfs")}</option>
+                    {(vrfsQ.data ?? []).map((v) => (
+                      <option key={v.id} value={String(v.id)}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
+                  {t("ipam.ipv4.onlyActive")}
+                </label>
+                <label>
+                  <input type="checkbox" checked={onlyRoots} onChange={(e) => setOnlyRoots(e.target.checked)} />
+                  {t("ipam.ipv4.onlyRoots")}
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={onlyWithChildren}
+                    onChange={(e) => setOnlyWithChildren(e.target.checked)}
+                  />
+                  {t("ipam.ipv4.onlyWithChildren")}
+                </label>
+                <label>
+                  <input type="checkbox" checked={onlyPartial} onChange={(e) => setOnlyPartial(e.target.checked)} />
+                  {t("ipam.ipv4.onlyPartial")}
+                </label>
+              </div>
+            ) : null}
+          </div>
+          <button type="button" className={dcimStyles.btn} onClick={resetListFilters}>
+            {t("ipam.ipv4.resetFilters")}
+          </button>
         </div>
-      </section>
+      ) : null}
 
       {exploreStack.length > 0 && exploreId != null ? (
         <section
@@ -1489,481 +1824,592 @@ export function IpamPrefixesPage() {
         </section>
       ) : null}
 
-      <section className={dcimStyles.mfrDetailSection}>
-        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.ipv4.addTitle")}</h3>
-        <form
-          className={dcimStyles.formRow}
-          onSubmit={(e) => {
-            e.preventDefault();
-            setErr(null);
-            if (!newSite || !newName.trim() || !newCidr.trim()) {
-              setErr(t("ipam.ipv4.addMissing"));
-              return;
-            }
-            createPfx.mutate();
-          }}
-        >
-          <label>
-            {t("ipam.ipv4.site")}
-            <select value={newSite} onChange={(e) => setNewSite(e.target.value)} required>
-              <option value="">{t("dcim.common.choose")}</option>
-              {(sitesQ.data ?? []).map((s) => (
-                <option key={s.id} value={String(s.id)}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("ipam.ipv4.name")}
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} required />
-          </label>
-          <label>
-            {t("ipam.ipv4.cidr")}
-            <input value={newCidr} onChange={(e) => setNewCidr(e.target.value)} placeholder="192.168.1.0/24" required />
-          </label>
-          <label>
-            {t("ipam.ipv4.coloTenant")}
-            <select value={newPrefixTenant} onChange={(e) => setNewPrefixTenant(e.target.value)}>
-              <option value="">{t("dcim.common.none")}</option>
-              {(tenantsQ.data ?? []).map((tn) => (
-                <option key={tn.id} value={String(tn.id)}>
-                  {tn.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            VLAN (valgfritt)
-            <select value={newPrefixVlan} onChange={(e) => setNewPrefixVlan(e.target.value)}>
-              <option value="">{t("dcim.common.none")}</option>
-              {vlanOptionsForNewSite.map((v) => (
-                <option key={v.id} value={String(v.id)}>
-                  VLAN {v.vid} — {v.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            VRF (valgfritt)
-            <select value={newPrefixVrf} onChange={(e) => setNewPrefixVrf(e.target.value)}>
-              <option value="">{t("dcim.common.none")}</option>
-              {vrfOptionsForNewSite.map((v) => (
-                <option key={v.id} value={String(v.id)}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("ipam.gitops.role")}
-            <select value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-              {PREFIX_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("ipam.gitops.status")}
-            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-              {PREFIX_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("ipam.gitops.overlap")}
-            <select value={newOverlap} onChange={(e) => setNewOverlap(e.target.value)}>
-              <option value="">{t("ipam.gitops.overlapDefault")}</option>
-              {OVERLAP_POLICIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("ipam.gitops.dualStack")}
-            <input value={newDualStack} onChange={(e) => setNewDualStack(e.target.value)} placeholder="80" />
-          </label>
-          <button type="submit" className={dcimStyles.btn} disabled={createPfx.isPending}>
-            {createPfx.isPending ? "…" : t("dcim.common.add")}
-          </button>
-        </form>
-      </section>
-
-      <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.ipv4.allPrefixesTitle")}</h3>
-      <p className={dcimStyles.muted} style={{ marginTop: 0 }}>
-        {t("ipam.ipv4.allPrefixesHint")}
-      </p>
-
-      {prefixesQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
-      {prefixesQ.data && prefixesQ.data.length > 0 ? (
-        <>
-          <div
-            className={dcimStyles.muted}
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "0.75rem",
-              marginBottom: "var(--space-2)",
-            }}
-          >
-            <span>
-              {t("ipam.grid.pagination.showing")}{" "}
-              <strong>
-                {prefixRootsSlice.rangeStart}–{prefixRootsSlice.rangeEnd}
-              </strong>{" "}
-              {t("ipam.grid.pagination.of")}{" "}
-              <strong>{prefixRootsSlice.total}</strong>
+      {exploreStack.length === 0 ? (
+        <div className={prefixStyles.tableCard}>
+          <div className={prefixStyles.tableToolbar}>
+            <strong>
+              {t("ipam.ipv4.allPrefixesTitle")}
+              {prefixRootsSlice.total > 0
+                ? ` · ${prefixRootsSlice.rangeStart}–${prefixRootsSlice.rangeEnd} / ${prefixRootsSlice.total}`
+                : ""}
+            </strong>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
+              <span className={prefixStyles.viewToggle} role="group" aria-label={t("ipam.ipv4.viewTree")}>
+                <button
+                  type="button"
+                  className={`${prefixStyles.viewBtn} ${viewMode === "tree" ? prefixStyles.viewBtnOn : ""}`}
+                  onClick={() => setViewMode("tree")}
+                >
+                  {t("ipam.ipv4.viewTree")}
+                </button>
+                <button
+                  type="button"
+                  className={`${prefixStyles.viewBtn} ${viewMode === "flat" ? prefixStyles.viewBtnOn : ""}`}
+                  onClick={() => setViewMode("flat")}
+                >
+                  {t("ipam.ipv4.viewFlat")}
+                </button>
+              </span>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                {t("ipam.grid.pagination.perPage")}
+                <select
+                  value={String(prefixListPageSize)}
+                  onChange={(e) => setPrefixListPageSize(Number(e.target.value))}
+                >
+                  {GRID_PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={String(n)}>
+                      {n === 0 ? t("ipam.grid.pagination.all") : n}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </span>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-              {t("ipam.grid.pagination.perPage")}
-              <select
-                value={String(prefixListPageSize)}
-                onChange={(e) => setPrefixListPageSize(Number(e.target.value))}
+          </div>
+          {prefixesQ.isLoading ? <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>{t("dcim.common.loading")}</p> : null}
+          {!prefixesQ.isLoading && visiblePrefixRows.length === 0 ? (
+            <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>{t("ipam.ipv4.empty")}</p>
+          ) : null}
+          {visiblePrefixRows.length > 0 ? (
+            <div className={prefixStyles.tableScroll}>
+              <table className={dcimStyles.table}>
+                <thead>
+                  <tr>
+                    <th>{t("ipam.ipv4.colPrefix")}</th>
+                    <th>{t("ipam.ipv4.cidr")}</th>
+                    <th>{t("ipam.ipv4.site")}</th>
+                    <th>{t("ipam.gitops.status")}</th>
+                    <th>{t("ipam.gitops.role")}</th>
+                    <th>{t("ipam.ipv4.usageCol")}</th>
+                    <th>{t("ipam.ipv4.actionsCol")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visiblePrefixRows.map((row) => {
+                    const x = row.prefix;
+                    const plen = parseIpv4Cidr(x.cidr)?.prefixLen;
+                    const childCount = fullTree.childrenByParentId.get(x.id)?.length ?? 0;
+                    const canSplit = plen != null && plen < 32 && childCount === 0;
+                    const usage = prefixUsage(x);
+                    return (
+                      <tr
+                        key={x.id}
+                        className={selectedId === x.id ? prefixStyles.rowSelected : undefined}
+                        onClick={() => {
+                          setSelectedId(x.id);
+                          setMenuForId(null);
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <td>
+                          <div
+                            className={prefixStyles.treeCell}
+                            style={{ paddingLeft: viewMode === "tree" ? `calc(${row.depth} * 1.05rem)` : 0 }}
+                          >
+                            {viewMode === "tree" && row.hasChildren ? (
+                              <button
+                                type="button"
+                                className={prefixStyles.treeToggle}
+                                aria-expanded={expandedPrefixIds.has(x.id)}
+                                title={expandedPrefixIds.has(x.id) ? t("ipam.ipv4.treeCollapse") : t("ipam.ipv4.treeExpand")}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedPrefixIds((prev) => {
+                                    const n = new Set(prev);
+                                    if (n.has(x.id)) n.delete(x.id);
+                                    else n.add(x.id);
+                                    return n;
+                                  });
+                                }}
+                              >
+                                <i className={`fas ${expandedPrefixIds.has(x.id) ? "fa-chevron-down" : "fa-chevron-right"}`} aria-hidden />
+                              </button>
+                            ) : (
+                              <span className={prefixStyles.treeToggle} aria-hidden />
+                            )}
+                            <span>
+                              <span className={prefixStyles.treeName}>{x.name}</span>
+                              <span className={prefixStyles.treeCidr}>{prefixMetaLine(x)}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <code>{x.cidr}</code>
+                        </td>
+                        <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
+                        <td>
+                          <PrefixStatusBadge status={x.status ?? "active"} />
+                        </td>
+                        <td>
+                          <PrefixRoleBadge role={x.role ?? "active"} />
+                        </td>
+                        <td>
+                          {usage.total > 0 ? (
+                            <UtilizationBar used={usage.used} total={usage.total} pct={usage.pct} />
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <span className={dcimStyles.tableIconActions}>
+                            <button
+                              type="button"
+                              className={dcimStyles.tableIconBtn}
+                              title={t("ipam.ipv4.openExplore")}
+                              aria-label={t("ipam.ipv4.openExplore")}
+                              onClick={() => openExplore(x)}
+                            >
+                              <i className="fas fa-sitemap" aria-hidden />
+                            </button>
+                            <RowOverflowMenu
+                              open={menuForId === x.id}
+                              onOpen={() => setMenuForId(x.id)}
+                              onClose={() => setMenuForId(null)}
+                              label={t("ipam.ipv4.rowMenu")}
+                            >
+                              <button type="button" className={prefixStyles.menuItem} onClick={() => openEditDrawer(x)}>
+                                {t("ipam.ipv4.edit")}
+                              </button>
+                              <button
+                                type="button"
+                                className={prefixStyles.menuItem}
+                                onClick={() => openCreateDrawer(x)}
+                              >
+                                {t("ipam.ipv4.createChild")}
+                              </button>
+                              <button
+                                type="button"
+                                className={prefixStyles.menuItem}
+                                onClick={() => {
+                                  setMenuForId(null);
+                                  setIpRequestCtx({ prefixId: x.id, cidr: x.cidr, preferred: "" });
+                                }}
+                              >
+                                {t("ipam.ipv4.requestIps")}
+                              </button>
+                              <button
+                                type="button"
+                                className={prefixStyles.menuItem}
+                                disabled={!canSplit}
+                                onClick={() => {
+                                  setMenuForId(null);
+                                  setSplitTarget(x);
+                                }}
+                              >
+                                {t("ipam.ipv4.splitSubnet")}
+                              </button>
+                              <button
+                                type="button"
+                                className={`${prefixStyles.menuItem} ${prefixStyles.menuDanger}`}
+                                onClick={() => {
+                                  setMenuForId(null);
+                                  setDeletePrefixTarget({ id: x.id, name: x.name, cidr: x.cidr });
+                                }}
+                              >
+                                {t("dcim.common.delete")}
+                              </button>
+                            </RowOverflowMenu>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {prefixRootsSlice.total > 0 ? (
+            <div className={prefixStyles.pager}>
+              <span>
+                {t("ipam.grid.pagination.showing")}{" "}
+                <strong>
+                  {prefixRootsSlice.rangeStart}–{prefixRootsSlice.rangeEnd}
+                </strong>{" "}
+                {t("ipam.grid.pagination.of")} <strong>{prefixRootsSlice.total}</strong>
+              </span>
+              <span style={{ display: "inline-flex", gap: "0.35rem" }}>
+                <button
+                  type="button"
+                  className={dcimStyles.btn}
+                  disabled={prefixRootsSlice.safePage <= 0}
+                  onClick={() => setPrefixListPage((p) => Math.max(0, p - 1))}
+                >
+                  {t("ipam.grid.pagination.prev")}
+                </button>
+                <button
+                  type="button"
+                  className={dcimStyles.btn}
+                  disabled={prefixRootsSlice.safePage >= prefixRootsSlice.pageCount - 1}
+                  onClick={() => setPrefixListPage((p) => Math.min(p + 1, prefixRootsSlice.pageCount - 1))}
+                >
+                  {t("ipam.grid.pagination.next")}
+                </button>
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <PrefixDrawer
+        title={drawerMode === "edit" ? t("ipam.ipv4.editTitle") : t("ipam.ipv4.addTitle")}
+        open={drawerMode != null}
+        onClose={() => {
+          setDrawerMode(null);
+          setEditingId(null);
+          setCreateParentHint(null);
+        }}
+        footer={
+          drawerMode === "edit" ? (
+            <>
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                disabled={patchPfx.isPending}
+                onClick={() => {
+                  const nm = editName.trim();
+                  const cd = editCidr.trim();
+                  if (!nm || !cd || editingId == null) {
+                    setErr(t("ipam.ipv4.addMissing"));
+                    return;
+                  }
+                  const tid = editTenantId === "" ? null : Number(editTenantId);
+                  const vid = editVlanId === "" ? null : Number(editVlanId);
+                  const vrfId = editVrfId === "" ? null : Number(editVrfId);
+                  patchPfx.mutate({
+                    id: editingId,
+                    body: {
+                      name: nm,
+                      cidr: cd,
+                      tenant_id: tid,
+                      vlan_id: vid,
+                      vrf_id: vrfId,
+                      role: editRole,
+                      status: editStatus,
+                    },
+                  });
+                }}
               >
-                {GRID_PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={String(n)}>
-                    {n === 0 ? t("ipam.grid.pagination.all") : n}
+                {patchPfx.isPending ? "…" : t("dcim.common.save")}
+              </button>
+              <button type="button" className={dcimStyles.btn} onClick={() => setDrawerMode(null)}>
+                {t("ipam.ipv4.cancel")}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={dcimStyles.btn}
+                disabled={createPfx.isPending}
+                onClick={() => {
+                  setErr(null);
+                  if (!newSite || !newName.trim() || !newCidr.trim()) {
+                    setErr(t("ipam.ipv4.addMissing"));
+                    return;
+                  }
+                  createPfx.mutate();
+                }}
+              >
+                {createPfx.isPending ? "…" : t("dcim.common.add")}
+              </button>
+              <button type="button" className={dcimStyles.btn} onClick={() => setDrawerMode(null)}>
+                {t("ipam.ipv4.cancel")}
+              </button>
+            </>
+          )
+        }
+      >
+        {drawerMode === "create" && createParentHint ? (
+          <p className={dcimStyles.muted}>{t("ipam.ipv4.childOf", { cidr: createParentHint })}</p>
+        ) : null}
+        {drawerMode === "create" ? (
+          <div className={dcimStyles.formRow} style={{ flexDirection: "column", alignItems: "stretch" }}>
+            <label>
+              {t("ipam.ipv4.site")}
+              <select value={newSite} onChange={(e) => setNewSite(e.target.value)} required>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(sitesQ.data ?? []).map((s) => (
+                  <option key={s.id} value={String(s.id)}>
+                    {s.name}
                   </option>
                 ))}
               </select>
             </label>
-            <span style={{ display: "inline-flex", gap: "0.35rem" }}>
-              <button
-                type="button"
-                className={dcimStyles.btn}
-                disabled={prefixRootsSlice.safePage <= 0}
-                onClick={() => setPrefixListPage((p) => Math.max(0, p - 1))}
-              >
-                {t("ipam.grid.pagination.prev")}
-              </button>
-              <button
-                type="button"
-                className={dcimStyles.btn}
-                disabled={prefixRootsSlice.safePage >= prefixRootsSlice.pageCount - 1}
-                onClick={() =>
-                  setPrefixListPage((p) => Math.min(p + 1, prefixRootsSlice.pageCount - 1))
-                }
-              >
-                {t("ipam.grid.pagination.next")}
-              </button>
-            </span>
+            <label>
+              {t("ipam.ipv4.name")}
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} required />
+            </label>
+            <label>
+              {t("ipam.ipv4.cidr")}
+              <input value={newCidr} onChange={(e) => setNewCidr(e.target.value)} placeholder="192.168.1.0/24" required />
+            </label>
+            <label>
+              {t("ipam.gitops.role")}
+              <select value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+                {PREFIX_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.gitops.status")}
+              <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                {PREFIX_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className={dcimStyles.btnLink} onClick={() => setCreateAdvanced((v) => !v)}>
+              {t("ipam.ipv4.advanced")}
+            </button>
+            {createAdvanced ? (
+              <>
+                <label>
+                  {t("ipam.ipv4.coloTenant")}
+                  <select value={newPrefixTenant} onChange={(e) => setNewPrefixTenant(e.target.value)}>
+                    <option value="">{t("dcim.common.none")}</option>
+                    {(tenantsQ.data ?? []).map((tn) => (
+                      <option key={tn.id} value={String(tn.id)}>
+                        {tn.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  VLAN
+                  <select value={newPrefixVlan} onChange={(e) => setNewPrefixVlan(e.target.value)}>
+                    <option value="">{t("dcim.common.none")}</option>
+                    {vlanOptionsForNewSite.map((v) => (
+                      <option key={v.id} value={String(v.id)}>
+                        VLAN {v.vid} — {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  VRF
+                  <select value={newPrefixVrf} onChange={(e) => setNewPrefixVrf(e.target.value)}>
+                    <option value="">{t("dcim.common.none")}</option>
+                    {vrfOptionsForNewSite.map((v) => (
+                      <option key={v.id} value={String(v.id)}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("ipam.gitops.overlap")}
+                  <select value={newOverlap} onChange={(e) => setNewOverlap(e.target.value)}>
+                    <option value="">{t("ipam.gitops.overlapDefault")}</option>
+                    {OVERLAP_POLICIES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("ipam.gitops.dualStack")}
+                  <input value={newDualStack} onChange={(e) => setNewDualStack(e.target.value)} placeholder="80" />
+                </label>
+              </>
+            ) : null}
           </div>
-          <p className={dcimStyles.muted} style={{ marginTop: "-0.25rem", marginBottom: "var(--space-2)" }}>
-            {t("ipam.ipv4.paginationRootsHint")}
-          </p>
-          <table className={dcimStyles.table}>
-          <thead>
-            <tr>
-              <th style={{ width: "2.25rem" }} aria-label={t("ipam.ipv4.treeColAria")} />
-              <th>{t("dcim.common.id")}</th>
-              <th>{t("ipam.ipv4.site")}</th>
-              <th>VRF</th>
-              <th>VLAN</th>
-              <th>{t("ipam.ipv4.tenantCol")}</th>
-              <th>{t("ipam.ipv4.name")}</th>
-              <th>{t("ipam.ipv4.cidr")}</th>
-              <th>{t("ipam.gitops.role")}</th>
-              <th>{t("ipam.gitops.status")}</th>
-              <th>{t("ipam.gitops.overlap")}</th>
-              <th>{t("ipam.ipv4.usageCol")}</th>
-              <th>{t("ipam.ipv4.exploreCol")}</th>
-              <th>{t("ipam.ipv4.actionsCol")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visiblePrefixRows.map((row) => {
-              const x = row.prefix;
-              const plen = parseIpv4Cidr(x.cidr)?.prefixLen;
-              const childCount = prefixTreeIndex.childrenByParentId.get(x.id)?.length ?? 0;
-              const canSplit = plen != null && plen < 32 && childCount === 0;
-              return (
-              <tr key={x.id}>
-                <td
-                  style={{
-                    paddingLeft: `calc(${row.depth} * 0.65rem)`,
-                    verticalAlign: "middle",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {row.hasChildren ? (
-                    <button
-                      type="button"
-                      className={dcimStyles.btnLink}
-                      style={{ padding: "0 0.15rem", minWidth: "1.25rem" }}
-                      aria-expanded={expandedPrefixIds.has(x.id)}
-                      title={expandedPrefixIds.has(x.id) ? t("ipam.ipv4.treeCollapse") : t("ipam.ipv4.treeExpand")}
-                      onClick={() => {
-                        setExpandedPrefixIds((prev) => {
-                          const n = new Set(prev);
-                          if (n.has(x.id)) n.delete(x.id);
-                          else n.add(x.id);
-                          return n;
-                        });
-                      }}
-                    >
-                      {expandedPrefixIds.has(x.id) ? "▼" : "▶"}
+        ) : (
+          <div className={dcimStyles.formRow} style={{ flexDirection: "column", alignItems: "stretch" }}>
+            <label>
+              {t("ipam.ipv4.name")}
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </label>
+            <label>
+              {t("ipam.ipv4.cidr")}
+              <input value={editCidr} onChange={(e) => setEditCidr(e.target.value)} />
+            </label>
+            <label>
+              {t("ipam.gitops.role")}
+              <select value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                {PREFIX_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.gitops.status")}
+              <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                {PREFIX_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.ipv4.tenantCol")}
+              <select value={editTenantId} onChange={(e) => setEditTenantId(e.target.value)}>
+                <option value="">{t("dcim.common.none")}</option>
+                {(tenantsQ.data ?? []).map((tn) => (
+                  <option key={tn.id} value={String(tn.id)}>
+                    {tn.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              VLAN
+              <select value={editVlanId} onChange={(e) => setEditVlanId(e.target.value)}>
+                <option value="">{t("dcim.common.none")}</option>
+                {(vlansQ.data ?? [])
+                  .filter((v) => {
+                    const cur = allPrefixes.find((p) => p.id === editingId);
+                    return cur == null || v.site_id === cur.site_id;
+                  })
+                  .map((v) => (
+                    <option key={v.id} value={String(v.id)}>
+                      VLAN {v.vid} — {v.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              VRF
+              <select value={editVrfId} onChange={(e) => setEditVrfId(e.target.value)}>
+                <option value="">{t("dcim.common.none")}</option>
+                {(vrfsQ.data ?? [])
+                  .filter((v) => {
+                    const cur = allPrefixes.find((p) => p.id === editingId);
+                    return cur == null || v.site_id === cur.site_id;
+                  })
+                  .map((v) => (
+                    <option key={v.id} value={String(v.id)}>
+                      {v.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </div>
+        )}
+      </PrefixDrawer>
+
+      <PrefixDrawer
+        title={t("ipam.ipv4.detailsTitle")}
+        open={selectedPrefix != null && drawerMode == null}
+        onClose={() => setSelectedId(null)}
+        footer={
+          selectedPrefix ? (
+            <>
+              <button type="button" className={dcimStyles.btn} onClick={() => openExplore(selectedPrefix)}>
+                {t("ipam.ipv4.openExplore")}
+              </button>
+              <button type="button" className={dcimStyles.btn} onClick={() => openEditDrawer(selectedPrefix)}>
+                {t("ipam.ipv4.edit")}
+              </button>
+              <button type="button" className={dcimStyles.btn} onClick={() => openCreateDrawer(selectedPrefix)}>
+                {t("ipam.ipv4.createChild")}
+              </button>
+            </>
+          ) : null
+        }
+      >
+        {selectedPrefix ? (
+          <>
+            <h3 style={{ marginTop: 0 }}>
+              {selectedPrefix.name} <code>{selectedPrefix.cidr}</code>
+            </h3>
+            <dl className={prefixStyles.dl}>
+              <dt>{t("ipam.ipv4.site")}</dt>
+              <dd>{siteNameById.get(selectedPrefix.site_id) ?? `#${selectedPrefix.site_id}`}</dd>
+              <dt>{t("ipam.gitops.role")}</dt>
+              <dd>
+                <PrefixRoleBadge role={selectedPrefix.role ?? "active"} />
+              </dd>
+              <dt>{t("ipam.gitops.status")}</dt>
+              <dd>
+                <PrefixStatusBadge status={selectedPrefix.status ?? "active"} />
+              </dd>
+              <dt>VRF</dt>
+              <dd>
+                {selectedPrefix.vrf_id != null && selectedPrefix.vrf_id > 0
+                  ? (vrfShortById.get(selectedPrefix.vrf_id) ?? `#${selectedPrefix.vrf_id}`)
+                  : "—"}
+              </dd>
+              <dt>VLAN</dt>
+              <dd>
+                {selectedPrefix.vlan_id != null && selectedPrefix.vlan_id > 0 ? (
+                  <button
+                    type="button"
+                    className={dcimStyles.btnLink}
+                    onClick={() =>
+                      nav(
+                        `/ipam/vlans?site=${encodeURIComponent(String(selectedPrefix.site_id))}&vlan=${encodeURIComponent(String(selectedPrefix.vlan_id))}`,
+                      )
+                    }
+                  >
+                    {vlanLabelById.get(selectedPrefix.vlan_id) ?? `#${selectedPrefix.vlan_id}`}
+                  </button>
+                ) : (
+                  "—"
+                )}
+              </dd>
+              <dt>{t("ipam.ipv4.tenantCol")}</dt>
+              <dd>
+                {selectedPrefix.tenant_id != null && selectedPrefix.tenant_id > 0
+                  ? (tenantNameById.get(selectedPrefix.tenant_id) ?? `#${selectedPrefix.tenant_id}`)
+                  : "—"}
+              </dd>
+              <dt>{t("ipam.gitops.overlap")}</dt>
+              <dd>{selectedPrefix.overlap_policy ?? "site-local"}</dd>
+              <dt>{t("ipam.ipv4.usageCol")}</dt>
+              <dd>
+                {(() => {
+                  const u = prefixUsage(selectedPrefix);
+                  return u.total > 0 ? <UtilizationBar used={u.used} total={u.total} pct={u.pct} /> : "—";
+                })()}
+              </dd>
+              <dt>{t("ipam.ipv4.parentPrefix")}</dt>
+              <dd>
+                {selectedParent ? (
+                  <button
+                    type="button"
+                    className={dcimStyles.btnLink}
+                    onClick={() => setSelectedId(selectedParent.id)}
+                  >
+                    {selectedParent.name} <code>{selectedParent.cidr}</code>
+                  </button>
+                ) : (
+                  t("ipam.ipv4.noParent")
+                )}
+              </dd>
+            </dl>
+            <h4 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.ipv4.childPrefixes")}</h4>
+            {selectedChildren.length > 0 ? (
+              <ul className={prefixStyles.childList}>
+                {selectedChildren.map((ch) => (
+                  <li key={ch.id}>
+                    <button type="button" className={dcimStyles.btnLink} onClick={() => setSelectedId(ch.id)}>
+                      {ch.name} <code>{ch.cidr}</code>
                     </button>
-                  ) : (
-                    <span style={{ display: "inline-block", width: "1.25rem" }} aria-hidden />
-                  )}
-                </td>
-                <td>{x.id}</td>
-                <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
-                <td>
-                  {editingId === x.id ? (
-                    <select value={editVrfId} onChange={(e) => setEditVrfId(e.target.value)} aria-label="VRF">
-                      <option value="">{t("dcim.common.none")}</option>
-                      {(vrfsQ.data ?? [])
-                        .filter((v) => v.site_id === x.site_id)
-                        .map((v) => (
-                          <option key={v.id} value={String(v.id)}>
-                            {v.name}
-                          </option>
-                        ))}
-                    </select>
-                  ) : x.vrf_id != null && x.vrf_id > 0 ? (
-                    vrfLabelById.get(x.vrf_id) ?? `#${x.vrf_id}`
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {editingId === x.id ? (
-                    <select value={editVlanId} onChange={(e) => setEditVlanId(e.target.value)} aria-label="VLAN">
-                      <option value="">{t("dcim.common.none")}</option>
-                      {(vlansQ.data ?? [])
-                        .filter((v) => v.site_id === x.site_id)
-                        .map((v) => (
-                          <option key={v.id} value={String(v.id)}>
-                            VLAN {v.vid} — {v.name}
-                          </option>
-                        ))}
-                    </select>
-                  ) : x.vlan_id != null && x.vlan_id > 0 ? (
-                    <button
-                      type="button"
-                      className={dcimStyles.btnLink}
-                      title="Åpne VLAN"
-                      onClick={() => nav(`/ipam/vlans?site=${encodeURIComponent(String(x.site_id))}&vlan=${encodeURIComponent(String(x.vlan_id))}`)}
-                    >
-                      {vlanLabelById.get(x.vlan_id) ?? `#${x.vlan_id}`}
-                    </button>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {editingId === x.id ? (
-                    <select
-                      value={editTenantId}
-                      onChange={(e) => setEditTenantId(e.target.value)}
-                      aria-label={t("ipam.ipv4.tenantCol")}
-                    >
-                      <option value="">{t("dcim.common.none")}</option>
-                      {(tenantsQ.data ?? []).map((tn) => (
-                        <option key={tn.id} value={String(tn.id)}>
-                          {tn.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : x.tenant_id != null && x.tenant_id > 0 ? (
-                    tenantNameById.get(x.tenant_id) ?? `#${x.tenant_id}`
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {editingId === x.id ? (
-                    <input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      aria-label={t("ipam.ipv4.name")}
-                    />
-                  ) : (
-                    x.name
-                  )}
-                </td>
-                <td>
-                  {editingId === x.id ? (
-                    <input
-                      value={editCidr}
-                      onChange={(e) => setEditCidr(e.target.value)}
-                      aria-label={t("ipam.ipv4.cidr")}
-                    />
-                  ) : (
-                    <code>{x.cidr}</code>
-                  )}
-                </td>
-                <td>{x.role ?? "active"}</td>
-                <td>{x.status ?? "active"}</td>
-                <td>{x.overlap_policy ?? "site-local"}</td>
-                <td>
-                  {x.address_total > 0 ? (
-                    <>
-                      {x.used_count} / {x.address_total}
-                      <span className={dcimStyles.muted}>
-                        {" "}
-                        ({Math.round((100 * x.used_count) / x.address_total)}%)
-                      </span>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  <div className={dcimStyles.tableIconActions}>
-                    <button
-                      type="button"
-                      className={dcimStyles.tableIconBtn}
-                      disabled={editingId === x.id}
-                      title={t("ipam.ipv4.openExplore")}
-                      aria-label={t("ipam.ipv4.openExplore")}
-                      onClick={() => openExplore(x)}
-                    >
-                      <i className="fas fa-sitemap" aria-hidden />
-                    </button>
-                  </div>
-                </td>
-                <td>
-                  {editingId === x.id ? (
-                    <span className={dcimStyles.tableIconActions}>
-                      <button
-                        type="button"
-                        className={dcimStyles.tableIconBtn}
-                        disabled={patchPfx.isPending}
-                        title={t("dcim.common.save")}
-                        aria-label={t("dcim.common.save")}
-                        onClick={() => {
-                          const nm = editName.trim();
-                          const cd = editCidr.trim();
-                          if (!nm || !cd) {
-                            setErr(t("ipam.ipv4.addMissing"));
-                            return;
-                          }
-                          const tid =
-                            editTenantId === "" ? null : Number(editTenantId);
-                          if (editTenantId !== "" && (!Number.isFinite(tid) || (tid as number) < 1)) {
-                            setErr(t("ipam.ipv4.addMissing"));
-                            return;
-                          }
-                          const vid = editVlanId === "" ? null : Number(editVlanId);
-                          if (editVlanId !== "" && (!Number.isFinite(vid) || (vid as number) < 1)) {
-                            setErr(t("ipam.ipv4.addMissing"));
-                            return;
-                          }
-                          const vrfId = editVrfId === "" ? null : Number(editVrfId);
-                          if (editVrfId !== "" && (!Number.isFinite(vrfId) || (vrfId as number) < 1)) {
-                            setErr(t("ipam.ipv4.addMissing"));
-                            return;
-                          }
-                          patchPfx.mutate({
-                            id: x.id,
-                            body: {
-                              name: nm,
-                              cidr: cd,
-                              tenant_id: tid,
-                              vlan_id: vid,
-                              vrf_id: vrfId,
-                            },
-                          });
-                        }}
-                      >
-                        {patchPfx.isPending ? (
-                          "…"
-                        ) : (
-                          <i className="fas fa-floppy-disk" aria-hidden />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className={dcimStyles.tableIconBtn}
-                        title={t("ipam.ipv4.cancel")}
-                        aria-label={t("ipam.ipv4.cancel")}
-                        onClick={() => {
-                          setEditingId(null);
-                          setErr(null);
-                        }}
-                      >
-                        <i className="fas fa-xmark" aria-hidden />
-                      </button>
-                    </span>
-                  ) : (
-                    <span className={dcimStyles.tableIconActions}>
-                      {canSplit ? (
-                        <button
-                          type="button"
-                          className={dcimStyles.tableIconBtn}
-                          title={t("ipam.ipv4.splitSubnet")}
-                          aria-label={t("ipam.ipv4.splitSubnet")}
-                          onClick={() => {
-                            setErr(null);
-                            setSplitTarget(x);
-                          }}
-                        >
-                          <i className="fas fa-scissors" aria-hidden />
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className={dcimStyles.tableIconBtn}
-                        title={t("ipam.ipv4.requestIps")}
-                        aria-label={t("ipam.ipv4.requestIps")}
-                        onClick={() => {
-                          setErr(null);
-                          setIpRequestCtx({ prefixId: x.id, cidr: x.cidr, preferred: "" });
-                        }}
-                      >
-                        <i className="fas fa-inbox" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        className={dcimStyles.tableIconBtn}
-                        title={t("ipam.ipv4.edit")}
-                        aria-label={t("ipam.ipv4.edit")}
-                        onClick={() => {
-                          setEditingId(x.id);
-                          setEditName(x.name);
-                          setEditCidr(x.cidr);
-                          setEditTenantId(
-                            x.tenant_id != null && x.tenant_id > 0 ? String(x.tenant_id) : "",
-                          );
-                          setEditVlanId(x.vlan_id != null && x.vlan_id > 0 ? String(x.vlan_id) : "");
-                          setEditVrfId(x.vrf_id != null && x.vrf_id > 0 ? String(x.vrf_id) : "");
-                          setErr(null);
-                        }}
-                      >
-                        <i className="fas fa-pen-to-square" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        className={`${dcimStyles.tableIconBtn} ${dcimStyles.tableIconBtnDanger}`.trim()}
-                        title={t("dcim.common.delete")}
-                        aria-label={t("dcim.common.delete")}
-                        disabled={delPfx.isPending}
-                        onClick={() => setDeletePrefixTarget({ id: x.id, name: x.name, cidr: x.cidr })}
-                      >
-                        <i className="fas fa-trash-can" aria-hidden />
-                      </button>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-            })}
-          </tbody>
-        </table>
-        </>
-      ) : (
-        !prefixesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.ipv4.empty")}</p>
-      )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={dcimStyles.muted}>{t("ipam.ipv4.noChildPrefixes")}</p>
+            )}
+            <button
+              type="button"
+              className={dcimStyles.btnLink}
+              onClick={() => openExplore(selectedPrefix)}
+            >
+              {t("ipam.ipv4.seeAddresses")}
+            </button>
+          </>
+        ) : null}
+      </PrefixDrawer>
+
       {splitTarget != null ? (
         <div
           role="presentation"
