@@ -215,7 +215,17 @@ export function DashboardHome() {
               <div className={styles.siteGrid}>
                 {siteCards.map((row) => (
                   <Link key={row.site.id} to="/dcim/sites" className={styles.siteCard}>
-                    <div className={styles.siteThumb}>{siteInitials(row.site.name)}</div>
+                    <div className={styles.siteThumb}>
+                      {row.site.has_banner ? (
+                        <img
+                          src={dcimApi.siteBannerUrl(row.site.id)}
+                          alt=""
+                          className={styles.siteThumbImg}
+                        />
+                      ) : (
+                        siteInitials(row.site.name)
+                      )}
+                    </div>
                     <p className={styles.siteName}>
                       {row.site.name}
                       {row.site.slug ? ` (${row.site.slug.toUpperCase()})` : ""}

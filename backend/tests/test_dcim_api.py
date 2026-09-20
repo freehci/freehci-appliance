@@ -32,6 +32,26 @@ def test_dcim_site_room_rack_device_flow() -> None:
         assert pu.json()["address_line1"] == "Karl Johans gate 1"
         assert pu.json()["city"] == "Oslo"
         assert pu.json()["latitude"] == 59.9139
+        assert pu.json()["has_banner"] is False
+
+        tiny_png = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n\x2db\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        bn = client.post(
+            f"/api/v1/dcim/sites/{site_id}/banner",
+            files={"file": ("banner.png", tiny_png, "image/png")},
+        )
+        assert bn.status_code == 200, bn.text
+        assert bn.json()["has_banner"] is True
+        bng = client.get(f"/api/v1/dcim/sites/{site_id}/banner")
+        assert bng.status_code == 200
+        assert bng.content == tiny_png
+        bnr = client.delete(f"/api/v1/dcim/sites/{site_id}/banner")
+        assert bnr.status_code == 200, bnr.text
+        assert bnr.json()["has_banner"] is False
+        assert client.get(f"/api/v1/dcim/sites/{site_id}/banner").status_code == 404
 
         r = client.post(
             "/api/v1/dcim/rooms",

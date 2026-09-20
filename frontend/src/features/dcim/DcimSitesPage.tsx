@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
@@ -48,6 +48,8 @@ export function DcimSitesPage() {
   const [newEmail, setNewEmail] = useState<string>("");
   const [newPhone, setNewPhone] = useState<string>("");
   const [grantDeleteId, setGrantDeleteId] = useState<number | null>(null);
+  const [bannerVersion, setBannerVersion] = useState("");
+  const bannerFileRef = useRef<HTMLInputElement | null>(null);
 
   const q = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: api.listTenants });
@@ -165,6 +167,27 @@ export function DcimSitesPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const uploadBannerM = useMutation({
+    mutationFn: (file: File) => api.uploadSiteBanner(editId!, file),
+    onSuccess: () => {
+      setErr(null);
+      setBannerVersion(String(Date.now()));
+      if (bannerFileRef.current) bannerFileRef.current.value = "";
+      void qc.invalidateQueries({ queryKey: ["dcim", "sites"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const removeBannerM = useMutation({
+    mutationFn: () => api.deleteSiteBanner(editId!),
+    onSuccess: () => {
+      setErr(null);
+      setBannerVersion("");
+      void qc.invalidateQueries({ queryKey: ["dcim", "sites"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const delGrantM = useMutation({
     mutationFn: (grantId: number) => api.deleteSiteAccess(editId!, grantId),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["dcim", "site-access", editId] }),
@@ -263,6 +286,7 @@ export function DcimSitesPage() {
                       setNewDisplayName("");
                       setNewEmail("");
                       setNewPhone("");
+                      setBannerVersion(s.has_banner ? String(Date.now()) : "");
                       setEdit({
                         tenant_id: String(s.tenant_id),
                         name: s.name ?? "",
@@ -406,6 +430,7 @@ export function DcimSitesPage() {
                   setEditId(null);
                   setEdit({});
                   setGeocodeResult(null);
+                  setBannerVersion("");
                 }}
               >
                 {t("dcim.common.cancel")}
@@ -416,7 +441,57 @@ export function DcimSitesPage() {
                 {t("dcim.sites.geocodeBestPrefix")} <span>{geocodeResult.candidates[0].display_name}</span>
               </div>
             ) : null}
-          </form>
+            </form>
+          <section style={{ marginTop: "0.75rem" }}>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: "0.35rem" }}>
+              {t("dcim.sites.bannerTitle")}
+            </div>
+            {selected.has_banner ? (
+              <p style={{ margin: "0 0 0.5rem" }}>
+                <img
+                  src={api.siteBannerUrl(editId, bannerVersion)}
+                  alt=""
+                  className={styles.mfrLogoThumb}
+                  style={{ maxWidth: "100%", width: "auto", height: "auto", maxHeight: "10rem" }}
+                />
+              </p>
+            ) : (
+              <p className={styles.muted}>{t("dcim.sites.bannerEmpty")}</p>
+            )}
+            <div className={styles.formRow} style={{ marginTop: "var(--space-2)", flexWrap: "wrap" }}>
+              <label>
+                {t("dcim.sites.bannerUpload")}
+                <input
+                  ref={bannerFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setErr(null);
+                      uploadBannerM.mutate(f);
+                    }
+                  }}
+                />
+              </label>
+              {selected.has_banner ? (
+                <button
+                  type="button"
+                  className={styles.btnMuted}
+                  disabled={removeBannerM.isPending}
+                  onClick={() => {
+                    setErr(null);
+                    removeBannerM.mutate();
+                  }}
+                >
+                  {removeBannerM.isPending ? "…" : t("dcim.sites.bannerRemove")}
+                </button>
+              ) : null}
+            </div>
+            <p className={styles.muted} style={{ marginTop: "var(--space-2)" }}>
+              {t("dcim.sites.bannerHint")}
+            </p>
+          </section>
           {latLon ? (
             <div style={{ marginTop: "0.75rem" }}>
               <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginBottom: "0.25rem" }}>

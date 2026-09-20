@@ -10,6 +10,7 @@ from app.core.media_storage import (
     resolve_device_model_image_path,
     resolve_manufacturer_logo_path,
     resolve_room_floorplan_path,
+    resolve_site_banner_path,
 )
 from app.schemas.dcim import (
     ComponentClassCreate,
@@ -246,6 +247,41 @@ def delete_site_access_grant(site_id: int, grant_id: int, db: Session = Depends(
     if row is None or row.site_id != site_id:
         raise HTTPException(status_code=404, detail="tilgang ikke funnet")
     dcim_svc.delete_site_access_grant(db, row)
+
+
+@router.get("/sites/{site_id}/banner")
+def get_site_banner(site_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    row = dcim_svc.get_site(db, site_id)
+    if row is None or not row.banner_relpath or not row.banner_mime_type:
+        raise HTTPException(status_code=404, detail="banner finnes ikke")
+    path = resolve_site_banner_path(get_settings().upload_root_path, row.banner_relpath)
+    if path is None:
+        raise HTTPException(status_code=404, detail="banner finnes ikke")
+    return FileResponse(path, media_type=row.banner_mime_type)
+
+
+@router.post("/sites/{site_id}/banner", response_model=SiteRead)
+async def upload_site_banner(
+    site_id: int,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+) -> SiteRead:
+    row = dcim_svc.get_site(db, site_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="site ikke funnet")
+    content = await file.read()
+    mime = file.content_type or "application/octet-stream"
+    dcim_svc.set_site_banner(db, row, content, mime)
+    return row
+
+
+@router.delete("/sites/{site_id}/banner", response_model=SiteRead)
+def remove_site_banner(site_id: int, db: Session = Depends(get_db)) -> SiteRead:
+    row = dcim_svc.get_site(db, site_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="site ikke funnet")
+    dcim_svc.clear_site_banner(db, row)
+    return row
 
 
 @router.delete("/sites/{site_id}", status_code=204)

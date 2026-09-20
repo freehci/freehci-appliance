@@ -18,9 +18,11 @@ from app.core.media_storage import (
     delete_device_model_image_slot,
     delete_manufacturer_logo_files,
     delete_room_floorplan_files,
+    delete_site_banner_files,
     write_device_model_image_file,
     write_manufacturer_logo_file,
     write_room_floorplan_file,
+    write_site_banner_file,
 )
 from app.models.dcim import (
     Component,
@@ -137,7 +139,9 @@ from app.schemas.dcim import (
 
 LOGO_MAX_BYTES = 512 * 1024
 ROOM_FLOORPLAN_MAX_BYTES = 2 * 1024 * 1024
+SITE_BANNER_MAX_BYTES = 8 * 1024 * 1024
 ALLOWED_LOGO_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/svg+xml"})
+ALLOWED_BANNER_MIME = frozenset({"image/png", "image/jpeg", "image/webp"})
 
 _SITE_QUERY = object()
 
@@ -383,7 +387,34 @@ def update_site(db: Session, site: Site, data: SiteUpdate) -> Site:
     return site
 
 
+def set_site_banner(db: Session, site: Site, content: bytes, mime: str) -> None:
+    if len(content) > SITE_BANNER_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="banner for stort (maks 8 MiB)")
+    if mime not in ALLOWED_BANNER_MIME:
+        raise HTTPException(
+            status_code=400,
+            detail="banner må være PNG, JPEG eller WebP",
+        )
+    root: Path = get_settings().upload_root_path
+    relpath = write_site_banner_file(root, site.id, content, mime)
+    site.banner_relpath = relpath
+    site.banner_mime_type = mime
+    db.commit()
+    db.refresh(site)
+
+
+def clear_site_banner(db: Session, site: Site) -> None:
+    root: Path = get_settings().upload_root_path
+    delete_site_banner_files(root, site.id)
+    site.banner_relpath = None
+    site.banner_mime_type = None
+    db.commit()
+    db.refresh(site)
+
+
 def delete_site(db: Session, site: Site) -> None:
+    root: Path = get_settings().upload_root_path
+    delete_site_banner_files(root, site.id)
     db.delete(site)
     db.commit()
 

@@ -15,6 +15,7 @@ export type Site = {
   latitude?: number | null;
   longitude?: number | null;
   address_note?: string | null;
+  has_banner?: boolean;
   created_at: string;
 };
 

@@ -20,6 +20,7 @@ def _is_public_dcim_media_get(path: str, api_v1_prefix: str) -> bool:
     api = api_v1_prefix.rstrip("/")
     return bool(
         re.fullmatch(rf"{re.escape(api)}/dcim/manufacturers/\d+/logo", path)
+        or re.fullmatch(rf"{re.escape(api)}/dcim/sites/\d+/banner", path)
         or re.fullmatch(rf"{re.escape(api)}/dcim/device-models/\d+/image-front", path)
         or re.fullmatch(rf"{re.escape(api)}/dcim/device-models/\d+/image-back", path)
         or re.fullmatch(rf"{re.escape(api)}/dcim/device-models/\d+/image-product", path)

@@ -44,6 +44,7 @@ def test_dcim_unauthorized_without_token(client_with_auth: TestClient) -> None:
 def test_dcim_logo_and_model_images_get_without_bearer(client_with_auth: TestClient) -> None:
     """<img src> sender ikke JWT — skal nå ruten (404 uten fil), ikke 401."""
     assert client_with_auth.get("/api/v1/dcim/manufacturers/999999/logo").status_code == 404
+    assert client_with_auth.get("/api/v1/dcim/sites/999999/banner").status_code == 404
     assert client_with_auth.get("/api/v1/dcim/device-models/999999/image-front").status_code == 404
     assert client_with_auth.get("/api/v1/dcim/device-models/999999/image-back").status_code == 404
     assert client_with_auth.get("/api/v1/dcim/device-models/999999/image-product").status_code == 404

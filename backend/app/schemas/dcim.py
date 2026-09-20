@@ -86,6 +86,7 @@ class SiteRead(BaseModel):
     latitude: float | None
     longitude: float | None
     address_note: str | None
+    has_banner: bool
     created_at: dt.datetime
 
 

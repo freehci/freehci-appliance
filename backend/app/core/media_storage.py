@@ -7,6 +7,7 @@ from pathlib import Path
 MFR_LOGO_SUBDIR = "dcim/manufacturer_logos"
 DM_IMAGE_SUBDIR = "dcim/device_model_images"
 ROOM_FLOORPLAN_SUBDIR = "dcim/room_floorplans"
+SITE_BANNER_SUBDIR = "dcim/site_banners"
 
 MIME_TO_EXT: dict[str, str] = {
     "image/png": "png",
@@ -144,5 +145,42 @@ def delete_room_floorplan_files(upload_root: Path, room_id: int) -> None:
 
 
 def resolve_room_floorplan_path(upload_root: Path, relpath: str) -> Path | None:
+    p = safe_join_under_upload_root(upload_root, relpath)
+    return p if p.is_file() else None
+
+
+def site_banner_relpath(site_id: int, mime: str) -> str:
+    ext = MIME_TO_EXT[mime]
+    return f"{SITE_BANNER_SUBDIR}/{site_id}.{ext}"
+
+
+def write_site_banner_file(upload_root: Path, site_id: int, content: bytes, mime: str) -> str:
+    """Skriver site-banner til disk; sletter andre filendelser for samme site-ID."""
+    relpath = site_banner_relpath(site_id, mime)
+    dest = safe_join_under_upload_root(upload_root, relpath)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    banner_dir = safe_join_under_upload_root(upload_root, SITE_BANNER_SUBDIR)
+    if banner_dir.is_dir():
+        for f in banner_dir.glob(f"{site_id}.*"):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+    dest.write_bytes(content)
+    return relpath
+
+
+def delete_site_banner_files(upload_root: Path, site_id: int) -> None:
+    banner_dir = safe_join_under_upload_root(upload_root, SITE_BANNER_SUBDIR)
+    if not banner_dir.is_dir():
+        return
+    for f in banner_dir.glob(f"{site_id}.*"):
+        try:
+            f.unlink()
+        except OSError:
+            pass
+
+
+def resolve_site_banner_path(upload_root: Path, relpath: str) -> Path | None:
     p = safe_join_under_upload_root(upload_root, relpath)
     return p if p.is_file() else None

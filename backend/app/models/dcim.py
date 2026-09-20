@@ -37,11 +37,17 @@ class Site(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     address_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    banner_relpath: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    banner_mime_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
+
+    @hybrid_property
+    def has_banner(self) -> bool:
+        return self.banner_relpath is not None
 
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="sites")
     rooms: Mapped[list["Room"]] = relationship(back_populates="site", cascade="all, delete-orphan")

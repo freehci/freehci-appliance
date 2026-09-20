@@ -70,6 +70,21 @@ export function createSite(body: {
   return apiPost(`${P}/sites`, body);
 }
 
+export function siteBannerUrl(id: number, version?: string): string {
+  const q = version != null && version !== "" ? `?v=${encodeURIComponent(version)}` : "";
+  return apiUrl(`${P}/sites/${id}/banner${q}`);
+}
+
+export function uploadSiteBanner(id: number, file: File): Promise<Site> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPostMultipart(`${P}/sites/${id}/banner`, fd);
+}
+
+export function deleteSiteBanner(id: number): Promise<Site> {
+  return apiDeleteJson(`${P}/sites/${id}/banner`);
+}
+
 export function updateSite(
   id: number,
   body: Partial<
