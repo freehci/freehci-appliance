@@ -72,6 +72,10 @@ class ServiceDeployment(Base):
         ForeignKey("platform_virtual_machines.id", ondelete="SET NULL"),
         nullable=True,
     )
+    storage_pool_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_storage_pools.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     steps: Mapped[list["ServiceDeploymentStep"]] = relationship(
         back_populates="deployment",
@@ -125,6 +129,10 @@ class ServiceInstance(Base):
     )
     vm_id: Mapped[int | None] = mapped_column(
         ForeignKey("platform_virtual_machines.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    storage_pool_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_storage_pools.id", ondelete="SET NULL"),
         nullable=True,
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")

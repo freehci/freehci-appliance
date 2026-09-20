@@ -22,6 +22,16 @@ export type PlatformVirtualMachine = {
   created_at: string;
 };
 
+export type PlatformStoragePool = {
+  id: number;
+  name: string;
+  slug: string;
+  cluster_id: number;
+  kind: string;
+  status: string;
+  created_at: string;
+};
+
 export type PlatformCluster = {
   id: number;
   name: string;
@@ -32,6 +42,7 @@ export type PlatformCluster = {
   created_at: string;
   members: PlatformClusterMember[];
   vms: PlatformVirtualMachine[];
+  storage_pools: PlatformStoragePool[];
 };
 
 export function listClusters(): Promise<PlatformCluster[]> {
@@ -56,6 +67,13 @@ export function addClusterMember(
 
 export function deleteCluster(id: number): Promise<void> {
   return apiDelete(`${P}/${id}`);
+}
+
+export function createStoragePool(
+  clusterId: number,
+  body: { name: string; slug?: string | null; kind: string; status?: string },
+): Promise<PlatformStoragePool> {
+  return apiPost(`${P}/${clusterId}/storage-pools`, body);
 }
 
 export function createVm(

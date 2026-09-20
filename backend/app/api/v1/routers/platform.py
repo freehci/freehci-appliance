@@ -9,6 +9,8 @@ from app.schemas.platform import (
     PlatformClusterMemberCreate,
     PlatformClusterMemberRead,
     PlatformClusterRead,
+    PlatformStoragePoolCreate,
+    PlatformStoragePoolRead,
     PlatformVirtualMachineCreate,
     PlatformVirtualMachineRead,
 )
@@ -81,3 +83,23 @@ def delete_vm(cluster_id: int, vm_id: int, db: Session = Depends(get_db)) -> Non
     if row is None:
         raise HTTPException(status_code=404, detail="cluster ikke funnet")
     plat_svc.delete_vm(db, row, vm_id)
+
+
+@router.post("/{cluster_id}/storage-pools", response_model=PlatformStoragePoolRead)
+def create_storage_pool(
+    cluster_id: int,
+    data: PlatformStoragePoolCreate,
+    db: Session = Depends(get_db),
+) -> PlatformStoragePoolRead:
+    row = plat_svc.get_cluster(db, cluster_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="cluster ikke funnet")
+    return plat_svc.storage_to_read(plat_svc.create_storage_pool(db, row, data))
+
+
+@router.delete("/{cluster_id}/storage-pools/{pool_id}", status_code=204)
+def delete_storage_pool(cluster_id: int, pool_id: int, db: Session = Depends(get_db)) -> None:
+    row = plat_svc.get_cluster(db, cluster_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="cluster ikke funnet")
+    plat_svc.delete_storage_pool(db, row, pool_id)

@@ -2021,7 +2021,7 @@ export const nb = {
 
   "catalog.title": "Servicekatalog",
   "catalog.intro":
-    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans, clustermedlemskap eller VM. De installerer ikke OS og oppretter ikke en gjest.",
+    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans, clustermedlemskap, VM eller lagringspool. De installerer ikke OS, oppretter ikke en gjest og provisionerer ikke LUN.",
   "catalog.tabs": "Katalogseksjoner",
   "catalog.tabTemplates": "Maler",
   "catalog.tabDeploy": "Deploy",
@@ -2033,7 +2033,7 @@ export const nb = {
   "catalog.versions": "Versjoner",
   "catalog.yes": "Ja",
   "catalog.no": "Nei",
-  "catalog.deployHint": "Plan validerer enhet og valgfritt prefiks. Kjør registrerer instansen. Ingen hypervisor-steg finnes opp.",
+  "catalog.deployHint": "Plan validerer målet. Kjør registrerer instansen. Ingen hypervisor-, gjest- eller LUN-steg finnes opp.",
   "catalog.templateVersion": "Malversjon",
   "catalog.device": "Enhet",
   "catalog.prefixOptional": "IPv4-prefiks (ved reservasjon)",
@@ -2049,11 +2049,12 @@ export const nb = {
   "catalog.kindDevice": "Enhetsinstans",
   "catalog.kindCluster": "Clustermedlemskap",
   "catalog.kindVm": "Virtuell maskin",
+  "catalog.kindStorage": "Lagringspool",
   "catalog.devices": "Enheter",
 
   "platform.title": "Clustere",
   "platform.intro":
-    "Inventar over clustere, medlemmer og registrerte VM-er. Kind og VM-status settes manuelt. Ingen datastore-kapasitet eller observert strømtilstand finnes opp.",
+    "Inventar over clustere, medlemmer, VM-er og lagringspooler. Kind og status settes manuelt. Ingen kapasitet, IOPS eller observert strømtilstand finnes opp.",
   "platform.empty": "Ingen clustere ennå.",
   "platform.addCluster": "Nytt cluster",
   "platform.kind": "Kind",
@@ -2066,4 +2067,9 @@ export const nb = {
   "platform.vmName": "VM-navn",
   "platform.vmHost": "Vertsenhet (valgfritt)",
   "platform.addVm": "Registrer VM",
+  "platform.storage": "Lagringspooler",
+  "platform.noStorage": "Ingen lagringspooler registrert.",
+  "platform.storageName": "Pool-navn",
+  "platform.storageKind": "Lagrings-kind",
+  "platform.addStorage": "Registrer pool",
 } satisfies Record<MessageKey, string>;

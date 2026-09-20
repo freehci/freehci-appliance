@@ -36,6 +36,7 @@ export function ServiceCatalogPage() {
   const [clusterName, setClusterName] = useState("");
   const [clusterKind, setClusterKind] = useState("other");
   const [targetClusterId, setTargetClusterId] = useState("");
+  const [storageKind, setStorageKind] = useState("other");
   const [prefixId, setPrefixId] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -54,6 +55,7 @@ export function ServiceCatalogPage() {
   const selectedVersion = versions.find(({ v }) => String(v.id) === versionId);
   const isCluster = selectedVersion?.v.spec.kind === "cluster";
   const isVm = selectedVersion?.v.spec.kind === "virtual_machine";
+  const isStorage = selectedVersion?.v.spec.kind === "storage_pool";
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
 
   const createTmpl = useMutation({
@@ -72,7 +74,14 @@ export function ServiceCatalogPage() {
 
   const planM = useMutation({
     mutationFn: () =>
-      isVm
+      isStorage
+        ? api.createDeployment({
+            template_version_id: Number(versionId),
+            cluster_id: Number(targetClusterId),
+            name: clusterName.trim(),
+            storage_kind: storageKind,
+          })
+        : isVm
         ? api.createDeployment({
             template_version_id: Number(versionId),
             cluster_id: Number(targetClusterId),
@@ -147,6 +156,7 @@ export function ServiceCatalogPage() {
                   <option value="device_instance">{t("catalog.kindDevice")}</option>
                   <option value="cluster">{t("catalog.kindCluster")}</option>
                   <option value="virtual_machine">{t("catalog.kindVm")}</option>
+                  <option value="storage_pool">{t("catalog.kindStorage")}</option>
                 </select>
               </label>
               {kind === "device_instance" ? (
@@ -201,7 +211,11 @@ export function ServiceCatalogPage() {
                 e.preventDefault();
                 if (
                   versionId &&
-                  (isVm ? targetClusterId && clusterName.trim() : isCluster ? deviceIds.length > 0 : deviceId)
+                  (isStorage || isVm
+                    ? targetClusterId && clusterName.trim()
+                    : isCluster
+                      ? deviceIds.length > 0
+                      : deviceId)
                 ) {
                   planM.mutate();
                 }
@@ -218,7 +232,33 @@ export function ServiceCatalogPage() {
                   ))}
                 </select>
               </label>
-              {isVm ? (
+              {isStorage ? (
+                <>
+                  <label>
+                    {t("platform.cluster")}
+                    <select value={targetClusterId} onChange={(e) => setTargetClusterId(e.target.value)}>
+                      <option value="">{t("dcim.common.choose")}</option>
+                      {(clQ.data ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t("platform.storageName")}
+                    <input value={clusterName} onChange={(e) => setClusterName(e.target.value)} />
+                  </label>
+                  <label>
+                    {t("platform.storageKind")}
+                    <select value={storageKind} onChange={(e) => setStorageKind(e.target.value)}>
+                      <option value="other">{t("platform.kindOther")}</option>
+                      <option value="datastore">datastore</option>
+                      <option value="pool">pool</option>
+                    </select>
+                  </label>
+                </>
+              ) : isVm ? (
                 <>
                   <label>
                     {t("platform.cluster")}
@@ -310,7 +350,7 @@ export function ServiceCatalogPage() {
                 disabled={
                   planM.isPending ||
                   !versionId ||
-                  (isVm
+                  (isStorage || isVm
                     ? !targetClusterId || !clusterName.trim()
                     : isCluster
                       ? deviceIds.length === 0
@@ -327,7 +367,9 @@ export function ServiceCatalogPage() {
                 </h3>
                 <p>
                   {selected.plan_json.template.name} {selected.plan_json.template.version}
-                  {selected.plan_json.vm?.name
+                  {selected.plan_json.storage?.name
+                    ? ` → ${selected.plan_json.storage.name}`
+                    : selected.plan_json.vm?.name
                     ? ` → ${selected.plan_json.vm.name}`
                     : selected.plan_json.cluster?.name
                       ? ` → ${selected.plan_json.cluster.name} (${selected.plan_json.cluster.kind})`
@@ -375,6 +417,9 @@ export function ServiceCatalogPage() {
                 {selected.instance ? (
                   <p>
                     {t("catalog.instance")}: {selected.instance.name}
+                    {selected.instance.storage_pool_id != null
+                      ? ` (storage #${selected.instance.storage_pool_id})`
+                      : ""}
                     {selected.instance.vm_id != null ? ` (VM #${selected.instance.vm_id})` : ""}
                     {selected.instance.cluster_id != null ? ` (cluster #${selected.instance.cluster_id})` : ""}
                     {selected.instance.ipv4_address_id != null
@@ -404,7 +449,9 @@ export function ServiceCatalogPage() {
                       </td>
                       <td>{d.status}</td>
                       <td>
-                        {d.plan_json?.cluster?.name ??
+                        {d.plan_json?.storage?.name ??
+                          d.plan_json?.vm?.name ??
+                          d.plan_json?.cluster?.name ??
                           d.plan_json?.device?.name ??
                           d.device_id}
                       </td>
@@ -439,7 +486,17 @@ export function ServiceCatalogPage() {
                     <tr key={i.id}>
                       <td>{i.name}</td>
                       <td>{i.slug}</td>
-                      <td>#{i.device_id}</td>
+                      <td>
+                        {i.storage_pool_id != null
+                          ? `storage #${i.storage_pool_id}`
+                          : i.vm_id != null
+                            ? `VM #${i.vm_id}`
+                            : i.cluster_id != null
+                              ? `cluster #${i.cluster_id}`
+                              : i.device_id != null
+                                ? `#${i.device_id}`
+                                : "—"}
+                      </td>
                       <td>{i.status}</td>
                       <td>{i.ipv4_address_id != null ? `#${i.ipv4_address_id}` : "—"}</td>
                     </tr>

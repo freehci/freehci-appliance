@@ -32,6 +32,11 @@ class PlatformCluster(Base):
         cascade="all, delete-orphan",
         order_by="PlatformVirtualMachine.id",
     )
+    storage_pools: Mapped[list["PlatformStoragePool"]] = relationship(
+        back_populates="cluster",
+        cascade="all, delete-orphan",
+        order_by="PlatformStoragePool.id",
+    )
 
 
 class PlatformClusterMember(Base):
@@ -65,3 +70,20 @@ class PlatformVirtualMachine(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     cluster: Mapped["PlatformCluster"] = relationship(back_populates="vms")
+
+
+class PlatformStoragePool(Base):
+    """Registrert lagringspool. Ingen oppfunnet kapasitet eller IOPS."""
+
+    __tablename__ = "platform_storage_pools"
+    __table_args__ = (UniqueConstraint("slug", name="uq_platform_storage_pool_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    cluster_id: Mapped[int] = mapped_column(ForeignKey("platform_clusters.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    cluster: Mapped["PlatformCluster"] = relationship(back_populates="storage_pools")

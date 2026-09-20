@@ -33,8 +33,10 @@ from app.schemas.catalog import (
 from app.schemas.ipam import Ipv4AddressRequest
 from app.schemas.platform import (
     CLUSTER_KINDS,
+    STORAGE_KINDS,
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
+    PlatformStoragePoolCreate,
     PlatformVirtualMachineCreate,
 )
 from app.services import dcim as dcim_svc
@@ -86,6 +88,7 @@ def deployment_to_read(db: Session, row: ServiceDeployment) -> ServiceDeployment
         device_id=row.device_id,
         cluster_id=row.cluster_id,
         vm_id=row.vm_id,
+        storage_pool_id=row.storage_pool_id,
         ipv4_prefix_id=row.ipv4_prefix_id,
         status=row.status,
         plan_json=row.plan_json,
@@ -395,6 +398,55 @@ def build_vm_plan(
     }
 
 
+def build_storage_plan(
+    db: Session,
+    version: ServiceTemplateVersion,
+    cluster_id: int | None,
+    name: str | None,
+    storage_kind: str | None,
+) -> dict:
+    template = db.get(ServiceTemplate, version.template_id)
+    blockers: list[str] = []
+    pool_name = (name or "").strip()
+    if not pool_name:
+        blockers.append("storage_name_required")
+    kind = (storage_kind or "other").strip().lower() or "other"
+    if kind not in STORAGE_KINDS:
+        blockers.append("unknown_storage_kind")
+        kind = "other"
+    cluster = plat_svc.get_cluster(db, cluster_id) if cluster_id else None
+    if cluster is None:
+        blockers.append("cluster_required" if not cluster_id else "cluster_not_found")
+    slug = _slugify(pool_name) if pool_name else None
+    if slug and plat_svc.get_storage_pool_by_slug(db, slug) is not None:
+        blockers.append("storage_slug_taken")
+    return {
+        "kind": "storage_pool",
+        "template": {
+            "id": template.id if template else version.template_id,
+            "name": template.name if template else None,
+            "version": version.version,
+        },
+        "cluster": (
+            {"id": cluster.id, "name": cluster.name, "kind": cluster.kind, "slug": cluster.slug}
+            if cluster is not None
+            else None
+        ),
+        "storage": {"name": pool_name or None, "slug": slug, "kind": kind},
+        "requested_name": pool_name or None,
+        "storage_kind": kind,
+        "cluster_id": cluster.id if cluster is not None else cluster_id,
+        "reserve_ipv4": False,
+        "prefix": None,
+        "blockers": list(dict.fromkeys(blockers)),
+        "can_run": len(blockers) == 0,
+        "notes": [
+            "Registrerer en lagringspool på et eksisterende cluster.",
+            "Måler ikke kapasitet og oppretter ikke datastore i hypervisoren.",
+        ],
+    }
+
+
 def list_deployments(db: Session) -> list[ServiceDeployment]:
     return list(
         db.execute(
@@ -433,6 +485,21 @@ def create_deployment(db: Session, data: ServiceDeploymentCreate) -> ServiceDepl
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
     ids = _device_ids_from(data)
+    if spec.get("kind") == "storage_pool":
+        plan = build_storage_plan(db, version, data.cluster_id, data.name, data.storage_kind)
+        row = ServiceDeployment(
+            template_version_id=version.id,
+            device_id=None,
+            cluster_id=data.cluster_id,
+            ipv4_prefix_id=None,
+            status="planned",
+            plan_json=plan,
+        )
+        db.add(row)
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
     if spec.get("kind") == "virtual_machine":
         plan = build_vm_plan(db, version, data.cluster_id, data.name, data.device_id, data.ipv4_prefix_id)
         row = ServiceDeployment(
@@ -702,6 +769,90 @@ def _run_vm(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion
     return loaded
 
 
+def _run_storage(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion) -> ServiceDeployment:
+    prev = row.plan_json if isinstance(row.plan_json, dict) else {}
+    plan = build_storage_plan(
+        db,
+        version,
+        row.cluster_id or prev.get("cluster_id"),
+        prev.get("requested_name"),
+        prev.get("storage_kind"),
+    )
+    row.plan_json = plan
+    if not plan["can_run"]:
+        db.commit()
+        raise HTTPException(status_code=400, detail={"code": "cannot_run", "blockers": plan["blockers"]})
+
+    row.status = "running"
+    row.started_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+
+    cluster = plat_svc.get_cluster(db, row.cluster_id)
+    assert cluster is not None
+    _add_step(db, row, "validate_cluster", "ok", cluster.name)
+    db.commit()
+
+    try:
+        pool = plat_svc.create_storage_pool(
+            db,
+            cluster,
+            PlatformStoragePoolCreate(
+                name=plan["storage"]["name"],
+                slug=plan["storage"]["slug"],
+                kind=plan["storage"]["kind"],
+                status="active",
+            ),
+        )
+        row.storage_pool_id = pool.id
+        _add_step(db, row, "record_storage", "ok", f"{pool.name} #{pool.id}")
+        db.commit()
+    except HTTPException as exc:
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_storage", "failed", _exc_detail(exc))
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    template = db.get(ServiceTemplate, version.template_id)
+    name = plan["storage"]["name"]
+    slug = _slugify(f"{template.slug if template else 'svc'}-storage-{row.id}")
+    inst = ServiceInstance(
+        name=name[:255],
+        slug=slug,
+        template_version_id=version.id,
+        deployment_id=row.id,
+        device_id=None,
+        cluster_id=row.cluster_id,
+        storage_pool_id=row.storage_pool_id,
+        ipv4_address_id=None,
+        status="active",
+    )
+    db.add(inst)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        row = get_deployment(db, row.id)
+        assert row is not None
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_instance", "failed", "instans-slug finnes allerede")
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    _add_step(db, row, "record_instance", "ok", f"instans #{inst.id}")
+    row.status = "succeeded"
+    row.finished_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+    loaded = get_deployment(db, row.id)
+    assert loaded is not None
+    return loaded
+
+
 def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if row.status != "planned":
         raise HTTPException(status_code=409, detail="deployment er allerede kjørt")
@@ -709,6 +860,8 @@ def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if version is None:
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("kind") == "storage_pool":
+        return _run_storage(db, row, version)
     if spec.get("kind") == "virtual_machine":
         return _run_vm(db, row, version)
     if spec.get("kind") == "cluster":

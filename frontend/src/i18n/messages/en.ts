@@ -2011,7 +2011,7 @@ export const en = {
 
   "catalog.title": "Service catalog",
   "catalog.intro":
-    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership or VM. They do not install an OS or create a guest.",
+    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership, VM or storage pool. They do not install an OS, create a guest or provision a LUN.",
   "catalog.tabs": "Catalog sections",
   "catalog.tabTemplates": "Templates",
   "catalog.tabDeploy": "Deploy",
@@ -2023,7 +2023,7 @@ export const en = {
   "catalog.versions": "Versions",
   "catalog.yes": "Yes",
   "catalog.no": "No",
-  "catalog.deployHint": "Plan validates the device and optional prefix. Run records the instance. No hypervisor step is invented.",
+  "catalog.deployHint": "Plan validates the target. Run records the instance. No hypervisor, guest or LUN step is invented.",
   "catalog.templateVersion": "Template version",
   "catalog.device": "Device",
   "catalog.prefixOptional": "IPv4 prefix (if reserving)",
@@ -2039,11 +2039,12 @@ export const en = {
   "catalog.kindDevice": "Device instance",
   "catalog.kindCluster": "Cluster membership",
   "catalog.kindVm": "Virtual machine",
+  "catalog.kindStorage": "Storage pool",
   "catalog.devices": "Devices",
 
   "platform.title": "Clusters",
   "platform.intro":
-    "Inventory of clusters, members and registered VMs. Kind and VM status are declared by hand. No datastore capacity or observed power state is invented.",
+    "Inventory of clusters, members, VMs and storage pools. Kind and status are declared by hand. No capacity, IOPS or observed power state is invented.",
   "platform.empty": "No clusters yet.",
   "platform.addCluster": "Add cluster",
   "platform.kind": "Kind",
@@ -2056,6 +2057,11 @@ export const en = {
   "platform.vmName": "VM name",
   "platform.vmHost": "Host device (optional)",
   "platform.addVm": "Register VM",
+  "platform.storage": "Storage pools",
+  "platform.noStorage": "No storage pools registered.",
+  "platform.storageName": "Pool name",
+  "platform.storageKind": "Storage kind",
+  "platform.addStorage": "Register pool",
 } as const;
 
 export type MessageKey = keyof typeof en;

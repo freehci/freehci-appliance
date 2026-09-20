@@ -9,12 +9,19 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.platform import PlatformCluster, PlatformClusterMember, PlatformVirtualMachine
+from app.models.platform import (
+    PlatformCluster,
+    PlatformClusterMember,
+    PlatformStoragePool,
+    PlatformVirtualMachine,
+)
 from app.schemas.platform import (
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
     PlatformClusterMemberRead,
     PlatformClusterRead,
+    PlatformStoragePoolCreate,
+    PlatformStoragePoolRead,
     PlatformVirtualMachineCreate,
     PlatformVirtualMachineRead,
 )
@@ -37,13 +44,18 @@ def cluster_to_read(row: PlatformCluster) -> PlatformClusterRead:
         created_at=row.created_at,
         members=[PlatformClusterMemberRead.model_validate(m) for m in row.members],
         vms=[PlatformVirtualMachineRead.model_validate(v) for v in row.vms],
+        storage_pools=[PlatformStoragePoolRead.model_validate(p) for p in row.storage_pools],
     )
 
 
 def _load(db: Session, cluster_id: int) -> PlatformCluster | None:
     return db.execute(
         select(PlatformCluster)
-        .options(selectinload(PlatformCluster.members), selectinload(PlatformCluster.vms))
+        .options(
+            selectinload(PlatformCluster.members),
+            selectinload(PlatformCluster.vms),
+            selectinload(PlatformCluster.storage_pools),
+        )
         .where(PlatformCluster.id == cluster_id)
     ).scalar_one_or_none()
 
@@ -52,7 +64,11 @@ def list_clusters(db: Session) -> list[PlatformCluster]:
     return list(
         db.execute(
             select(PlatformCluster)
-            .options(selectinload(PlatformCluster.members), selectinload(PlatformCluster.vms))
+            .options(
+                selectinload(PlatformCluster.members),
+                selectinload(PlatformCluster.vms),
+                selectinload(PlatformCluster.storage_pools),
+            )
             .order_by(PlatformCluster.name)
         ).scalars().all()
     )
@@ -174,6 +190,47 @@ def create_vm(db: Session, cluster: PlatformCluster, data: PlatformVirtualMachin
         raise HTTPException(status_code=409, detail="vm-slug finnes allerede")
     db.refresh(row)
     return row
+
+
+def get_storage_pool_by_slug(db: Session, slug: str) -> PlatformStoragePool | None:
+    return db.execute(select(PlatformStoragePool).where(PlatformStoragePool.slug == slug)).scalar_one_or_none()
+
+
+def storage_to_read(row: PlatformStoragePool) -> PlatformStoragePoolRead:
+    return PlatformStoragePoolRead.model_validate(row)
+
+
+def create_storage_pool(
+    db: Session,
+    cluster: PlatformCluster,
+    data: PlatformStoragePoolCreate,
+) -> PlatformStoragePool:
+    slug = _slugify(data.slug or data.name)
+    if get_storage_pool_by_slug(db, slug) is not None:
+        raise HTTPException(status_code=409, detail="lagringspool-slug finnes allerede")
+    row = PlatformStoragePool(
+        name=data.name.strip(),
+        slug=slug,
+        cluster_id=cluster.id,
+        kind=data.kind,
+        status=data.status,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="lagringspool-slug finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def delete_storage_pool(db: Session, cluster: PlatformCluster, pool_id: int) -> None:
+    row = db.get(PlatformStoragePool, pool_id)
+    if row is None or row.cluster_id != cluster.id:
+        raise HTTPException(status_code=404, detail="lagringspool ikke funnet")
+    db.delete(row)
+    db.commit()
 
 
 def delete_vm(db: Session, cluster: PlatformCluster, vm_id: int) -> None:
