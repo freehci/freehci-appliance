@@ -59,7 +59,7 @@ import { IamUserGroupsTab } from "@/features/iam/IamUserGroupsTab";
 import { IamUserProfileTab } from "@/features/iam/IamUserProfileTab";
 import { IamUserRolesTab } from "@/features/iam/IamUserRolesTab";
 import { IamUsersListPage } from "@/features/iam/IamUsersListPage";
-import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { ServiceCatalogPage } from "@/features/catalog/ServiceCatalogPage";
 
 function AppShellLayout() {
   return (
@@ -152,15 +152,7 @@ function AppRoutes() {
             <Route path="groups" element={<IamGroupsPage />} />
             <Route path="groups/:groupId" element={<IamGroupDetailPage />} />
           </Route>
-          <Route
-            path="/service-catalog"
-            element={
-              <PlaceholderPage
-                titleKey="placeholders.serviceCatalog.title"
-                descriptionKey="placeholders.serviceCatalog.desc"
-              />
-            }
-          />
+          <Route path="/service-catalog" element={<ServiceCatalogPage />} />
           {pluginRoutes}
         </Route>
       </Route>

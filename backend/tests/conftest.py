@@ -34,6 +34,8 @@ import app.models.ipam  # noqa: E402, F401 — tabeller for IPAM + FK fra DCIM
 import app.models.snmp_catalog  # noqa: E402, F401 — SNMP MIB-metadata + IANA
 import app.models.network_scan  # noqa: E402, F401 — nettverksskann
 import app.models.federation  # noqa: E402, F401 — replika / primær per tenant
+import app.models.integration  # noqa: E402, F401 — tilkoblinger / identitet
+import app.models.catalog  # noqa: E402, F401 — servicekatalog
 from app.core.db import engine  # noqa: E402
 from app.models.base import Base  # noqa: E402
 

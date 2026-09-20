@@ -807,7 +807,7 @@ export const en = {
   "placeholders.integrations.title": "Integrations",
   "placeholders.integrations.desc": "Provider framework and catalog — phase 5.",
   "placeholders.serviceCatalog.title": "Service catalog",
-  "placeholders.serviceCatalog.desc": "Deployment and service templates — phase 6.",
+  "placeholders.serviceCatalog.desc": "Versioned templates, plan and run a service instance on an existing device.",
   "placeholders.footer": "Placeholder — API and features will ship in later phases.",
 
   "plugin.example.title": "Example plugin",
@@ -2006,6 +2006,33 @@ export const en = {
   "ipam.detail.selectAll": "Select all on this page",
   "ipam.detail.bulkHint": "Empty fields are left unchanged on the selected addresses.",
   "ipam.detail.clickRowHint": "Click a row to edit. Use checkboxes for bulk edit.",
+
+  "catalog.title": "Service catalog",
+  "catalog.intro":
+    "One vertical flow: choose a server, a versioned template, plan, then run. The first kind records a service instance on an existing device and can reserve an IPv4 address. It does not install an OS or a cluster.",
+  "catalog.tabs": "Catalog sections",
+  "catalog.tabTemplates": "Templates",
+  "catalog.tabDeploy": "Deploy",
+  "catalog.tabInstances": "Instances",
+  "catalog.templatesHint": "A new template starts at version 1.0.0. Published versions are not rewritten.",
+  "catalog.templatesEmpty": "No templates yet.",
+  "catalog.addTemplate": "Add template",
+  "catalog.reserveIpv4": "Reserve IPv4 on run",
+  "catalog.versions": "Versions",
+  "catalog.yes": "Yes",
+  "catalog.no": "No",
+  "catalog.deployHint": "Plan validates the device and optional prefix. Run records the instance. No hypervisor step is invented.",
+  "catalog.templateVersion": "Template version",
+  "catalog.device": "Device",
+  "catalog.prefixOptional": "IPv4 prefix (if reserving)",
+  "catalog.plan": "Plan",
+  "catalog.planTitle": "Plan",
+  "catalog.run": "Run",
+  "catalog.canRun": "Can run",
+  "catalog.instance": "Instance",
+  "catalog.instancesHint": "Recorded service instances. Address IDs come from IPAM after a real reservation.",
+  "catalog.instancesEmpty": "No service instances yet.",
+  "catalog.ipv4": "IPv4",
 } as const;
 
 export type MessageKey = keyof typeof en;

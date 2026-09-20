@@ -20,7 +20,14 @@ const LIBRARY_TABS = new Set(["mfr", "dt", "dm", "cmp"]);
 function domainForPath(pathname: string): DomainId | null {
   if (pathname.startsWith("/dcim")) return "dcim";
   if (pathname.startsWith("/ipam")) return "network";
-  if (pathname.startsWith("/jobs") || pathname.startsWith("/snmp") || pathname.startsWith("/ops")) return "ops";
+  if (
+    pathname.startsWith("/jobs") ||
+    pathname.startsWith("/snmp") ||
+    pathname.startsWith("/ops") ||
+    pathname.startsWith("/service-catalog")
+  ) {
+    return "ops";
+  }
   if (
     pathname.startsWith("/iam") ||
     pathname.startsWith("/admin") ||
@@ -222,6 +229,7 @@ export function SidebarNav() {
               isActive: (p) => p === "/jobs" || p.startsWith("/jobs/scheduler"),
             },
             { to: "/snmp", labelKey: "nav.snmp", icon: "snmp" },
+            { to: "/service-catalog", labelKey: "nav.serviceCatalog", icon: "serviceCatalog" },
           ]}
         />
         <Domain
