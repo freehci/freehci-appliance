@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { DcimInnerTabs } from "@/features/dcim/DcimInnerTabs";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as ipamApi from "./ipamApi";
+import { IpamAddressEditModal } from "./IpamAddressEditModal";
 import { IpamIpRequestModal } from "./IpamIpRequestModal";
 import styles from "./prefixDetail.module.css";
 import { intToIpv4, parseIpv4Cidr } from "./ipv4PrefixTree";
@@ -22,13 +22,6 @@ import { PREFIX_ROLES, PREFIX_STATUSES, type PrefixAddressGridRow } from "./type
 
 const PAGE_SIZES = [25, 50, 100] as const;
 const TABS = new Set(["overview", "addresses", "scanning", "services", "history"]);
-
-function isGridRowFree(row: PrefixAddressGridRow): boolean {
-  if (row.assignment != null) return false;
-  const inv = row.inventory;
-  if (inv == null) return true;
-  return inv.status === "discovered";
-}
 
 function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -90,7 +83,8 @@ export function IpamPrefixDetailPage() {
   const [svcDhcp, setSvcDhcp] = useState("");
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestPreferred, setRequestPreferred] = useState<string | undefined>(undefined);
-  const [releaseRow, setReleaseRow] = useState<PrefixAddressGridRow | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [editRows, setEditRows] = useState<PrefixAddressGridRow[] | null>(null);
 
   const exploreQ = useQuery({
     queryKey: ["ipam", "explore", id],
@@ -136,6 +130,7 @@ export function IpamPrefixDetailPage() {
 
   useEffect(() => {
     setPage(0);
+    setSelected(new Set());
   }, [q, statusFilter, roleFilter, pageSize, id]);
 
   useEffect(() => {
@@ -165,6 +160,11 @@ export function IpamPrefixDetailPage() {
     for (const d of devicesQ.data ?? []) m.set(d.id, d.name);
     return m;
   }, [devicesQ.data]);
+  const userNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const u of usersQ.data ?? []) m.set(u.id, u.display_name || u.username);
+    return m;
+  }, [usersQ.data]);
   const lastScan = scansQ.data?.[0] ?? gridQ.data?.active_scan ?? null;
   const scanRunning = lastScan?.status === "pending" || lastScan?.status === "running";
   const rows = gridQ.data?.rows ?? [];
@@ -202,6 +202,30 @@ export function IpamPrefixDetailPage() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const pageRows = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const pageSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.address));
+  const selectedRows = filtered.filter((r) => selected.has(r.address));
+  const toggleSelected = (address: string, on: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(address);
+      else next.delete(address);
+      return next;
+    });
+  };
+  const togglePage = (on: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const r of pageRows) {
+        if (on) next.add(r.address);
+        else next.delete(r.address);
+      }
+      return next;
+    });
+  };
+  const openEdit = (next: PrefixAddressGridRow[]) => {
+    if (next.length === 0) return;
+    setEditRows(next);
+  };
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["ipam", "explore", id] });
@@ -244,33 +268,6 @@ export function IpamPrefixDetailPage() {
         },
       }),
     onSuccess: invalidate,
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
-  });
-  const patchAddr = useMutation({
-    mutationFn: (args: { id: number; body: { owner_user_id?: number | null; note?: string | null; status?: string } }) =>
-      ipamApi.patchIpv4Address(args.id, args.body),
-    onSuccess: invalidate,
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
-  });
-  const reserveOne = useMutation({
-    mutationFn: async (address: string) => {
-      const row = rows.find((r) => r.address === address);
-      if (row?.inventory) {
-        await ipamApi.patchIpv4Address(row.inventory.id, { status: "reserved" });
-        return;
-      }
-      const inv = await ipamApi.ensureIpv4Address({ ipv4_prefix_id: id, address });
-      await ipamApi.patchIpv4Address(inv.id, { status: "reserved" });
-    },
-    onSuccess: invalidate,
-    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
-  });
-  const releaseM = useMutation({
-    mutationFn: (addrId: number) => ipamApi.releaseIpv4Address(addrId),
-    onSuccess: () => {
-      setReleaseRow(null);
-      invalidate();
-    },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
@@ -542,7 +539,21 @@ export function IpamPrefixDetailPage() {
                   <h2 className={styles.mainTitle}>
                     {t("ipam.detail.addressTitle")} ({filtered.length}/{usage.total || rows.length})
                   </h2>
-                  <p className={styles.mainHint}>{t("ipam.detail.addressHint")}</p>
+                  <p className={styles.mainHint}>{t("ipam.detail.clickRowHint")}</p>
+                </div>
+                <div className={styles.tableToolbar}>
+                  {selected.size > 0 ? (
+                    <span className={styles.muted}>{t("ipam.detail.selectedCount", { count: String(selected.size) })}</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={styles.toolBtn}
+                    disabled={selected.size === 0}
+                    onClick={() => openEdit(selectedRows)}
+                  >
+                    <i className="fas fa-pen" aria-hidden />
+                    {t("ipam.ipv4.edit")}
+                  </button>
                 </div>
               </div>
               <div className={styles.filters}>
@@ -602,6 +613,14 @@ export function IpamPrefixDetailPage() {
                   <table className={styles.table}>
                     <thead>
                       <tr>
+                        <th className={styles.checkCol}>
+                          <input
+                            type="checkbox"
+                            checked={pageSelected}
+                            aria-label={t("ipam.detail.selectAll")}
+                            onChange={(e) => togglePage(e.target.checked)}
+                          />
+                        </th>
                         <th>{t("ipam.ipv4.colAddress")}</th>
                         <th>{t("ipam.grid.colRole")}</th>
                         <th>{t("ipam.grid.reachCol")}</th>
@@ -611,7 +630,6 @@ export function IpamPrefixDetailPage() {
                         <th>{t("ipam.addr.colStatus")}</th>
                         <th>{t("ipam.addr.colOwner")}</th>
                         <th>{t("ipam.addr.colNote")}</th>
-                        <th />
                       </tr>
                     </thead>
                     <tbody>
@@ -629,8 +647,23 @@ export function IpamPrefixDetailPage() {
                             : ping === false
                               ? t("ipam.detail.statusDown")
                               : inv?.status ?? "—";
+                        const checked = selected.has(row.address);
+                        const ownerLabel =
+                          inv?.owner_user_id != null ? (userNameById.get(inv.owner_user_id) ?? `#${inv.owner_user_id}`) : "—";
                         return (
-                          <tr key={row.address}>
+                          <tr
+                            key={row.address}
+                            className={`${styles.rowClick} ${checked ? styles.rowChecked : ""}`}
+                            onClick={() => openEdit([row])}
+                          >
+                            <td className={styles.checkCol} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                aria-label={row.address}
+                                onChange={(e) => toggleSelected(row.address, e.target.checked)}
+                              />
+                            </td>
                             <td>
                               <code>{row.address}</code>
                             </td>
@@ -647,94 +680,22 @@ export function IpamPrefixDetailPage() {
                               )}
                             </td>
                             <td>{row.scan_mac ?? inv?.mac_address ?? "—"}</td>
-                            <td>
+                            <td onClick={devId != null ? (e) => e.stopPropagation() : undefined}>
                               {devId != null ? (
-                                <Link to={`/dcim/equipment/devices/${devId}`}>{devName}</Link>
+                                <Link className={styles.equipLink} to={`/dcim/equipment/devices/${devId}`}>
+                                  {devName}
+                                </Link>
                               ) : (
                                 <span className={styles.muted}>—</span>
                               )}
                             </td>
                             <td>{ifLabel}</td>
                             <td className={ping === true ? styles.statusOk : ping === false ? styles.statusDown : undefined}>
-                              {inv != null ? (
-                                <select
-                                  className={styles.compactSelect}
-                                  value={inv.status}
-                                  onChange={(e) => patchAddr.mutate({ id: inv.id, body: { status: e.target.value } })}
-                                >
-                                  <option value="discovered">discovered</option>
-                                  <option value="reserved">reserved</option>
-                                  <option value="assigned">assigned</option>
-                                </select>
-                              ) : (
-                                liveLabel
-                              )}
+                              {inv?.status ?? liveLabel}
                             </td>
-                            <td>
-                              {inv != null ? (
-                                <select
-                                  className={styles.compactSelect}
-                                  value={inv.owner_user_id ?? ""}
-                                  onChange={(e) =>
-                                    patchAddr.mutate({
-                                      id: inv.id,
-                                      body: { owner_user_id: e.target.value === "" ? null : Number(e.target.value) },
-                                    })
-                                  }
-                                >
-                                  <option value="">{t("dcim.common.choose")}</option>
-                                  {(usersQ.data ?? []).map((u) => (
-                                    <option key={u.id} value={String(u.id)}>
-                                      {u.display_name ?? u.username}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <span className={styles.muted}>—</span>
-                              )}
-                            </td>
-                            <td>
-                              {inv != null ? (
-                                <input
-                                  className={styles.compactInput}
-                                  defaultValue={inv.note ?? ""}
-                                  key={`${inv.id}-${inv.updated_at}`}
-                                  onBlur={(e) => {
-                                    const v = e.target.value.trim();
-                                    if ((inv.note ?? "") !== v) patchAddr.mutate({ id: inv.id, body: { note: v || null } });
-                                  }}
-                                />
-                              ) : (
-                                <span className={styles.muted}>—</span>
-                              )}
-                            </td>
-                            <td>
-                              <div className={styles.rowActions}>
-                                <button
-                                  type="button"
-                                  className={styles.toolBtn}
-                                  disabled={!isGridRowFree(row) || reserveOne.isPending}
-                                  onClick={() => reserveOne.mutate(row.address)}
-                                >
-                                  {t("ipam.grid.action.reserve")}
-                                </button>
-                                {inv && (inv.status === "reserved" || inv.status === "assigned") ? (
-                                  <button type="button" className={styles.toolBtn} onClick={() => setReleaseRow(row)}>
-                                    {t("ipam.addr.release")}
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className={styles.toolBtn}
-                                    onClick={() => {
-                                      setRequestPreferred(row.address);
-                                      setRequestOpen(true);
-                                    }}
-                                  >
-                                    {t("ipam.detail.request")}
-                                  </button>
-                                )}
-                              </div>
+                            <td>{ownerLabel}</td>
+                            <td className={styles.noteCell} title={inv?.note ?? undefined}>
+                              {inv?.note || <span className={styles.muted}>—</span>}
                             </td>
                           </tr>
                         );
@@ -1040,25 +1001,16 @@ export function IpamPrefixDetailPage() {
         initialPreferred={requestPreferred ?? ""}
         onAllocated={invalidate}
       />
-      <ConfirmModal
-        open={releaseRow?.inventory != null}
-        onClose={() => setReleaseRow(null)}
-        title={t("ipam.addr.release")}
-        message={
-          releaseRow ? (
-            <>
-              <code>{releaseRow.address}</code>
-              <br />
-              {t("ipam.addr.releaseConfirm")}
-            </>
-          ) : null
-        }
-        confirmLabel={t("ipam.addr.release")}
-        cancelLabel={t("dcim.common.cancel")}
-        danger
-        pending={releaseM.isPending}
-        onConfirm={() => {
-          if (releaseRow?.inventory) releaseM.mutate(releaseRow.inventory.id);
+      <IpamAddressEditModal
+        open={editRows != null && editRows.length > 0}
+        onClose={() => setEditRows(null)}
+        prefixId={id}
+        prefixCidr={prefix?.cidr ?? ""}
+        siteId={prefix?.site_id ?? null}
+        rows={editRows ?? []}
+        onSaved={() => {
+          setSelected(new Set());
+          invalidate();
         }}
       />
     </div>

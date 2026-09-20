@@ -219,6 +219,7 @@ export function patchIpv4Address(
   id: number,
   body: Partial<{
     status: string;
+    role: string;
     owner_user_id: number | null;
     note: string | null;
     mac_address: string | null;

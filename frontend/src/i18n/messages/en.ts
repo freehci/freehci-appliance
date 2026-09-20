@@ -1764,6 +1764,15 @@ export const en = {
   "ipam.detail.scanComplete": "completed",
   "ipam.detail.assignments": "Interface assignments",
   "ipam.detail.noAssignments": "No interface assignments in this prefix.",
+  "ipam.detail.selectedCount": "{count} selected",
+  "ipam.detail.editAddress": "Edit address",
+  "ipam.detail.editAddresses": "Edit addresses",
+  "ipam.detail.unchanged": "Leave unchanged",
+  "ipam.detail.openEquipment": "Open equipment",
+  "ipam.detail.boundEquipment": "Linked equipment",
+  "ipam.detail.selectAll": "Select all on this page",
+  "ipam.detail.bulkHint": "Empty fields are left unchanged on the selected addresses.",
+  "ipam.detail.clickRowHint": "Click a row to edit. Use checkboxes for bulk edit.",
 } as const;
 
 export type MessageKey = keyof typeof en;

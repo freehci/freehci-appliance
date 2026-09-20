@@ -1774,4 +1774,13 @@ export const nb = {
   "ipam.detail.scanComplete": "fullført",
   "ipam.detail.assignments": "Grensesnitt-tildelinger",
   "ipam.detail.noAssignments": "Ingen grensesnitt-tildelinger i dette prefikset.",
+  "ipam.detail.selectedCount": "{count} valgt",
+  "ipam.detail.editAddress": "Rediger adresse",
+  "ipam.detail.editAddresses": "Rediger adresser",
+  "ipam.detail.unchanged": "Ikke endre",
+  "ipam.detail.openEquipment": "Åpne utstyr",
+  "ipam.detail.boundEquipment": "Knyttet utstyr",
+  "ipam.detail.selectAll": "Velg alle på denne siden",
+  "ipam.detail.bulkHint": "Tomme felt blir ikke endret på de valgte adressene.",
+  "ipam.detail.clickRowHint": "Klikk en rad for å redigere. Bruk avkrysning for masseendring.",
 } satisfies Record<MessageKey, string>;

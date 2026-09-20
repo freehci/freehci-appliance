@@ -343,8 +343,47 @@
   flex: 1 1 12rem;
 }
 
+.tableToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .tableWrap {
   overflow: auto;
+}
+
+.checkCol {
+  width: 2rem;
+  text-align: center;
+}
+
+.rowClick {
+  cursor: pointer;
+}
+
+.rowClick:hover {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.rowChecked {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.noteCell {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.equipLink {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.equipLink:hover {
+  text-decoration: underline;
 }
 
 .table {

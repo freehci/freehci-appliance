@@ -329,6 +329,8 @@ export const PREFIX_ROLES = [
 
 export const PREFIX_STATUSES = ["planned", "active", "reserved", "deprecated"] as const;
 export const OVERLAP_POLICIES = ["site-local", "global-unique"] as const;
+export const ADDRESS_ROLES = ["gateway", "vip", "anycast", "lb", "host", "dhcp", "reserved"] as const;
+export const ADDRESS_STATUSES = ["discovered", "reserved", "assigned"] as const;
 
 export type IpamAuditEvent = {
   id: number;
