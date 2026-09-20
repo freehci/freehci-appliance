@@ -7,8 +7,9 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.asn import is_private_asn
 from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamCircuit, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
+from app.models.ipam import IpamBgpSession, IpamCircuit, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
     BuildingCreate,
@@ -25,6 +26,9 @@ from app.schemas.dcim import (
     WingCreate,
 )
 from app.schemas.ipam import (
+    IpamAsAssignmentCreate,
+    IpamAutonomousSystemCreate,
+    IpamBgpSessionCreate,
     IpamCircuitCreate,
     IpamProviderCreate,
     IpamVlanCreate,
@@ -41,6 +45,7 @@ from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
+from app.services import ipam_bgp as bgp_svc
 from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
 from app.services import tenant as tenant_svc
@@ -437,5 +442,77 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 slug=slug,
                 vpn_type=v.get("vpn_type") or "other",
                 source_circuit_id=source_id,
+            ),
+        )
+    for a in ipam.get("autonomous_systems") or []:
+        asn = a.get("asn")
+        if asn is None:
+            continue
+        found = bgp_svc.resolve_as_for_site(db, int(asn), site)
+        if found is None:
+            bgp_svc.create_autonomous_system(
+                db,
+                IpamAutonomousSystemCreate(
+                    asn=int(asn),
+                    name=a.get("name") or f"AS{asn}",
+                    slug=a.get("slug"),
+                    tenant_id=site.tenant_id if is_private_asn(int(asn)) else None,
+                ),
+            )
+    for x in ipam.get("as_assignments") or []:
+        asn = x.get("asn")
+        if asn is None:
+            continue
+        as_row = bgp_svc.resolve_as_for_site(db, int(asn), site)
+        if as_row is None:
+            continue
+        vrf_id = None
+        vrf_slug = (x.get("vrf_slug") or "").strip()
+        if vrf_slug:
+            vrf = db.execute(select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug)).scalar_one_or_none()
+            vrf_id = vrf.id if vrf is not None else None
+        existing = [
+            r
+            for r in bgp_svc.list_as_assignments(db, site_id=site.id, as_id=as_row.id)
+            if (r.vrf_id or None) == vrf_id
+        ]
+        if not existing:
+            bgp_svc.create_as_assignment(
+                db,
+                IpamAsAssignmentCreate(autonomous_system_id=as_row.id, site_id=site.id, vrf_id=vrf_id),
+            )
+    for s in ipam.get("bgp_sessions") or []:
+        slug = (s.get("slug") or "").strip()
+        local_asn = s.get("local_asn")
+        peer_ip = (s.get("peer_ip") or "").strip()
+        if local_asn is None or not peer_ip or s.get("remote_asn") is None:
+            continue
+        found = None
+        if slug:
+            found = db.execute(
+                select(IpamBgpSession).where(IpamBgpSession.site_id == site.id, IpamBgpSession.slug == slug),
+            ).scalar_one_or_none()
+        if found is not None:
+            continue
+        local = bgp_svc.resolve_as_for_site(db, int(local_asn), site)
+        if local is None:
+            continue
+        vrf_id = None
+        vrf_slug = (s.get("vrf_slug") or "").strip()
+        if vrf_slug:
+            vrf = db.execute(select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug)).scalar_one_or_none()
+            vrf_id = vrf.id if vrf is not None else None
+        bgp_svc.create_bgp_session(
+            db,
+            IpamBgpSessionCreate(
+                site_id=site.id,
+                local_as_id=local.id,
+                remote_asn=int(s["remote_asn"]) if s.get("remote_asn") is not None else None,
+                peer_ip=peer_ip,
+                vrf_id=vrf_id,
+                name=s.get("name"),
+                slug=slug or None,
+                address_families=s.get("address_families") or ["ipv4-unicast"],
+                desired_status=s.get("desired_status") or "planned",
             ),
         )

@@ -461,6 +461,31 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for v in raw.get("vpn_services") or []
             if v.get("slug")
         ],
+        "autonomous_systems": [
+            {"asn": a.get("asn"), "name": a.get("name"), "slug": a.get("slug"), "is_private": a.get("is_private")}
+            for a in raw.get("autonomous_systems") or []
+            if a.get("asn")
+        ],
+        "as_assignments": [
+            {"asn": x.get("asn"), "site_slug": x.get("site_slug"), "vrf_slug": x.get("vrf_slug")}
+            for x in raw.get("as_assignments") or []
+            if x.get("asn")
+        ],
+        "bgp_sessions": [
+            {
+                "name": s.get("name"),
+                "slug": s.get("slug"),
+                "local_asn": s.get("local_asn"),
+                "remote_asn": s.get("remote_asn"),
+                "peer_ip": s.get("peer_ip"),
+                "site_slug": s.get("site_slug"),
+                "vrf_slug": s.get("vrf_slug"),
+                "address_families": s.get("address_families"),
+                "desired_status": s.get("desired_status"),
+            }
+            for s in raw.get("bgp_sessions") or []
+            if s.get("peer_ip") and s.get("local_asn")
+        ],
     }
 
 

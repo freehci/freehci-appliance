@@ -19,6 +19,9 @@ import type {
   IpamVpnService,
   IpamVlan,
   IpamVlanGroup,
+  IpamAsAssignment,
+  IpamAutonomousSystem,
+  IpamBgpSession,
   IpamVrf,
   IpamWebhook,
   IpamWebhookDelivery,
@@ -292,6 +295,68 @@ export function patchIpamVrf(
 
 export function deleteIpamVrf(id: number): Promise<void> {
   return apiDelete(`${P}/vrfs/${id}`);
+}
+
+export function listAutonomousSystems(tenantId?: number): Promise<IpamAutonomousSystem[]> {
+  const q = tenantId != null ? `?tenant_id=${encodeURIComponent(String(tenantId))}` : "";
+  return apiGet(`${P}/autonomous-systems${q}`);
+}
+
+export function createAutonomousSystem(body: {
+  asn: number;
+  name: string;
+  slug?: string | null;
+  tenant_id?: number | null;
+  description?: string | null;
+}): Promise<IpamAutonomousSystem> {
+  return apiPost(`${P}/autonomous-systems`, body);
+}
+
+export function deleteAutonomousSystem(id: number): Promise<void> {
+  return apiDelete(`${P}/autonomous-systems/${id}`);
+}
+
+export function listAsAssignments(siteId?: number, asId?: number): Promise<IpamAsAssignment[]> {
+  const params = new URLSearchParams();
+  if (siteId != null) params.set("site_id", String(siteId));
+  if (asId != null) params.set("as_id", String(asId));
+  const s = params.toString();
+  return apiGet(`${P}/as-assignments${s ? `?${s}` : ""}`);
+}
+
+export function createAsAssignment(body: {
+  autonomous_system_id: number;
+  site_id: number;
+  vrf_id?: number | null;
+}): Promise<IpamAsAssignment> {
+  return apiPost(`${P}/as-assignments`, body);
+}
+
+export function deleteAsAssignment(id: number): Promise<void> {
+  return apiDelete(`${P}/as-assignments/${id}`);
+}
+
+export function listBgpSessions(siteId?: number): Promise<IpamBgpSession[]> {
+  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
+  return apiGet(`${P}/bgp-sessions${q}`);
+}
+
+export function createBgpSession(body: {
+  site_id: number;
+  local_as_id: number;
+  remote_as_id?: number | null;
+  remote_asn?: number | null;
+  peer_ip: string;
+  vrf_id?: number | null;
+  name?: string | null;
+  address_families?: string[];
+  desired_status?: string;
+}): Promise<IpamBgpSession> {
+  return apiPost(`${P}/bgp-sessions`, body);
+}
+
+export function deleteBgpSession(id: number): Promise<void> {
+  return apiDelete(`${P}/bgp-sessions/${id}`);
 }
 
 export function listIpamVlanGroups(siteId?: number): Promise<IpamVlanGroup[]> {

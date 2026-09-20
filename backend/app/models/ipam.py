@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -710,6 +710,118 @@ class IpamWebhookDelivery(Base):
     status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class IpamAutonomousSystem(Base):
+    """32-bit AS. Offentlig ASN er globalt unik; privat ASN er unik per tenant_scope."""
+
+    __tablename__ = "ipam_autonomous_systems"
+    __table_args__ = (UniqueConstraint("tenant_scope", "asn", name="uq_ipam_as_scope_asn"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    asn: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_private: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tenant_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    assignments: Mapped[list["IpamAsAssignment"]] = relationship(
+        back_populates="autonomous_system",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamAsAssignment(Base):
+    """Ett AS på flere sites; én site kan ha flere AS. Unikt per (AS, site, VRF)."""
+
+    __tablename__ = "ipam_as_assignments"
+    __table_args__ = (
+        UniqueConstraint("autonomous_system_id", "site_id", "vrf_scope", name="uq_ipam_as_assign_site_vrf"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    autonomous_system_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_autonomous_systems.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vrf_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    vrf_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    autonomous_system: Mapped["IpamAutonomousSystem"] = relationship(back_populates="assignments")
+
+
+class IpamBgpSession(Base):
+    """Én BGP-sesjon mot én peer-IP. IPv4 og IPv6 er address families, ikke to sesjoner."""
+
+    __tablename__ = "ipam_bgp_sessions"
+    __table_args__ = (
+        UniqueConstraint("site_id", "local_as_id", "peer_ip", "vrf_scope", name="uq_ipam_bgp_peer"),
+        UniqueConstraint("site_id", "slug", name="uq_ipam_bgp_site_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    local_as_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_autonomous_systems.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    remote_as_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_autonomous_systems.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    remote_asn: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    peer_ip: Mapped[str] = mapped_column(String(64), nullable=False)
+    vrf_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    vrf_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    address_families: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    desired_status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    observed_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    local_device_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    local_interface_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

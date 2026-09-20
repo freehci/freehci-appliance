@@ -10,7 +10,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.dcim import Site
-from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamProvider, IpamScanHost, IpamSubnetScan, IpamVpnService
+from app.models.ipam import (
+    IpamAutonomousSystem,
+    IpamIpv4Address,
+    IpamIpv4Prefix,
+    IpamProvider,
+    IpamScanHost,
+    IpamSubnetScan,
+    IpamVpnService,
+)
+from app.services import ipam_bgp as bgp_svc
 from app.schemas.ipam import (
     IpamBulkEnsure,
     IpamBulkEnsureRead,
@@ -179,6 +188,16 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if circuit_ids
         else []
     )
+    as_assignments = bgp_svc.list_as_assignments(db, site_id=site_id)
+    bgp_sessions = bgp_svc.list_bgp_sessions(db, site_id=site_id)
+    as_ids = {x.autonomous_system_id for x in as_assignments} | {s.local_as_id for s in bgp_sessions} | {
+        s.remote_as_id for s in bgp_sessions if s.remote_as_id
+    }
+    as_by_id = (
+        {a.id: a for a in db.execute(select(IpamAutonomousSystem).where(IpamAutonomousSystem.id.in_(as_ids))).scalars().all()}
+        if as_ids
+        else {}
+    )
     tenant_slug = site.tenant.slug if getattr(site, "tenant", None) is not None else None
     return {
         "apiVersion": "freehci.ipam/v1",
@@ -276,6 +295,31 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 ),
             }
             for v in vpn_rows
+        ],
+        "autonomous_systems": [
+            {"asn": a.asn, "name": a.name, "slug": a.slug, "is_private": a.is_private} for a in as_by_id.values()
+        ],
+        "as_assignments": [
+            {
+                "asn": as_by_id[x.autonomous_system_id].asn if x.autonomous_system_id in as_by_id else None,
+                "site_slug": site.slug,
+                "vrf_slug": vrf_by_id[x.vrf_id].slug if x.vrf_id and x.vrf_id in vrf_by_id else None,
+            }
+            for x in as_assignments
+        ],
+        "bgp_sessions": [
+            {
+                "name": s.name,
+                "slug": s.slug,
+                "local_asn": as_by_id[s.local_as_id].asn if s.local_as_id in as_by_id else None,
+                "remote_asn": s.remote_asn,
+                "peer_ip": s.peer_ip,
+                "site_slug": site.slug,
+                "vrf_slug": vrf_by_id[s.vrf_id].slug if s.vrf_id and s.vrf_id in vrf_by_id else None,
+                "address_families": s.address_families,
+                "desired_status": s.desired_status,
+            }
+            for s in bgp_sessions
         ],
     }
 

@@ -65,6 +65,14 @@ from app.schemas.ipam import (
     IpamVlanGroupUpdate,
     IpamVlanRead,
     IpamVlanUpdate,
+    IpamAsAssignmentCreate,
+    IpamAsAssignmentRead,
+    IpamAutonomousSystemCreate,
+    IpamAutonomousSystemRead,
+    IpamAutonomousSystemUpdate,
+    IpamBgpSessionCreate,
+    IpamBgpSessionRead,
+    IpamBgpSessionUpdate,
     IpamVrfCreate,
     IpamVrfEnsure,
     IpamVrfRead,
@@ -97,6 +105,7 @@ from app.services import ipam_idempotency as idem_svc
 from app.services import ipam_prefix_alloc as alloc_svc
 from app.services import ipam_prefix_split as split_svc
 from app.services import ipam_facilities as fac_svc
+from app.services import ipam_bgp as bgp_svc
 from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_prefix_grid as grid_svc
@@ -535,6 +544,120 @@ def delete_ipam_vrf(vrf_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
     fac_svc.delete_vrf(db, row)
+
+
+@router.get("/autonomous-systems", response_model=list[IpamAutonomousSystemRead])
+def list_autonomous_systems(
+    tenant_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamAutonomousSystemRead]:
+    return [bgp_svc.as_to_read(r) for r in bgp_svc.list_autonomous_systems(db, tenant_id=tenant_id)]
+
+
+@router.post("/autonomous-systems", response_model=IpamAutonomousSystemRead)
+def create_autonomous_system(
+    data: IpamAutonomousSystemCreate,
+    db: Session = Depends(get_db),
+) -> IpamAutonomousSystemRead:
+    try:
+        return bgp_svc.as_to_read(bgp_svc.create_autonomous_system(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/autonomous-systems/{as_id}", response_model=IpamAutonomousSystemRead)
+def get_autonomous_system(as_id: int, db: Session = Depends(get_db)) -> IpamAutonomousSystemRead:
+    row = bgp_svc.get_autonomous_system(db, as_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="AS ikke funnet")
+    return bgp_svc.as_to_read(row)
+
+
+@router.patch("/autonomous-systems/{as_id}", response_model=IpamAutonomousSystemRead)
+def patch_autonomous_system(
+    as_id: int,
+    data: IpamAutonomousSystemUpdate,
+    db: Session = Depends(get_db),
+) -> IpamAutonomousSystemRead:
+    row = bgp_svc.get_autonomous_system(db, as_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="AS ikke funnet")
+    try:
+        return bgp_svc.as_to_read(bgp_svc.update_autonomous_system(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/autonomous-systems/{as_id}", status_code=204)
+def delete_autonomous_system(as_id: int, db: Session = Depends(get_db)) -> None:
+    row = bgp_svc.get_autonomous_system(db, as_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="AS ikke funnet")
+    bgp_svc.delete_autonomous_system(db, row)
+
+
+@router.get("/as-assignments", response_model=list[IpamAsAssignmentRead])
+def list_as_assignments(
+    site_id: int | None = Query(None),
+    as_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamAsAssignmentRead]:
+    return [bgp_svc.assignment_to_read(db, r) for r in bgp_svc.list_as_assignments(db, site_id=site_id, as_id=as_id)]
+
+
+@router.post("/as-assignments", response_model=IpamAsAssignmentRead)
+def create_as_assignment(data: IpamAsAssignmentCreate, db: Session = Depends(get_db)) -> IpamAsAssignmentRead:
+    try:
+        return bgp_svc.assignment_to_read(db, bgp_svc.create_as_assignment(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/as-assignments/{assignment_id}", status_code=204)
+def delete_as_assignment(assignment_id: int, db: Session = Depends(get_db)) -> None:
+    row = bgp_svc.get_as_assignment(db, assignment_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="AS-tilordning ikke funnet")
+    bgp_svc.delete_as_assignment(db, row)
+
+
+@router.get("/bgp-sessions", response_model=list[IpamBgpSessionRead])
+def list_bgp_sessions(
+    site_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamBgpSessionRead]:
+    return [bgp_svc.bgp_to_read(r) for r in bgp_svc.list_bgp_sessions(db, site_id=site_id)]
+
+
+@router.post("/bgp-sessions", response_model=IpamBgpSessionRead)
+def create_bgp_session(data: IpamBgpSessionCreate, db: Session = Depends(get_db)) -> IpamBgpSessionRead:
+    try:
+        return bgp_svc.bgp_to_read(bgp_svc.create_bgp_session(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch("/bgp-sessions/{session_id}", response_model=IpamBgpSessionRead)
+def patch_bgp_session(
+    session_id: int,
+    data: IpamBgpSessionUpdate,
+    db: Session = Depends(get_db),
+) -> IpamBgpSessionRead:
+    row = bgp_svc.get_bgp_session(db, session_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="BGP-sesjon ikke funnet")
+    try:
+        return bgp_svc.bgp_to_read(bgp_svc.update_bgp_session(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/bgp-sessions/{session_id}", status_code=204)
+def delete_bgp_session(session_id: int, db: Session = Depends(get_db)) -> None:
+    row = bgp_svc.get_bgp_session(db, session_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="BGP-sesjon ikke funnet")
+    bgp_svc.delete_bgp_session(db, row)
 
 
 @router.get("/vlan-groups", response_model=list[IpamVlanGroupRead])

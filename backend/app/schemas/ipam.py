@@ -7,8 +7,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.asn import normalize_asn
 from app.core.route_distinguisher import normalize_route_distinguisher
 from app.core.secret_ref import normalize_secret_ref
+
+BGP_ADDRESS_FAMILIES = frozenset({"ipv4-unicast", "ipv6-unicast", "evpn"})
+BGP_DESIRED_STATUSES = frozenset({"planned", "active", "disabled"})
+BGP_OBSERVED_STATUSES = frozenset({"idle", "connect", "established", "admin-down"})
 
 _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "wireguard", "radio", "leased_line", "other"})
 TRANSPORT_CIRCUIT_TYPES = frozenset({"fiber", "radio", "leased_line"})
@@ -660,6 +665,222 @@ class IpamVrfRead(BaseModel):
     route_distinguisher: str | None
     description: str | None
     created: bool | None = None
+    created_at: dt.datetime
+
+
+class IpamAutonomousSystemCreate(BaseModel):
+    asn: int
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    tenant_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("asn")
+    @classmethod
+    def asn_ok(cls, v: int) -> int:
+        return normalize_asn(v)
+
+
+class IpamAutonomousSystemUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    tenant_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+
+class IpamAutonomousSystemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    asn: int
+    name: str
+    slug: str
+    is_private: bool
+    tenant_id: int | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamAsAssignmentCreate(BaseModel):
+    autonomous_system_id: int = Field(..., ge=1)
+    site_id: int = Field(..., ge=1)
+    vrf_id: int | None = Field(None, ge=1)
+
+
+class IpamAsAssignmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    autonomous_system_id: int
+    site_id: int
+    vrf_id: int | None
+    asn: int | None = None
+    as_name: str | None = None
+    site_name: str | None = None
+    vrf_name: str | None = None
+    created_at: dt.datetime
+
+
+class IpamBgpSessionCreate(BaseModel):
+    site_id: int = Field(..., ge=1)
+    local_as_id: int = Field(..., ge=1)
+    remote_as_id: int | None = Field(None, ge=1)
+    remote_asn: int | None = None
+    peer_ip: str = Field(..., min_length=1, max_length=64)
+    vrf_id: int | None = Field(None, ge=1)
+    name: str | None = Field(None, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    address_families: list[str] = Field(default_factory=lambda: ["ipv4-unicast"])
+    desired_status: str = "planned"
+    observed_status: str | None = None
+    local_device_id: int | None = Field(None, ge=1)
+    local_interface_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("remote_asn")
+    @classmethod
+    def remote_asn_ok(cls, v: int | None) -> int | None:
+        if v is None:
+            return None
+        return normalize_asn(v)
+
+    @field_validator("address_families", mode="before")
+    @classmethod
+    def families_ok(cls, v: Any) -> list[str]:
+        items = _csv_or_list(v)
+        if not items:
+            return ["ipv4-unicast"]
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in items:
+            s = raw.strip().lower()
+            if s not in BGP_ADDRESS_FAMILIES:
+                raise ValueError(f"address family må være en av: {', '.join(sorted(BGP_ADDRESS_FAMILIES))}")
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    @field_validator("desired_status")
+    @classmethod
+    def desired_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in BGP_DESIRED_STATUSES:
+            raise ValueError(f"desired_status må være en av: {', '.join(sorted(BGP_DESIRED_STATUSES))}")
+        return s
+
+    @field_validator("observed_status")
+    @classmethod
+    def observed_ok(cls, v: str | None) -> str | None:
+        if v is None or not str(v).strip():
+            return None
+        s = str(v).strip().lower()
+        if s not in BGP_OBSERVED_STATUSES:
+            raise ValueError(f"observed_status må være en av: {', '.join(sorted(BGP_OBSERVED_STATUSES))}")
+        return s
+
+    @field_validator("peer_ip")
+    @classmethod
+    def peer_ip_ok(cls, v: str) -> str:
+        import ipaddress
+
+        s = v.strip()
+        try:
+            return str(ipaddress.ip_address(s))
+        except ValueError as e:
+            raise ValueError("peer_ip må være en IPv4- eller IPv6-adresse") from e
+
+
+class IpamBgpSessionUpdate(BaseModel):
+    name: str | None = Field(None, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    remote_as_id: int | None = Field(None, ge=1)
+    remote_asn: int | None = None
+    peer_ip: str | None = Field(None, min_length=1, max_length=64)
+    vrf_id: int | None = Field(None, ge=1)
+    address_families: list[str] | None = None
+    desired_status: str | None = None
+    observed_status: str | None = None
+    local_device_id: int | None = Field(None, ge=1)
+    local_interface_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("remote_asn")
+    @classmethod
+    def remote_asn_ok(cls, v: int | None) -> int | None:
+        if v is None:
+            return None
+        return normalize_asn(v)
+
+    @field_validator("address_families", mode="before")
+    @classmethod
+    def families_ok(cls, v: Any) -> list[str] | None:
+        if v is None:
+            return None
+        items = _csv_or_list(v)
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in items:
+            s = raw.strip().lower()
+            if s not in BGP_ADDRESS_FAMILIES:
+                raise ValueError(f"address family må være en av: {', '.join(sorted(BGP_ADDRESS_FAMILIES))}")
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out or None
+
+    @field_validator("desired_status")
+    @classmethod
+    def desired_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in BGP_DESIRED_STATUSES:
+            raise ValueError(f"desired_status må være en av: {', '.join(sorted(BGP_DESIRED_STATUSES))}")
+        return s
+
+    @field_validator("observed_status")
+    @classmethod
+    def observed_ok(cls, v: str | None) -> str | None:
+        if v is None or not str(v).strip():
+            return None
+        s = str(v).strip().lower()
+        if s not in BGP_OBSERVED_STATUSES:
+            raise ValueError(f"observed_status må være en av: {', '.join(sorted(BGP_OBSERVED_STATUSES))}")
+        return s
+
+    @field_validator("peer_ip")
+    @classmethod
+    def peer_ip_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        import ipaddress
+
+        s = v.strip()
+        try:
+            return str(ipaddress.ip_address(s))
+        except ValueError as e:
+            raise ValueError("peer_ip må være en IPv4- eller IPv6-adresse") from e
+
+
+class IpamBgpSessionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    local_as_id: int
+    remote_as_id: int | None
+    remote_asn: int
+    peer_ip: str
+    vrf_id: int | None
+    name: str
+    slug: str
+    address_families: list[str]
+    desired_status: str
+    observed_status: str | None
+    local_device_id: int | None
+    local_interface_id: int | None
+    description: str | None
     created_at: dt.datetime
 
 

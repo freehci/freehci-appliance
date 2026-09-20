@@ -203,6 +203,48 @@ export type IpamVrf = {
   created_at: string;
 };
 
+export type IpamAutonomousSystem = {
+  id: number;
+  asn: number;
+  name: string;
+  slug: string;
+  is_private: boolean;
+  tenant_id: number | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamAsAssignment = {
+  id: number;
+  autonomous_system_id: number;
+  site_id: number;
+  vrf_id: number | null;
+  asn: number | null;
+  as_name: string | null;
+  site_name: string | null;
+  vrf_name: string | null;
+  created_at: string;
+};
+
+export type IpamBgpSession = {
+  id: number;
+  site_id: number;
+  local_as_id: number;
+  remote_as_id: number | null;
+  remote_asn: number;
+  peer_ip: string;
+  vrf_id: number | null;
+  name: string;
+  slug: string;
+  address_families: string[];
+  desired_status: string;
+  observed_status: string | null;
+  local_device_id: number | null;
+  local_interface_id: number | null;
+  description: string | null;
+  created_at: string;
+};
+
 export type IpamVlanGroup = {
   id: number;
   site_id: number;
