@@ -75,6 +75,11 @@ class PlatformVirtualMachine(Base):
         cascade="all, delete-orphan",
         order_by="PlatformVirtualInterface.id",
     )
+    disks: Mapped[list["PlatformVirtualDisk"]] = relationship(
+        back_populates="vm",
+        cascade="all, delete-orphan",
+        order_by="PlatformVirtualDisk.id",
+    )
 
 
 class PlatformStoragePool(Base):
@@ -92,6 +97,7 @@ class PlatformStoragePool(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     cluster: Mapped["PlatformCluster"] = relationship(back_populates="storage_pools")
+    disks: Mapped[list["PlatformVirtualDisk"]] = relationship(back_populates="storage_pool")
 
 
 class PlatformVirtualInterface(Base):
@@ -108,3 +114,25 @@ class PlatformVirtualInterface(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     vm: Mapped["PlatformVirtualMachine"] = relationship(back_populates="interfaces")
+
+
+class PlatformVirtualDisk(Base):
+    """Registrert disk eller volum. Ingen oppfunnet kapasitet eller IOPS."""
+
+    __tablename__ = "platform_virtual_disks"
+    __table_args__ = (UniqueConstraint("slug", name="uq_platform_vdisk_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    vm_id: Mapped[int] = mapped_column(ForeignKey("platform_virtual_machines.id", ondelete="CASCADE"), nullable=False)
+    storage_pool_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_storage_pools.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    vm: Mapped["PlatformVirtualMachine"] = relationship(back_populates="disks")
+    storage_pool: Mapped["PlatformStoragePool | None"] = relationship(back_populates="disks")

@@ -13,6 +13,7 @@ from app.models.platform import (
     PlatformCluster,
     PlatformClusterMember,
     PlatformStoragePool,
+    PlatformVirtualDisk,
     PlatformVirtualInterface,
     PlatformVirtualMachine,
 )
@@ -23,6 +24,8 @@ from app.schemas.platform import (
     PlatformClusterRead,
     PlatformStoragePoolCreate,
     PlatformStoragePoolRead,
+    PlatformVirtualDiskCreate,
+    PlatformVirtualDiskRead,
     PlatformVirtualInterfaceCreate,
     PlatformVirtualInterfaceRead,
     PlatformVirtualMachineCreate,
@@ -57,6 +60,7 @@ def _load(db: Session, cluster_id: int) -> PlatformCluster | None:
         .options(
             selectinload(PlatformCluster.members),
             selectinload(PlatformCluster.vms).selectinload(PlatformVirtualMachine.interfaces),
+            selectinload(PlatformCluster.vms).selectinload(PlatformVirtualMachine.disks),
             selectinload(PlatformCluster.storage_pools),
         )
         .where(PlatformCluster.id == cluster_id)
@@ -70,6 +74,7 @@ def list_clusters(db: Session) -> list[PlatformCluster]:
             .options(
                 selectinload(PlatformCluster.members),
                 selectinload(PlatformCluster.vms).selectinload(PlatformVirtualMachine.interfaces),
+                selectinload(PlatformCluster.vms).selectinload(PlatformVirtualMachine.disks),
                 selectinload(PlatformCluster.storage_pools),
             )
             .order_by(PlatformCluster.name)
@@ -270,6 +275,58 @@ def delete_vif(db: Session, cluster: PlatformCluster, vm_id: int, iface_id: int)
     row = db.get(PlatformVirtualInterface, iface_id)
     if row is None or row.vm_id != vm.id:
         raise HTTPException(status_code=404, detail="virtuelt grensesnitt ikke funnet")
+    db.delete(row)
+    db.commit()
+
+
+def get_disk_by_slug(db: Session, slug: str) -> PlatformVirtualDisk | None:
+    return db.execute(select(PlatformVirtualDisk).where(PlatformVirtualDisk.slug == slug)).scalar_one_or_none()
+
+
+def disk_to_read(row: PlatformVirtualDisk) -> PlatformVirtualDiskRead:
+    return PlatformVirtualDiskRead.model_validate(row)
+
+
+def create_disk(
+    db: Session,
+    cluster: PlatformCluster,
+    vm: PlatformVirtualMachine,
+    data: PlatformVirtualDiskCreate,
+) -> PlatformVirtualDisk:
+    if vm.cluster_id != cluster.id:
+        raise HTTPException(status_code=404, detail="vm ikke funnet")
+    if data.storage_pool_id is not None:
+        pool = db.get(PlatformStoragePool, data.storage_pool_id)
+        if pool is None or pool.cluster_id != cluster.id:
+            raise HTTPException(status_code=400, detail="lagringspool tilhører ikke clusteret")
+    slug = _slugify(data.slug or data.name)
+    if get_disk_by_slug(db, slug) is not None:
+        raise HTTPException(status_code=409, detail="disk-slug finnes allerede")
+    row = PlatformVirtualDisk(
+        name=data.name.strip(),
+        slug=slug,
+        vm_id=vm.id,
+        storage_pool_id=data.storage_pool_id,
+        kind=data.kind,
+        status=data.status,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="disk-slug finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def delete_disk(db: Session, cluster: PlatformCluster, vm_id: int, disk_id: int) -> None:
+    vm = db.get(PlatformVirtualMachine, vm_id)
+    if vm is None or vm.cluster_id != cluster.id:
+        raise HTTPException(status_code=404, detail="vm ikke funnet")
+    row = db.get(PlatformVirtualDisk, disk_id)
+    if row is None or row.vm_id != vm.id:
+        raise HTTPException(status_code=404, detail="disk ikke funnet")
     db.delete(row)
     db.commit()
 

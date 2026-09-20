@@ -11,6 +11,8 @@ from app.schemas.platform import (
     PlatformClusterRead,
     PlatformStoragePoolCreate,
     PlatformStoragePoolRead,
+    PlatformVirtualDiskCreate,
+    PlatformVirtualDiskRead,
     PlatformVirtualInterfaceCreate,
     PlatformVirtualInterfaceRead,
     PlatformVirtualMachineCreate,
@@ -129,3 +131,27 @@ def delete_vif(cluster_id: int, vm_id: int, iface_id: int, db: Session = Depends
     if cluster is None:
         raise HTTPException(status_code=404, detail="cluster ikke funnet")
     plat_svc.delete_vif(db, cluster, vm_id, iface_id)
+
+
+@router.post("/{cluster_id}/vms/{vm_id}/disks", response_model=PlatformVirtualDiskRead)
+def create_disk(
+    cluster_id: int,
+    vm_id: int,
+    data: PlatformVirtualDiskCreate,
+    db: Session = Depends(get_db),
+) -> PlatformVirtualDiskRead:
+    cluster = plat_svc.get_cluster(db, cluster_id)
+    if cluster is None:
+        raise HTTPException(status_code=404, detail="cluster ikke funnet")
+    vm = plat_svc.get_vm(db, vm_id)
+    if vm is None:
+        raise HTTPException(status_code=404, detail="vm ikke funnet")
+    return plat_svc.disk_to_read(plat_svc.create_disk(db, cluster, vm, data))
+
+
+@router.delete("/{cluster_id}/vms/{vm_id}/disks/{disk_id}", status_code=204)
+def delete_disk(cluster_id: int, vm_id: int, disk_id: int, db: Session = Depends(get_db)) -> None:
+    cluster = plat_svc.get_cluster(db, cluster_id)
+    if cluster is None:
+        raise HTTPException(status_code=404, detail="cluster ikke funnet")
+    plat_svc.delete_disk(db, cluster, vm_id, disk_id)

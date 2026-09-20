@@ -12,6 +12,8 @@ VM_STATUSES = frozenset({"planned", "active", "retired"})
 STORAGE_KINDS = frozenset({"datastore", "pool", "other"})
 STORAGE_STATUSES = frozenset({"planned", "active", "retired"})
 VIF_STATUSES = frozenset({"planned", "active", "retired"})
+DISK_KINDS = frozenset({"disk", "volume", "other"})
+DISK_STATUSES = frozenset({"planned", "active", "retired"})
 
 
 class PlatformClusterCreate(BaseModel):
@@ -93,6 +95,43 @@ class PlatformVirtualInterfaceCreate(BaseModel):
         return s
 
 
+class PlatformVirtualDiskRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    vm_id: int
+    storage_pool_id: int | None
+    kind: str
+    status: str
+    created_at: dt.datetime
+
+
+class PlatformVirtualDiskCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    storage_pool_id: int | None = Field(None, ge=1)
+    kind: str = "other"
+    status: str = "planned"
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "other"
+        if s not in DISK_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(DISK_KINDS))}")
+        return s
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "planned"
+        if s not in DISK_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(DISK_STATUSES))}")
+        return s
+
+
 class PlatformVirtualMachineRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -104,6 +143,7 @@ class PlatformVirtualMachineRead(BaseModel):
     status: str
     created_at: dt.datetime
     interfaces: list[PlatformVirtualInterfaceRead] = Field(default_factory=list)
+    disks: list[PlatformVirtualDiskRead] = Field(default_factory=list)
 
 
 class PlatformStoragePoolCreate(BaseModel):

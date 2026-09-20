@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.platform import PlatformStoragePool
 from app.models.catalog import (
     ServiceDeployment,
     ServiceDeploymentStep,
@@ -33,10 +34,12 @@ from app.schemas.catalog import (
 from app.schemas.ipam import Ipv4AddressRequest
 from app.schemas.platform import (
     CLUSTER_KINDS,
+    DISK_KINDS,
     STORAGE_KINDS,
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
     PlatformStoragePoolCreate,
+    PlatformVirtualDiskCreate,
     PlatformVirtualInterfaceCreate,
     PlatformVirtualMachineCreate,
 )
@@ -91,6 +94,7 @@ def deployment_to_read(db: Session, row: ServiceDeployment) -> ServiceDeployment
         vm_id=row.vm_id,
         storage_pool_id=row.storage_pool_id,
         virtual_interface_id=row.virtual_interface_id,
+        virtual_disk_id=row.virtual_disk_id,
         ipv4_prefix_id=row.ipv4_prefix_id,
         status=row.status,
         plan_json=row.plan_json,
@@ -499,6 +503,72 @@ def build_vif_plan(
     }
 
 
+def build_disk_plan(
+    db: Session,
+    version: ServiceTemplateVersion,
+    vm_id: int | None,
+    name: str | None,
+    disk_kind: str | None,
+    storage_pool_id: int | None,
+) -> dict:
+    template = db.get(ServiceTemplate, version.template_id)
+    blockers: list[str] = []
+    disk_name = (name or "").strip()
+    if not disk_name:
+        blockers.append("disk_name_required")
+    kind = (disk_kind or "other").strip().lower() or "other"
+    if kind not in DISK_KINDS:
+        blockers.append("unknown_disk_kind")
+        kind = "other"
+    vm = plat_svc.get_vm(db, vm_id) if vm_id else None
+    if vm is None:
+        blockers.append("vm_required" if not vm_id else "vm_not_found")
+    cluster = plat_svc.get_cluster(db, vm.cluster_id) if vm is not None else None
+    pool_info: dict | None = None
+    if storage_pool_id is not None:
+        pool = db.get(PlatformStoragePool, storage_pool_id) if cluster is not None else None
+        if pool is None or (cluster is not None and pool.cluster_id != cluster.id):
+            blockers.append("storage_pool_not_on_cluster")
+        elif pool is not None:
+            pool_info = {"id": pool.id, "name": pool.name, "kind": pool.kind}
+    slug = _slugify(disk_name) if disk_name else None
+    if slug and plat_svc.get_disk_by_slug(db, slug) is not None:
+        blockers.append("disk_slug_taken")
+    return {
+        "kind": "virtual_disk",
+        "template": {
+            "id": template.id if template else version.template_id,
+            "name": template.name if template else None,
+            "version": version.version,
+        },
+        "cluster": (
+            {"id": cluster.id, "name": cluster.name, "kind": cluster.kind, "slug": cluster.slug}
+            if cluster is not None
+            else None
+        ),
+        "vm": (
+            {"id": vm.id, "name": vm.name, "slug": vm.slug}
+            if vm is not None
+            else None
+        ),
+        "disk": {"name": disk_name or None, "slug": slug, "kind": kind},
+        "storage": pool_info,
+        "requested_name": disk_name or None,
+        "disk_kind": kind,
+        "storage_pool_id": pool_info["id"] if pool_info else storage_pool_id,
+        "vm_id": vm.id if vm is not None else vm_id,
+        "cluster_id": cluster.id if cluster is not None else None,
+        "reserve_ipv4": False,
+        "prefix": None,
+        "blockers": list(dict.fromkeys(blockers)),
+        "can_run": len(blockers) == 0,
+        "notes": [
+            "Registrerer en disk eller et volum på en eksisterende VM.",
+            "Måler ikke kapasitet og oppretter ikke LUN i hypervisoren.",
+        ],
+    }
+
+
 def list_deployments(db: Session) -> list[ServiceDeployment]:
     return list(
         db.execute(
@@ -537,6 +607,25 @@ def create_deployment(db: Session, data: ServiceDeploymentCreate) -> ServiceDepl
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
     ids = _device_ids_from(data)
+    if spec.get("kind") == "virtual_disk":
+        plan = build_disk_plan(
+            db, version, data.vm_id, data.name, data.disk_kind, data.storage_pool_id
+        )
+        row = ServiceDeployment(
+            template_version_id=version.id,
+            device_id=None,
+            cluster_id=plan.get("cluster_id"),
+            vm_id=data.vm_id,
+            storage_pool_id=data.storage_pool_id,
+            ipv4_prefix_id=None,
+            status="planned",
+            plan_json=plan,
+        )
+        db.add(row)
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
     if spec.get("kind") == "virtual_interface":
         plan = build_vif_plan(db, version, data.vm_id, data.name)
         row = ServiceDeployment(
@@ -1008,6 +1097,98 @@ def _run_vif(db: Session, row: ServiceDeployment, version: ServiceTemplateVersio
     return loaded
 
 
+def _run_disk(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion) -> ServiceDeployment:
+    prev = row.plan_json if isinstance(row.plan_json, dict) else {}
+    plan = build_disk_plan(
+        db,
+        version,
+        row.vm_id or prev.get("vm_id"),
+        prev.get("requested_name"),
+        prev.get("disk_kind"),
+        row.storage_pool_id or prev.get("storage_pool_id"),
+    )
+    row.plan_json = plan
+    if not plan["can_run"]:
+        db.commit()
+        raise HTTPException(status_code=400, detail={"code": "cannot_run", "blockers": plan["blockers"]})
+
+    row.status = "running"
+    row.started_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+
+    vm = plat_svc.get_vm(db, row.vm_id)
+    assert vm is not None
+    cluster = plat_svc.get_cluster(db, vm.cluster_id)
+    assert cluster is not None
+    _add_step(db, row, "validate_vm", "ok", vm.name)
+    db.commit()
+
+    try:
+        disk = plat_svc.create_disk(
+            db,
+            cluster,
+            vm,
+            PlatformVirtualDiskCreate(
+                name=plan["disk"]["name"],
+                slug=plan["disk"]["slug"],
+                storage_pool_id=plan.get("storage_pool_id"),
+                kind=plan["disk"]["kind"],
+                status="active",
+            ),
+        )
+        row.virtual_disk_id = disk.id
+        row.cluster_id = cluster.id
+        _add_step(db, row, "record_disk", "ok", f"{disk.name} #{disk.id}")
+        db.commit()
+    except HTTPException as exc:
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_disk", "failed", _exc_detail(exc))
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    template = db.get(ServiceTemplate, version.template_id)
+    name = plan["disk"]["name"]
+    slug = _slugify(f"{template.slug if template else 'svc'}-disk-{row.id}")
+    inst = ServiceInstance(
+        name=name[:255],
+        slug=slug,
+        template_version_id=version.id,
+        deployment_id=row.id,
+        device_id=None,
+        cluster_id=row.cluster_id,
+        vm_id=row.vm_id,
+        storage_pool_id=row.storage_pool_id,
+        virtual_disk_id=row.virtual_disk_id,
+        ipv4_address_id=None,
+        status="active",
+    )
+    db.add(inst)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        row = get_deployment(db, row.id)
+        assert row is not None
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_instance", "failed", "instans-slug finnes allerede")
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    _add_step(db, row, "record_instance", "ok", f"instans #{inst.id}")
+    row.status = "succeeded"
+    row.finished_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+    loaded = get_deployment(db, row.id)
+    assert loaded is not None
+    return loaded
+
+
 def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if row.status != "planned":
         raise HTTPException(status_code=409, detail="deployment er allerede kjørt")
@@ -1015,6 +1196,8 @@ def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if version is None:
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("kind") == "virtual_disk":
+        return _run_disk(db, row, version)
     if spec.get("kind") == "virtual_interface":
         return _run_vif(db, row, version)
     if spec.get("kind") == "storage_pool":

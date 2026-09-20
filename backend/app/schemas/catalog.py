@@ -7,7 +7,14 @@ import datetime as dt
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 TEMPLATE_KINDS = frozenset(
-    {"device_instance", "cluster", "virtual_machine", "storage_pool", "virtual_interface"}
+    {
+        "device_instance",
+        "cluster",
+        "virtual_machine",
+        "storage_pool",
+        "virtual_interface",
+        "virtual_disk",
+    }
 )
 
 
@@ -21,7 +28,7 @@ class ServiceTemplateSpec(BaseModel):
         s = (v or "").strip()
         if s not in TEMPLATE_KINDS:
             raise ValueError(
-                "kind må være device_instance, cluster, virtual_machine, storage_pool eller virtual_interface"
+                "kind må være device_instance, cluster, virtual_machine, storage_pool, virtual_interface eller virtual_disk"
             )
         return s
 
@@ -69,6 +76,8 @@ class ServiceDeploymentCreate(BaseModel):
     cluster_id: int | None = Field(None, ge=1)
     storage_kind: str | None = Field(None, max_length=32)
     vm_id: int | None = Field(None, ge=1)
+    disk_kind: str | None = Field(None, max_length=32)
+    storage_pool_id: int | None = Field(None, ge=1)
 
 
 class ServiceDeploymentStepRead(BaseModel):
@@ -94,6 +103,7 @@ class ServiceInstanceRead(BaseModel):
     vm_id: int | None = None
     storage_pool_id: int | None = None
     virtual_interface_id: int | None = None
+    virtual_disk_id: int | None = None
     ipv4_address_id: int | None
     status: str
     created_at: dt.datetime
@@ -109,6 +119,7 @@ class ServiceDeploymentRead(BaseModel):
     vm_id: int | None = None
     storage_pool_id: int | None = None
     virtual_interface_id: int | None = None
+    virtual_disk_id: int | None = None
     ipv4_prefix_id: int | None
     status: str
     plan_json: dict | None

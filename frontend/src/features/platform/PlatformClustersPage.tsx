@@ -25,6 +25,11 @@ export function PlatformClustersPage() {
   const [vifCluster, setVifCluster] = useState("");
   const [vifVm, setVifVm] = useState("");
   const [vifName, setVifName] = useState("");
+  const [dskCluster, setDskCluster] = useState("");
+  const [dskVm, setDskVm] = useState("");
+  const [dskName, setDskName] = useState("");
+  const [dskKind, setDskKind] = useState("other");
+  const [dskPool, setDskPool] = useState("");
 
   const clQ = useQuery({ queryKey: ["platform-clusters"], queryFn: api.listClusters });
   const devQ = useQuery({ queryKey: ["dcim-devices"], queryFn: listDevices });
@@ -80,6 +85,21 @@ export function PlatformClustersPage() {
     onSuccess: () => {
       setErr(null);
       setVifName("");
+      void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
+    },
+    onError: fail,
+  });
+  const dskM = useMutation({
+    mutationFn: () =>
+      api.createDisk(Number(dskCluster), Number(dskVm), {
+        name: dskName.trim(),
+        kind: dskKind,
+        status: "active",
+        storage_pool_id: dskPool ? Number(dskPool) : null,
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setDskName("");
       void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
     },
     onError: fail,
@@ -146,6 +166,9 @@ export function PlatformClustersPage() {
                     {(v.interfaces ?? []).length > 0
                       ? ` — ${(v.interfaces ?? []).map((i) => i.name).join(", ")}`
                       : ` — ${t("platform.noVifs")}`}
+                    {(v.disks ?? []).length > 0
+                      ? ` — ${(v.disks ?? []).map((d) => d.name).join(", ")}`
+                      : ` — ${t("platform.noDisks")}`}
                   </li>
                 ))}
               </ul>
@@ -326,6 +349,83 @@ export function PlatformClustersPage() {
               disabled={vifM.isPending || !vifCluster || !vifVm || !vifName.trim()}
             >
               {t("platform.addVif")}
+            </button>
+          </form>
+        ) : null}
+        {(clQ.data ?? []).some((c) => (c.vms ?? []).length > 0) ? (
+          <form
+            className={dcimStyles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (dskCluster && dskVm && dskName.trim()) dskM.mutate();
+            }}
+          >
+            <label>
+              {t("platform.cluster")}
+              <select
+                value={dskCluster}
+                onChange={(e) => {
+                  setDskCluster(e.target.value);
+                  setDskVm("");
+                  setDskPool("");
+                }}
+              >
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => (c.vms ?? []).length > 0)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("platform.vm")}
+              <select value={dskVm} onChange={(e) => setDskVm(e.target.value)}>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => String(c.id) === dskCluster)
+                  .flatMap((c) => c.vms ?? [])
+                  .map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("platform.diskName")}
+              <input value={dskName} onChange={(e) => setDskName(e.target.value)} />
+            </label>
+            <label>
+              {t("platform.diskKind")}
+              <select value={dskKind} onChange={(e) => setDskKind(e.target.value)}>
+                <option value="other">{t("platform.kindOther")}</option>
+                <option value="disk">disk</option>
+                <option value="volume">volume</option>
+              </select>
+            </label>
+            <label>
+              {t("platform.storage")}
+              <select value={dskPool} onChange={(e) => setDskPool(e.target.value)}>
+                <option value="">{t("dcim.common.none")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => String(c.id) === dskCluster)
+                  .flatMap((c) => c.storage_pools ?? [])
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className={dcimStyles.btn}
+              disabled={dskM.isPending || !dskCluster || !dskVm || !dskName.trim()}
+            >
+              {t("platform.addDisk")}
             </button>
           </form>
         ) : null}

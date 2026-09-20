@@ -30,6 +30,18 @@ export type PlatformVirtualMachine = {
   status: string;
   created_at: string;
   interfaces?: PlatformVirtualInterface[];
+  disks?: PlatformVirtualDisk[];
+};
+
+export type PlatformVirtualDisk = {
+  id: number;
+  name: string;
+  slug: string;
+  vm_id: number;
+  storage_pool_id: number | null;
+  kind: string;
+  status: string;
+  created_at: string;
 };
 
 export type PlatformStoragePool = {
@@ -99,4 +111,12 @@ export function createVif(
   body: { name: string; slug?: string | null; status?: string },
 ): Promise<PlatformVirtualInterface> {
   return apiPost(`${P}/${clusterId}/vms/${vmId}/interfaces`, body);
+}
+
+export function createDisk(
+  clusterId: number,
+  vmId: number,
+  body: { name: string; slug?: string | null; kind: string; status?: string; storage_pool_id?: number | null },
+): Promise<PlatformVirtualDisk> {
+  return apiPost(`${P}/${clusterId}/vms/${vmId}/disks`, body);
 }

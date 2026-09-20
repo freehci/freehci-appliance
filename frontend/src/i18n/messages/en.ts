@@ -2011,7 +2011,7 @@ export const en = {
 
   "catalog.title": "Service catalog",
   "catalog.intro":
-    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership, VM, storage pool or virtual interface. They do not install an OS, create a guest, provision a LUN or invent a MAC.",
+    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership, VM, storage pool, virtual interface or disk. They do not install an OS, create a guest, provision a LUN or invent a MAC.",
   "catalog.tabs": "Catalog sections",
   "catalog.tabTemplates": "Templates",
   "catalog.tabDeploy": "Deploy",
@@ -2041,11 +2041,12 @@ export const en = {
   "catalog.kindVm": "Virtual machine",
   "catalog.kindStorage": "Storage pool",
   "catalog.kindVif": "Virtual interface",
+  "catalog.kindDisk": "Virtual disk",
   "catalog.devices": "Devices",
 
   "platform.title": "Clusters",
   "platform.intro":
-    "Inventory of clusters, members, VMs, storage pools and virtual interfaces. Kind and status are declared by hand. No capacity, IOPS, MAC or observed power state is invented.",
+    "Inventory of clusters, members, VMs, storage pools, virtual interfaces and disks. Kind and status are declared by hand. No capacity, IOPS, MAC or observed power state is invented.",
   "platform.empty": "No clusters yet.",
   "platform.addCluster": "Add cluster",
   "platform.kind": "Kind",
@@ -2067,6 +2068,10 @@ export const en = {
   "platform.noVifs": "no interfaces",
   "platform.vifName": "Interface name",
   "platform.addVif": "Register interface",
+  "platform.noDisks": "no disks",
+  "platform.diskName": "Disk name",
+  "platform.diskKind": "Disk kind",
+  "platform.addDisk": "Register disk",
 } as const;
 
 export type MessageKey = keyof typeof en;

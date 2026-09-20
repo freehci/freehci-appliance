@@ -38,6 +38,8 @@ export function ServiceCatalogPage() {
   const [targetClusterId, setTargetClusterId] = useState("");
   const [storageKind, setStorageKind] = useState("other");
   const [targetVmId, setTargetVmId] = useState("");
+  const [diskKind, setDiskKind] = useState("other");
+  const [diskPoolId, setDiskPoolId] = useState("");
   const [prefixId, setPrefixId] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -58,6 +60,8 @@ export function ServiceCatalogPage() {
   const isVm = selectedVersion?.v.spec.kind === "virtual_machine";
   const isStorage = selectedVersion?.v.spec.kind === "storage_pool";
   const isVif = selectedVersion?.v.spec.kind === "virtual_interface";
+  const isDisk = selectedVersion?.v.spec.kind === "virtual_disk";
+  const selectedVmCluster = (clQ.data ?? []).find((c) => (c.vms ?? []).some((v) => String(v.id) === targetVmId));
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
 
   const createTmpl = useMutation({
@@ -76,7 +80,15 @@ export function ServiceCatalogPage() {
 
   const planM = useMutation({
     mutationFn: () =>
-      isVif
+      isDisk
+        ? api.createDeployment({
+            template_version_id: Number(versionId),
+            vm_id: Number(targetVmId),
+            name: clusterName.trim(),
+            disk_kind: diskKind,
+            storage_pool_id: diskPoolId ? Number(diskPoolId) : null,
+          })
+        : isVif
         ? api.createDeployment({
             template_version_id: Number(versionId),
             vm_id: Number(targetVmId),
@@ -166,6 +178,7 @@ export function ServiceCatalogPage() {
                   <option value="virtual_machine">{t("catalog.kindVm")}</option>
                   <option value="storage_pool">{t("catalog.kindStorage")}</option>
                   <option value="virtual_interface">{t("catalog.kindVif")}</option>
+                  <option value="virtual_disk">{t("catalog.kindDisk")}</option>
                 </select>
               </label>
               {kind === "device_instance" ? (
@@ -220,7 +233,7 @@ export function ServiceCatalogPage() {
                 e.preventDefault();
                 if (
                   versionId &&
-                  (isVif
+                  (isDisk || isVif
                     ? targetVmId && clusterName.trim()
                     : isStorage || isVm
                       ? targetClusterId && clusterName.trim()
@@ -243,7 +256,52 @@ export function ServiceCatalogPage() {
                   ))}
                 </select>
               </label>
-              {isVif ? (
+              {isDisk ? (
+                <>
+                  <label>
+                    {t("platform.vm")}
+                    <select
+                      value={targetVmId}
+                      onChange={(e) => {
+                        setTargetVmId(e.target.value);
+                        setDiskPoolId("");
+                      }}
+                    >
+                      <option value="">{t("dcim.common.choose")}</option>
+                      {(clQ.data ?? []).flatMap((c) =>
+                        (c.vms ?? []).map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {c.name} / {v.name}
+                          </option>
+                        )),
+                      )}
+                    </select>
+                  </label>
+                  <label>
+                    {t("platform.diskName")}
+                    <input value={clusterName} onChange={(e) => setClusterName(e.target.value)} />
+                  </label>
+                  <label>
+                    {t("platform.diskKind")}
+                    <select value={diskKind} onChange={(e) => setDiskKind(e.target.value)}>
+                      <option value="other">{t("platform.kindOther")}</option>
+                      <option value="disk">disk</option>
+                      <option value="volume">volume</option>
+                    </select>
+                  </label>
+                  <label>
+                    {t("platform.storage")}
+                    <select value={diskPoolId} onChange={(e) => setDiskPoolId(e.target.value)}>
+                      <option value="">{t("dcim.common.none")}</option>
+                      {(selectedVmCluster?.storage_pools ?? []).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : isVif ? (
                 <>
                   <label>
                     {t("platform.vm")}
@@ -381,7 +439,7 @@ export function ServiceCatalogPage() {
                 disabled={
                   planM.isPending ||
                   !versionId ||
-                  (isVif
+                  (isDisk || isVif
                     ? !targetVmId || !clusterName.trim()
                     : isStorage || isVm
                       ? !targetClusterId || !clusterName.trim()
@@ -400,7 +458,9 @@ export function ServiceCatalogPage() {
                 </h3>
                 <p>
                   {selected.plan_json.template.name} {selected.plan_json.template.version}
-                  {selected.plan_json.vif?.name
+                  {selected.plan_json.disk?.name
+                    ? ` → ${selected.plan_json.disk.name}`
+                    : selected.plan_json.vif?.name
                     ? ` → ${selected.plan_json.vif.name}`
                     : selected.plan_json.storage?.name
                     ? ` → ${selected.plan_json.storage.name}`
@@ -452,6 +512,9 @@ export function ServiceCatalogPage() {
                 {selected.instance ? (
                   <p>
                     {t("catalog.instance")}: {selected.instance.name}
+                    {selected.instance.virtual_disk_id != null
+                      ? ` (disk #${selected.instance.virtual_disk_id})`
+                      : ""}
                     {selected.instance.virtual_interface_id != null
                       ? ` (vif #${selected.instance.virtual_interface_id})`
                       : ""}
@@ -487,7 +550,8 @@ export function ServiceCatalogPage() {
                       </td>
                       <td>{d.status}</td>
                       <td>
-                        {d.plan_json?.vif?.name ??
+                        {d.plan_json?.disk?.name ??
+                          d.plan_json?.vif?.name ??
                           d.plan_json?.storage?.name ??
                           d.plan_json?.vm?.name ??
                           d.plan_json?.cluster?.name ??
@@ -526,7 +590,9 @@ export function ServiceCatalogPage() {
                       <td>{i.name}</td>
                       <td>{i.slug}</td>
                       <td>
-                        {i.virtual_interface_id != null
+                        {i.virtual_disk_id != null
+                          ? `disk #${i.virtual_disk_id}`
+                          : i.virtual_interface_id != null
                           ? `vif #${i.virtual_interface_id}`
                           : i.storage_pool_id != null
                           ? `storage #${i.storage_pool_id}`
