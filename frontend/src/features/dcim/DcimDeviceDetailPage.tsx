@@ -641,6 +641,12 @@ export function DcimDeviceDetailPage() {
             <p className={styles.muted} style={{ marginTop: 0 }}>
               {t("dcim.equip.dev.classificationNote")}
             </p>
+            <p>
+              <Link to={`/services?tab=deploy&device=${dev.id}`} className={styles.tableLink}>
+                {t("catalog.provision")}
+              </Link>
+              <span className={styles.muted}> — {t("catalog.provisionHint")}</span>
+            </p>
             <dl className={styles.dlInline}>
               <dt>{t("dcim.common.id")}</dt>
               <dd>{dev.id}</dd>

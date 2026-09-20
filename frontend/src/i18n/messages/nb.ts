@@ -46,6 +46,7 @@ export const nb = {
   "nav.domainOps": "Drift",
   "nav.domainAdmin": "Administrasjon",
   "nav.domainPlatform": "Plattform",
+  "nav.domainServices": "Tjenester",
   "nav.clusters": "Clustere",
   "nav.locations": "Lokasjoner",
   "nav.devices": "Enheter",
@@ -2053,6 +2054,8 @@ export const nb = {
   "catalog.kindVif": "Virtuelt grensesnitt",
   "catalog.kindDisk": "Virtuell disk",
   "catalog.kindCloud": "Skyabonnement",
+  "catalog.provision": "Provisioner",
+  "catalog.provisionHint": "Åpner katalogens deploy-fane med denne enheten valgt. Installerer ikke OS.",
   "catalog.devices": "Enheter",
 
   "platform.title": "Clustere",

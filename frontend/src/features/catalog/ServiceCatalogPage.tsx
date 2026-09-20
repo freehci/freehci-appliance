@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { listDevices } from "@/features/dcim/dcimApi";
@@ -31,7 +31,7 @@ export function ServiceCatalogPage() {
   const [kind, setKind] = useState<api.ServiceTemplateSpec["kind"]>("device_instance");
   const [reserve, setReserve] = useState(false);
   const [versionId, setVersionId] = useState("");
-  const [deviceId, setDeviceId] = useState("");
+  const [deviceId, setDeviceId] = useState(() => searchParams.get("device") ?? "");
   const [deviceIds, setDeviceIds] = useState<number[]>([]);
   const [clusterName, setClusterName] = useState("");
   const [clusterKind, setClusterKind] = useState("other");
@@ -43,6 +43,11 @@ export function ServiceCatalogPage() {
   const [cloudKind, setCloudKind] = useState("other");
   const [prefixId, setPrefixId] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("device");
+    if (fromUrl) setDeviceId(fromUrl);
+  }, [searchParams]);
 
   const tmplQ = useQuery({ queryKey: ["service-templates"], queryFn: api.listTemplates });
   const depQ = useQuery({ queryKey: ["service-deployments"], queryFn: api.listDeployments });

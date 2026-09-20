@@ -44,6 +44,7 @@ export const en = {
   "nav.domainOps": "Operations",
   "nav.domainAdmin": "Administration",
   "nav.domainPlatform": "Platform",
+  "nav.domainServices": "Services",
   "nav.clusters": "Clusters",
   "nav.locations": "Locations",
   "nav.devices": "Devices",
@@ -2043,6 +2044,8 @@ export const en = {
   "catalog.kindVif": "Virtual interface",
   "catalog.kindDisk": "Virtual disk",
   "catalog.kindCloud": "Cloud subscription",
+  "catalog.provision": "Provision",
+  "catalog.provisionHint": "Opens the catalog deploy tab with this device selected. Does not install an OS.",
   "catalog.devices": "Devices",
 
   "platform.title": "Clusters",

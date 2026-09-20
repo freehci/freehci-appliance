@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { AccountAccessPage } from "@/features/auth/AccountAccessPage";
 import { ChangePasswordPage } from "@/features/auth/ChangePasswordPage";
@@ -68,6 +68,11 @@ function AppShellLayout() {
       <Outlet />
     </AppShell>
   );
+}
+
+function ServiceCatalogLegacyRedirect() {
+  const loc = useLocation();
+  return <Navigate to={`/services${loc.search}`} replace />;
 }
 
 function AppRoutes() {
@@ -153,7 +158,8 @@ function AppRoutes() {
             <Route path="groups" element={<IamGroupsPage />} />
             <Route path="groups/:groupId" element={<IamGroupDetailPage />} />
           </Route>
-          <Route path="/service-catalog" element={<ServiceCatalogPage />} />
+          <Route path="/services" element={<ServiceCatalogPage />} />
+          <Route path="/service-catalog" element={<ServiceCatalogLegacyRedirect />} />
           <Route path="/platform" element={<PlatformClustersPage />} />
           <Route path="/platform/clusters" element={<PlatformClustersPage />} />
           {pluginRoutes}

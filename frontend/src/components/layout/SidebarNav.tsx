@@ -5,7 +5,7 @@ import type { MessageKey } from "@/i18n/messages/en";
 import { SidebarNavIcon, type SidebarNavIconName } from "./SidebarNavIcon";
 import styles from "./SidebarNav.module.css";
 
-type DomainId = "dcim" | "network" | "platform" | "ops" | "admin";
+type DomainId = "dcim" | "network" | "platform" | "services" | "ops" | "admin";
 type NavItem = {
   to: string;
   labelKey: MessageKey;
@@ -21,12 +21,8 @@ function domainForPath(pathname: string): DomainId | null {
   if (pathname.startsWith("/dcim")) return "dcim";
   if (pathname.startsWith("/ipam")) return "network";
   if (pathname.startsWith("/platform")) return "platform";
-  if (
-    pathname.startsWith("/jobs") ||
-    pathname.startsWith("/snmp") ||
-    pathname.startsWith("/ops") ||
-    pathname.startsWith("/service-catalog")
-  ) {
+  if (pathname.startsWith("/services") || pathname.startsWith("/service-catalog")) return "services";
+  if (pathname.startsWith("/jobs") || pathname.startsWith("/snmp") || pathname.startsWith("/ops")) {
     return "ops";
   }
   if (
@@ -44,7 +40,16 @@ function domainForPath(pathname: string): DomainId | null {
 function readStoredDomain(): DomainId | null {
   try {
     const raw = localStorage.getItem(DOMAIN_STORAGE);
-    if (raw === "dcim" || raw === "network" || raw === "platform" || raw === "ops" || raw === "admin") return raw;
+    if (
+      raw === "dcim" ||
+      raw === "network" ||
+      raw === "platform" ||
+      raw === "services" ||
+      raw === "ops" ||
+      raw === "admin"
+    ) {
+      return raw;
+    }
   } catch {
     /* ignore */
   }
@@ -224,6 +229,13 @@ export function SidebarNav() {
           items={[{ to: "/platform/clusters", labelKey: "nav.clusters", icon: "clusters" }]}
         />
         <Domain
+          id="services"
+          labelKey="nav.domainServices"
+          open={openDomain === "services"}
+          onToggle={() => toggle("services")}
+          items={[{ to: "/services", labelKey: "nav.serviceCatalog", icon: "serviceCatalog" }]}
+        />
+        <Domain
           id="ops"
           labelKey="nav.domainOps"
           open={openDomain === "ops"}
@@ -237,7 +249,6 @@ export function SidebarNav() {
               isActive: (p) => p === "/jobs" || p.startsWith("/jobs/scheduler"),
             },
             { to: "/snmp", labelKey: "nav.snmp", icon: "snmp" },
-            { to: "/service-catalog", labelKey: "nav.serviceCatalog", icon: "serviceCatalog" },
           ]}
         />
         <Domain
