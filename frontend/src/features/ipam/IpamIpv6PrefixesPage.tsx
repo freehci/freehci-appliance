@@ -527,7 +527,7 @@ export function IpamIpv6PrefixesPage() {
                     <th>{t("ipam.ipv4.cidr")}</th>
                     <th>{t("ipam.ipv4.site")}</th>
                     <th>{t("ipam.gitops.status")}</th>
-                    <th>{t("ipam.gitops.role")}</th>
+                    <th>{t("ipam.ipv4.filterRole")}</th>
                     <th>{t("ipam.ipv4.actionsCol")}</th>
                   </tr>
                 </thead>

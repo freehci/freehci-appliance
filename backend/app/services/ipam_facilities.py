@@ -8,10 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.dcim import DeviceInterface, Site
+from app.models.dcim import DeviceInstance, DeviceInterface, Site
 from app.models.ipam import IpamCircuit, IpamCircuitTermination, IpamVlan, IpamVlanGroup, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.ipam import (
+    CLASSIFY_CIRCUIT_TYPES,
+    IpamCircuitClassify,
     IpamCircuitCreate,
     IpamCircuitRead,
     IpamCircuitTerminationCreate,
@@ -392,27 +394,43 @@ def ensure_vlan(db: Session, data: IpamVlanEnsure, *, update: bool = False) -> t
 # --- Circuits ---
 
 
+def circuit_needs_classification(row: IpamCircuit) -> bool:
+    return row.layer is None and row.circuit_type in CLASSIFY_CIRCUIT_TYPES
+
+
 def list_circuits(
     db: Session,
     *,
     tenant_id: int | None = None,
     site_id: int | None = None,
+    layer: str | None = None,
+    needs_classification: bool | None = None,
 ) -> list[IpamCircuit]:
     q = select(IpamCircuit).order_by(IpamCircuit.circuit_number)
     if tenant_id is not None:
         q = q.where(IpamCircuit.tenant_id == tenant_id)
     if site_id is not None:
         q = q.where((IpamCircuit.a_site_id == site_id) | (IpamCircuit.z_site_id == site_id))
-    return list(db.execute(q).scalars().all())
+    if layer is not None:
+        q = q.where(IpamCircuit.layer == layer)
+    rows = list(db.execute(q).scalars().all())
+    if needs_classification is True:
+        return [r for r in rows if circuit_needs_classification(r)]
+    if needs_classification is False:
+        return [r for r in rows if not circuit_needs_classification(r)]
+    return rows
 
 
 def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
+    from app.services.ipam_providers import require_provider_refs
+
     if data.tenant_id is not None:
         _require_tenant(db, data.tenant_id)
     if data.a_site_id is not None:
         _require_site(db, data.a_site_id)
     if data.z_site_id is not None:
         _require_site(db, data.z_site_id)
+    require_provider_refs(db, provider_id=data.provider_id, provider_account_id=data.provider_account_id)
     row = IpamCircuit(
         tenant_id=data.tenant_id,
         tenant_scope=int(data.tenant_id) if data.tenant_id is not None else 0,
@@ -422,8 +440,11 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
         name=data.name.strip(),
         description=data.description,
         circuit_type=data.circuit_type,
+        layer=data.layer,
         is_leased=data.is_leased,
         provider_name=data.provider_name.strip() if data.provider_name else None,
+        provider_id=data.provider_id,
+        provider_account_id=data.provider_account_id,
         established_on=data.established_on,
         contract_end_on=data.contract_end_on,
     )
@@ -442,16 +463,32 @@ def get_circuit(db: Session, circuit_id: int) -> IpamCircuit | None:
 
 
 def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> IpamCircuit:
+    from app.services.ipam_providers import require_provider_refs
+
     if data.name is not None:
         row.name = data.name.strip()
     if data.description is not None:
         row.description = data.description
     if data.circuit_type is not None:
         row.circuit_type = data.circuit_type
+    if data.layer is not None:
+        row.layer = data.layer
     if data.is_leased is not None:
         row.is_leased = data.is_leased
     if data.provider_name is not None:
         row.provider_name = data.provider_name.strip() if data.provider_name else None
+    if data.provider_id is not None or data.provider_account_id is not None:
+        require_provider_refs(
+            db,
+            provider_id=data.provider_id if data.provider_id is not None else row.provider_id,
+            provider_account_id=data.provider_account_id
+            if data.provider_account_id is not None
+            else row.provider_account_id,
+        )
+    if data.provider_id is not None:
+        row.provider_id = data.provider_id
+    if data.provider_account_id is not None:
+        row.provider_account_id = data.provider_account_id
     if data.established_on is not None:
         row.established_on = data.established_on
     if data.contract_end_on is not None:
@@ -471,6 +508,19 @@ def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> Ip
     return row
 
 
+def classify_circuit(db: Session, row: IpamCircuit, data: IpamCircuitClassify):
+    from app.services import ipam_vpn as vpn_svc
+
+    # circuit_type skrives aldri her — bare layer.
+    row.layer = data.layer
+    db.commit()
+    db.refresh(row)
+    vpn = None
+    if data.layer == "overlay" and data.create_vpn:
+        vpn = vpn_svc.ensure_vpn_from_circuit(db, row)
+    return row, vpn
+
+
 def delete_circuit(db: Session, row: IpamCircuit) -> None:
     db.delete(row)
     db.commit()
@@ -485,15 +535,34 @@ def list_circuit_terminations(db: Session, circuit_id: int) -> list[IpamCircuitT
     return list(db.execute(q).scalars().all())
 
 
+def _resolve_term_device_iface(
+    db: Session,
+    *,
+    device_id: int | None,
+    interface_id: int | None,
+) -> tuple[int | None, int | None]:
+    if interface_id is None:
+        if device_id is not None and db.get(DeviceInstance, device_id) is None:
+            raise ValueError("enhet ikke funnet")
+        return device_id, None
+    iface = db.get(DeviceInterface, interface_id)
+    if iface is None:
+        raise ValueError("grensesnitt ikke funnet")
+    if device_id is not None and iface.device_id != device_id:
+        raise ipam_error(400, "device_interface_mismatch", "grensesnittet tilhører en annen enhet")
+    return iface.device_id, iface.id
+
+
 def upsert_circuit_termination(
     db: Session,
     circuit: IpamCircuit,
     data: IpamCircuitTerminationCreate,
 ) -> IpamCircuitTermination:
-    if data.interface_id is not None:
-        iface = db.get(DeviceInterface, data.interface_id)
-        if iface is None:
-            raise ValueError("grensesnitt ikke funnet")
+    device_id, interface_id = _resolve_term_device_iface(
+        db,
+        device_id=data.device_id,
+        interface_id=data.interface_id,
+    )
     if data.site_id is not None:
         _require_site(db, data.site_id)
 
@@ -505,7 +574,8 @@ def upsert_circuit_termination(
     ).scalar_one_or_none()
 
     if existing is not None:
-        existing.interface_id = data.interface_id
+        existing.device_id = device_id
+        existing.interface_id = interface_id
         existing.site_id = data.site_id
         existing.label = data.label.strip() if data.label else None
         db.commit()
@@ -515,7 +585,8 @@ def upsert_circuit_termination(
     row = IpamCircuitTermination(
         circuit_id=circuit.id,
         endpoint=data.endpoint,
-        interface_id=data.interface_id,
+        device_id=device_id,
+        interface_id=interface_id,
         site_id=data.site_id,
         label=data.label.strip() if data.label else None,
     )
@@ -542,8 +613,25 @@ def vlan_to_read(row: IpamVlan, *, created: bool | None = None) -> IpamVlanRead:
 
 
 def circuit_to_read(row: IpamCircuit) -> IpamCircuitRead:
-    return IpamCircuitRead.model_validate(row)
+    return IpamCircuitRead.model_validate(row).model_copy(
+        update={"needs_classification": circuit_needs_classification(row)},
+    )
 
 
-def termination_to_read(row: IpamCircuitTermination) -> IpamCircuitTerminationRead:
-    return IpamCircuitTerminationRead.model_validate(row)
+def termination_to_read(db: Session, row: IpamCircuitTermination) -> IpamCircuitTerminationRead:
+    device_name = None
+    interface_name = None
+    device_id = row.device_id
+    if row.interface_id is not None:
+        iface = db.get(DeviceInterface, row.interface_id)
+        if iface is not None:
+            interface_name = iface.name
+            if device_id is None:
+                device_id = iface.device_id
+    if device_id is not None:
+        device = db.get(DeviceInstance, device_id)
+        if device is not None:
+            device_name = device.name
+    return IpamCircuitTerminationRead.model_validate(row).model_copy(
+        update={"device_id": device_id, "device_name": device_name, "interface_name": interface_name},
+    )

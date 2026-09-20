@@ -31,11 +31,33 @@ from app.schemas.ipam import (
     SubnetScanRead,
     UserCreate,
     UserRead,
+    IpamCircuitClassify,
+    IpamCircuitClassifyRead,
     IpamCircuitCreate,
     IpamCircuitRead,
     IpamCircuitTerminationCreate,
     IpamCircuitTerminationRead,
     IpamCircuitUpdate,
+    IpamProviderAccountCreate,
+    IpamProviderAccountRead,
+    IpamProviderAccountUpdate,
+    IpamProviderCreate,
+    IpamProviderRead,
+    IpamProviderUpdate,
+    IpamTunnelCreate,
+    IpamTunnelEndpointCreate,
+    IpamTunnelEndpointRead,
+    IpamTunnelPeerCreate,
+    IpamTunnelPeerRead,
+    IpamTunnelPeerUpdate,
+    IpamTunnelProfileCreate,
+    IpamTunnelProfileRead,
+    IpamTunnelProfileUpdate,
+    IpamTunnelRead,
+    IpamTunnelUpdate,
+    IpamVpnServiceCreate,
+    IpamVpnServiceRead,
+    IpamVpnServiceUpdate,
     IpamVlanCreate,
     IpamVlanEnsure,
     IpamVlanGroupCreate,
@@ -75,6 +97,8 @@ from app.services import ipam_idempotency as idem_svc
 from app.services import ipam_prefix_alloc as alloc_svc
 from app.services import ipam_prefix_split as split_svc
 from app.services import ipam_facilities as fac_svc
+from app.services import ipam_providers as prov_svc
+from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
@@ -633,9 +657,20 @@ def delete_ipam_vlan(vlan_id: int, db: Session = Depends(get_db)) -> None:
 def list_ipam_circuits(
     tenant_id: int | None = Query(None, description="Filtrer på tenant-id"),
     site_id: int | None = Query(None, description="Filtrer på A- eller Z-site"),
+    layer: str | None = Query(None, description="transport eller overlay"),
+    needs_classification: bool | None = Query(None),
     db: Session = Depends(get_db),
 ) -> list[IpamCircuitRead]:
-    return [fac_svc.circuit_to_read(r) for r in fac_svc.list_circuits(db, tenant_id=tenant_id, site_id=site_id)]
+    return [
+        fac_svc.circuit_to_read(r)
+        for r in fac_svc.list_circuits(
+            db,
+            tenant_id=tenant_id,
+            site_id=site_id,
+            layer=layer,
+            needs_classification=needs_classification,
+        )
+    ]
 
 
 @router.post("/circuits", response_model=IpamCircuitRead)
@@ -674,7 +709,7 @@ def list_circuit_terminations(circuit_id: int, db: Session = Depends(get_db)) ->
     row = fac_svc.get_circuit(db, circuit_id)
     if row is None:
         raise HTTPException(status_code=404, detail="samband ikke funnet")
-    return [fac_svc.termination_to_read(t) for t in fac_svc.list_circuit_terminations(db, circuit_id)]
+    return [fac_svc.termination_to_read(db, t) for t in fac_svc.list_circuit_terminations(db, circuit_id)]
 
 
 @router.post("/circuits/{circuit_id}/terminations", response_model=IpamCircuitTerminationRead)
@@ -692,7 +727,298 @@ def upsert_circuit_termination(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(status_code=409, detail="kunne ikke lagre terminering") from e
-    return fac_svc.termination_to_read(t)
+    return fac_svc.termination_to_read(db, t)
+
+
+@router.post("/circuits/{circuit_id}/classify", response_model=IpamCircuitClassifyRead)
+def classify_ipam_circuit(
+    circuit_id: int,
+    data: IpamCircuitClassify,
+    db: Session = Depends(get_db),
+) -> IpamCircuitClassifyRead:
+    row = fac_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="samband ikke funnet")
+    stored_type = row.circuit_type
+    circuit, vpn = fac_svc.classify_circuit(db, row, data)
+    if circuit.circuit_type != stored_type:
+        raise HTTPException(status_code=500, detail="klassifisering endret circuit_type — avbrutt")
+    return IpamCircuitClassifyRead(
+        circuit=fac_svc.circuit_to_read(circuit),
+        vpn_service_id=vpn.id if vpn is not None else None,
+    )
+
+
+@router.get("/providers", response_model=list[IpamProviderRead])
+def list_ipam_providers(db: Session = Depends(get_db)) -> list[IpamProviderRead]:
+    return [prov_svc.provider_to_read(r) for r in prov_svc.list_providers(db)]
+
+
+@router.post("/providers", response_model=IpamProviderRead)
+def create_ipam_provider(data: IpamProviderCreate, db: Session = Depends(get_db)) -> IpamProviderRead:
+    try:
+        return prov_svc.provider_to_read(prov_svc.create_provider(db, data))
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="leverandørslug finnes allerede") from e
+
+
+@router.get("/providers/{provider_id}", response_model=IpamProviderRead)
+def get_ipam_provider(provider_id: int, db: Session = Depends(get_db)) -> IpamProviderRead:
+    row = prov_svc.get_provider(db, provider_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="leverandør ikke funnet")
+    return prov_svc.provider_to_read(row)
+
+
+@router.patch("/providers/{provider_id}", response_model=IpamProviderRead)
+def patch_ipam_provider(
+    provider_id: int,
+    data: IpamProviderUpdate,
+    db: Session = Depends(get_db),
+) -> IpamProviderRead:
+    row = prov_svc.get_provider(db, provider_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="leverandør ikke funnet")
+    return prov_svc.provider_to_read(prov_svc.update_provider(db, row, data))
+
+
+@router.delete("/providers/{provider_id}", status_code=204)
+def delete_ipam_provider(provider_id: int, db: Session = Depends(get_db)) -> None:
+    row = prov_svc.get_provider(db, provider_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="leverandør ikke funnet")
+    prov_svc.delete_provider(db, row)
+
+
+@router.get("/providers/{provider_id}/accounts", response_model=list[IpamProviderAccountRead])
+def list_provider_accounts(provider_id: int, db: Session = Depends(get_db)) -> list[IpamProviderAccountRead]:
+    row = prov_svc.get_provider(db, provider_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="leverandør ikke funnet")
+    return [prov_svc.account_to_read(a) for a in prov_svc.list_accounts(db, provider_id)]
+
+
+@router.post("/providers/{provider_id}/accounts", response_model=IpamProviderAccountRead)
+def create_provider_account(
+    provider_id: int,
+    data: IpamProviderAccountCreate,
+    db: Session = Depends(get_db),
+) -> IpamProviderAccountRead:
+    row = prov_svc.get_provider(db, provider_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="leverandør ikke funnet")
+    try:
+        return prov_svc.account_to_read(prov_svc.create_account(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="konto-slug finnes allerede") from e
+
+
+@router.patch("/provider-accounts/{account_id}", response_model=IpamProviderAccountRead)
+def patch_provider_account(
+    account_id: int,
+    data: IpamProviderAccountUpdate,
+    db: Session = Depends(get_db),
+) -> IpamProviderAccountRead:
+    row = prov_svc.get_account(db, account_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="leverandørkonto ikke funnet")
+    try:
+        return prov_svc.account_to_read(prov_svc.update_account(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/provider-accounts/{account_id}", status_code=204)
+def delete_provider_account(account_id: int, db: Session = Depends(get_db)) -> None:
+    row = prov_svc.get_account(db, account_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="leverandørkonto ikke funnet")
+    prov_svc.delete_account(db, row)
+
+
+@router.get("/vpn-services", response_model=list[IpamVpnServiceRead])
+def list_vpn_services(
+    tenant_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamVpnServiceRead]:
+    return [vpn_svc.vpn_to_read(r) for r in vpn_svc.list_vpn_services(db, tenant_id=tenant_id)]
+
+
+@router.post("/vpn-services", response_model=IpamVpnServiceRead)
+def create_vpn_service(data: IpamVpnServiceCreate, db: Session = Depends(get_db)) -> IpamVpnServiceRead:
+    try:
+        return vpn_svc.vpn_to_read(vpn_svc.create_vpn_service(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="VPN-slug finnes allerede") from e
+
+
+@router.get("/vpn-services/{vpn_id}", response_model=IpamVpnServiceRead)
+def get_vpn_service(vpn_id: int, db: Session = Depends(get_db)) -> IpamVpnServiceRead:
+    row = vpn_svc.get_vpn_service(db, vpn_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-tjeneste ikke funnet")
+    return vpn_svc.vpn_to_read(row)
+
+
+@router.patch("/vpn-services/{vpn_id}", response_model=IpamVpnServiceRead)
+def patch_vpn_service(
+    vpn_id: int,
+    data: IpamVpnServiceUpdate,
+    db: Session = Depends(get_db),
+) -> IpamVpnServiceRead:
+    row = vpn_svc.get_vpn_service(db, vpn_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-tjeneste ikke funnet")
+    try:
+        return vpn_svc.vpn_to_read(vpn_svc.update_vpn_service(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/vpn-services/{vpn_id}", status_code=204)
+def delete_vpn_service(vpn_id: int, db: Session = Depends(get_db)) -> None:
+    row = vpn_svc.get_vpn_service(db, vpn_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-tjeneste ikke funnet")
+    vpn_svc.delete_vpn_service(db, row)
+
+
+@router.get("/vpn-services/{vpn_id}/tunnels", response_model=list[IpamTunnelRead])
+def list_vpn_tunnels(vpn_id: int, db: Session = Depends(get_db)) -> list[IpamTunnelRead]:
+    row = vpn_svc.get_vpn_service(db, vpn_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-tjeneste ikke funnet")
+    return [vpn_svc.tunnel_to_read(t) for t in vpn_svc.list_tunnels(db, vpn_id)]
+
+
+@router.post("/vpn-services/{vpn_id}/tunnels", response_model=IpamTunnelRead)
+def create_vpn_tunnel(vpn_id: int, data: IpamTunnelCreate, db: Session = Depends(get_db)) -> IpamTunnelRead:
+    row = vpn_svc.get_vpn_service(db, vpn_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-tjeneste ikke funnet")
+    try:
+        return vpn_svc.tunnel_to_read(vpn_svc.create_tunnel(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="tunnelslug finnes allerede") from e
+
+
+@router.patch("/tunnels/{tunnel_id}", response_model=IpamTunnelRead)
+def patch_vpn_tunnel(tunnel_id: int, data: IpamTunnelUpdate, db: Session = Depends(get_db)) -> IpamTunnelRead:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    try:
+        return vpn_svc.tunnel_to_read(vpn_svc.update_tunnel(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/tunnels/{tunnel_id}", status_code=204)
+def delete_vpn_tunnel(tunnel_id: int, db: Session = Depends(get_db)) -> None:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    vpn_svc.delete_tunnel(db, row)
+
+
+@router.get("/tunnels/{tunnel_id}/endpoints", response_model=list[IpamTunnelEndpointRead])
+def list_tunnel_endpoints(tunnel_id: int, db: Session = Depends(get_db)) -> list[IpamTunnelEndpointRead]:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    return [vpn_svc.endpoint_to_read(db, e) for e in vpn_svc.list_endpoints(db, tunnel_id)]
+
+
+@router.post("/tunnels/{tunnel_id}/endpoints", response_model=IpamTunnelEndpointRead)
+def upsert_tunnel_endpoint(
+    tunnel_id: int,
+    data: IpamTunnelEndpointCreate,
+    db: Session = Depends(get_db),
+) -> IpamTunnelEndpointRead:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    try:
+        return vpn_svc.endpoint_to_read(db, vpn_svc.upsert_endpoint(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/tunnels/{tunnel_id}/peers", response_model=list[IpamTunnelPeerRead])
+def list_tunnel_peers(tunnel_id: int, db: Session = Depends(get_db)) -> list[IpamTunnelPeerRead]:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    return [vpn_svc.peer_to_read(p) for p in vpn_svc.list_peers(db, tunnel_id)]
+
+
+@router.post("/tunnels/{tunnel_id}/peers", response_model=IpamTunnelPeerRead)
+def create_tunnel_peer(tunnel_id: int, data: IpamTunnelPeerCreate, db: Session = Depends(get_db)) -> IpamTunnelPeerRead:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    try:
+        return vpn_svc.peer_to_read(vpn_svc.create_peer(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch("/tunnel-peers/{peer_id}", response_model=IpamTunnelPeerRead)
+def patch_tunnel_peer(peer_id: int, data: IpamTunnelPeerUpdate, db: Session = Depends(get_db)) -> IpamTunnelPeerRead:
+    row = vpn_svc.get_peer(db, peer_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="peer ikke funnet")
+    try:
+        return vpn_svc.peer_to_read(vpn_svc.update_peer(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/tunnel-peers/{peer_id}", status_code=204)
+def delete_tunnel_peer(peer_id: int, db: Session = Depends(get_db)) -> None:
+    row = vpn_svc.get_peer(db, peer_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="peer ikke funnet")
+    vpn_svc.delete_peer(db, row)
+
+
+@router.get("/tunnel-profiles", response_model=list[IpamTunnelProfileRead])
+def list_tunnel_profiles(db: Session = Depends(get_db)) -> list[IpamTunnelProfileRead]:
+    return [vpn_svc.profile_to_read(r) for r in vpn_svc.list_profiles(db)]
+
+
+@router.post("/tunnel-profiles", response_model=IpamTunnelProfileRead)
+def create_tunnel_profile(data: IpamTunnelProfileCreate, db: Session = Depends(get_db)) -> IpamTunnelProfileRead:
+    try:
+        return vpn_svc.profile_to_read(vpn_svc.create_profile(db, data))
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="profilslug finnes allerede") from e
+
+
+@router.patch("/tunnel-profiles/{profile_id}", response_model=IpamTunnelProfileRead)
+def patch_tunnel_profile(
+    profile_id: int,
+    data: IpamTunnelProfileUpdate,
+    db: Session = Depends(get_db),
+) -> IpamTunnelProfileRead:
+    row = vpn_svc.get_profile(db, profile_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnelprofil ikke funnet")
+    return vpn_svc.profile_to_read(vpn_svc.update_profile(db, row, data))
+
+
+@router.delete("/tunnel-profiles/{profile_id}", status_code=204)
+def delete_tunnel_profile(profile_id: int, db: Session = Depends(get_db)) -> None:
+    row = vpn_svc.get_profile(db, profile_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnelprofil ikke funnet")
+    vpn_svc.delete_profile(db, row)
 
 
 @router.get("/ipv6-prefixes", response_model=list[Ipv6PrefixRead])

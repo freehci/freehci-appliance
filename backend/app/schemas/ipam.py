@@ -8,8 +8,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.route_distinguisher import normalize_route_distinguisher
+from app.core.secret_ref import normalize_secret_ref
 
 _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "wireguard", "radio", "leased_line", "other"})
+TRANSPORT_CIRCUIT_TYPES = frozenset({"fiber", "radio", "leased_line"})
+CLASSIFY_CIRCUIT_TYPES = frozenset({"vpn", "wireguard", "other"})
+CIRCUIT_LAYERS = frozenset({"transport", "overlay"})
+VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
+TUNNEL_STATUSES = frozenset({"planned", "active", "deprecated"})
 _OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
 _OWNER_TYPES = frozenset({"user", "token", "cluster", "system"})
 ADDRESS_STATUSES = frozenset({"planned", "reserved", "assigned", "dhcp", "discovered", "deprecated"})
@@ -726,9 +732,12 @@ class IpamCircuitCreate(BaseModel):
     circuit_number: str = Field(..., min_length=1, max_length=128)
     name: str = Field(..., min_length=1, max_length=255)
     circuit_type: str = Field(..., min_length=1, max_length=32)
+    layer: str | None = Field(None, max_length=16)
     description: str | None = None
     is_leased: bool = False
     provider_name: str | None = Field(None, max_length=255)
+    provider_id: int | None = Field(None, ge=1)
+    provider_account_id: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     a_site_id: int | None = Field(None, ge=1)
@@ -742,13 +751,28 @@ class IpamCircuitCreate(BaseModel):
             raise ValueError(f"circuit_type må være en av: {', '.join(sorted(_CIRCUIT_TYPES))}")
         return s
 
+    @field_validator("layer")
+    @classmethod
+    def layer_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_LAYERS:
+            raise ValueError(f"layer må være en av: {', '.join(sorted(CIRCUIT_LAYERS))}")
+        return s
+
 
 class IpamCircuitUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     circuit_type: str | None = Field(None, min_length=1, max_length=32)
+    layer: str | None = Field(None, max_length=16)
     is_leased: bool | None = None
     provider_name: str | None = Field(None, max_length=255)
+    provider_id: int | None = Field(None, ge=1)
+    provider_account_id: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     tenant_id: int | None = Field(None, ge=1)
@@ -765,6 +789,31 @@ class IpamCircuitUpdate(BaseModel):
             raise ValueError(f"circuit_type må være en av: {', '.join(sorted(_CIRCUIT_TYPES))}")
         return s
 
+    @field_validator("layer")
+    @classmethod
+    def layer_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_LAYERS:
+            raise ValueError(f"layer må være en av: {', '.join(sorted(CIRCUIT_LAYERS))}")
+        return s
+
+
+class IpamCircuitClassify(BaseModel):
+    layer: str = Field(..., min_length=1, max_length=16)
+    create_vpn: bool = True
+
+    @field_validator("layer")
+    @classmethod
+    def layer_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in CIRCUIT_LAYERS:
+            raise ValueError(f"layer må være en av: {', '.join(sorted(CIRCUIT_LAYERS))}")
+        return s
+
 
 class IpamCircuitRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -777,15 +826,25 @@ class IpamCircuitRead(BaseModel):
     name: str
     description: str | None
     circuit_type: str
+    layer: str | None = None
     is_leased: bool
     provider_name: str | None
+    provider_id: int | None = None
+    provider_account_id: int | None = None
+    needs_classification: bool = False
     established_on: dt.date | None
     contract_end_on: dt.date | None
     created_at: dt.datetime
 
 
+class IpamCircuitClassifyRead(BaseModel):
+    circuit: IpamCircuitRead
+    vpn_service_id: int | None = None
+
+
 class IpamCircuitTerminationCreate(BaseModel):
     endpoint: Literal["a", "z"]
+    device_id: int | None = Field(None, ge=1)
     interface_id: int | None = Field(None, ge=1)
     site_id: int | None = Field(None, ge=1)
     label: str | None = Field(None, max_length=255)
@@ -797,9 +856,300 @@ class IpamCircuitTerminationRead(BaseModel):
     id: int
     circuit_id: int
     endpoint: str
+    device_id: int | None = None
     interface_id: int | None
     site_id: int | None = None
     label: str | None
+    device_name: str | None = None
+    interface_name: str | None = None
+
+
+class IpamProviderCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    asn: int | None = Field(None, ge=1, le=4294967295)
+    website: str | None = Field(None, max_length=255)
+    description: str | None = None
+
+
+class IpamProviderUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    asn: int | None = Field(None, ge=1, le=4294967295)
+    website: str | None = Field(None, max_length=255)
+    description: str | None = None
+
+
+class IpamProviderRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    asn: int | None
+    website: str | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamProviderAccountCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    tenant_id: int | None = Field(None, ge=1)
+    account_number: str | None = Field(None, max_length=128)
+    description: str | None = None
+
+
+class IpamProviderAccountUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    tenant_id: int | None = Field(None, ge=1)
+    account_number: str | None = Field(None, max_length=128)
+    description: str | None = None
+
+
+class IpamProviderAccountRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    provider_id: int
+    tenant_id: int | None
+    name: str
+    slug: str
+    account_number: str | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamVpnServiceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    vpn_type: str = Field(..., min_length=1, max_length=32)
+    tenant_id: int | None = Field(None, ge=1)
+    source_circuit_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("vpn_type")
+    @classmethod
+    def vpn_type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in VPN_TYPES:
+            raise ValueError(f"vpn_type må være en av: {', '.join(sorted(VPN_TYPES))}")
+        return s
+
+
+class IpamVpnServiceUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    vpn_type: str | None = Field(None, min_length=1, max_length=32)
+    tenant_id: int | None = Field(None, ge=1)
+    source_circuit_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("vpn_type")
+    @classmethod
+    def vpn_type_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in VPN_TYPES:
+            raise ValueError(f"vpn_type må være en av: {', '.join(sorted(VPN_TYPES))}")
+        return s
+
+
+class IpamVpnServiceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tenant_id: int | None
+    name: str
+    slug: str
+    vpn_type: str
+    source_circuit_id: int | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamTunnelProfileCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    vpn_type: str = Field(..., min_length=1, max_length=32)
+    settings: dict[str, Any] | None = None
+    description: str | None = None
+
+    @field_validator("vpn_type")
+    @classmethod
+    def vpn_type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in VPN_TYPES:
+            raise ValueError(f"vpn_type må være en av: {', '.join(sorted(VPN_TYPES))}")
+        return s
+
+
+class IpamTunnelProfileUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    vpn_type: str | None = Field(None, min_length=1, max_length=32)
+    settings: dict[str, Any] | None = None
+    description: str | None = None
+
+    @field_validator("vpn_type")
+    @classmethod
+    def vpn_type_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in VPN_TYPES:
+            raise ValueError(f"vpn_type må være en av: {', '.join(sorted(VPN_TYPES))}")
+        return s
+
+
+class IpamTunnelProfileRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    vpn_type: str
+    settings: dict[str, Any] | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamTunnelCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    status: str = "planned"
+    profile_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in TUNNEL_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(TUNNEL_STATUSES))}")
+        return s
+
+
+class IpamTunnelUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    status: str | None = None
+    profile_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in TUNNEL_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(TUNNEL_STATUSES))}")
+        return s
+
+
+class IpamTunnelRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    vpn_service_id: int
+    profile_id: int | None
+    name: str
+    slug: str
+    status: str
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamTunnelEndpointCreate(BaseModel):
+    endpoint: Literal["a", "z"]
+    device_id: int | None = Field(None, ge=1)
+    interface_id: int | None = Field(None, ge=1)
+    site_id: int | None = Field(None, ge=1)
+    label: str | None = Field(None, max_length=255)
+
+
+class IpamTunnelEndpointRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tunnel_id: int
+    endpoint: str
+    device_id: int | None
+    interface_id: int | None
+    site_id: int | None
+    label: str | None
+    device_name: str | None = None
+    interface_name: str | None = None
+
+
+class IpamTunnelPeerCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    public_key_ref: str | None = Field(None, max_length=255)
+    allowed_ips: list[str] | None = None
+    endpoint_host: str | None = Field(None, max_length=255)
+    endpoint_port: int | None = Field(None, ge=1, le=65535)
+    persistent_keepalive: int | None = Field(None, ge=0, le=86400)
+    device_id: int | None = Field(None, ge=1)
+    interface_id: int | None = Field(None, ge=1)
+    notes: str | None = None
+
+    @field_validator("public_key_ref")
+    @classmethod
+    def key_ref_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
+
+    @field_validator("allowed_ips", mode="before")
+    @classmethod
+    def ips_ok(cls, v: Any) -> list[str] | None:
+        if v is None:
+            return None
+        items = _csv_or_list(v)
+        return items or None
+
+
+class IpamTunnelPeerUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    public_key_ref: str | None = Field(None, max_length=255)
+    allowed_ips: list[str] | None = None
+    endpoint_host: str | None = Field(None, max_length=255)
+    endpoint_port: int | None = Field(None, ge=1, le=65535)
+    persistent_keepalive: int | None = Field(None, ge=0, le=86400)
+    device_id: int | None = Field(None, ge=1)
+    interface_id: int | None = Field(None, ge=1)
+    notes: str | None = None
+
+    @field_validator("public_key_ref")
+    @classmethod
+    def key_ref_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
+
+    @field_validator("allowed_ips", mode="before")
+    @classmethod
+    def ips_ok(cls, v: Any) -> list[str] | None:
+        if v is None:
+            return None
+        items = _csv_or_list(v)
+        return items or None
+
+
+class IpamTunnelPeerRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tunnel_id: int
+    name: str
+    public_key_ref: str | None
+    allowed_ips: list[str] | None
+    endpoint_host: str | None
+    endpoint_port: int | None
+    persistent_keepalive: int | None
+    device_id: int | None
+    interface_id: int | None
+    notes: str | None
+    created_at: dt.datetime
 
 
 class Ipv4PrefixSplitHalfIn(BaseModel):

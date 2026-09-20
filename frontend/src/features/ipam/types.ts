@@ -235,8 +235,12 @@ export type IpamCircuit = {
   name: string;
   description: string | null;
   circuit_type: string;
+  layer: string | null;
   is_leased: boolean;
   provider_name: string | null;
+  provider_id: number | null;
+  provider_account_id: number | null;
+  needs_classification: boolean;
   established_on: string | null;
   contract_end_on: string | null;
   created_at: string;
@@ -246,9 +250,92 @@ export type IpamCircuitTermination = {
   id: number;
   circuit_id: number;
   endpoint: string;
+  device_id: number | null;
   interface_id: number | null;
   site_id?: number | null;
   label: string | null;
+  device_name: string | null;
+  interface_name: string | null;
+};
+
+export type IpamProvider = {
+  id: number;
+  name: string;
+  slug: string;
+  asn: number | null;
+  website: string | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamProviderAccount = {
+  id: number;
+  provider_id: number;
+  tenant_id: number | null;
+  name: string;
+  slug: string;
+  account_number: string | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamVpnService = {
+  id: number;
+  tenant_id: number | null;
+  name: string;
+  slug: string;
+  vpn_type: string;
+  source_circuit_id: number | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamTunnel = {
+  id: number;
+  vpn_service_id: number;
+  profile_id: number | null;
+  name: string;
+  slug: string;
+  status: string;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamTunnelEndpoint = {
+  id: number;
+  tunnel_id: number;
+  endpoint: string;
+  device_id: number | null;
+  interface_id: number | null;
+  site_id: number | null;
+  label: string | null;
+  device_name: string | null;
+  interface_name: string | null;
+};
+
+export type IpamTunnelPeer = {
+  id: number;
+  tunnel_id: number;
+  name: string;
+  public_key_ref: string | null;
+  allowed_ips: string[] | null;
+  endpoint_host: string | null;
+  endpoint_port: number | null;
+  persistent_keepalive: number | null;
+  device_id: number | null;
+  interface_id: number | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type IpamTunnelProfile = {
+  id: number;
+  name: string;
+  slug: string;
+  vpn_type: string;
+  settings: Record<string, unknown> | null;
+  description: string | null;
+  created_at: string;
 };
 
 export type Ipv6Prefix = {

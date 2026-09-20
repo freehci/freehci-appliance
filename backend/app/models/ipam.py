@@ -289,8 +289,64 @@ class IpamVlan(Base):
     vrf: Mapped["IpamVrf | None"] = relationship(back_populates="vlans")
 
 
+class IpamProvider(Base):
+    """Global leverandør/operatør. Opprettes eksplisitt — aldri gjettet fra fritekst."""
+
+    __tablename__ = "ipam_providers"
+    __table_args__ = (UniqueConstraint("slug", name="uq_ipam_provider_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    asn: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    accounts: Mapped[list["IpamProviderAccount"]] = relationship(
+        back_populates="provider",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamProviderAccount(Base):
+    """Kundekonto hos en leverandør, valgfritt per tenant."""
+
+    __tablename__ = "ipam_provider_accounts"
+    __table_args__ = (UniqueConstraint("provider_id", "slug", name="uq_ipam_provider_account_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_providers.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    account_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    provider: Mapped["IpamProvider"] = relationship(back_populates="accounts")
+
+
 class IpamCircuit(Base):
-    """Samband (fiber, VPN, WireGuard, radiolinje). Tenant er valgfri — intern WG trenger den ikke."""
+    """Transport mellom to punkter. Overlay (VPN) er VPNService etter manuell klassifisering.
+
+    `layer` er nullable og fylles aldri automatisk fra `circuit_type`.
+    `provider_name` er historisk fritekst; `provider_id` settes bare når brukeren velger.
+    """
 
     __tablename__ = "ipam_circuits"
     __table_args__ = (UniqueConstraint("tenant_scope", "circuit_number", name="uq_ipam_circuit_tenant_scope_number"),)
@@ -313,8 +369,17 @@ class IpamCircuit(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     circuit_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    layer: Mapped[str | None] = mapped_column(String(16), nullable=True)
     is_leased: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     provider_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    provider_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_providers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    provider_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_provider_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     established_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     contract_end_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
@@ -331,7 +396,7 @@ class IpamCircuit(Base):
 
 
 class IpamCircuitTermination(Base):
-    """Endepunkt A eller Z på samband; kan peke på DCIM-grensesnitt."""
+    """Endepunkt A eller Z på samband; peker på Device og/eller Interface."""
 
     __tablename__ = "ipam_circuit_terminations"
     __table_args__ = (UniqueConstraint("circuit_id", "endpoint", name="uq_ipam_circuit_term_endpoint"),)
@@ -342,6 +407,11 @@ class IpamCircuitTermination(Base):
         nullable=False,
     )
     endpoint: Mapped[str] = mapped_column(String(1), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     interface_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
@@ -354,6 +424,160 @@ class IpamCircuitTermination(Base):
     label: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     circuit: Mapped["IpamCircuit"] = relationship(back_populates="terminations")
+
+
+class IpamVpnService(Base):
+    """Overlay-identitet (VPN). Kan peke bakover til et klassifisert samband."""
+
+    __tablename__ = "ipam_vpn_services"
+    __table_args__ = (UniqueConstraint("tenant_scope", "slug", name="uq_ipam_vpn_service_scope_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tenant_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    vpn_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_circuit_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_circuits.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    tunnels: Mapped[list["IpamTunnel"]] = relationship(
+        back_populates="vpn_service",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamTunnelProfile(Base):
+    """Gjenbrukbar tunnelprofil (MTU, listen-port). Ingen nøkkelmateriale."""
+
+    __tablename__ = "ipam_tunnel_profiles"
+    __table_args__ = (UniqueConstraint("slug", name="uq_ipam_tunnel_profile_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    vpn_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    settings: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class IpamTunnel(Base):
+    """Én tunnel under en VPN-tjeneste."""
+
+    __tablename__ = "ipam_tunnels"
+    __table_args__ = (UniqueConstraint("vpn_service_id", "slug", name="uq_ipam_tunnel_vpn_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vpn_service_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vpn_services.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    profile_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_tunnel_profiles.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    vpn_service: Mapped["IpamVpnService"] = relationship(back_populates="tunnels")
+    endpoints: Mapped[list["IpamTunnelEndpoint"]] = relationship(
+        back_populates="tunnel",
+        cascade="all, delete-orphan",
+    )
+    peers: Mapped[list["IpamTunnelPeer"]] = relationship(
+        back_populates="tunnel",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamTunnelEndpoint(Base):
+    """A/Z-ende på en tunnel (Device/Interface)."""
+
+    __tablename__ = "ipam_tunnel_endpoints"
+    __table_args__ = (UniqueConstraint("tunnel_id", "endpoint", name="uq_ipam_tunnel_endpoint"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tunnel_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_tunnels.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    endpoint: Mapped[str] = mapped_column(String(1), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    interface_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    site_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    tunnel: Mapped["IpamTunnel"] = relationship(back_populates="endpoints")
+
+
+class IpamTunnelPeer(Base):
+    """Peer på en tunnel. Nøkler er referanser (`secret:…`), aldri nøkkelmateriale."""
+
+    __tablename__ = "ipam_tunnel_peers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tunnel_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_tunnels.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    public_key_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    allowed_ips: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    endpoint_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    endpoint_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    persistent_keepalive: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    device_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    interface_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    tunnel: Mapped["IpamTunnel"] = relationship(back_populates="peers")
 
 
 class IpamIdempotencyKey(Base):

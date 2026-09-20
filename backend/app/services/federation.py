@@ -436,6 +436,31 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for p in raw.get("ipv6_prefixes") or []
         ],
         "ipv6_addresses": v6_addrs,
+        "providers": [{"name": p.get("name"), "slug": p.get("slug")} for p in raw.get("providers") or [] if p.get("slug")],
+        "circuits": [
+            {
+                "circuit_number": c["circuit_number"],
+                "name": c.get("name"),
+                "circuit_type": c.get("circuit_type"),
+                "layer": c.get("layer"),
+                "a_site_slug": c.get("a_site_slug"),
+                "z_site_slug": c.get("z_site_slug"),
+                "provider_slug": c.get("provider_slug"),
+                "provider_name": c.get("provider_name"),
+            }
+            for c in raw.get("circuits") or []
+            if c.get("circuit_number")
+        ],
+        "vpn_services": [
+            {
+                "name": v.get("name"),
+                "slug": v.get("slug"),
+                "vpn_type": v.get("vpn_type"),
+                "source_circuit_number": v.get("source_circuit_number"),
+            }
+            for v in raw.get("vpn_services") or []
+            if v.get("slug")
+        ],
     }
 
 

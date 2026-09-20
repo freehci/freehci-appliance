@@ -10,6 +10,13 @@ import type {
   IpamAuditEvent,
   IpamCircuit,
   IpamCircuitTermination,
+  IpamProvider,
+  IpamProviderAccount,
+  IpamTunnel,
+  IpamTunnelEndpoint,
+  IpamTunnelPeer,
+  IpamTunnelProfile,
+  IpamVpnService,
   IpamVlan,
   IpamVlanGroup,
   IpamVrf,
@@ -350,9 +357,12 @@ export function createIpamCircuit(body: {
   circuit_number: string;
   name: string;
   circuit_type: string;
+  layer?: string | null;
   description?: string | null;
   is_leased?: boolean;
   provider_name?: string | null;
+  provider_id?: number | null;
+  provider_account_id?: number | null;
   established_on?: string | null;
   contract_end_on?: string | null;
   a_site_id?: number | null;
@@ -367,8 +377,11 @@ export function patchIpamCircuit(
     name: string;
     description: string | null;
     circuit_type: string;
+    layer: string | null;
     is_leased: boolean;
     provider_name: string | null;
+    provider_id: number | null;
+    provider_account_id: number | null;
     established_on: string | null;
     contract_end_on: string | null;
   }>,
@@ -380,15 +393,153 @@ export function deleteIpamCircuit(id: number): Promise<void> {
   return apiDelete(`${P}/circuits/${id}`);
 }
 
+export function classifyIpamCircuit(
+  id: number,
+  body: { layer: "transport" | "overlay"; create_vpn?: boolean },
+): Promise<{ circuit: IpamCircuit; vpn_service_id: number | null }> {
+  return apiPost(`${P}/circuits/${id}/classify`, body);
+}
+
 export function listCircuitTerminations(circuitId: number): Promise<IpamCircuitTermination[]> {
   return apiGet(`${P}/circuits/${circuitId}/terminations`);
 }
 
 export function upsertCircuitTermination(
   circuitId: number,
-  body: { endpoint: "a" | "z"; interface_id?: number | null; site_id?: number | null; label?: string | null },
+  body: {
+    endpoint: "a" | "z";
+    device_id?: number | null;
+    interface_id?: number | null;
+    site_id?: number | null;
+    label?: string | null;
+  },
 ): Promise<IpamCircuitTermination> {
   return apiPost(`${P}/circuits/${circuitId}/terminations`, body);
+}
+
+export function listIpamProviders(): Promise<IpamProvider[]> {
+  return apiGet(`${P}/providers`);
+}
+
+export function createIpamProvider(body: {
+  name: string;
+  slug?: string | null;
+  asn?: number | null;
+  website?: string | null;
+  description?: string | null;
+}): Promise<IpamProvider> {
+  return apiPost(`${P}/providers`, body);
+}
+
+export function deleteIpamProvider(id: number): Promise<void> {
+  return apiDelete(`${P}/providers/${id}`);
+}
+
+export function listProviderAccounts(providerId: number): Promise<IpamProviderAccount[]> {
+  return apiGet(`${P}/providers/${providerId}/accounts`);
+}
+
+export function createProviderAccount(
+  providerId: number,
+  body: {
+    name: string;
+    slug?: string | null;
+    tenant_id?: number | null;
+    account_number?: string | null;
+    description?: string | null;
+  },
+): Promise<IpamProviderAccount> {
+  return apiPost(`${P}/providers/${providerId}/accounts`, body);
+}
+
+export function deleteProviderAccount(id: number): Promise<void> {
+  return apiDelete(`${P}/provider-accounts/${id}`);
+}
+
+export function listVpnServices(tenantId?: number): Promise<IpamVpnService[]> {
+  const q = tenantId != null ? `?tenant_id=${encodeURIComponent(String(tenantId))}` : "";
+  return apiGet(`${P}/vpn-services${q}`);
+}
+
+export function createVpnService(body: {
+  name: string;
+  slug?: string | null;
+  vpn_type: string;
+  tenant_id?: number | null;
+  source_circuit_id?: number | null;
+  description?: string | null;
+}): Promise<IpamVpnService> {
+  return apiPost(`${P}/vpn-services`, body);
+}
+
+export function deleteVpnService(id: number): Promise<void> {
+  return apiDelete(`${P}/vpn-services/${id}`);
+}
+
+export function listVpnTunnels(vpnId: number): Promise<IpamTunnel[]> {
+  return apiGet(`${P}/vpn-services/${vpnId}/tunnels`);
+}
+
+export function createVpnTunnel(
+  vpnId: number,
+  body: { name: string; slug?: string | null; status?: string; profile_id?: number | null; description?: string | null },
+): Promise<IpamTunnel> {
+  return apiPost(`${P}/vpn-services/${vpnId}/tunnels`, body);
+}
+
+export function deleteVpnTunnel(id: number): Promise<void> {
+  return apiDelete(`${P}/tunnels/${id}`);
+}
+
+export function listTunnelEndpoints(tunnelId: number): Promise<IpamTunnelEndpoint[]> {
+  return apiGet(`${P}/tunnels/${tunnelId}/endpoints`);
+}
+
+export function upsertTunnelEndpoint(
+  tunnelId: number,
+  body: {
+    endpoint: "a" | "z";
+    device_id?: number | null;
+    interface_id?: number | null;
+    site_id?: number | null;
+    label?: string | null;
+  },
+): Promise<IpamTunnelEndpoint> {
+  return apiPost(`${P}/tunnels/${tunnelId}/endpoints`, body);
+}
+
+export function listTunnelPeers(tunnelId: number): Promise<IpamTunnelPeer[]> {
+  return apiGet(`${P}/tunnels/${tunnelId}/peers`);
+}
+
+export function createTunnelPeer(
+  tunnelId: number,
+  body: {
+    name: string;
+    public_key_ref?: string | null;
+    allowed_ips?: string[] | null;
+    endpoint_host?: string | null;
+    endpoint_port?: number | null;
+  },
+): Promise<IpamTunnelPeer> {
+  return apiPost(`${P}/tunnels/${tunnelId}/peers`, body);
+}
+
+export function deleteTunnelPeer(id: number): Promise<void> {
+  return apiDelete(`${P}/tunnel-peers/${id}`);
+}
+
+export function listTunnelProfiles(): Promise<IpamTunnelProfile[]> {
+  return apiGet(`${P}/tunnel-profiles`);
+}
+
+export function createTunnelProfile(body: {
+  name: string;
+  slug?: string | null;
+  vpn_type: string;
+  description?: string | null;
+}): Promise<IpamTunnelProfile> {
+  return apiPost(`${P}/tunnel-profiles`, body);
 }
 
 export function requestIpv4AddressBatch(body: {

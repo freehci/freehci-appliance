@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamVlan, IpamVlanGroup, IpamVrf
+from app.models.ipam import IpamCircuit, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
     BuildingCreate,
@@ -25,8 +25,11 @@ from app.schemas.dcim import (
     WingCreate,
 )
 from app.schemas.ipam import (
+    IpamCircuitCreate,
+    IpamProviderCreate,
     IpamVlanCreate,
     IpamVlanGroupCreate,
+    IpamVpnServiceCreate,
     IpamVrfCreate,
     Ipv4AddressEnsure,
     Ipv4PrefixEnsure,
@@ -38,6 +41,8 @@ from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
+from app.services import ipam_providers as prov_svc
+from app.services import ipam_vpn as vpn_svc
 from app.services import tenant as tenant_svc
 from app.schemas.tenant import TenantCreate
 
@@ -383,4 +388,54 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
             db,
             Ipv6AddressEnsure(site_slug=site_slug, prefix_cidr=a.get("prefix_cidr"), address=a["address"], mode="reserve", role=a.get("role")),
             update=True,
+        )
+    for p in ipam.get("providers") or []:
+        if not p.get("slug"):
+            continue
+        found = prov_svc.get_provider_by_slug(db, p["slug"])
+        if found is None:
+            prov_svc.create_provider(db, IpamProviderCreate(name=p.get("name") or p["slug"], slug=p["slug"]))
+    for c in ipam.get("circuits") or []:
+        number = (c.get("circuit_number") or "").strip()
+        if not number:
+            continue
+        found = db.execute(select(IpamCircuit).where(IpamCircuit.circuit_number == number)).scalar_one_or_none()
+        if found is not None:
+            continue
+        provider = prov_svc.get_provider_by_slug(db, c["provider_slug"]) if c.get("provider_slug") else None
+        a_site = _site_by_slug(db, c["a_site_slug"]) if c.get("a_site_slug") else None
+        z_site = _site_by_slug(db, c["z_site_slug"]) if c.get("z_site_slug") else None
+        fac_svc.create_circuit(
+            db,
+            IpamCircuitCreate(
+                circuit_number=number,
+                name=c.get("name") or number,
+                circuit_type=c.get("circuit_type") or "other",
+                layer=c.get("layer"),
+                provider_id=provider.id if provider is not None else None,
+                provider_name=c.get("provider_name"),
+                a_site_id=a_site.id if a_site is not None else None,
+                z_site_id=z_site.id if z_site is not None else None,
+            ),
+        )
+    for v in ipam.get("vpn_services") or []:
+        slug = (v.get("slug") or "").strip()
+        if not slug:
+            continue
+        found = db.execute(select(IpamVpnService).where(IpamVpnService.slug == slug)).scalar_one_or_none()
+        if found is not None:
+            continue
+        source_id = None
+        src_num = (v.get("source_circuit_number") or "").strip()
+        if src_num:
+            src = db.execute(select(IpamCircuit).where(IpamCircuit.circuit_number == src_num)).scalar_one_or_none()
+            source_id = src.id if src is not None else None
+        vpn_svc.create_vpn_service(
+            db,
+            IpamVpnServiceCreate(
+                name=v.get("name") or slug,
+                slug=slug,
+                vpn_type=v.get("vpn_type") or "other",
+                source_circuit_id=source_id,
+            ),
         )

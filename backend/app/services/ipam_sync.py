@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.dcim import Site
-from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamScanHost, IpamSubnetScan
+from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamProvider, IpamScanHost, IpamSubnetScan, IpamVpnService
 from app.schemas.ipam import (
     IpamBulkEnsure,
     IpamBulkEnsureRead,
@@ -165,6 +165,20 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
     vrf_by_id = {v.id: v for v in vrfs}
     prefix_by_id = {p.id: p for p in prefixes}
     v6_by_id = {p.id: p for p in v6}
+    site_ids = {c.a_site_id for c in circuits if c.a_site_id} | {c.z_site_id for c in circuits if c.z_site_id}
+    site_by_id = {s.id: s for s in db.execute(select(Site).where(Site.id.in_(site_ids))).scalars().all()} if site_ids else {}
+    provider_ids = {c.provider_id for c in circuits if c.provider_id}
+    provider_by_id = (
+        {p.id: p for p in db.execute(select(IpamProvider).where(IpamProvider.id.in_(provider_ids))).scalars().all()}
+        if provider_ids
+        else {}
+    )
+    circuit_ids = {c.id for c in circuits}
+    vpn_rows = (
+        list(db.execute(select(IpamVpnService).where(IpamVpnService.source_circuit_id.in_(circuit_ids))).scalars().all())
+        if circuit_ids
+        else []
+    )
     tenant_slug = site.tenant.slug if getattr(site, "tenant", None) is not None else None
     return {
         "apiVersion": "freehci.ipam/v1",
@@ -233,16 +247,35 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             for a in v6a
             if a.status in _HELD
         ],
+        "providers": [{"name": p.name, "slug": p.slug} for p in provider_by_id.values()],
         "circuits": [
             {
                 "circuit_number": c.circuit_number,
                 "name": c.name,
                 "circuit_type": c.circuit_type,
+                "layer": c.layer,
                 "tenant_id": c.tenant_id,
                 "a_site_id": c.a_site_id,
                 "z_site_id": c.z_site_id,
+                "a_site_slug": site_by_id[c.a_site_id].slug if c.a_site_id in site_by_id else None,
+                "z_site_slug": site_by_id[c.z_site_id].slug if c.z_site_id in site_by_id else None,
+                "provider_id": c.provider_id,
+                "provider_slug": provider_by_id[c.provider_id].slug if c.provider_id in provider_by_id else None,
+                "provider_name": c.provider_name,
             }
             for c in circuits
+        ],
+        "vpn_services": [
+            {
+                "name": v.name,
+                "slug": v.slug,
+                "vpn_type": v.vpn_type,
+                "source_circuit_number": next(
+                    (c.circuit_number for c in circuits if c.id == v.source_circuit_id),
+                    None,
+                ),
+            }
+            for v in vpn_rows
         ],
     }
 
