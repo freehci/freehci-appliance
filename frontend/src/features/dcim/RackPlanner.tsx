@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
@@ -7,9 +8,17 @@ import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import baseStyles from "./dcim.module.css";
 import { RackElevation, type DragPayload } from "./RackElevation";
-import { deviceModelRackFaceSrc } from "./modelImages";
+import { deviceModelBackSrc, deviceModelRackFaceSrc } from "./modelImages";
 import styles from "./RackPlanner.module.css";
-import { canPlaceDeviceAt, deviceUHeight, existingRangesForRack } from "./rackUtils";
+import {
+  canPlaceDeviceAt,
+  deviceUHeight,
+  existingRangesForRack,
+  findPlacementIssues,
+  firstFitU,
+  occupiedUnitsForRack,
+  occupiesRange,
+} from "./rackUtils";
 import type { DeviceInstance, DeviceModel, Rack, RackPlacement } from "./types";
 
 /** Unik kort suffiks uten `crypto.randomUUID` (krever ofte sikker kontekst / HTTPS). */
@@ -178,14 +187,28 @@ export function RackPlanner({
   const { t } = useI18n();
   const qc = useQueryClient();
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("devices");
-  const [paletteMount, setPaletteMount] = useState<"front" | "rear">("front");
+  const [viewFace, setViewFace] = useState<"front" | "rear">("front");
   const [editorPlacement, setEditorPlacement] = useState<RackPlacement | null>(null);
   const [dragging, setDragging] = useState<DragPayload>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [dropErr, setDropErr] = useState<string | null>(null);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const [layoutQuery, setLayoutQuery] = useState("");
+  const [sizeFilter, setSizeFilter] = useState<"" | "1" | "2" | "4+">("");
+  const [vendorFilter, setVendorFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [compact, setCompact] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [paletteCollapsed, setPaletteCollapsed] = useState(false);
+  const [selectedPlacementId, setSelectedPlacementId] = useState<number | null>(null);
+  const [armed, setArmed] = useState<{ kind: "device" | "model"; id: number } | null>(null);
 
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: api.listDevices });
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
+  const mfrQ = useQuery({ queryKey: ["dcim", "manufacturers"], queryFn: api.listManufacturers });
+  const typesQ = useQuery({ queryKey: ["dcim", "device-types"], queryFn: api.listDeviceTypes });
+  const roomsQ = useQuery({ queryKey: ["dcim", "rooms"], queryFn: () => api.listRooms() });
+  const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
   const allPlacementsQ = useQuery({
     queryKey: ["dcim", "placements", "all"],
     queryFn: () => api.listPlacements(),
@@ -214,11 +237,102 @@ export function RackPlanner({
     [devicesQ.data, placedDeviceIds],
   );
 
+  const mfrById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const x of mfrQ.data ?? []) m.set(x.id, x.name);
+    return m;
+  }, [mfrQ.data]);
+
+  const typeById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const x of typesQ.data ?? []) m.set(x.id, x.name);
+    return m;
+  }, [typesQ.data]);
+
+  const roomById = useMemo(() => {
+    const m = new Map<number, { name: string; site_id: number }>();
+    for (const r of roomsQ.data ?? []) m.set(r.id, { name: r.name, site_id: r.site_id });
+    return m;
+  }, [roomsQ.data]);
+
+  const siteById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const s of sitesQ.data ?? []) m.set(s.id, s.name);
+    return m;
+  }, [sitesQ.data]);
+
+  const roomLabelForRack = (rack: Rack) => {
+    const room = roomById.get(rack.room_id);
+    if (!room) return undefined;
+    const site = siteById.get(room.site_id);
+    return site ? `${site} › ${room.name}` : room.name;
+  };
+
+  const matchesSize = (u: number) => {
+    if (sizeFilter === "1") return u === 1;
+    if (sizeFilter === "2") return u === 2;
+    if (sizeFilter === "4+") return u >= 4;
+    return true;
+  };
+
+  const allPlacements = allPlacementsQ.data ?? [];
+
+  const visibleRacks = useMemo(() => {
+    const q = layoutQuery.trim().toLowerCase();
+    if (!q) return racks;
+    return racks.filter((r) => {
+      const room = roomById.get(r.room_id);
+      const site = room ? siteById.get(room.site_id) : undefined;
+      const loc = room ? (site ? `${site} › ${room.name}` : room.name) : "";
+      if (`${r.name} ${loc}`.toLowerCase().includes(q)) return true;
+      return allPlacements.some((p) => {
+        if (p.rack_id !== r.id) return false;
+        const d = devicesById.get(p.device_id);
+        if (!d) return false;
+        const mod = d.device_model_id != null ? modelsById.get(d.device_model_id) : undefined;
+        return `${d.name} ${mod?.name ?? ""}`.toLowerCase().includes(q);
+      });
+    });
+  }, [racks, layoutQuery, roomById, siteById, allPlacements, devicesById, modelsById]);
+
+  const filteredUnplaced = useMemo(() => {
+    const q = paletteQuery.trim().toLowerCase();
+    return unplacedDevices.filter((d) => {
+      const uh = deviceUHeight(d, modelsById);
+      if (!matchesSize(uh)) return false;
+      const mod = d.device_model_id != null ? modelsById.get(d.device_model_id) : undefined;
+      if (vendorFilter && String(mod?.manufacturer_id ?? "") !== vendorFilter) return false;
+      const typeId = d.effective_device_type_id ?? mod?.device_type_id ?? null;
+      if (typeFilter && String(typeId ?? "") !== typeFilter) return false;
+      if (q) {
+        const blob = `${d.name} ${mod?.name ?? ""} ${d.serial_number ?? ""} ${d.asset_tag ?? ""}`.toLowerCase();
+        if (!blob.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [unplacedDevices, modelsById, paletteQuery, sizeFilter, vendorFilter, typeFilter]);
+
+  const filteredModels = useMemo(() => {
+    const q = paletteQuery.trim().toLowerCase();
+    return (modelsQ.data ?? []).filter((m) => {
+      if (!matchesSize(m.u_height)) return false;
+      if (vendorFilter && String(m.manufacturer_id ?? "") !== vendorFilter) return false;
+      if (typeFilter && String(m.device_type_id ?? "") !== typeFilter) return false;
+      if (q) {
+        const blob = `${m.name} ${mfrById.get(m.manufacturer_id ?? -1) ?? ""}`.toLowerCase();
+        if (!blob.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [modelsQ.data, paletteQuery, sizeFilter, vendorFilter, typeFilter, mfrById]);
+
   const placeDeviceMu = useMutation({
     mutationFn: (body: { rack_id: number; device_id: number; u_position: number }) =>
-      api.createPlacement({ ...body, mounting: paletteMount }),
-    onSuccess: () => {
+      api.createPlacement({ ...body, mounting: viewFace }),
+    onSuccess: (p) => {
       setDropErr(null);
+      setSelectedPlacementId(p.id);
+      setArmed(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "placements"] });
     },
     onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
@@ -236,11 +350,13 @@ export function RackPlanner({
         rack_id: vars.rackId,
         device_id: dev.id,
         u_position: vars.u,
-        mounting: paletteMount,
+        mounting: viewFace,
       });
     },
-    onSuccess: () => {
+    onSuccess: (p) => {
       setDropErr(null);
+      setSelectedPlacementId(p.id);
+      setArmed(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "placements"] });
       void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
     },
@@ -287,180 +403,522 @@ export function RackPlanner({
 
   const removeMu = useMutation({
     mutationFn: (id: number) => api.deletePlacement(id),
-    onSuccess: () => {
+    onSuccess: (_void, id) => {
       setDropErr(null);
+      setSelectedPlacementId((cur) => (cur === id ? null : cur));
       void qc.invalidateQueries({ queryKey: ["dcim", "placements"] });
     },
     onError: (e: Error) => setDropErr(e instanceof ApiError ? e.message : e.message),
   });
 
-  const allPlacements = allPlacementsQ.data ?? [];
+  useEffect(() => {
+    if (highlightPlacementId != null) setSelectedPlacementId(highlightPlacementId);
+  }, [highlightPlacementId]);
+
+  const issues = useMemo(
+    () => findPlacementIssues(allPlacements, visibleRacks, devicesById, modelsById),
+    [allPlacements, visibleRacks, devicesById, modelsById],
+  );
+  const conflictIds = useMemo(() => new Set(issues.map((i) => i.placementId)), [issues]);
+
+  const usedU = useMemo(() => {
+    let used = 0;
+    let total = 0;
+    for (const r of visibleRacks) {
+      total += r.u_height;
+      used += occupiedUnitsForRack(allPlacements, r.id, devicesById, modelsById).size;
+    }
+    return { used, total, free: Math.max(0, total - used) };
+  }, [visibleRacks, allPlacements, devicesById, modelsById]);
+
+  const selectedPlacement =
+    selectedPlacementId != null ? (allPlacements.find((p) => p.id === selectedPlacementId) ?? null) : null;
+  const selectedDevice = selectedPlacement ? devicesById.get(selectedPlacement.device_id) : undefined;
+  const selectedRack = selectedPlacement ? racks.find((r) => r.id === selectedPlacement.rack_id) : undefined;
+  const selectedModel =
+    selectedDevice?.device_model_id != null ? modelsById.get(selectedDevice.device_model_id) : undefined;
+  const selectedUHeight = selectedDevice ? deviceUHeight(selectedDevice, modelsById) : 0;
+  const selectedRange =
+    selectedPlacement == null
+      ? ""
+      : selectedUHeight === 0
+        ? "U0"
+        : (() => {
+            const { bottom, top } = occupiesRange(selectedPlacement.u_position, selectedUHeight);
+            return `U${bottom}–U${top}`;
+          })();
+  const selectedTypeId = selectedDevice?.effective_device_type_id ?? selectedModel?.device_type_id ?? null;
+  const selectedThumb = selectedModel
+    ? selectedPlacement?.mounting === "rear"
+      ? (deviceModelBackSrc(selectedModel) ?? deviceModelRackFaceSrc(selectedModel))
+      : deviceModelRackFaceSrc(selectedModel)
+    : null;
+  const colMin = Math.round((compact ? 110 : 160) * (zoom / 100));
+  const dash = (v: string | null | undefined) => (v && v.trim() ? v : "—");
+
+  const autoPlace = () => {
+    if (!armed) {
+      setDropErr(t("dcim.racks.autoPlaceNeedPick"));
+      return;
+    }
+    let h = 1;
+    if (armed.kind === "device") {
+      const d = devicesById.get(armed.id);
+      if (!d) return;
+      h = deviceUHeight(d, modelsById);
+    } else {
+      h = modelsById.get(armed.id)?.u_height ?? 1;
+    }
+    for (const rack of visibleRacks) {
+      const ranges = existingRangesForRack(allPlacements, rack.id, devicesById, modelsById);
+      const u = firstFitU(rack.u_height, h, ranges);
+      if (u != null) {
+        if (armed.kind === "device") {
+          placeDeviceMu.mutate({ rack_id: rack.id, device_id: armed.id, u_position: u });
+        } else {
+          placeFromModelMu.mutate({ rackId: rack.id, modelId: armed.id, u });
+        }
+        return;
+      }
+    }
+    setDropErr(t("dcim.racks.autoPlaceNoFit"));
+  };
 
   const wrap = (body: ReactNode) =>
-    embed ? body : <Panel title={t("dcim.racks.plannerTitle")}>{body}</Panel>;
+    embed ? body : <Panel title={t("dcim.racks.designerTitle")}>{body}</Panel>;
 
   if (racks.length === 0) {
     return wrap(<p className={baseStyles.muted}>{t("dcim.racks.empty")}</p>);
   }
 
   return wrap(
-    <>
+    <div className={styles.designer}>
       {dropErr ? (
         <p className={baseStyles.err}>
           {t("dcim.racks.dropError")} {dropErr}
         </p>
       ) : null}
 
-      <p className={styles.hint}>{t("dcim.racks.matrixHint")}</p>
+      <p className={styles.hint}>{t("dcim.racks.designerIntro")}</p>
 
-      <div className={styles.planner}>
-        <aside className={styles.palette}>
-          <h3 className={styles.paletteTitle}>{t("dcim.racks.paletteTitle")}</h3>
-          <div className={styles.paletteTabs} role="tablist">
+      <div className={styles.toolbar}>
+        <div className={styles.toolbarGroup} role="group" aria-label={t("dcim.racks.paletteMountHint")}>
+          <button
+            type="button"
+            className={`${styles.toolbarBtn} ${viewFace === "front" ? styles.toolbarBtnOn : ""}`.trim()}
+            onClick={() => setViewFace("front")}
+          >
+            {t("dcim.racks.viewFront")}
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolbarBtn} ${viewFace === "rear" ? styles.toolbarBtnOn : ""}`.trim()}
+            onClick={() => setViewFace("rear")}
+          >
+            {t("dcim.racks.viewRear")}
+          </button>
+        </div>
+        <input
+          className={styles.toolbarSearch}
+          value={layoutQuery}
+          onChange={(e) => setLayoutQuery(e.target.value)}
+          placeholder={t("dcim.racks.searchPlaceholder")}
+          aria-label={t("dcim.racks.searchPlaceholder")}
+        />
+        <div className={styles.toolbarGroup} role="group" aria-label={t("dcim.racks.zoom")}>
+          {[75, 100, 125].map((z) => (
             <button
+              key={z}
               type="button"
-              role="tab"
-              aria-selected={paletteTab === "devices"}
-              className={`${styles.paletteTab} ${paletteTab === "devices" ? styles.paletteTabActive : ""}`.trim()}
-              onClick={() => setPaletteTab("devices")}
+              className={`${styles.toolbarBtn} ${zoom === z ? styles.toolbarBtnOn : ""}`.trim()}
+              onClick={() => setZoom(z)}
             >
-              {t("dcim.racks.paletteTabDevices")}
+              {z}%
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={paletteTab === "models"}
-              className={`${styles.paletteTab} ${paletteTab === "models" ? styles.paletteTabActive : ""}`.trim()}
-              onClick={() => setPaletteTab("models")}
-            >
-              {t("dcim.racks.paletteTabModels")}
-            </button>
-          </div>
-          <label className={styles.paletteMountRow}>
-            <span className={styles.paletteMountHint}>{t("dcim.racks.paletteMountHint")}</span>
-            <select
-              value={paletteMount}
-              onChange={(e) => setPaletteMount(e.target.value as "front" | "rear")}
-              aria-label={t("dcim.racks.paletteMountHint")}
-            >
-              <option value="front">{t("dcim.equip.mountFront")}</option>
-              <option value="rear">{t("dcim.equip.mountRear")}</option>
-            </select>
-          </label>
-          <p className={styles.paletteHint}>
-            {paletteTab === "devices" ? t("dcim.racks.paletteHint") : t("dcim.racks.paletteModelsHint")}
-          </p>
-          <div className={styles.paletteList}>
-            {paletteTab === "devices" ? (
-              unplacedDevices.length === 0 ? (
-                <p className={baseStyles.muted}>{t("dcim.racks.paletteEmpty")}</p>
-              ) : (
-                unplacedDevices.map((d) => {
-                  const uh = deviceUHeight(d, modelsById);
-                  return (
-                    <div
-                      key={d.id}
-                      className={styles.paletteItem}
-                      draggable
-                      onDragStart={(e) => {
-                        setDragging({ kind: "device", id: d.id });
-                        e.dataTransfer.effectAllowed = "copy";
-                        e.dataTransfer.setData("text/plain", `device:${d.id}`);
-                      }}
-                      onDragEnd={() => {
-                        setDragging(null);
-                        setDragOverKey(null);
-                      }}
-                    >
-                      <span className={styles.paletteItemRow}>
-                        {d.device_model_id != null
-                          ? (() => {
-                              const m = modelsById.get(d.device_model_id);
-                              return m && deviceModelRackFaceSrc(m) ? (
-                                <img
-                                  src={deviceModelRackFaceSrc(m)!}
-                                  alt=""
-                                  className={styles.modelThumb}
-                                  draggable={false}
-                                />
-                              ) : null;
-                            })()
-                          : null}
-                        <span>{d.name}</span>
-                      </span>
-                      <span className={styles.uBadge}>{uh}U</span>
-                    </div>
-                  );
-                })
-              )
-            ) : (modelsQ.data ?? []).length === 0 ? (
-              <p className={baseStyles.muted}>{t("dcim.racks.paletteModelsEmpty")}</p>
-            ) : (
-              (modelsQ.data ?? []).map((m) => (
-                <div
-                  key={m.id}
-                  className={styles.paletteItem}
-                  draggable
-                  onDragStart={(e) => {
-                    setDragging({ kind: "model", id: m.id });
-                    e.dataTransfer.effectAllowed = "copy";
-                    e.dataTransfer.setData("text/plain", `model:${m.id}`);
-                  }}
-                  onDragEnd={() => {
-                    setDragging(null);
-                    setDragOverKey(null);
-                  }}
-                >
-                  <span className={styles.paletteItemRow}>
-                    {deviceModelRackFaceSrc(m) ? (
-                      <img
-                        src={deviceModelRackFaceSrc(m)!}
-                        alt=""
-                        className={styles.modelThumb}
-                        draggable={false}
-                      />
-                    ) : null}
-                    <span>{m.name}</span>
-                  </span>
-                  <span className={styles.uBadge}>{m.u_height}U</span>
-                </div>
-              ))
-            )}
-          </div>
-        </aside>
-
-        <div className={styles.rackMatrix}>
-          {racks.map((rack) => (
-            <RackElevation
-              key={rack.id}
-              rack={rack}
-              t={t}
-              allPlacements={allPlacements}
-              devicesById={devicesById}
-              modelsById={modelsById}
-              dragging={dragging}
-              setDragging={setDragging}
-              dragOverKey={dragOverKey}
-              setDragOverKey={setDragOverKey}
-              highlightPlacementId={highlightPlacementId}
-              onDropDevice={(rackId, deviceId, u) => {
-                placeDeviceMu.mutate({ rack_id: rackId, device_id: deviceId, u_position: u });
-              }}
-              onDropModel={(rackId, modelId, u) => {
-                placeFromModelMu.mutate({ rackId, modelId, u });
-              }}
-              onMovePlacement={(pid, rackId, u) => {
-                patchPlacementMu.mutate({ pid, rack_id: rackId, u_position: u });
-              }}
-              onEditPlacement={setEditorPlacement}
-              onPlacementMountingChange={(pid, mounting) => {
-                patchPlacementMu.mutate({ pid, mounting });
-              }}
-              onRemovePlacement={(id) => removeMu.mutate(id)}
-              removePending={removeMu.isPending}
-            />
           ))}
         </div>
+        <button type="button" className={`${styles.toolbarBtn} ${styles.toolbarBtnOn}`} disabled>
+          {t("dcim.racks.snapOn")}
+        </button>
+        <button type="button" className={styles.toolbarBtn} onClick={autoPlace}>
+          {t("dcim.racks.autoPlace")}
+        </button>
+        <button
+          type="button"
+          className={styles.toolbarBtn}
+          onClick={() => {
+            const first = issues[0];
+            if (first) setSelectedPlacementId(first.placementId);
+          }}
+        >
+          {t("dcim.racks.validate")}
+        </button>
+        <span className={styles.paletteItemMeta}>{t("dcim.racks.savedAuto")}</span>
+        {paletteCollapsed ? (
+          <button type="button" className={styles.toolbarBtn} onClick={() => setPaletteCollapsed(false)}>
+            {t("dcim.racks.expandPalette")}
+          </button>
+        ) : null}
+      </div>
+
+      <div className={styles.legend} aria-label={t("dcim.racks.rackView")}>
+        <span className={styles.legendItem}>
+          <span className={`${styles.swatch} ${styles.swatchFront}`} />
+          {t("dcim.racks.legendFront")}
+        </span>
+        <span className={styles.legendItem}>
+          <span className={`${styles.swatch} ${styles.swatchRear}`} />
+          {t("dcim.racks.legendRear")}
+        </span>
+        <span className={styles.legendItem}>
+          <span className={`${styles.swatch} ${styles.swatchSelected}`} />
+          {t("dcim.racks.legendSelected")}
+        </span>
+        <span className={styles.legendItem}>
+          <span className={`${styles.swatch} ${styles.swatchEmpty}`} />
+          {t("dcim.racks.legendEmpty")}
+        </span>
+        <span className={styles.legendItem}>
+          <span className={`${styles.swatch} ${styles.swatchConflict}`} />
+          {t("dcim.racks.legendConflict")}
+        </span>
+      </div>
+
+      <div className={`${styles.planner} ${paletteCollapsed ? styles.plannerPaletteCollapsed : ""}`.trim()}>
+        {paletteCollapsed ? null : (
+          <aside className={styles.palette}>
+            <button
+              type="button"
+              className={`${styles.toolbarBtn} ${styles.paletteCollapse}`}
+              onClick={() => setPaletteCollapsed(true)}
+            >
+              {t("dcim.racks.collapsePalette")}
+            </button>
+            <h3 className={styles.paletteTitle}>{t("dcim.racks.paletteTitle")}</h3>
+            <div className={styles.paletteTabs} role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={paletteTab === "devices"}
+                className={`${styles.paletteTab} ${paletteTab === "devices" ? styles.paletteTabActive : ""}`.trim()}
+                onClick={() => setPaletteTab("devices")}
+              >
+                {t("dcim.racks.paletteTabDevices")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={paletteTab === "models"}
+                className={`${styles.paletteTab} ${paletteTab === "models" ? styles.paletteTabActive : ""}`.trim()}
+                onClick={() => setPaletteTab("models")}
+              >
+                {t("dcim.racks.paletteTabModels")}
+              </button>
+            </div>
+            <div className={styles.paletteFilters}>
+              <input
+                className={styles.toolbarSearch}
+                value={paletteQuery}
+                onChange={(e) => setPaletteQuery(e.target.value)}
+                placeholder={t("dcim.racks.paletteSearch")}
+                aria-label={t("dcim.racks.paletteSearch")}
+              />
+              <p className={styles.filterLabel}>{t("dcim.racks.filterSize")}</p>
+              <div className={styles.chipRow}>
+                {(["", "1", "2", "4+"] as const).map((sz) => (
+                  <button
+                    key={sz || "all"}
+                    type="button"
+                    className={`${styles.chip} ${sizeFilter === sz ? styles.chipOn : ""}`.trim()}
+                    onClick={() => setSizeFilter(sz)}
+                  >
+                    {sz === "" ? t("dcim.racks.filterAll") : sz === "4+" ? t("dcim.racks.size4plus") : `${sz}U`}
+                  </button>
+                ))}
+              </div>
+              {(mfrQ.data ?? []).length > 0 ? (
+                <>
+                  <p className={styles.filterLabel}>{t("dcim.racks.filterVendor")}</p>
+                  <div className={styles.chipRow}>
+                    <button
+                      type="button"
+                      className={`${styles.chip} ${vendorFilter === "" ? styles.chipOn : ""}`.trim()}
+                      onClick={() => setVendorFilter("")}
+                    >
+                      {t("dcim.racks.filterAll")}
+                    </button>
+                    {(mfrQ.data ?? []).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`${styles.chip} ${vendorFilter === String(m.id) ? styles.chipOn : ""}`.trim()}
+                        onClick={() => setVendorFilter(String(m.id))}
+                      >
+                        {m.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              {(typesQ.data ?? []).length > 0 ? (
+                <>
+                  <p className={styles.filterLabel}>{t("dcim.racks.filterCategory")}</p>
+                  <div className={styles.chipRow}>
+                    <button
+                      type="button"
+                      className={`${styles.chip} ${typeFilter === "" ? styles.chipOn : ""}`.trim()}
+                      onClick={() => setTypeFilter("")}
+                    >
+                      {t("dcim.racks.filterAll")}
+                    </button>
+                    {(typesQ.data ?? []).map((tp) => (
+                      <button
+                        key={tp.id}
+                        type="button"
+                        className={`${styles.chip} ${typeFilter === String(tp.id) ? styles.chipOn : ""}`.trim()}
+                        onClick={() => setTypeFilter(String(tp.id))}
+                      >
+                        {tp.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <p className={styles.paletteHint}>
+              {paletteTab === "devices" ? t("dcim.racks.paletteHint") : t("dcim.racks.paletteModelsHint")}
+            </p>
+            <div className={styles.paletteList}>
+              {paletteTab === "devices" ? (
+                unplacedDevices.length === 0 ? (
+                  <p className={baseStyles.muted}>{t("dcim.racks.paletteEmpty")}</p>
+                ) : filteredUnplaced.length === 0 ? (
+                  <p className={baseStyles.muted}>{t("dcim.racks.paletteFilterEmpty")}</p>
+                ) : (
+                  filteredUnplaced.map((d) => {
+                    const uh = deviceUHeight(d, modelsById);
+                    const mod = d.device_model_id != null ? modelsById.get(d.device_model_id) : undefined;
+                    const vendor = mod?.manufacturer_id != null ? mfrById.get(mod.manufacturer_id) : undefined;
+                    const typeName = typeById.get(d.effective_device_type_id ?? mod?.device_type_id ?? -1);
+                    return (
+                      <div
+                        key={d.id}
+                        className={`${styles.paletteItem} ${armed?.kind === "device" && armed.id === d.id ? styles.paletteItemArmed : ""}`.trim()}
+                        draggable
+                        onClick={() => setArmed({ kind: "device", id: d.id })}
+                        onDragStart={(e) => {
+                          setArmed({ kind: "device", id: d.id });
+                          setDragging({ kind: "device", id: d.id });
+                          e.dataTransfer.effectAllowed = "copy";
+                          e.dataTransfer.setData("text/plain", `device:${d.id}`);
+                        }}
+                        onDragEnd={() => {
+                          setDragging(null);
+                          setDragOverKey(null);
+                        }}
+                      >
+                        <span className={styles.paletteItemRow}>
+                          {mod && deviceModelRackFaceSrc(mod) ? (
+                            <img src={deviceModelRackFaceSrc(mod)!} alt="" className={styles.modelThumb} draggable={false} />
+                          ) : null}
+                          <span>
+                            <span>{d.name}</span>
+                            <span className={styles.paletteItemMeta}>
+                              {[vendor, typeName].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                        </span>
+                        <span className={styles.uBadge}>{uh}U</span>
+                      </div>
+                    );
+                  })
+                )
+              ) : (modelsQ.data ?? []).length === 0 ? (
+                <p className={baseStyles.muted}>{t("dcim.racks.paletteModelsEmpty")}</p>
+              ) : filteredModels.length === 0 ? (
+                <p className={baseStyles.muted}>{t("dcim.racks.paletteFilterEmpty")}</p>
+              ) : (
+                filteredModels.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`${styles.paletteItem} ${armed?.kind === "model" && armed.id === m.id ? styles.paletteItemArmed : ""}`.trim()}
+                    draggable
+                    onClick={() => setArmed({ kind: "model", id: m.id })}
+                    onDragStart={(e) => {
+                      setArmed({ kind: "model", id: m.id });
+                      setDragging({ kind: "model", id: m.id });
+                      e.dataTransfer.effectAllowed = "copy";
+                      e.dataTransfer.setData("text/plain", `model:${m.id}`);
+                    }}
+                    onDragEnd={() => {
+                      setDragging(null);
+                      setDragOverKey(null);
+                    }}
+                  >
+                    <span className={styles.paletteItemRow}>
+                      {deviceModelRackFaceSrc(m) ? (
+                        <img src={deviceModelRackFaceSrc(m)!} alt="" className={styles.modelThumb} draggable={false} />
+                      ) : null}
+                      <span>
+                        <span>{m.name}</span>
+                        <span className={styles.paletteItemMeta}>
+                          {[mfrById.get(m.manufacturer_id ?? -1), typeById.get(m.device_type_id ?? -1)]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                    </span>
+                    <span className={styles.uBadge}>{m.u_height}U</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </aside>
+        )}
+
+        <div className={styles.rackWorkspace}>
+          <div className={styles.rackWorkspaceHead}>
+            <strong>{t("dcim.racks.rackView")}</strong>
+            <div className={styles.toolbarGroup} role="group">
+              <button
+                type="button"
+                className={`${styles.toolbarBtn} ${!compact ? styles.toolbarBtnOn : ""}`.trim()}
+                onClick={() => setCompact(false)}
+              >
+                {t("dcim.racks.viewNormal")}
+              </button>
+              <button
+                type="button"
+                className={`${styles.toolbarBtn} ${compact ? styles.toolbarBtnOn : ""}`.trim()}
+                onClick={() => setCompact(true)}
+              >
+                {t("dcim.racks.viewCompact")}
+              </button>
+            </div>
+          </div>
+          <div
+            className={`${styles.rackMatrix} ${compact ? styles.rackMatrixCompact : ""}`.trim()}
+            style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${colMin}px, 1fr))` }}
+          >
+            {visibleRacks.map((rack) => (
+              <RackElevation
+                key={rack.id}
+                rack={rack}
+                t={t}
+                allPlacements={allPlacements}
+                devicesById={devicesById}
+                modelsById={modelsById}
+                dragging={dragging}
+                setDragging={setDragging}
+                dragOverKey={dragOverKey}
+                setDragOverKey={setDragOverKey}
+                highlightPlacementId={highlightPlacementId}
+                selectedPlacementId={selectedPlacementId}
+                onSelectPlacement={(p) => setSelectedPlacementId(p?.id ?? null)}
+                viewFace={viewFace}
+                compact={compact}
+                roomLabel={roomLabelForRack(rack)}
+                conflictIds={conflictIds}
+                onDropDevice={(rackId, deviceId, u) => {
+                  placeDeviceMu.mutate({ rack_id: rackId, device_id: deviceId, u_position: u });
+                }}
+                onDropModel={(rackId, modelId, u) => {
+                  placeFromModelMu.mutate({ rackId, modelId, u });
+                }}
+                onMovePlacement={(pid, rackId, u) => {
+                  patchPlacementMu.mutate({ pid, rack_id: rackId, u_position: u });
+                }}
+                onEditPlacement={setEditorPlacement}
+                onPlacementMountingChange={(pid, mounting) => {
+                  patchPlacementMu.mutate({ pid, mounting });
+                }}
+                onRemovePlacement={(id) => removeMu.mutate(id)}
+                removePending={removeMu.isPending}
+              />
+            ))}
+          </div>
+        </div>
+
+        <aside className={styles.details}>
+          <div className={styles.detailsHead}>
+            <h3 className={styles.detailsTitle}>{t("dcim.racks.detailsTitle")}</h3>
+            {selectedPlacement ? (
+              <button type="button" className={styles.toolbarBtn} onClick={() => setSelectedPlacementId(null)}>
+                {t("dcim.racks.closeDetails")}
+              </button>
+            ) : null}
+          </div>
+          {selectedPlacement && selectedDevice && selectedRack ? (
+            <>
+              <div className={styles.detailsHero}>
+                {selectedThumb ? <img src={selectedThumb} alt="" /> : null}
+                <div>
+                  <strong>{selectedDevice.name}</strong>
+                  <div className={styles.paletteItemMeta}>{dash(selectedModel?.name)}</div>
+                </div>
+              </div>
+              <dl className={styles.detailsDl}>
+                <dt>{t("dcim.equip.dev.hostname")}</dt>
+                <dd>{selectedDevice.name}</dd>
+                <dt>{t("dcim.racks.detailModel")}</dt>
+                <dd>{dash(selectedModel?.name)}</dd>
+                <dt>{t("dcim.racks.detailVendor")}</dt>
+                <dd>{dash(selectedModel?.manufacturer_id != null ? mfrById.get(selectedModel.manufacturer_id) : undefined)}</dd>
+                <dt>{t("dcim.racks.detailType")}</dt>
+                <dd>{dash(selectedTypeId != null ? typeById.get(selectedTypeId) : undefined)}</dd>
+                <dt>{t("dcim.racks.detailU")}</dt>
+                <dd>
+                  {selectedRange} · {selectedUHeight}U
+                </dd>
+                <dt>{t("dcim.racks.detailSide")}</dt>
+                <dd>
+                  {selectedPlacement.mounting === "rear" ? t("dcim.equip.mountRear") : t("dcim.equip.mountFront")}
+                </dd>
+                <dt>{t("dcim.racks.detailRack")}</dt>
+                <dd>
+                  {selectedRack.name} ({selectedRack.u_height}U)
+                </dd>
+                <dt>{t("dcim.racks.detailLocation")}</dt>
+                <dd>{dash(roomLabelForRack(selectedRack))}</dd>
+                <dt>{t("dcim.equip.dev.serial")}</dt>
+                <dd>{dash(selectedDevice.serial_number)}</dd>
+                <dt>{t("dcim.equip.dev.assetTag")}</dt>
+                <dd>{dash(selectedDevice.asset_tag)}</dd>
+              </dl>
+              <div className={styles.detailsActions}>
+                <button type="button" className={baseStyles.btn} onClick={() => setEditorPlacement(selectedPlacement)}>
+                  {t("dcim.racks.movePlacement")}
+                </button>
+                <button
+                  type="button"
+                  className={baseStyles.btnDanger}
+                  disabled={removeMu.isPending}
+                  onClick={() => removeMu.mutate(selectedPlacement.id)}
+                >
+                  {t("dcim.common.remove")}
+                </button>
+                <Link to={`/dcim/equipment/devices/${selectedDevice.id}`} className={baseStyles.btn}>
+                  {t("dcim.racks.openDevice")}
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className={baseStyles.muted}>{t("dcim.racks.detailsEmpty")}</p>
+          )}
+        </aside>
+      </div>
+
+      <div className={styles.statusBar}>
+        <span>{t("dcim.racks.statusBarRacks", { count: String(visibleRacks.length) })}</span>
+        <span>
+          {t("dcim.racks.statusBarUsed", { used: String(usedU.used), total: String(usedU.total) })}
+        </span>
+        <span>{t("dcim.racks.statusBarFree", { free: String(usedU.free) })}</span>
+        <span className={issues.length === 0 ? styles.statusOk : styles.statusWarn}>
+          {issues.length === 0
+            ? t("dcim.racks.validationOk")
+            : t("dcim.racks.validationIssues", { count: String(issues.length) })}
+        </span>
       </div>
 
       {editorPlacement ? (
@@ -482,6 +940,6 @@ export function RackPlanner({
           }}
         />
       ) : null}
-    </>,
+    </div>,
   );
 }

@@ -54,6 +54,93 @@ export function canPlaceDeviceAt(
   return true;
 }
 
+export function occupiedUnitsForRack(
+  placements: RackPlacement[],
+  rackId: number,
+  devicesById: Map<number, DeviceInstance>,
+  modelsById: Map<number, DeviceModel>,
+): Set<number> {
+  const occupied = new Set<number>();
+  for (const p of placements) {
+    if (p.rack_id !== rackId) continue;
+    const dev = devicesById.get(p.device_id);
+    if (!dev) continue;
+    const h = deviceUHeight(dev, modelsById);
+    if (h === 0) continue;
+    const { bottom, top } = occupiesRange(p.u_position, h);
+    for (let u = bottom; u <= top; u += 1) occupied.add(u);
+  }
+  return occupied;
+}
+
+export type PlacementIssue = {
+  placementId: number;
+  kind: "overlap" | "out_of_range";
+};
+
+/** Overlapp eller U utenfor rackhøyde (0U ignoreres for overslagsjekk). */
+export function findPlacementIssues(
+  placements: RackPlacement[],
+  racks: { id: number; u_height: number }[],
+  devicesById: Map<number, DeviceInstance>,
+  modelsById: Map<number, DeviceModel>,
+): PlacementIssue[] {
+  const rackH = new Map(racks.map((r) => [r.id, r.u_height]));
+  const issues: PlacementIssue[] = [];
+  const byRack = new Map<number, RackPlacement[]>();
+  for (const p of placements) {
+    const arr = byRack.get(p.rack_id) ?? [];
+    arr.push(p);
+    byRack.set(p.rack_id, arr);
+  }
+  for (const [rackId, list] of byRack) {
+    const n = rackH.get(rackId);
+    if (n == null) continue;
+    const ranges: { id: number; bottom: number; top: number }[] = [];
+    for (const p of list) {
+      const dev = devicesById.get(p.device_id);
+      if (!dev) continue;
+      const h = deviceUHeight(dev, modelsById);
+      if (h === 0) {
+        if (p.u_position !== 0) issues.push({ placementId: p.id, kind: "out_of_range" });
+        continue;
+      }
+      const { bottom, top } = occupiesRange(p.u_position, h);
+      if (bottom < 1 || top > n) issues.push({ placementId: p.id, kind: "out_of_range" });
+      ranges.push({ id: p.id, bottom, top });
+    }
+    for (let i = 0; i < ranges.length; i += 1) {
+      for (let j = i + 1; j < ranges.length; j += 1) {
+        const a = ranges[i]!;
+        const b = ranges[j]!;
+        if (!(a.top < b.bottom || b.top < a.bottom)) {
+          issues.push({ placementId: a.id, kind: "overlap" });
+          issues.push({ placementId: b.id, kind: "overlap" });
+        }
+      }
+    }
+  }
+  const seen = new Set<string>();
+  return issues.filter((x) => {
+    const k = `${x.placementId}:${x.kind}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+export function firstFitU(
+  rackUHeight: number,
+  deviceU: number,
+  existing: { bottom: number; top: number }[],
+): number | null {
+  if (deviceU === 0) return 0;
+  for (let u = 1; u <= rackUHeight - deviceU + 1; u += 1) {
+    if (canPlaceDeviceAt(u, deviceU, rackUHeight, existing)) return u;
+  }
+  return null;
+}
+
 /** CSS grid row from top (1 = top of rack = highest U). */
 export function gridRowStartForPlacement(n: number, uBottom: number, uHeight: number): number {
   const topRu = uBottom + uHeight - 1;
