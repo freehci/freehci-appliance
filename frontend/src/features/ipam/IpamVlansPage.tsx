@@ -17,19 +17,32 @@ export function IpamVlansPage() {
   const [err, setErr] = useState<string | null>(null);
   const [expandVlanId, setExpandVlanId] = useState<number | null>(null);
   const [filterSite, setFilterSite] = useState("");
+  const [filterGroup, setFilterGroup] = useState("");
   const [siteId, setSiteId] = useState("");
   const [vid, setVid] = useState("");
   const [name, setName] = useState("");
   const [vrfId, setVrfId] = useState("");
+  const [vlanGroupId, setVlanGroupId] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
   const [vlanTenantId, setVlanTenantId] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
+  const groupIdFilter = filterGroup === "" ? undefined : Number(filterGroup);
   const vlansQ = useQuery({
-    queryKey: ["ipam", "vlans", siteIdFilter ?? "all"],
-    queryFn: () => ipamApi.listIpamVlans(siteIdFilter),
+    queryKey: ["ipam", "vlans", siteIdFilter ?? "all", groupIdFilter ?? "all"],
+    queryFn: () => ipamApi.listIpamVlans(siteIdFilter, groupIdFilter),
+  });
+  const groupsFilterQ = useQuery({
+    queryKey: ["ipam", "vlan-groups", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listIpamVlanGroups(siteIdFilter),
+  });
+  const drawerGroupsQ = useQuery({
+    queryKey: ["ipam", "vlan-groups", siteId === "" ? "none" : Number(siteId)],
+    queryFn: () => ipamApi.listIpamVlanGroups(Number(siteId)),
+    enabled: siteId !== "",
   });
   const prefixesQ = useQuery({
     queryKey: ["ipam", "ipv4-prefixes", "for-vlans", siteIdFilter ?? "all"],
@@ -68,6 +81,13 @@ export function IpamVlansPage() {
     return m;
   }, [allVrfsQ.data]);
 
+  const groupNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const g of groupsFilterQ.data ?? []) m.set(g.id, g.name);
+    for (const g of drawerGroupsQ.data ?? []) m.set(g.id, g.name);
+    return m;
+  }, [groupsFilterQ.data, drawerGroupsQ.data]);
+
   const prefixesByVlanId = useMemo(() => {
     const m = new Map<number, number>();
     for (const p of prefixesQ.data ?? []) {
@@ -86,6 +106,16 @@ export function IpamVlansPage() {
     if (v != null && Number.isFinite(v) && v > 0) setExpandVlanId(v);
   }, []); // kun init fra URL
 
+  useEffect(() => {
+    const groups = drawerGroupsQ.data ?? [];
+    if (vlanGroupId !== "" || groups.length === 0) return;
+    const preferred =
+      groups.find((g) => filterGroup !== "" && String(g.id) === filterGroup) ??
+      groups.find((g) => g.slug === "default") ??
+      groups[0];
+    if (preferred) setVlanGroupId(String(preferred.id));
+  }, [drawerGroupsQ.data, vlanGroupId, filterGroup]);
+
   const toggleExpand = (id: number, siteId: number) => {
     setExpandVlanId((cur) => {
       const next = cur === id ? null : id;
@@ -99,22 +129,37 @@ export function IpamVlansPage() {
   };
 
   const createM = useMutation({
-    mutationFn: () =>
-      ipamApi.createIpamVlan({
+    mutationFn: async () => {
+      let groupId: number | undefined;
+      if (vlanGroupId === "__new__") {
+        const g = await ipamApi.createIpamVlanGroup({
+          site_id: Number(siteId),
+          name: newGroupName.trim(),
+        });
+        groupId = g.id;
+      } else if (vlanGroupId !== "") {
+        groupId = Number(vlanGroupId);
+      }
+      return ipamApi.createIpamVlan({
         site_id: Number(siteId),
+        vlan_group_id: groupId,
         vid: Number(vid),
         name: name.trim(),
         vrf_id: vrfId === "" ? null : Number(vrfId),
         tenant_id: vlanTenantId === "" ? undefined : Number(vlanTenantId),
-      }),
+      });
+    },
     onSuccess: () => {
       setErr(null);
       setVid("");
       setName("");
       setVrfId("");
+      setVlanGroupId("");
+      setNewGroupName("");
       setVlanTenantId("");
       setDrawerOpen(false);
       void qc.invalidateQueries({ queryKey: ["ipam", "vlans"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "vlan-groups"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -131,6 +176,7 @@ export function IpamVlansPage() {
   const openCreate = () => {
     setErr(null);
     if (filterSite && siteId === "") setSiteId(filterSite);
+    if (filterGroup && vlanGroupId === "") setVlanGroupId(filterGroup);
     setDrawerOpen(true);
   };
 
@@ -160,6 +206,7 @@ export function IpamVlansPage() {
             value={filterSite}
             onChange={(e) => {
               setFilterSite(e.target.value);
+              setFilterGroup("");
               setExpandVlanId(null);
               const sp = new URLSearchParams(searchParams);
               if (e.target.value === "") sp.delete("site");
@@ -176,6 +223,21 @@ export function IpamVlansPage() {
             ))}
           </select>
         </label>
+        <label className={prefixStyles.toolbarField}>
+          {t("ipam.vlan.group")}
+          <select
+            value={filterGroup}
+            onChange={(e) => setFilterGroup(e.target.value)}
+            disabled={!filterSite}
+          >
+            <option value="">{t("ipam.vlan.allGroups")}</option>
+            {(groupsFilterQ.data ?? []).map((g) => (
+              <option key={g.id} value={String(g.id)}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       {vlansQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
       <div className={prefixStyles.tableCard}>
@@ -188,6 +250,7 @@ export function IpamVlansPage() {
           <thead>
             <tr>
               <th>{t("ipam.ipv4.site")}</th>
+              <th>{t("ipam.vlan.group")}</th>
               <th>{t("ipam.ipv4.tenantCol")}</th>
               <th>VLAN</th>
               <th>{t("ipam.ipv4.name")}</th>
@@ -201,6 +264,7 @@ export function IpamVlansPage() {
               <Fragment key={v.id}>
                 <tr key={v.id}>
                   <td>{siteNameById.get(v.site_id) ?? v.site_id}</td>
+                  <td>{groupNameById.get(v.vlan_group_id) ?? `#${v.vlan_group_id}`}</td>
                   <td>
                     {v.tenant_id != null && v.tenant_id > 0
                       ? tenantNameById.get(v.tenant_id) ?? `#${v.tenant_id}`
@@ -231,7 +295,7 @@ export function IpamVlansPage() {
                 </tr>
                 {expandVlanId === v.id ? (
                   <tr key={`${v.id}-subnets`}>
-                    <td colSpan={7} style={{ paddingTop: "0.25rem" }}>
+                    <td colSpan={8} style={{ paddingTop: "0.25rem" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <strong>{t("ipam.vlan.showSubnets")}</strong>
                         <button type="button" className={dcimStyles.btnLink} onClick={() => setExpandVlanId(null)}>
@@ -292,7 +356,7 @@ export function IpamVlansPage() {
             <button
               type="button"
               className={dcimStyles.btn}
-              disabled={createM.isPending}
+              disabled={createM.isPending || (vlanGroupId === "__new__" && newGroupName.trim() === "")}
               onClick={() => {
                 setErr(null);
                 createM.mutate();
@@ -311,6 +375,8 @@ export function IpamVlansPage() {
               onChange={(e) => {
                 setSiteId(e.target.value);
                 setVrfId("");
+                setVlanGroupId("");
+                setNewGroupName("");
               }}
               required
             >
@@ -322,6 +388,26 @@ export function IpamVlansPage() {
               ))}
             </select>
           </label>
+          <label>
+            {t("ipam.vlan.group")}
+            <select value={vlanGroupId} onChange={(e) => setVlanGroupId(e.target.value)} disabled={siteId === ""}>
+              {(drawerGroupsQ.data ?? []).length === 0 ? (
+                <option value="">{t("ipam.vlan.defaultGroup")}</option>
+              ) : null}
+              {(drawerGroupsQ.data ?? []).map((g) => (
+                <option key={g.id} value={String(g.id)}>
+                  {g.name}
+                </option>
+              ))}
+              <option value="__new__">{t("ipam.vlan.newGroup")}</option>
+            </select>
+          </label>
+          {vlanGroupId === "__new__" ? (
+            <label>
+              {t("ipam.vlan.groupName")}
+              <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} required />
+            </label>
+          ) : null}
           <label>
             VLAN ID
             <input type="number" min={1} max={4094} value={vid} onChange={(e) => setVid(e.target.value)} required />

@@ -187,6 +187,7 @@ export function IpamVrfsPage() {
           <label>
             {t("ipam.vrf.rd")}
             <input value={rd} onChange={(e) => setRd(e.target.value)} placeholder={t("ipam.vrf.rdPlaceholder")} />
+            <span className={dcimStyles.muted}>{t("ipam.vrf.rdHelp")}</span>
           </label>
         </div>
       </PrefixDrawer>

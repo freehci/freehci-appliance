@@ -34,7 +34,7 @@ export function IpamIpv6PrefixesPage() {
   const [newSite, setNewSite] = useState("");
   const [newName, setNewName] = useState("");
   const [newCidr, setNewCidr] = useState("");
-  const [newRole, setNewRole] = useState("active");
+  const [newRole, setNewRole] = useState("access");
   const [newStatus, setNewStatus] = useState("active");
   const [newOverlap, setNewOverlap] = useState("");
   const [newDualStack, setNewDualStack] = useState("");
@@ -105,7 +105,7 @@ export function IpamIpv6PrefixesPage() {
   const filteredPrefixes = useMemo(() => {
     const q = filterQ.trim().toLowerCase();
     return filterIpv6KeepingAncestors(allPrefixes, fullTree.childrenByParentId, (p) => {
-      if (filterRole && (p.role ?? "active") !== filterRole) return false;
+      if (filterRole && (p.role ?? "access") !== filterRole) return false;
       if (filterStatus && (p.status ?? "active") !== filterStatus) return false;
       if (q === "") return true;
       return (
@@ -127,9 +127,9 @@ export function IpamIpv6PrefixesPage() {
     let container = 0;
     let reserved = 0;
     for (const p of filteredPrefixes) {
-      if ((p.role ?? "active") === "active") active += 1;
+      if ((p.status ?? "active") === "active") active += 1;
       if (p.role === "container") container += 1;
-      if (p.role === "reserved" || p.status === "reserved") reserved += 1;
+      if ((p.status ?? "active") === "reserved") reserved += 1;
     }
     return { total: filteredPrefixes.length, active, container, reserved };
   }, [filteredPrefixes]);
@@ -585,7 +585,7 @@ export function IpamIpv6PrefixesPage() {
                           <PrefixStatusBadge status={x.status ?? "active"} />
                         </td>
                         <td>
-                          <PrefixRoleBadge role={x.role ?? "active"} />
+                          <PrefixRoleBadge role={x.role ?? "access"} />
                         </td>
                         <td>
                           <RowOverflowMenu

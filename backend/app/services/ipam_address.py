@@ -463,7 +463,11 @@ def _resolve_assign_interface(
         )
     dev_site = dcim_svc.device_effective_site_id(db, iface.device_id)
     if dev_site is None:
-        raise HTTPException(status_code=400, detail="enhet uten site kan ikke allokeres IP på site-prefiks")
+        device = dcim_svc.get_device(db, iface.device_id)
+        if device is None:
+            raise HTTPException(status_code=404, detail="enhet ikke funnet")
+        device.site_id = pfx.site_id
+        dev_site = pfx.site_id
     if dev_site != pfx.site_id:
         raise HTTPException(status_code=400, detail="interface tilhører en annen site enn prefikset")
     return iface

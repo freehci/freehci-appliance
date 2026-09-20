@@ -240,14 +240,15 @@ def _validate_ipv4_prefix_for_assignment(
         raise HTTPException(status_code=404, detail="IPAM-prefiks ikke funnet")
     site_id = device_effective_site_id(db, device_id)
     if site_id is None:
-        raise HTTPException(
-            status_code=400,
-            detail="enhet uten site kan ikke knyttes til site-prefiks — sett site_id eller plasser enheten i rack",
-        )
+        device = db.get(DeviceInstance, device_id)
+        if device is None:
+            raise HTTPException(status_code=404, detail="enhet ikke funnet")
+        device.site_id = pfx.site_id
+        site_id = pfx.site_id
     if pfx.site_id != site_id:
         raise HTTPException(
             status_code=400,
-            detail="prefiks tilhører en annen site enn enhetens rack-plassering",
+            detail="prefiks tilhører en annen site enn enheten",
         )
     try:
         net = ipaddress.ip_network(pfx.cidr, strict=False)

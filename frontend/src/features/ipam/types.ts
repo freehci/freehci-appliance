@@ -203,9 +203,19 @@ export type IpamVrf = {
   created_at: string;
 };
 
+export type IpamVlanGroup = {
+  id: number;
+  site_id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+};
+
 export type IpamVlan = {
   id: number;
   site_id: number;
+  vlan_group_id: number;
   tenant_id?: number | null;
   vid: number;
   name: string;
@@ -319,8 +329,7 @@ export type Ipv6PrefixSplitResponse = {
 
 export const PREFIX_ROLES = [
   "container",
-  "active",
-  "reserved",
+  "access",
   "overlay-pod",
   "overlay-service",
   "lb-pool",

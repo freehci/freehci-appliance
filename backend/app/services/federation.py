@@ -406,7 +406,16 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
     return {
         "site": {"slug": site.slug, "name": site.name},
         "vrfs": [{"name": v["name"], "slug": v["slug"]} for v in raw.get("vrfs") or []],
-        "vlans": [{"vid": v["vid"], "name": v["name"], "slug": v["slug"]} for v in raw.get("vlans") or []],
+        "vlan_groups": [{"name": g["name"], "slug": g["slug"]} for g in raw.get("vlan_groups") or []],
+        "vlans": [
+            {
+                "vid": v["vid"],
+                "name": v["name"],
+                "slug": v["slug"],
+                "vlan_group_slug": v.get("vlan_group_slug"),
+            }
+            for v in raw.get("vlans") or []
+        ],
         "prefixes": [
             {
                 "cidr": p["cidr"],

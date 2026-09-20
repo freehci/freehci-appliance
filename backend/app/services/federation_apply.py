@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamVlan, IpamVrf
+from app.models.ipam import IpamVlan, IpamVlanGroup, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
     BuildingCreate,
@@ -24,7 +24,15 @@ from app.schemas.dcim import (
     SiteUpdate,
     WingCreate,
 )
-from app.schemas.ipam import IpamVlanCreate, IpamVrfCreate, Ipv4AddressEnsure, Ipv4PrefixEnsure, Ipv6AddressEnsure, Ipv6PrefixEnsure
+from app.schemas.ipam import (
+    IpamVlanCreate,
+    IpamVlanGroupCreate,
+    IpamVrfCreate,
+    Ipv4AddressEnsure,
+    Ipv4PrefixEnsure,
+    Ipv6AddressEnsure,
+    Ipv6PrefixEnsure,
+)
 from app.services import dcim as dcim_svc
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
@@ -306,12 +314,34 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         found = db.execute(select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == v["slug"])).scalar_one_or_none()
         if found is None:
             fac_svc.create_vrf(db, IpamVrfCreate(site_id=site.id, name=v.get("name") or v["slug"], slug=v["slug"]))
+    for g in ipam.get("vlan_groups") or []:
+        found = db.execute(
+            select(IpamVlanGroup).where(IpamVlanGroup.site_id == site.id, IpamVlanGroup.slug == g["slug"]),
+        ).scalar_one_or_none()
+        if found is None:
+            fac_svc.create_vlan_group(
+                db,
+                IpamVlanGroupCreate(site_id=site.id, name=g.get("name") or g["slug"], slug=g["slug"]),
+            )
     for v in ipam.get("vlans") or []:
         found = db.execute(select(IpamVlan).where(IpamVlan.site_id == site.id, IpamVlan.slug == v["slug"])).scalar_one_or_none()
         if found is None:
+            group_slug = (v.get("vlan_group_slug") or "").strip().lower()
+            group_id = None
+            if group_slug:
+                group = db.execute(
+                    select(IpamVlanGroup).where(IpamVlanGroup.site_id == site.id, IpamVlanGroup.slug == group_slug),
+                ).scalar_one_or_none()
+                group_id = group.id if group is not None else None
             fac_svc.create_vlan(
                 db,
-                IpamVlanCreate(site_id=site.id, vid=int(v["vid"]), name=v.get("name") or v["slug"], slug=v["slug"]),
+                IpamVlanCreate(
+                    site_id=site.id,
+                    vid=int(v["vid"]),
+                    name=v.get("name") or v["slug"],
+                    slug=v["slug"],
+                    vlan_group_id=group_id,
+                ),
             )
     for p in ipam.get("prefixes") or []:
         ipam_svc.ensure_ipv4_prefix(

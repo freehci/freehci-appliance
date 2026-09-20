@@ -46,9 +46,9 @@ export function UtilizationBar({ used, total, pct }: { used: number; total: numb
 }
 
 export function PrefixRoleBadge({ role }: { role: string }) {
-  const r = role || "active";
+  const r = role || "access";
   const cls =
-    r === "active"
+    r === "access" || r === "active"
       ? styles.pillActive
       : r === "container"
         ? styles.pillContainer

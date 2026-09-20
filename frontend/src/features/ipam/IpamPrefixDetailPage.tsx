@@ -136,7 +136,7 @@ export function IpamPrefixDetailPage() {
   useEffect(() => {
     if (!prefix) return;
     setEditName(prefix.name);
-    setEditRole(prefix.role || "active");
+    setEditRole(prefix.role || "access");
     setEditStatus(prefix.status || "active");
     setEditVlan(prefix.vlan_id != null ? String(prefix.vlan_id) : "");
     setEditVrf(prefix.vrf_id != null ? String(prefix.vrf_id) : "");

@@ -47,7 +47,9 @@ class IpamIpv4Prefix(Base):
     vrf_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(128), nullable=False)
-    role: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    # Formål (container, access, overlay-*, …) — ikke livsløp. Se status.
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="access")
+    # Livsløp: planned | active | reserved | deprecated.
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     overlap_policy: Mapped[str] = mapped_column(String(16), nullable=False, default="site-local")
     dual_stack_group_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -192,7 +194,10 @@ class IpamIpv4Address(Base):
 
 
 class IpamVrf(Base):
-    """L3-VRF (rutekontekst) per site — navn unikt innenfor site."""
+    """Logisk L3-VRF (rutekontekst) per site — ikke enhetsinstans.
+
+    Instans (PE/VRF på boks) kommer senere. RD valideres som ASN:nn eller IPv4:nn.
+    """
 
     __tablename__ = "ipam_vrfs"
     __table_args__ = (
@@ -218,18 +223,48 @@ class IpamVrf(Base):
     vlans: Mapped[list["IpamVlan"]] = relationship(back_populates="vrf")
 
 
+class IpamVlanGroup(Base):
+    """VID-namespace. Samme 802.1Q-ID kan finnes i ulike grupper på samme site."""
+
+    __tablename__ = "ipam_vlan_groups"
+    __table_args__ = (
+        UniqueConstraint("site_id", "slug", name="uq_ipam_vlan_group_site_slug"),
+        UniqueConstraint("site_id", "name", name="uq_ipam_vlan_group_site_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    vlans: Mapped[list["IpamVlan"]] = relationship(back_populates="vlan_group")
+
+
 class IpamVlan(Base):
-    """802.1Q VLAN per site; valgfritt koblet til VRF for L3-kontekst."""
+    """802.1Q VLAN; VID unikt i VLAN-gruppen, valgfritt koblet til logisk VRF."""
 
     __tablename__ = "ipam_vlans"
     __table_args__ = (
-        UniqueConstraint("site_id", "vid", name="uq_ipam_vlan_site_vid"),
+        UniqueConstraint("vlan_group_id", "vid", name="uq_ipam_vlan_group_vid"),
         UniqueConstraint("site_id", "slug", name="uq_ipam_vlan_site_slug"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(
         ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vlan_group_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vlan_groups.id", ondelete="RESTRICT"),
         nullable=False,
     )
     tenant_id: Mapped[int | None] = mapped_column(
@@ -250,6 +285,7 @@ class IpamVlan(Base):
         nullable=False,
     )
 
+    vlan_group: Mapped["IpamVlanGroup"] = relationship(back_populates="vlans")
     vrf: Mapped["IpamVrf | None"] = relationship(back_populates="vlans")
 
 
@@ -354,7 +390,7 @@ class IpamIpv6Prefix(Base):
     vrf_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(128), nullable=False)
-    role: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="access")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     overlap_policy: Mapped[str] = mapped_column(String(16), nullable=False, default="site-local")
     dual_stack_group_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

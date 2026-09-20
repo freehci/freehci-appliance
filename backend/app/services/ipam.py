@@ -110,7 +110,7 @@ def dump_subnet_services(raw: object) -> dict | None:
 
 
 def prefix_role(row: IpamIpv4Prefix) -> str:
-    return getattr(row, "role", None) or "active"
+    return getattr(row, "role", None) or "access"
 
 
 def prefix_status(row: IpamIpv4Prefix) -> str:
@@ -153,7 +153,7 @@ def new_ipv4_prefix_orm(
     name: str,
     cidr: str,
     slug: str | None = None,
-    role: str = "active",
+    role: str = "access",
     status: str = "active",
     description: str | None = None,
     subnet_services: dict | None = None,
@@ -291,16 +291,21 @@ def _assignment_rows_in_prefix(db: Session, parent: IpamIpv4Prefix) -> list[Ipv4
             DeviceInterface.name,
             DeviceInstance.id,
             DeviceInstance.name,
+            DeviceInstance.site_id,
+            Room.site_id,
         )
         .join(DeviceInterface, DeviceInterface.id == InterfaceIpAssignment.interface_id)
         .join(DeviceInstance, DeviceInstance.id == DeviceInterface.device_id)
-        .join(RackPlacement, RackPlacement.device_id == DeviceInstance.id)
-        .join(Rack, Rack.id == RackPlacement.rack_id)
-        .join(Room, Room.id == Rack.room_id)
-        .where(InterfaceIpAssignment.family == "ipv4", Room.site_id == parent.site_id)
+        .outerjoin(RackPlacement, RackPlacement.device_id == DeviceInstance.id)
+        .outerjoin(Rack, Rack.id == RackPlacement.rack_id)
+        .outerjoin(Room, Room.id == Rack.room_id)
+        .where(InterfaceIpAssignment.family == "ipv4")
     )
     out: list[Ipv4AssignmentInPrefixRead] = []
-    for a_id, addr, pfx_id, if_id, if_name, dev_id, dev_name in db.execute(q).all():
+    for a_id, addr, pfx_id, if_id, if_name, dev_id, dev_name, dev_site, room_site in db.execute(q).all():
+        sid = dev_site if dev_site is not None else room_site
+        if sid is None or int(sid) != parent.site_id:
+            continue
         try:
             ip = ipaddress.ip_address(str(addr).strip())
             if not isinstance(ip, ipaddress.IPv4Address) or ip not in parent_net:
@@ -822,7 +827,7 @@ def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure, *, update: bool = Fa
         name=name,
         cidr=cidr,
         slug=data.slug,
-        role=data.role or "active",
+        role=data.role or "access",
         status=data.status or "active",
         description=data.description,
         subnet_services=data.subnet_services,

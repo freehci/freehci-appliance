@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.route_distinguisher import normalize_route_distinguisher
+
 _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "wireguard", "radio", "leased_line", "other"})
 _OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
 _OWNER_TYPES = frozenset({"user", "token", "cluster", "system"})
@@ -15,11 +17,13 @@ _ADDRESS_STATUSES = ADDRESS_STATUSES
 _ADDRESS_MODES = frozenset({"reserve", "assign"})
 _ADDRESS_ROLES = frozenset({"gateway", "vip", "anycast", "lb", "host", "dhcp", "reserved"})
 PREFIX_ROLES = frozenset(
-    {"container", "active", "reserved", "overlay-pod", "overlay-service", "lb-pool", "p2p"},
+    {"container", "access", "overlay-pod", "overlay-service", "lb-pool", "p2p"},
 )
+# GitOps/eldre klienter sendte livsløp som rolle.
+PREFIX_ROLE_ALIASES = {"active": "access", "reserved": "container"}
 PREFIX_STATUSES = frozenset({"planned", "active", "reserved", "deprecated"})
-NO_HOST_ALLOC_ROLES = frozenset({"container", "reserved", "overlay-pod", "overlay-service"})
-NO_VLAN_ROLES = frozenset({"container", "reserved", "overlay-pod", "overlay-service", "p2p"})
+NO_HOST_ALLOC_ROLES = frozenset({"container", "overlay-pod", "overlay-service"})
+NO_VLAN_ROLES = frozenset({"container", "overlay-pod", "overlay-service", "p2p"})
 NO_HOST_ALLOC_STATUSES = frozenset({"reserved", "deprecated"})
 
 
@@ -75,6 +79,9 @@ def _role_ok(v: str | None, allowed: frozenset[str], label: str) -> str | None:
     if v is None:
         return None
     s = v.strip().lower()
+    alias = PREFIX_ROLE_ALIASES.get(s)
+    if alias is not None and alias in allowed:
+        s = alias
     if s not in allowed:
         raise ValueError(f"{label} må være en av: {', '.join(sorted(allowed))}")
     return s
@@ -85,7 +92,7 @@ class Ipv4PrefixCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     cidr: str = Field(..., min_length=1, max_length=32)
     slug: str | None = Field(None, min_length=1, max_length=128, description="Stabil nøkkel; genereres fra name hvis utelatt")
-    role: str = Field("active", description="container | active | reserved | overlay-pod | overlay-service | lb-pool | p2p")
+    role: str = Field("access", description="container | access | overlay-pod | overlay-service | lb-pool | p2p")
     status: str = Field("active", description="planned | active | reserved | deprecated")
     description: str | None = None
     subnet_services: SubnetServices | dict[str, Any] | None = None
@@ -116,7 +123,7 @@ class Ipv4PrefixCreate(BaseModel):
     @field_validator("role")
     @classmethod
     def role_ok(cls, v: str) -> str:
-        return _role_ok(v, PREFIX_ROLES, "role") or "active"
+        return _role_ok(v, PREFIX_ROLES, "role") or "access"
 
     @field_validator("status")
     @classmethod
@@ -250,7 +257,7 @@ class Ipv4PrefixRead(BaseModel):
     vrf_id: int | None = None
     name: str
     slug: str
-    role: str = "active"
+    role: str = "access"
     status: str = "active"
     cidr: str
     description: str | None
@@ -612,8 +619,13 @@ class IpamVrfCreate(BaseModel):
     site_id: int = Field(..., ge=1)
     name: str = Field(..., min_length=1, max_length=128)
     slug: str | None = Field(None, min_length=1, max_length=128)
-    route_distinguisher: str | None = Field(None, max_length=64)
+    route_distinguisher: str | None = Field(None, max_length=64, description="ASN:nn eller IPv4:nn")
     description: str | None = None
+
+    @field_validator("route_distinguisher")
+    @classmethod
+    def rd_ok(cls, v: str | None) -> str | None:
+        return normalize_route_distinguisher(v)
 
 
 class IpamVrfUpdate(BaseModel):
@@ -621,6 +633,11 @@ class IpamVrfUpdate(BaseModel):
     slug: str | None = Field(None, min_length=1, max_length=128)
     route_distinguisher: str | None = Field(None, max_length=64)
     description: str | None = None
+
+    @field_validator("route_distinguisher")
+    @classmethod
+    def rd_ok_up(cls, v: str | None) -> str | None:
+        return normalize_route_distinguisher(v)
 
 
 class IpamVrfEnsure(IpamVrfCreate):
@@ -640,8 +657,33 @@ class IpamVrfRead(BaseModel):
     created_at: dt.datetime
 
 
+class IpamVlanGroupCreate(BaseModel):
+    site_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=128)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+
+
+class IpamVlanGroupUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=128)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+
+
+class IpamVlanGroupRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    name: str
+    slug: str
+    description: str | None
+    created_at: dt.datetime
+
+
 class IpamVlanCreate(BaseModel):
     site_id: int = Field(..., ge=1)
+    vlan_group_id: int | None = Field(None, ge=1, description="Utelatt: sitens Default-gruppe")
     vid: int = Field(..., ge=1, le=4094)
     name: str = Field(..., min_length=1, max_length=255)
     slug: str | None = Field(None, min_length=1, max_length=128)
@@ -653,6 +695,7 @@ class IpamVlanCreate(BaseModel):
 class IpamVlanUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     slug: str | None = Field(None, min_length=1, max_length=128)
+    vlan_group_id: int | None = Field(None, ge=1)
     vrf_id: int | None = None
     description: str | None = None
     tenant_id: int | None = Field(None, ge=1)
@@ -667,6 +710,7 @@ class IpamVlanRead(BaseModel):
 
     id: int
     site_id: int
+    vlan_group_id: int
     tenant_id: int | None = None
     vid: int
     name: str
@@ -832,7 +876,7 @@ class Ipv4PrefixAllocate(BaseModel):
     prefixlen: int = Field(..., ge=1, le=32)
     name: str = Field(..., min_length=1, max_length=255)
     slug: str | None = Field(None, min_length=1, max_length=128)
-    role: str = "active"
+    role: str = "access"
     status: str = "active"
     description: str | None = None
     vlan_id: int | None = Field(None, ge=1)
@@ -852,7 +896,7 @@ class Ipv4PrefixAllocate(BaseModel):
     @field_validator("role")
     @classmethod
     def role_ok_alloc(cls, v: str) -> str:
-        return _role_ok(v, PREFIX_ROLES, "role") or "active"
+        return _role_ok(v, PREFIX_ROLES, "role") or "access"
 
     @field_validator("status")
     @classmethod
@@ -922,7 +966,7 @@ class Ipv6PrefixRead(BaseModel):
     vrf_id: int | None = None
     name: str
     slug: str
-    role: str = "active"
+    role: str = "access"
     status: str = "active"
     cidr: str
     description: str | None = None

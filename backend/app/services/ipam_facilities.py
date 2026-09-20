@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.dcim import DeviceInterface, Site
-from app.models.ipam import IpamCircuit, IpamCircuitTermination, IpamVlan, IpamVrf
+from app.models.ipam import IpamCircuit, IpamCircuitTermination, IpamVlan, IpamVlanGroup, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.ipam import (
     IpamCircuitCreate,
@@ -19,6 +19,9 @@ from app.schemas.ipam import (
     IpamCircuitUpdate,
     IpamVlanCreate,
     IpamVlanEnsure,
+    IpamVlanGroupCreate,
+    IpamVlanGroupRead,
+    IpamVlanGroupUpdate,
     IpamVlanRead,
     IpamVlanUpdate,
     IpamVrfCreate,
@@ -26,6 +29,9 @@ from app.schemas.ipam import (
     IpamVrfRead,
     IpamVrfUpdate,
 )
+
+DEFAULT_VLAN_GROUP_SLUG = "default"
+DEFAULT_VLAN_GROUP_NAME = "Default"
 from app.services.ipam_errors import ipam_error
 
 
@@ -35,7 +41,7 @@ def _slugify(value: str) -> str:
 
 
 def _unique_slug(db: Session, *, site_id: int, desired: str, kind: str, exclude_id: int | None = None) -> str:
-    model = IpamVrf if kind == "vrf" else IpamVlan
+    model = IpamVrf if kind == "vrf" else IpamVlanGroup if kind == "vlan_group" else IpamVlan
     base = _slugify(desired)
     candidate = base
     n = 2
@@ -159,18 +165,128 @@ def ensure_vrf(db: Session, data: IpamVrfEnsure, *, update: bool = False) -> tup
     return create_vrf(db, data), True
 
 
+# --- VLAN-grupper ---
+
+
+def list_vlan_groups(db: Session, *, site_id: int | None = None) -> list[IpamVlanGroup]:
+    q = select(IpamVlanGroup).order_by(IpamVlanGroup.site_id, IpamVlanGroup.name)
+    if site_id is not None:
+        q = q.where(IpamVlanGroup.site_id == site_id)
+    return list(db.execute(q).scalars().all())
+
+
+def get_vlan_group(db: Session, group_id: int) -> IpamVlanGroup | None:
+    return db.get(IpamVlanGroup, group_id)
+
+
+def get_or_create_default_vlan_group(db: Session, site_id: int) -> IpamVlanGroup:
+    existing = db.execute(
+        select(IpamVlanGroup).where(IpamVlanGroup.site_id == site_id, IpamVlanGroup.slug == DEFAULT_VLAN_GROUP_SLUG),
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+    row = IpamVlanGroup(
+        site_id=site_id,
+        name=DEFAULT_VLAN_GROUP_NAME,
+        slug=DEFAULT_VLAN_GROUP_SLUG,
+        description=None,
+    )
+    try:
+        with db.begin_nested():
+            db.add(row)
+            db.flush()
+    except IntegrityError:
+        existing = db.execute(
+            select(IpamVlanGroup).where(IpamVlanGroup.site_id == site_id, IpamVlanGroup.slug == DEFAULT_VLAN_GROUP_SLUG),
+        ).scalar_one_or_none()
+        if existing is None:
+            raise
+        return existing
+    return row
+
+
+def _resolve_vlan_group(db: Session, *, site_id: int, vlan_group_id: int | None) -> IpamVlanGroup:
+    if vlan_group_id is None:
+        return get_or_create_default_vlan_group(db, site_id)
+    group = get_vlan_group(db, vlan_group_id)
+    if group is None or group.site_id != site_id:
+        raise ValueError("vlan-gruppe ikke funnet eller tilhører ikke samme site")
+    return group
+
+
+def create_vlan_group(db: Session, data: IpamVlanGroupCreate) -> IpamVlanGroup:
+    _require_site(db, data.site_id)
+    row = IpamVlanGroup(
+        site_id=data.site_id,
+        name=data.name.strip(),
+        slug=_unique_slug(db, site_id=data.site_id, desired=data.slug or data.name, kind="vlan_group"),
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(row)
+    return row
+
+
+def update_vlan_group(db: Session, row: IpamVlanGroup, data: IpamVlanGroupUpdate) -> IpamVlanGroup:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise ipam_error(400, "empty_patch", "ingen felter å oppdatere")
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "slug" in patch and patch["slug"] is not None:
+        row.slug = _unique_slug(
+            db, site_id=row.site_id, desired=str(patch["slug"]), kind="vlan_group", exclude_id=row.id
+        )
+    if "description" in patch:
+        row.description = patch["description"]
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "vlan_group_conflict", "VLAN-gruppe med samme navn eller slug finnes på denne siten") from None
+    db.refresh(row)
+    return row
+
+
+def delete_vlan_group(db: Session, row: IpamVlanGroup) -> None:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
+    used = db.execute(select(IpamVlan.id).where(IpamVlan.vlan_group_id == row.id).limit(1)).scalar_one_or_none()
+    if used is not None:
+        raise ipam_error(409, "vlan_group_in_use", "VLAN-gruppen har VLAN — flytt eller slett dem først")
+    db.delete(row)
+    db.commit()
+
+
 # --- VLAN ---
 
 
-def list_vlans(db: Session, *, site_id: int | None = None) -> list[IpamVlan]:
-    q = select(IpamVlan).order_by(IpamVlan.site_id, IpamVlan.vid)
+def list_vlans(
+    db: Session,
+    *,
+    site_id: int | None = None,
+    vlan_group_id: int | None = None,
+) -> list[IpamVlan]:
+    q = select(IpamVlan).order_by(IpamVlan.site_id, IpamVlan.vid, IpamVlan.id)
     if site_id is not None:
         q = q.where(IpamVlan.site_id == site_id)
+    if vlan_group_id is not None:
+        q = q.where(IpamVlan.vlan_group_id == vlan_group_id)
     return list(db.execute(q).scalars().all())
 
 
 def create_vlan(db: Session, data: IpamVlanCreate) -> IpamVlan:
     _require_site(db, data.site_id)
+    group = _resolve_vlan_group(db, site_id=data.site_id, vlan_group_id=data.vlan_group_id)
     if data.vrf_id is not None:
         vrf = get_vrf(db, data.vrf_id)
         if vrf is None or vrf.site_id != data.site_id:
@@ -181,6 +297,7 @@ def create_vlan(db: Session, data: IpamVlanCreate) -> IpamVlan:
 
     row = IpamVlan(
         site_id=data.site_id,
+        vlan_group_id=group.id,
         tenant_id=data.tenant_id,
         vid=data.vid,
         name=data.name.strip(),
@@ -228,6 +345,9 @@ def update_vlan(db: Session, row: IpamVlan, data: IpamVlanUpdate) -> IpamVlan:
         if tid is not None:
             _require_tenant(db, int(tid))
         row.tenant_id = tid
+    if "vlan_group_id" in patch:
+        group = _resolve_vlan_group(db, site_id=row.site_id, vlan_group_id=patch["vlan_group_id"])
+        row.vlan_group_id = group.id
     if "vrf_id" in patch:
         vrf_id = patch["vrf_id"]
         if vrf_id is None:
@@ -241,14 +361,15 @@ def update_vlan(db: Session, row: IpamVlan, data: IpamVlanUpdate) -> IpamVlan:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise ipam_error(409, "vlan_conflict", "VLAN-ID eller slug finnes allerede på denne siten") from None
+        raise ipam_error(409, "vlan_conflict", "VLAN-ID finnes allerede i gruppen, eller slug er opptatt på siten") from None
     db.refresh(row)
     return row
 
 
 def ensure_vlan(db: Session, data: IpamVlanEnsure, *, update: bool = False) -> tuple[IpamVlan, bool]:
+    group = _resolve_vlan_group(db, site_id=data.site_id, vlan_group_id=data.vlan_group_id)
     existing = db.execute(
-        select(IpamVlan).where(IpamVlan.site_id == data.site_id, IpamVlan.vid == data.vid),
+        select(IpamVlan).where(IpamVlan.vlan_group_id == group.id, IpamVlan.vid == data.vid),
     ).scalar_one_or_none()
     if existing is not None:
         if update:
@@ -258,13 +379,14 @@ def ensure_vlan(db: Session, data: IpamVlanEnsure, *, update: bool = False) -> t
                 IpamVlanUpdate(
                     name=data.name,
                     slug=data.slug,
+                    vlan_group_id=group.id,
                     vrf_id=data.vrf_id,
                     description=data.description,
                     tenant_id=data.tenant_id,
                 ),
             )
         return existing, False
-    return create_vlan(db, data), True
+    return create_vlan(db, data.model_copy(update={"vlan_group_id": group.id})), True
 
 
 # --- Circuits ---
@@ -409,6 +531,10 @@ def upsert_circuit_termination(
 
 def vrf_to_read(row: IpamVrf, *, created: bool | None = None) -> IpamVrfRead:
     return IpamVrfRead.model_validate(row).model_copy(update={"created": created})
+
+
+def vlan_group_to_read(row: IpamVlanGroup) -> IpamVlanGroupRead:
+    return IpamVlanGroupRead.model_validate(row)
 
 
 def vlan_to_read(row: IpamVlan, *, created: bool | None = None) -> IpamVlanRead:

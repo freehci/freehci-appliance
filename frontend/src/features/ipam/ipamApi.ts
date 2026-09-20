@@ -11,6 +11,7 @@ import type {
   IpamCircuit,
   IpamCircuitTermination,
   IpamVlan,
+  IpamVlanGroup,
   IpamVrf,
   IpamWebhook,
   IpamWebhookDelivery,
@@ -286,13 +287,31 @@ export function deleteIpamVrf(id: number): Promise<void> {
   return apiDelete(`${P}/vrfs/${id}`);
 }
 
-export function listIpamVlans(siteId?: number): Promise<IpamVlan[]> {
+export function listIpamVlanGroups(siteId?: number): Promise<IpamVlanGroup[]> {
   const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
-  return apiGet(`${P}/vlans${q}`);
+  return apiGet(`${P}/vlan-groups${q}`);
+}
+
+export function createIpamVlanGroup(body: {
+  site_id: number;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+}): Promise<IpamVlanGroup> {
+  return apiPost(`${P}/vlan-groups`, body);
+}
+
+export function listIpamVlans(siteId?: number, vlanGroupId?: number): Promise<IpamVlan[]> {
+  const params = new URLSearchParams();
+  if (siteId != null) params.set("site_id", String(siteId));
+  if (vlanGroupId != null) params.set("vlan_group_id", String(vlanGroupId));
+  const s = params.toString();
+  return apiGet(`${P}/vlans${s ? `?${s}` : ""}`);
 }
 
 export function createIpamVlan(body: {
   site_id: number;
+  vlan_group_id?: number | null;
   vid: number;
   name: string;
   slug?: string | null;
@@ -308,6 +327,7 @@ export function patchIpamVlan(
   body: Partial<{
     name: string;
     slug: string;
+    vlan_group_id: number | null;
     vrf_id: number | null;
     description: string | null;
     tenant_id: number | null;

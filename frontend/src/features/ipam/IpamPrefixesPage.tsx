@@ -90,7 +90,7 @@ export function IpamPrefixesPage() {
   const [newPrefixTenant, setNewPrefixTenant] = useState("");
   const [newPrefixVlan, setNewPrefixVlan] = useState("");
   const [newPrefixVrf, setNewPrefixVrf] = useState("");
-  const [newRole, setNewRole] = useState("active");
+  const [newRole, setNewRole] = useState("access");
   const [newStatus, setNewStatus] = useState("active");
   const [newOverlap, setNewOverlap] = useState("");
   const [newDualStack, setNewDualStack] = useState("");
@@ -332,7 +332,7 @@ export function IpamPrefixesPage() {
       setNewPrefixTenant("");
       setNewPrefixVlan("");
       setNewPrefixVrf("");
-      setNewRole("active");
+      setNewRole("access");
       setNewStatus("active");
       setNewOverlap("");
       setNewDualStack("");
@@ -510,8 +510,8 @@ export function IpamPrefixesPage() {
     let reserved = 0;
     for (const p of allPrefixes) {
       if ((p.status ?? "active") === "active") active += 1;
-      if ((p.role ?? "active") === "container") container += 1;
-      if ((p.status ?? "active") === "reserved" || (p.role ?? "") === "reserved") reserved += 1;
+      if ((p.role ?? "access") === "container") container += 1;
+      if ((p.status ?? "active") === "reserved") reserved += 1;
     }
     return { total: allPrefixes.length, active, container, reserved };
   }, [allPrefixes]);
@@ -520,7 +520,7 @@ export function IpamPrefixesPage() {
     const q = filterQ.trim().toLowerCase();
     const vrfId = filterVrf === "" ? null : Number(filterVrf);
     const match = (p: Ipv4Prefix) => {
-      if (filterRole && (p.role ?? "active") !== filterRole) return false;
+      if (filterRole && (p.role ?? "access") !== filterRole) return false;
       if (filterStatus && (p.status ?? "active") !== filterStatus) return false;
       if (vrfId != null && Number.isFinite(vrfId) && p.vrf_id !== vrfId) return false;
       if (onlyActive && (p.status ?? "active") !== "active") return false;
@@ -882,7 +882,7 @@ export function IpamPrefixesPage() {
     setEditTenantId(x.tenant_id != null && x.tenant_id > 0 ? String(x.tenant_id) : "");
     setEditVlanId(x.vlan_id != null && x.vlan_id > 0 ? String(x.vlan_id) : "");
     setEditVrfId(x.vrf_id != null && x.vrf_id > 0 ? String(x.vrf_id) : "");
-    setEditRole(x.role ?? "active");
+    setEditRole(x.role ?? "access");
     setEditStatus(x.status ?? "active");
     setDrawerMode("edit");
   };
@@ -1944,7 +1944,7 @@ export function IpamPrefixesPage() {
                           <PrefixStatusBadge status={x.status ?? "active"} />
                         </td>
                         <td>
-                          <PrefixRoleBadge role={x.role ?? "active"} />
+                          <PrefixRoleBadge role={x.role ?? "access"} />
                         </td>
                         <td>
                           {usage.total > 0 ? (
@@ -2329,7 +2329,7 @@ export function IpamPrefixesPage() {
               <dd>{siteNameById.get(selectedPrefix.site_id) ?? `#${selectedPrefix.site_id}`}</dd>
               <dt>{t("ipam.gitops.role")}</dt>
               <dd>
-                <PrefixRoleBadge role={selectedPrefix.role ?? "active"} />
+                <PrefixRoleBadge role={selectedPrefix.role ?? "access"} />
               </dd>
               <dt>{t("ipam.gitops.status")}</dt>
               <dd>

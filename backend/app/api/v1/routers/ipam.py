@@ -38,6 +38,9 @@ from app.schemas.ipam import (
     IpamCircuitUpdate,
     IpamVlanCreate,
     IpamVlanEnsure,
+    IpamVlanGroupCreate,
+    IpamVlanGroupRead,
+    IpamVlanGroupUpdate,
     IpamVlanRead,
     IpamVlanUpdate,
     IpamVrfCreate,
@@ -510,12 +513,61 @@ def delete_ipam_vrf(vrf_id: int, db: Session = Depends(get_db)) -> None:
     fac_svc.delete_vrf(db, row)
 
 
+@router.get("/vlan-groups", response_model=list[IpamVlanGroupRead])
+def list_ipam_vlan_groups(
+    site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamVlanGroupRead]:
+    return [fac_svc.vlan_group_to_read(r) for r in fac_svc.list_vlan_groups(db, site_id=site_id)]
+
+
+@router.post("/vlan-groups", response_model=IpamVlanGroupRead)
+def create_ipam_vlan_group(data: IpamVlanGroupCreate, db: Session = Depends(get_db)) -> IpamVlanGroupRead:
+    try:
+        row = fac_svc.create_vlan_group(db, data)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"code": "vlan_group_ref_missing", "detail": str(e)}) from e
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "vlan_group_conflict", "detail": "VLAN-gruppe med samme navn eller slug finnes på denne siten"},
+        ) from e
+    return fac_svc.vlan_group_to_read(row)
+
+
+@router.get("/vlan-groups/{group_id}", response_model=IpamVlanGroupRead)
+def get_ipam_vlan_group(group_id: int, db: Session = Depends(get_db)) -> IpamVlanGroupRead:
+    row = fac_svc.get_vlan_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vlan_group_not_found", "detail": "VLAN-gruppe ikke funnet"})
+    return fac_svc.vlan_group_to_read(row)
+
+
+@router.patch("/vlan-groups/{group_id}", response_model=IpamVlanGroupRead)
+def patch_ipam_vlan_group(
+    group_id: int, data: IpamVlanGroupUpdate, db: Session = Depends(get_db)
+) -> IpamVlanGroupRead:
+    row = fac_svc.get_vlan_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vlan_group_not_found", "detail": "VLAN-gruppe ikke funnet"})
+    return fac_svc.vlan_group_to_read(fac_svc.update_vlan_group(db, row, data))
+
+
+@router.delete("/vlan-groups/{group_id}", status_code=204)
+def delete_ipam_vlan_group(group_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_vlan_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vlan_group_not_found", "detail": "VLAN-gruppe ikke funnet"})
+    fac_svc.delete_vlan_group(db, row)
+
+
 @router.get("/vlans", response_model=list[IpamVlanRead])
 def list_ipam_vlans(
     site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    vlan_group_id: int | None = Query(None, description="Filtrer på VLAN-gruppe"),
     db: Session = Depends(get_db),
 ) -> list[IpamVlanRead]:
-    return [fac_svc.vlan_to_read(r) for r in fac_svc.list_vlans(db, site_id=site_id)]
+    return [fac_svc.vlan_to_read(r) for r in fac_svc.list_vlans(db, site_id=site_id, vlan_group_id=vlan_group_id)]
 
 
 @router.post("/vlans", response_model=IpamVlanRead)
@@ -527,7 +579,7 @@ def create_ipam_vlan(data: IpamVlanCreate, db: Session = Depends(get_db)) -> Ipa
     except IntegrityError as e:
         raise HTTPException(
             status_code=409,
-            detail={"code": "vlan_conflict", "detail": "VLAN-ID eller slug finnes allerede på denne siten"},
+            detail={"code": "vlan_conflict", "detail": "VLAN-ID finnes allerede i gruppen, eller slug er opptatt på siten"},
         ) from e
     return fac_svc.vlan_to_read(row, created=True)
 
@@ -545,7 +597,7 @@ def ensure_ipam_vlan(
     except IntegrityError as e:
         raise HTTPException(
             status_code=409,
-            detail={"code": "vlan_conflict", "detail": "VLAN-ID eller slug finnes allerede på denne siten"},
+            detail={"code": "vlan_conflict", "detail": "VLAN-ID finnes allerede i gruppen, eller slug er opptatt på siten"},
         ) from e
     return fac_svc.vlan_to_read(row, created=created)
 

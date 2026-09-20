@@ -157,9 +157,11 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
     v6, _ = ipv6_svc.list_ipv6_prefixes(db, site_id=site_id)
     v6a, _ = ipv6_svc.list_ipv6_addresses(db, site_id=site_id, limit=5000)
     vlans = fac_svc.list_vlans(db, site_id=site_id)
+    vlan_groups = fac_svc.list_vlan_groups(db, site_id=site_id)
     vrfs = fac_svc.list_vrfs(db, site_id=site_id)
     circuits = fac_svc.list_circuits(db, site_id=site_id)
     vlan_by_id = {v.id: v for v in vlans}
+    group_by_id = {g.id: g for g in vlan_groups}
     vrf_by_id = {v.id: v for v in vrfs}
     prefix_by_id = {p.id: p for p in prefixes}
     v6_by_id = {p.id: p for p in v6}
@@ -174,7 +176,18 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             "tenant_slug": tenant_slug,
         },
         "vrfs": [{"id": v.id, "name": v.name, "slug": v.slug} for v in vrfs],
-        "vlans": [{"id": v.id, "vid": v.vid, "name": v.name, "slug": v.slug} for v in vlans],
+        "vlan_groups": [{"id": g.id, "name": g.name, "slug": g.slug} for g in vlan_groups],
+        "vlans": [
+            {
+                "id": v.id,
+                "vid": v.vid,
+                "name": v.name,
+                "slug": v.slug,
+                "vlan_group_id": v.vlan_group_id,
+                "vlan_group_slug": group_by_id[v.vlan_group_id].slug if v.vlan_group_id in group_by_id else None,
+            }
+            for v in vlans
+        ],
         "prefixes": [
             {
                 "cidr": p.cidr,
