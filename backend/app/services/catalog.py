@@ -33,9 +33,11 @@ from app.schemas.catalog import (
 )
 from app.schemas.ipam import Ipv4AddressRequest
 from app.schemas.platform import (
+    CLOUD_KINDS,
     CLUSTER_KINDS,
     DISK_KINDS,
     STORAGE_KINDS,
+    PlatformCloudSubscriptionCreate,
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
     PlatformStoragePoolCreate,
@@ -95,6 +97,7 @@ def deployment_to_read(db: Session, row: ServiceDeployment) -> ServiceDeployment
         storage_pool_id=row.storage_pool_id,
         virtual_interface_id=row.virtual_interface_id,
         virtual_disk_id=row.virtual_disk_id,
+        cloud_subscription_id=row.cloud_subscription_id,
         ipv4_prefix_id=row.ipv4_prefix_id,
         status=row.status,
         plan_json=row.plan_json,
@@ -569,6 +572,45 @@ def build_disk_plan(
     }
 
 
+def build_cloud_plan(
+    db: Session,
+    version: ServiceTemplateVersion,
+    name: str | None,
+    cloud_kind: str | None,
+) -> dict:
+    template = db.get(ServiceTemplate, version.template_id)
+    blockers: list[str] = []
+    cloud_name = (name or "").strip()
+    if not cloud_name:
+        blockers.append("cloud_name_required")
+    kind = (cloud_kind or "other").strip().lower() or "other"
+    if kind not in CLOUD_KINDS:
+        blockers.append("unknown_cloud_kind")
+        kind = "other"
+    slug = _slugify(cloud_name) if cloud_name else None
+    if slug and plat_svc.get_cloud_by_slug(db, slug) is not None:
+        blockers.append("cloud_slug_taken")
+    return {
+        "kind": "cloud_subscription",
+        "template": {
+            "id": template.id if template else version.template_id,
+            "name": template.name if template else None,
+            "version": version.version,
+        },
+        "cloud": {"name": cloud_name or None, "slug": slug, "kind": kind},
+        "requested_name": cloud_name or None,
+        "cloud_kind": kind,
+        "reserve_ipv4": False,
+        "prefix": None,
+        "blockers": list(dict.fromkeys(blockers)),
+        "can_run": len(blockers) == 0,
+        "notes": [
+            "Registrerer et skyabonnement eller prosjekt.",
+            "Oppretter ikke ressurser hos leverandøren og finner ikke opp kostnad eller kvote.",
+        ],
+    }
+
+
 def list_deployments(db: Session) -> list[ServiceDeployment]:
     return list(
         db.execute(
@@ -607,6 +649,20 @@ def create_deployment(db: Session, data: ServiceDeploymentCreate) -> ServiceDepl
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
     ids = _device_ids_from(data)
+    if spec.get("kind") == "cloud_subscription":
+        plan = build_cloud_plan(db, version, data.name, data.cloud_kind)
+        row = ServiceDeployment(
+            template_version_id=version.id,
+            device_id=None,
+            ipv4_prefix_id=None,
+            status="planned",
+            plan_json=plan,
+        )
+        db.add(row)
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
     if spec.get("kind") == "virtual_disk":
         plan = build_disk_plan(
             db, version, data.vm_id, data.name, data.disk_kind, data.storage_pool_id
@@ -1189,6 +1245,77 @@ def _run_disk(db: Session, row: ServiceDeployment, version: ServiceTemplateVersi
     return loaded
 
 
+def _run_cloud(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion) -> ServiceDeployment:
+    prev = row.plan_json if isinstance(row.plan_json, dict) else {}
+    plan = build_cloud_plan(db, version, prev.get("requested_name"), prev.get("cloud_kind"))
+    row.plan_json = plan
+    if not plan["can_run"]:
+        db.commit()
+        raise HTTPException(status_code=400, detail={"code": "cannot_run", "blockers": plan["blockers"]})
+
+    row.status = "running"
+    row.started_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+
+    try:
+        cloud = plat_svc.create_cloud_subscription(
+            db,
+            PlatformCloudSubscriptionCreate(
+                name=plan["cloud"]["name"],
+                slug=plan["cloud"]["slug"],
+                kind=plan["cloud"]["kind"],
+                status="active",
+            ),
+        )
+        row.cloud_subscription_id = cloud.id
+        _add_step(db, row, "record_cloud", "ok", f"{cloud.name} #{cloud.id}")
+        db.commit()
+    except HTTPException as exc:
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_cloud", "failed", _exc_detail(exc))
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    template = db.get(ServiceTemplate, version.template_id)
+    name = plan["cloud"]["name"]
+    slug = _slugify(f"{template.slug if template else 'svc'}-cloud-{row.id}")
+    inst = ServiceInstance(
+        name=name[:255],
+        slug=slug,
+        template_version_id=version.id,
+        deployment_id=row.id,
+        device_id=None,
+        cloud_subscription_id=row.cloud_subscription_id,
+        ipv4_address_id=None,
+        status="active",
+    )
+    db.add(inst)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        row = get_deployment(db, row.id)
+        assert row is not None
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_instance", "failed", "instans-slug finnes allerede")
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    _add_step(db, row, "record_instance", "ok", f"instans #{inst.id}")
+    row.status = "succeeded"
+    row.finished_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+    loaded = get_deployment(db, row.id)
+    assert loaded is not None
+    return loaded
+
+
 def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if row.status != "planned":
         raise HTTPException(status_code=409, detail="deployment er allerede kjørt")
@@ -1196,6 +1323,8 @@ def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if version is None:
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("kind") == "cloud_subscription":
+        return _run_cloud(db, row, version)
     if spec.get("kind") == "virtual_disk":
         return _run_disk(db, row, version)
     if spec.get("kind") == "virtual_interface":

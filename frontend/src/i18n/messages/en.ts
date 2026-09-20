@@ -2011,7 +2011,7 @@ export const en = {
 
   "catalog.title": "Service catalog",
   "catalog.intro":
-    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership, VM, storage pool, virtual interface or disk. They do not install an OS, create a guest, provision a LUN or invent a MAC.",
+    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership, VM, storage pool, virtual interface, disk or cloud subscription. They do not install an OS, create a guest, provision a LUN, invent a MAC or invent cloud cost.",
   "catalog.tabs": "Catalog sections",
   "catalog.tabTemplates": "Templates",
   "catalog.tabDeploy": "Deploy",
@@ -2042,11 +2042,12 @@ export const en = {
   "catalog.kindStorage": "Storage pool",
   "catalog.kindVif": "Virtual interface",
   "catalog.kindDisk": "Virtual disk",
+  "catalog.kindCloud": "Cloud subscription",
   "catalog.devices": "Devices",
 
   "platform.title": "Clusters",
   "platform.intro":
-    "Inventory of clusters, members, VMs, storage pools, virtual interfaces and disks. Kind and status are declared by hand. No capacity, IOPS, MAC or observed power state is invented.",
+    "Inventory of clusters, members, VMs, storage pools, virtual interfaces, disks and cloud subscriptions. Kind and status are declared by hand. No capacity, IOPS, MAC, cost or observed power state is invented.",
   "platform.empty": "No clusters yet.",
   "platform.addCluster": "Add cluster",
   "platform.kind": "Kind",
@@ -2072,6 +2073,12 @@ export const en = {
   "platform.diskName": "Disk name",
   "platform.diskKind": "Disk kind",
   "platform.addDisk": "Register disk",
+  "platform.cloud": "Cloud subscriptions",
+  "platform.cloudHint": "Declared accounts and projects. No cost, quota or provider inventory is invented.",
+  "platform.noCloud": "No cloud subscriptions registered.",
+  "platform.cloudName": "Subscription name",
+  "platform.cloudKind": "Provider",
+  "platform.addCloud": "Register subscription",
 } as const;
 
 export type MessageKey = keyof typeof en;

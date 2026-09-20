@@ -2021,7 +2021,7 @@ export const nb = {
 
   "catalog.title": "Servicekatalog",
   "catalog.intro":
-    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans, clustermedlemskap, VM, lagringspool, virtuelt grensesnitt eller disk. De installerer ikke OS, oppretter ikke en gjest, provisionerer ikke LUN og finner ikke opp MAC.",
+    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans, clustermedlemskap, VM, lagringspool, virtuelt grensesnitt, disk eller skyabonnement. De installerer ikke OS, oppretter ikke en gjest, provisionerer ikke LUN, finner ikke opp MAC og finner ikke opp skykostnad.",
   "catalog.tabs": "Katalogseksjoner",
   "catalog.tabTemplates": "Maler",
   "catalog.tabDeploy": "Deploy",
@@ -2052,11 +2052,12 @@ export const nb = {
   "catalog.kindStorage": "Lagringspool",
   "catalog.kindVif": "Virtuelt grensesnitt",
   "catalog.kindDisk": "Virtuell disk",
+  "catalog.kindCloud": "Skyabonnement",
   "catalog.devices": "Enheter",
 
   "platform.title": "Clustere",
   "platform.intro":
-    "Inventar over clustere, medlemmer, VM-er, lagringspooler, virtuelle grensesnitt og disker. Kind og status settes manuelt. Ingen kapasitet, IOPS, MAC eller observert strømtilstand finnes opp.",
+    "Inventar over clustere, medlemmer, VM-er, lagringspooler, virtuelle grensesnitt, disker og skyabonnement. Kind og status settes manuelt. Ingen kapasitet, IOPS, MAC, kostnad eller observert strømtilstand finnes opp.",
   "platform.empty": "Ingen clustere ennå.",
   "platform.addCluster": "Nytt cluster",
   "platform.kind": "Kind",
@@ -2082,4 +2083,10 @@ export const nb = {
   "platform.diskName": "Disknavn",
   "platform.diskKind": "Disk-kind",
   "platform.addDisk": "Registrer disk",
+  "platform.cloud": "Skyabonnement",
+  "platform.cloudHint": "Registrerte kontoer og prosjekter. Ingen kostnad, kvote eller leverandørinventar finnes opp.",
+  "platform.noCloud": "Ingen skyabonnement registrert.",
+  "platform.cloudName": "Abonnementsnavn",
+  "platform.cloudKind": "Leverandør",
+  "platform.addCloud": "Registrer abonnement",
 } satisfies Record<MessageKey, string>;

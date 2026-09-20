@@ -14,6 +14,8 @@ STORAGE_STATUSES = frozenset({"planned", "active", "retired"})
 VIF_STATUSES = frozenset({"planned", "active", "retired"})
 DISK_KINDS = frozenset({"disk", "volume", "other"})
 DISK_STATUSES = frozenset({"planned", "active", "retired"})
+CLOUD_KINDS = frozenset({"aws", "azure", "gcp", "other"})
+CLOUD_STATUSES = frozenset({"planned", "active", "retired"})
 
 
 class PlatformClusterCreate(BaseModel):
@@ -194,3 +196,39 @@ class PlatformClusterRead(BaseModel):
     members: list[PlatformClusterMemberRead] = Field(default_factory=list)
     vms: list[PlatformVirtualMachineRead] = Field(default_factory=list)
     storage_pools: list[PlatformStoragePoolRead] = Field(default_factory=list)
+
+
+class PlatformCloudSubscriptionCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    kind: str = "other"
+    status: str = "planned"
+    description: str | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "other"
+        if s not in CLOUD_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(CLOUD_KINDS))}")
+        return s
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "planned"
+        if s not in CLOUD_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(CLOUD_STATUSES))}")
+        return s
+
+
+class PlatformCloudSubscriptionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    kind: str
+    status: str
+    description: str | None
+    created_at: dt.datetime

@@ -136,3 +136,18 @@ class PlatformVirtualDisk(Base):
 
     vm: Mapped["PlatformVirtualMachine"] = relationship(back_populates="disks")
     storage_pool: Mapped["PlatformStoragePool | None"] = relationship(back_populates="disks")
+
+
+class PlatformCloudSubscription(Base):
+    """Registrert skyabonnement eller prosjekt. Ingen oppfunnet kostnad eller kvote."""
+
+    __tablename__ = "platform_cloud_subscriptions"
+    __table_args__ = (UniqueConstraint("slug", name="uq_platform_cloud_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

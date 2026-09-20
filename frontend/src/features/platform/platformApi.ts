@@ -120,3 +120,28 @@ export function createDisk(
 ): Promise<PlatformVirtualDisk> {
   return apiPost(`${P}/${clusterId}/vms/${vmId}/disks`, body);
 }
+
+const CLOUD = "/api/v1/cloud-subscriptions";
+
+export type PlatformCloudSubscription = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: string;
+  status: string;
+  description: string | null;
+  created_at: string;
+};
+
+export function listCloudSubscriptions(): Promise<PlatformCloudSubscription[]> {
+  return apiGet(CLOUD);
+}
+
+export function createCloudSubscription(body: {
+  name: string;
+  slug?: string | null;
+  kind: string;
+  status?: string;
+}): Promise<PlatformCloudSubscription> {
+  return apiPost(CLOUD, body);
+}

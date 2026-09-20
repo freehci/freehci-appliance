@@ -3,7 +3,14 @@ import { apiGet, apiPost } from "@/lib/api";
 const P = "/api/v1/service-catalog";
 
 export type ServiceTemplateSpec = {
-  kind: "device_instance" | "cluster" | "virtual_machine" | "storage_pool" | "virtual_interface" | "virtual_disk";
+  kind:
+    | "device_instance"
+    | "cluster"
+    | "virtual_machine"
+    | "storage_pool"
+    | "virtual_interface"
+    | "virtual_disk"
+    | "cloud_subscription";
   reserve_ipv4: boolean;
 };
 
@@ -44,6 +51,7 @@ export type ServiceInstance = {
   storage_pool_id: number | null;
   virtual_interface_id: number | null;
   virtual_disk_id: number | null;
+  cloud_subscription_id: number | null;
   ipv4_address_id: number | null;
   status: string;
   created_at: string;
@@ -59,6 +67,7 @@ export type ServicePlan = {
   storage?: { name: string | null; slug: string | null; kind: string };
   vif?: { name: string | null; slug: string | null };
   disk?: { name: string | null; slug: string | null; kind: string };
+  cloud?: { name: string | null; slug: string | null; kind: string };
   reserve_ipv4: boolean;
   prefix: {
     id: number;
@@ -83,6 +92,7 @@ export type ServiceDeployment = {
   storage_pool_id: number | null;
   virtual_interface_id: number | null;
   virtual_disk_id: number | null;
+  cloud_subscription_id: number | null;
   ipv4_prefix_id: number | null;
   status: string;
   plan_json: ServicePlan | null;
@@ -122,6 +132,7 @@ export function createDeployment(body: {
   vm_id?: number | null;
   disk_kind?: string | null;
   storage_pool_id?: number | null;
+  cloud_kind?: string | null;
 }): Promise<ServiceDeployment> {
   return apiPost(`${P}/deployments`, body);
 }

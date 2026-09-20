@@ -40,6 +40,7 @@ export function ServiceCatalogPage() {
   const [targetVmId, setTargetVmId] = useState("");
   const [diskKind, setDiskKind] = useState("other");
   const [diskPoolId, setDiskPoolId] = useState("");
+  const [cloudKind, setCloudKind] = useState("other");
   const [prefixId, setPrefixId] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -61,6 +62,7 @@ export function ServiceCatalogPage() {
   const isStorage = selectedVersion?.v.spec.kind === "storage_pool";
   const isVif = selectedVersion?.v.spec.kind === "virtual_interface";
   const isDisk = selectedVersion?.v.spec.kind === "virtual_disk";
+  const isCloud = selectedVersion?.v.spec.kind === "cloud_subscription";
   const selectedVmCluster = (clQ.data ?? []).find((c) => (c.vms ?? []).some((v) => String(v.id) === targetVmId));
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
 
@@ -80,7 +82,13 @@ export function ServiceCatalogPage() {
 
   const planM = useMutation({
     mutationFn: () =>
-      isDisk
+      isCloud
+        ? api.createDeployment({
+            template_version_id: Number(versionId),
+            name: clusterName.trim(),
+            cloud_kind: cloudKind,
+          })
+        : isDisk
         ? api.createDeployment({
             template_version_id: Number(versionId),
             vm_id: Number(targetVmId),
@@ -136,6 +144,7 @@ export function ServiceCatalogPage() {
       void qc.invalidateQueries({ queryKey: ["service-deployments"] });
       void qc.invalidateQueries({ queryKey: ["service-instances"] });
       void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
+      void qc.invalidateQueries({ queryKey: ["platform-cloud"] });
     },
     onError: fail,
   });
@@ -179,6 +188,7 @@ export function ServiceCatalogPage() {
                   <option value="storage_pool">{t("catalog.kindStorage")}</option>
                   <option value="virtual_interface">{t("catalog.kindVif")}</option>
                   <option value="virtual_disk">{t("catalog.kindDisk")}</option>
+                  <option value="cloud_subscription">{t("catalog.kindCloud")}</option>
                 </select>
               </label>
               {kind === "device_instance" ? (
@@ -233,9 +243,11 @@ export function ServiceCatalogPage() {
                 e.preventDefault();
                 if (
                   versionId &&
-                  (isDisk || isVif
-                    ? targetVmId && clusterName.trim()
-                    : isStorage || isVm
+                  (isCloud
+                    ? clusterName.trim()
+                    : isDisk || isVif
+                      ? targetVmId && clusterName.trim()
+                      : isStorage || isVm
                       ? targetClusterId && clusterName.trim()
                       : isCluster
                         ? deviceIds.length > 0
@@ -256,7 +268,23 @@ export function ServiceCatalogPage() {
                   ))}
                 </select>
               </label>
-              {isDisk ? (
+              {isCloud ? (
+                <>
+                  <label>
+                    {t("platform.cloudName")}
+                    <input value={clusterName} onChange={(e) => setClusterName(e.target.value)} />
+                  </label>
+                  <label>
+                    {t("platform.cloudKind")}
+                    <select value={cloudKind} onChange={(e) => setCloudKind(e.target.value)}>
+                      <option value="other">{t("platform.kindOther")}</option>
+                      <option value="aws">AWS</option>
+                      <option value="azure">Azure</option>
+                      <option value="gcp">GCP</option>
+                    </select>
+                  </label>
+                </>
+              ) : isDisk ? (
                 <>
                   <label>
                     {t("platform.vm")}
@@ -439,9 +467,11 @@ export function ServiceCatalogPage() {
                 disabled={
                   planM.isPending ||
                   !versionId ||
-                  (isDisk || isVif
-                    ? !targetVmId || !clusterName.trim()
-                    : isStorage || isVm
+                  (isCloud
+                    ? !clusterName.trim()
+                    : isDisk || isVif
+                      ? !targetVmId || !clusterName.trim()
+                      : isStorage || isVm
                       ? !targetClusterId || !clusterName.trim()
                       : isCluster
                         ? deviceIds.length === 0
@@ -458,7 +488,9 @@ export function ServiceCatalogPage() {
                 </h3>
                 <p>
                   {selected.plan_json.template.name} {selected.plan_json.template.version}
-                  {selected.plan_json.disk?.name
+                  {selected.plan_json.cloud?.name
+                    ? ` → ${selected.plan_json.cloud.name}`
+                    : selected.plan_json.disk?.name
                     ? ` → ${selected.plan_json.disk.name}`
                     : selected.plan_json.vif?.name
                     ? ` → ${selected.plan_json.vif.name}`
@@ -512,6 +544,9 @@ export function ServiceCatalogPage() {
                 {selected.instance ? (
                   <p>
                     {t("catalog.instance")}: {selected.instance.name}
+                    {selected.instance.cloud_subscription_id != null
+                      ? ` (cloud #${selected.instance.cloud_subscription_id})`
+                      : ""}
                     {selected.instance.virtual_disk_id != null
                       ? ` (disk #${selected.instance.virtual_disk_id})`
                       : ""}
@@ -550,7 +585,8 @@ export function ServiceCatalogPage() {
                       </td>
                       <td>{d.status}</td>
                       <td>
-                        {d.plan_json?.disk?.name ??
+                        {d.plan_json?.cloud?.name ??
+                          d.plan_json?.disk?.name ??
                           d.plan_json?.vif?.name ??
                           d.plan_json?.storage?.name ??
                           d.plan_json?.vm?.name ??
@@ -590,7 +626,9 @@ export function ServiceCatalogPage() {
                       <td>{i.name}</td>
                       <td>{i.slug}</td>
                       <td>
-                        {i.virtual_disk_id != null
+                        {i.cloud_subscription_id != null
+                          ? `cloud #${i.cloud_subscription_id}`
+                          : i.virtual_disk_id != null
                           ? `disk #${i.virtual_disk_id}`
                           : i.virtual_interface_id != null
                           ? `vif #${i.virtual_interface_id}`

@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.schemas.platform import (
+    PlatformCloudSubscriptionCreate,
+    PlatformCloudSubscriptionRead,
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
     PlatformClusterMemberRead,
@@ -155,3 +157,24 @@ def delete_disk(cluster_id: int, vm_id: int, disk_id: int, db: Session = Depends
     if cluster is None:
         raise HTTPException(status_code=404, detail="cluster ikke funnet")
     plat_svc.delete_disk(db, cluster, vm_id, disk_id)
+
+
+cloud_router = APIRouter(prefix="/cloud-subscriptions", tags=["platform"])
+
+
+@cloud_router.get("", response_model=list[PlatformCloudSubscriptionRead])
+def list_cloud_subscriptions(db: Session = Depends(get_db)) -> list[PlatformCloudSubscriptionRead]:
+    return [plat_svc.cloud_to_read(r) for r in plat_svc.list_cloud_subscriptions(db)]
+
+
+@cloud_router.post("", response_model=PlatformCloudSubscriptionRead)
+def create_cloud_subscription(
+    data: PlatformCloudSubscriptionCreate,
+    db: Session = Depends(get_db),
+) -> PlatformCloudSubscriptionRead:
+    return plat_svc.cloud_to_read(plat_svc.create_cloud_subscription(db, data))
+
+
+@cloud_router.delete("/{cloud_id}", status_code=204)
+def delete_cloud_subscription(cloud_id: int, db: Session = Depends(get_db)) -> None:
+    plat_svc.delete_cloud_subscription(db, cloud_id)

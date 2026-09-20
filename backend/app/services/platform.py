@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.platform import (
     PlatformCluster,
     PlatformClusterMember,
+    PlatformCloudSubscription,
     PlatformStoragePool,
     PlatformVirtualDisk,
     PlatformVirtualInterface,
@@ -21,6 +22,8 @@ from app.schemas.platform import (
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
     PlatformClusterMemberRead,
+    PlatformCloudSubscriptionCreate,
+    PlatformCloudSubscriptionRead,
     PlatformClusterRead,
     PlatformStoragePoolCreate,
     PlatformStoragePoolRead,
@@ -356,3 +359,52 @@ def shared_site_id(db: Session, device_ids: list[int]) -> int | None:
     if len(sites) == 1:
         return next(iter(sites))
     return None
+
+
+def get_cloud_by_slug(db: Session, slug: str) -> PlatformCloudSubscription | None:
+    return db.execute(
+        select(PlatformCloudSubscription).where(PlatformCloudSubscription.slug == slug)
+    ).scalar_one_or_none()
+
+
+def cloud_to_read(row: PlatformCloudSubscription) -> PlatformCloudSubscriptionRead:
+    return PlatformCloudSubscriptionRead.model_validate(row)
+
+
+def list_cloud_subscriptions(db: Session) -> list[PlatformCloudSubscription]:
+    return list(
+        db.execute(select(PlatformCloudSubscription).order_by(PlatformCloudSubscription.name)).scalars().all()
+    )
+
+
+def get_cloud(db: Session, cloud_id: int) -> PlatformCloudSubscription | None:
+    return db.get(PlatformCloudSubscription, cloud_id)
+
+
+def create_cloud_subscription(db: Session, data: PlatformCloudSubscriptionCreate) -> PlatformCloudSubscription:
+    slug = _slugify(data.slug or data.name)
+    if get_cloud_by_slug(db, slug) is not None:
+        raise HTTPException(status_code=409, detail="skyabonnement-slug finnes allerede")
+    row = PlatformCloudSubscription(
+        name=data.name.strip(),
+        slug=slug,
+        kind=data.kind,
+        status=data.status,
+        description=(data.description or "").strip() or None,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="skyabonnement-slug finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def delete_cloud_subscription(db: Session, cloud_id: int) -> None:
+    row = db.get(PlatformCloudSubscription, cloud_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="skyabonnement ikke funnet")
+    db.delete(row)
+    db.commit()

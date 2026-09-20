@@ -30,8 +30,11 @@ export function PlatformClustersPage() {
   const [dskName, setDskName] = useState("");
   const [dskKind, setDskKind] = useState("other");
   const [dskPool, setDskPool] = useState("");
+  const [cloudName, setCloudName] = useState("");
+  const [cloudKind, setCloudKind] = useState("other");
 
   const clQ = useQuery({ queryKey: ["platform-clusters"], queryFn: api.listClusters });
+  const cloudQ = useQuery({ queryKey: ["platform-cloud"], queryFn: api.listCloudSubscriptions });
   const devQ = useQuery({ queryKey: ["dcim-devices"], queryFn: listDevices });
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
   const devices = new Map((devQ.data ?? []).map((d) => [d.id, d.name]));
@@ -101,6 +104,16 @@ export function PlatformClustersPage() {
       setErr(null);
       setDskName("");
       void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
+    },
+    onError: fail,
+  });
+  const cloudM = useMutation({
+    mutationFn: () =>
+      api.createCloudSubscription({ name: cloudName.trim(), kind: cloudKind, status: "active" }),
+    onSuccess: () => {
+      setErr(null);
+      setCloudName("");
+      void qc.invalidateQueries({ queryKey: ["platform-cloud"] });
     },
     onError: fail,
   });
@@ -429,6 +442,45 @@ export function PlatformClustersPage() {
             </button>
           </form>
         ) : null}
+      </Panel>
+      <Panel title={t("platform.cloud")}>
+        <p className={dcimStyles.muted}>{t("platform.cloudHint")}</p>
+        {(cloudQ.data ?? []).length === 0 && !cloudQ.isLoading ? (
+          <p className={dcimStyles.muted}>{t("platform.noCloud")}</p>
+        ) : null}
+        {(cloudQ.data ?? []).length > 0 ? (
+          <ul className={dcimStyles.ipList}>
+            {(cloudQ.data ?? []).map((c) => (
+              <li key={c.id}>
+                {c.name} — {c.kind} — {c.status}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <form
+          className={dcimStyles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (cloudName.trim()) cloudM.mutate();
+          }}
+        >
+          <label>
+            {t("platform.cloudName")}
+            <input value={cloudName} onChange={(e) => setCloudName(e.target.value)} />
+          </label>
+          <label>
+            {t("platform.cloudKind")}
+            <select value={cloudKind} onChange={(e) => setCloudKind(e.target.value)}>
+              <option value="other">{t("platform.kindOther")}</option>
+              <option value="aws">AWS</option>
+              <option value="azure">Azure</option>
+              <option value="gcp">GCP</option>
+            </select>
+          </label>
+          <button type="submit" className={dcimStyles.btn} disabled={cloudM.isPending || !cloudName.trim()}>
+            {t("platform.addCloud")}
+          </button>
+        </form>
       </Panel>
     </div>
   );
