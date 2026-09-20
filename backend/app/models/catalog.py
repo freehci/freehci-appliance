@@ -61,6 +61,10 @@ class ServiceDeployment(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cluster_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_clusters.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     steps: Mapped[list["ServiceDeploymentStep"]] = relationship(
         back_populates="deployment",
@@ -103,6 +107,10 @@ class ServiceInstance(Base):
     device_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_instances.id", ondelete="RESTRICT"), nullable=False)
     ipv4_address_id: Mapped[int | None] = mapped_column(
         ForeignKey("ipam_ipv4_addresses.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    cluster_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_clusters.id", ondelete="SET NULL"),
         nullable=True,
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")

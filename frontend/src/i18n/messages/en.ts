@@ -43,6 +43,8 @@ export const en = {
   "nav.domainNetwork": "Network",
   "nav.domainOps": "Operations",
   "nav.domainAdmin": "Administration",
+  "nav.domainPlatform": "Platform",
+  "nav.clusters": "Clusters",
   "nav.locations": "Locations",
   "nav.devices": "Devices",
   "nav.modelLibrary": "Model library",
@@ -2009,7 +2011,7 @@ export const en = {
 
   "catalog.title": "Service catalog",
   "catalog.intro":
-    "One vertical flow: choose a server, a versioned template, plan, then run. The first kind records a service instance on an existing device and can reserve an IPv4 address. It does not install an OS or a cluster.",
+    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance or cluster membership. They do not install an OS or hypervisor.",
   "catalog.tabs": "Catalog sections",
   "catalog.tabTemplates": "Templates",
   "catalog.tabDeploy": "Deploy",
@@ -2033,6 +2035,21 @@ export const en = {
   "catalog.instancesHint": "Recorded service instances. Address IDs come from IPAM after a real reservation.",
   "catalog.instancesEmpty": "No service instances yet.",
   "catalog.ipv4": "IPv4",
+  "catalog.kind": "Kind",
+  "catalog.kindDevice": "Device instance",
+  "catalog.kindCluster": "Cluster membership",
+  "catalog.devices": "Devices",
+
+  "platform.title": "Clusters",
+  "platform.intro":
+    "Inventory of clusters and which existing devices belong to them. Kind is declared by hand. No VM list, datastore capacity or observed health is invented.",
+  "platform.empty": "No clusters yet.",
+  "platform.addCluster": "Add cluster",
+  "platform.kind": "Kind",
+  "platform.kindOther": "Other",
+  "platform.cluster": "Cluster",
+  "platform.noMembers": "No members yet.",
+  "platform.addMember": "Add member",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -5,7 +5,7 @@ import type { MessageKey } from "@/i18n/messages/en";
 import { SidebarNavIcon, type SidebarNavIconName } from "./SidebarNavIcon";
 import styles from "./SidebarNav.module.css";
 
-type DomainId = "dcim" | "network" | "ops" | "admin";
+type DomainId = "dcim" | "network" | "platform" | "ops" | "admin";
 type NavItem = {
   to: string;
   labelKey: MessageKey;
@@ -20,6 +20,7 @@ const LIBRARY_TABS = new Set(["mfr", "dt", "dm", "cmp"]);
 function domainForPath(pathname: string): DomainId | null {
   if (pathname.startsWith("/dcim")) return "dcim";
   if (pathname.startsWith("/ipam")) return "network";
+  if (pathname.startsWith("/platform")) return "platform";
   if (
     pathname.startsWith("/jobs") ||
     pathname.startsWith("/snmp") ||
@@ -43,7 +44,7 @@ function domainForPath(pathname: string): DomainId | null {
 function readStoredDomain(): DomainId | null {
   try {
     const raw = localStorage.getItem(DOMAIN_STORAGE);
-    if (raw === "dcim" || raw === "network" || raw === "ops" || raw === "admin") return raw;
+    if (raw === "dcim" || raw === "network" || raw === "platform" || raw === "ops" || raw === "admin") return raw;
   } catch {
     /* ignore */
   }
@@ -214,6 +215,13 @@ export function SidebarNav() {
             { to: "/ipam/vrfs", labelKey: "nav.routing", icon: "ipam" },
             { to: "/ipam/circuits", labelKey: "nav.circuits", icon: "ipam" },
           ]}
+        />
+        <Domain
+          id="platform"
+          labelKey="nav.domainPlatform"
+          open={openDomain === "platform"}
+          onToggle={() => toggle("platform")}
+          items={[{ to: "/platform/clusters", labelKey: "nav.clusters", icon: "clusters" }]}
         />
         <Domain
           id="ops"

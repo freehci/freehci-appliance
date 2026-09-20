@@ -10,6 +10,7 @@ from app.api.v1.routers import (
     integration_connections,
     ipam,
     network_scan,
+    platform,
     plugin_install,
     plugins,
     snmp,
@@ -32,3 +33,4 @@ api_router.include_router(snmp.router)
 api_router.include_router(federation.router)
 api_router.include_router(integration_connections.router)
 api_router.include_router(catalog.router)
+api_router.include_router(platform.router)

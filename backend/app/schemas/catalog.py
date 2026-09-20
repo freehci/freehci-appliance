@@ -6,7 +6,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-TEMPLATE_KINDS = frozenset({"device_instance"})
+TEMPLATE_KINDS = frozenset({"device_instance", "cluster"})
 
 
 class ServiceTemplateSpec(BaseModel):
@@ -18,7 +18,7 @@ class ServiceTemplateSpec(BaseModel):
     def kind_ok(cls, v: str) -> str:
         s = (v or "").strip()
         if s not in TEMPLATE_KINDS:
-            raise ValueError("kind må være device_instance")
+            raise ValueError("kind må være device_instance eller cluster")
         return s
 
 
@@ -57,9 +57,11 @@ class ServiceTemplateRead(BaseModel):
 
 class ServiceDeploymentCreate(BaseModel):
     template_version_id: int = Field(..., ge=1)
-    device_id: int = Field(..., ge=1)
+    device_id: int | None = Field(None, ge=1)
+    device_ids: list[int] = Field(default_factory=list)
     ipv4_prefix_id: int | None = Field(None, ge=1)
     name: str | None = Field(None, max_length=255)
+    cluster_kind: str | None = Field(None, max_length=32)
 
 
 class ServiceDeploymentStepRead(BaseModel):
@@ -81,6 +83,7 @@ class ServiceInstanceRead(BaseModel):
     template_version_id: int
     deployment_id: int
     device_id: int
+    cluster_id: int | None = None
     ipv4_address_id: int | None
     status: str
     created_at: dt.datetime
@@ -92,6 +95,7 @@ class ServiceDeploymentRead(BaseModel):
     id: int
     template_version_id: int
     device_id: int
+    cluster_id: int | None = None
     ipv4_prefix_id: int | None
     status: str
     plan_json: dict | None

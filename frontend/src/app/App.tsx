@@ -60,6 +60,7 @@ import { IamUserProfileTab } from "@/features/iam/IamUserProfileTab";
 import { IamUserRolesTab } from "@/features/iam/IamUserRolesTab";
 import { IamUsersListPage } from "@/features/iam/IamUsersListPage";
 import { ServiceCatalogPage } from "@/features/catalog/ServiceCatalogPage";
+import { PlatformClustersPage } from "@/features/platform/PlatformClustersPage";
 
 function AppShellLayout() {
   return (
@@ -153,6 +154,8 @@ function AppRoutes() {
             <Route path="groups/:groupId" element={<IamGroupDetailPage />} />
           </Route>
           <Route path="/service-catalog" element={<ServiceCatalogPage />} />
+          <Route path="/platform" element={<PlatformClustersPage />} />
+          <Route path="/platform/clusters" element={<PlatformClustersPage />} />
           {pluginRoutes}
         </Route>
       </Route>

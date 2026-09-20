@@ -27,9 +27,13 @@ export function ServiceCatalogPage() {
 
   const [err, setErr] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [kind, setKind] = useState<api.ServiceTemplateSpec["kind"]>("device_instance");
   const [reserve, setReserve] = useState(false);
   const [versionId, setVersionId] = useState("");
   const [deviceId, setDeviceId] = useState("");
+  const [deviceIds, setDeviceIds] = useState<number[]>([]);
+  const [clusterName, setClusterName] = useState("");
+  const [clusterKind, setClusterKind] = useState("other");
   const [prefixId, setPrefixId] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -44,13 +48,15 @@ export function ServiceCatalogPage() {
     [tmplQ.data],
   );
   const selected = (depQ.data ?? []).find((d) => d.id === selectedId) ?? null;
+  const selectedVersion = versions.find(({ v }) => String(v.id) === versionId);
+  const isCluster = selectedVersion?.v.spec.kind === "cluster";
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
 
   const createTmpl = useMutation({
     mutationFn: () =>
       api.createTemplate({
         name: name.trim(),
-        spec: { kind: "device_instance", reserve_ipv4: reserve },
+        spec: { kind, reserve_ipv4: kind === "cluster" ? false : reserve },
       }),
     onSuccess: () => {
       setErr(null);
@@ -62,11 +68,18 @@ export function ServiceCatalogPage() {
 
   const planM = useMutation({
     mutationFn: () =>
-      api.createDeployment({
-        template_version_id: Number(versionId),
-        device_id: Number(deviceId),
-        ipv4_prefix_id: prefixId ? Number(prefixId) : null,
-      }),
+      isCluster
+        ? api.createDeployment({
+            template_version_id: Number(versionId),
+            device_ids: deviceIds,
+            name: clusterName.trim(),
+            cluster_kind: clusterKind,
+          })
+        : api.createDeployment({
+            template_version_id: Number(versionId),
+            device_id: Number(deviceId),
+            ipv4_prefix_id: prefixId ? Number(prefixId) : null,
+          }),
     onSuccess: (row) => {
       setErr(null);
       setSelectedId(row.id);
@@ -82,6 +95,7 @@ export function ServiceCatalogPage() {
       setSelectedId(row.id);
       void qc.invalidateQueries({ queryKey: ["service-deployments"] });
       void qc.invalidateQueries({ queryKey: ["service-instances"] });
+      void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
     },
     onError: fail,
   });
@@ -117,9 +131,18 @@ export function ServiceCatalogPage() {
                 <input value={name} onChange={(e) => setName(e.target.value)} />
               </label>
               <label>
-                {t("catalog.reserveIpv4")}
-                <input type="checkbox" checked={reserve} onChange={(e) => setReserve(e.target.checked)} />
+                {t("catalog.kind")}
+                <select value={kind} onChange={(e) => setKind(e.target.value as api.ServiceTemplateSpec["kind"])}>
+                  <option value="device_instance">{t("catalog.kindDevice")}</option>
+                  <option value="cluster">{t("catalog.kindCluster")}</option>
+                </select>
               </label>
+              {kind === "device_instance" ? (
+                <label>
+                  {t("catalog.reserveIpv4")}
+                  <input type="checkbox" checked={reserve} onChange={(e) => setReserve(e.target.checked)} />
+                </label>
+              ) : null}
               <button type="submit" className={dcimStyles.btn} disabled={createTmpl.isPending || !name.trim()}>
                 {t("catalog.addTemplate")}
               </button>
@@ -134,6 +157,7 @@ export function ServiceCatalogPage() {
                     <th>{t("dcim.common.name")}</th>
                     <th>{t("dcim.common.slug")}</th>
                     <th>{t("catalog.versions")}</th>
+                    <th>{t("catalog.kind")}</th>
                     <th>{t("catalog.reserveIpv4")}</th>
                   </tr>
                 </thead>
@@ -145,6 +169,7 @@ export function ServiceCatalogPage() {
                         <td>{tmpl.name}</td>
                         <td>{tmpl.slug}</td>
                         <td>{tmpl.versions.map((v) => v.version).join(", ")}</td>
+                        <td>{latest?.spec.kind ?? "—"}</td>
                         <td>{latest?.spec.reserve_ipv4 ? t("catalog.yes") : t("catalog.no")}</td>
                       </tr>
                     );
@@ -162,7 +187,7 @@ export function ServiceCatalogPage() {
               className={dcimStyles.formRow}
               onSubmit={(e) => {
                 e.preventDefault();
-                if (versionId && deviceId) planM.mutate();
+                if (versionId && (isCluster ? deviceIds.length > 0 : deviceId)) planM.mutate();
               }}
             >
               <label>
@@ -176,29 +201,68 @@ export function ServiceCatalogPage() {
                   ))}
                 </select>
               </label>
-              <label>
-                {t("catalog.device")}
-                <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
-                  <option value="">{t("dcim.common.choose")}</option>
-                  {(devQ.data ?? []).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t("catalog.prefixOptional")}
-                <select value={prefixId} onChange={(e) => setPrefixId(e.target.value)}>
-                  <option value="">{t("dcim.common.none")}</option>
-                  {(pfxQ.data ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.cidr} {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="submit" className={dcimStyles.btn} disabled={planM.isPending || !versionId || !deviceId}>
+              {isCluster ? (
+                <>
+                  <label>
+                    {t("platform.cluster")}
+                    <input value={clusterName} onChange={(e) => setClusterName(e.target.value)} />
+                  </label>
+                  <label>
+                    {t("platform.kind")}
+                    <select value={clusterKind} onChange={(e) => setClusterKind(e.target.value)}>
+                      <option value="other">{t("platform.kindOther")}</option>
+                      <option value="proxmox">Proxmox</option>
+                      <option value="talos">Talos</option>
+                    </select>
+                  </label>
+                  <label>
+                    {t("catalog.devices")}
+                    <select
+                      multiple
+                      value={deviceIds.map(String)}
+                      onChange={(e) =>
+                        setDeviceIds([...e.target.selectedOptions].map((o) => Number(o.value)).filter((n) => n > 0))
+                      }
+                    >
+                      {(devQ.data ?? []).map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label>
+                    {t("catalog.device")}
+                    <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+                      <option value="">{t("dcim.common.choose")}</option>
+                      {(devQ.data ?? []).map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t("catalog.prefixOptional")}
+                    <select value={prefixId} onChange={(e) => setPrefixId(e.target.value)}>
+                      <option value="">{t("dcim.common.none")}</option>
+                      {(pfxQ.data ?? []).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.cidr} {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
+              <button
+                type="submit"
+                className={dcimStyles.btn}
+                disabled={planM.isPending || !versionId || (isCluster ? deviceIds.length === 0 : !deviceId)}
+              >
                 {t("catalog.plan")}
               </button>
             </form>
@@ -208,9 +272,16 @@ export function ServiceCatalogPage() {
                   {t("catalog.planTitle")} #{selected.id} — {selected.status}
                 </h3>
                 <p>
-                  {selected.plan_json.template.name} {selected.plan_json.template.version} →{" "}
-                  {selected.plan_json.device.name}
+                  {selected.plan_json.template.name} {selected.plan_json.template.version}
+                  {selected.plan_json.cluster?.name
+                    ? ` → ${selected.plan_json.cluster.name} (${selected.plan_json.cluster.kind})`
+                    : selected.plan_json.device
+                      ? ` → ${selected.plan_json.device.name}`
+                      : ""}
                 </p>
+                {selected.plan_json.devices && selected.plan_json.devices.length > 0 ? (
+                  <p>{selected.plan_json.devices.map((d) => d.name).join(", ")}</p>
+                ) : null}
                 {selected.plan_json.prefix ? (
                   <p>
                     {selected.plan_json.prefix.cidr} ({selected.plan_json.prefix.used_count}/
@@ -248,6 +319,7 @@ export function ServiceCatalogPage() {
                 {selected.instance ? (
                   <p>
                     {t("catalog.instance")}: {selected.instance.name}
+                    {selected.instance.cluster_id != null ? ` (cluster #${selected.instance.cluster_id})` : ""}
                     {selected.instance.ipv4_address_id != null
                       ? ` (IPv4 #${selected.instance.ipv4_address_id})`
                       : ""}
@@ -274,7 +346,11 @@ export function ServiceCatalogPage() {
                         </button>
                       </td>
                       <td>{d.status}</td>
-                      <td>{d.plan_json?.device.name ?? d.device_id}</td>
+                      <td>
+                        {d.plan_json?.cluster?.name ??
+                          d.plan_json?.device?.name ??
+                          d.device_id}
+                      </td>
                       <td>{d.plan_json?.can_run ? t("catalog.yes") : t("catalog.no")}</td>
                     </tr>
                   ))}

@@ -3,7 +3,7 @@ import { apiGet, apiPost } from "@/lib/api";
 const P = "/api/v1/service-catalog";
 
 export type ServiceTemplateSpec = {
-  kind: "device_instance";
+  kind: "device_instance" | "cluster";
   reserve_ipv4: boolean;
 };
 
@@ -39,6 +39,7 @@ export type ServiceInstance = {
   template_version_id: number;
   deployment_id: number;
   device_id: number;
+  cluster_id: number | null;
   ipv4_address_id: number | null;
   status: string;
   created_at: string;
@@ -47,7 +48,9 @@ export type ServiceInstance = {
 export type ServicePlan = {
   kind: string;
   template: { id: number; name: string | null; version: string };
-  device: { id: number; name: string; site_id: number | null };
+  device?: { id: number; name: string; site_id: number | null };
+  devices?: { id: number; name: string; site_id: number | null }[];
+  cluster?: { name: string | null; kind: string; slug: string | null };
   reserve_ipv4: boolean;
   prefix: {
     id: number;
@@ -67,6 +70,7 @@ export type ServiceDeployment = {
   id: number;
   template_version_id: number;
   device_id: number;
+  cluster_id: number | null;
   ipv4_prefix_id: number | null;
   status: string;
   plan_json: ServicePlan | null;
@@ -96,9 +100,11 @@ export function listDeployments(): Promise<ServiceDeployment[]> {
 
 export function createDeployment(body: {
   template_version_id: number;
-  device_id: number;
+  device_id?: number | null;
+  device_ids?: number[];
   ipv4_prefix_id?: number | null;
   name?: string | null;
+  cluster_kind?: string | null;
 }): Promise<ServiceDeployment> {
   return apiPost(`${P}/deployments`, body);
 }

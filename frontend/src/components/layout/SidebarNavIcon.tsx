@@ -23,7 +23,8 @@ export type SidebarNavIconName =
   | "discovery"
   | "access"
   | "orgs"
-  | "extensions";
+  | "extensions"
+  | "clusters";
 
 function Svg({ size, children }: { size: 16 | 18; children: ReactNode }) {
   return (
@@ -92,6 +93,14 @@ export function SidebarNavIcon({ name, size = 18 }: { name: SidebarNavIconName; 
           <path d="M12 22v-6" />
           <path d="M9 12V8a3 3 0 0 1 6 0v4" />
           <rect x="5" y="12" width="14" height="6" rx="1" />
+        </S>
+      );
+    case "clusters":
+      return (
+        <S>
+          <rect x="3" y="4" width="7" height="7" rx="1" />
+          <rect x="14" y="4" width="7" height="7" rx="1" />
+          <rect x="8" y="13" width="8" height="7" rx="1" />
         </S>
       );
     case "serviceCatalog":

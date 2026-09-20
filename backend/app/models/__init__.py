@@ -14,5 +14,6 @@ import app.models.network_scan  # noqa: F401
 import app.models.federation  # noqa: F401
 import app.models.integration  # noqa: F401
 import app.models.catalog  # noqa: F401
+import app.models.platform  # noqa: F401
 
 __all__ = ["Base"]

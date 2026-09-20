@@ -45,6 +45,8 @@ export const nb = {
   "nav.domainNetwork": "Nettverk",
   "nav.domainOps": "Drift",
   "nav.domainAdmin": "Administrasjon",
+  "nav.domainPlatform": "Plattform",
+  "nav.clusters": "Clustere",
   "nav.locations": "Lokasjoner",
   "nav.devices": "Enheter",
   "nav.modelLibrary": "Modellbibliotek",
@@ -2019,7 +2021,7 @@ export const nb = {
 
   "catalog.title": "Servicekatalog",
   "catalog.intro":
-    "Én vertikal flyt: velg server, versjonert mal, plan, deretter kjør. Første kind registrerer en tjenesteinstans på en eksisterende enhet og kan reservere en IPv4-adresse. Den installerer ikke OS eller cluster.",
+    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans eller clustermedlemskap. De installerer ikke OS eller hypervisor.",
   "catalog.tabs": "Katalogseksjoner",
   "catalog.tabTemplates": "Maler",
   "catalog.tabDeploy": "Deploy",
@@ -2043,4 +2045,19 @@ export const nb = {
   "catalog.instancesHint": "Registrerte tjenesteinstanser. Adresse-ID kommer fra IPAM etter en ekte reservasjon.",
   "catalog.instancesEmpty": "Ingen tjenesteinstanser ennå.",
   "catalog.ipv4": "IPv4",
+  "catalog.kind": "Kind",
+  "catalog.kindDevice": "Enhetsinstans",
+  "catalog.kindCluster": "Clustermedlemskap",
+  "catalog.devices": "Enheter",
+
+  "platform.title": "Clustere",
+  "platform.intro":
+    "Inventar over clustere og hvilke eksisterende enheter som hører til. Kind settes manuelt. Ingen VM-liste, datastore-kapasitet eller observert helse finnes opp.",
+  "platform.empty": "Ingen clustere ennå.",
+  "platform.addCluster": "Nytt cluster",
+  "platform.kind": "Kind",
+  "platform.kindOther": "Annet",
+  "platform.cluster": "Cluster",
+  "platform.noMembers": "Ingen medlemmer ennå.",
+  "platform.addMember": "Legg til medlem",
 } satisfies Record<MessageKey, string>;
