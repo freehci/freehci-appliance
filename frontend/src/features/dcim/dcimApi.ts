@@ -43,6 +43,8 @@ import type {
   NetBoxDtlItem,
   NetBoxDtlItemList,
   NetBoxDtlPreview,
+  Building,
+  Floor,
   Rack,
   RackPlacement,
   RedfishInventoryApply,
@@ -53,12 +55,17 @@ import type {
   Site,
   SiteAccessGrant,
   SiteRole,
+  Wing,
 } from "./types";
 
 const P = "/api/v1/dcim";
 
 export function listSites(): Promise<Site[]> {
   return apiGet(`${P}/sites`);
+}
+
+export function getSite(id: number): Promise<Site> {
+  return apiGet(`${P}/sites/${id}`);
 }
 
 export function createSite(body: {
@@ -205,9 +212,115 @@ export function deleteSiteAccess(siteId: number, grantId: number): Promise<void>
   return apiDelete(`${P}/sites/${siteId}/access/${grantId}`);
 }
 
-export function listRooms(siteId?: number): Promise<Room[]> {
+export function listBuildings(siteId?: number): Promise<Building[]> {
   const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
-  return apiGet(`${P}/rooms${q}`);
+  return apiGet(`${P}/buildings${q}`);
+}
+
+export function getBuilding(id: number): Promise<Building> {
+  return apiGet(`${P}/buildings/${id}`);
+}
+
+export function createBuilding(body: {
+  site_id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+}): Promise<Building> {
+  return apiPost(`${P}/buildings`, body);
+}
+
+export function updateBuilding(
+  id: number,
+  body: { name?: string; slug?: string; description?: string | null },
+): Promise<Building> {
+  return apiPatch(`${P}/buildings/${id}`, body);
+}
+
+export function deleteBuilding(id: number): Promise<void> {
+  return apiDelete(`${P}/buildings/${id}`);
+}
+
+export function listWings(buildingId?: number): Promise<Wing[]> {
+  const q = buildingId != null ? `?building_id=${encodeURIComponent(String(buildingId))}` : "";
+  return apiGet(`${P}/wings${q}`);
+}
+
+export function getWing(id: number): Promise<Wing> {
+  return apiGet(`${P}/wings/${id}`);
+}
+
+export function createWing(body: {
+  building_id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+}): Promise<Wing> {
+  return apiPost(`${P}/wings`, body);
+}
+
+export function updateWing(
+  id: number,
+  body: { name?: string; slug?: string; description?: string | null },
+): Promise<Wing> {
+  return apiPatch(`${P}/wings/${id}`, body);
+}
+
+export function deleteWing(id: number): Promise<void> {
+  return apiDelete(`${P}/wings/${id}`);
+}
+
+export function listFloors(filters?: { buildingId?: number; wingId?: number }): Promise<Floor[]> {
+  const q = new URLSearchParams();
+  if (filters?.buildingId != null) q.set("building_id", String(filters.buildingId));
+  if (filters?.wingId != null) q.set("wing_id", String(filters.wingId));
+  const qs = q.toString();
+  return apiGet(`${P}/floors${qs ? `?${qs}` : ""}`);
+}
+
+export function getFloor(id: number): Promise<Floor> {
+  return apiGet(`${P}/floors/${id}`);
+}
+
+export function createFloor(body: {
+  building_id: number;
+  wing_id?: number | null;
+  name: string;
+  slug: string;
+  level?: number;
+  description?: string | null;
+}): Promise<Floor> {
+  return apiPost(`${P}/floors`, body);
+}
+
+export function updateFloor(
+  id: number,
+  body: {
+    wing_id?: number | null;
+    name?: string;
+    slug?: string;
+    level?: number;
+    description?: string | null;
+  },
+): Promise<Floor> {
+  return apiPatch(`${P}/floors/${id}`, body);
+}
+
+export function deleteFloor(id: number): Promise<void> {
+  return apiDelete(`${P}/floors/${id}`);
+}
+
+export function listRooms(
+  siteId?: number,
+  extra?: { buildingId?: number; wingId?: number; floorId?: number },
+): Promise<Room[]> {
+  const q = new URLSearchParams();
+  if (siteId != null) q.set("site_id", String(siteId));
+  if (extra?.buildingId != null) q.set("building_id", String(extra.buildingId));
+  if (extra?.wingId != null) q.set("wing_id", String(extra.wingId));
+  if (extra?.floorId != null) q.set("floor_id", String(extra.floorId));
+  const qs = q.toString();
+  return apiGet(`${P}/rooms${qs ? `?${qs}` : ""}`);
 }
 
 export function getRoom(id: number): Promise<Room> {
@@ -219,6 +332,9 @@ export function createRoom(body: {
   name: string;
   description?: string | null;
   floor?: string | null;
+  building_id?: number | null;
+  wing_id?: number | null;
+  floor_id?: number | null;
 }): Promise<Room> {
   return apiPost(`${P}/rooms`, body);
 }
@@ -230,6 +346,9 @@ export function updateRoom(
     name?: string;
     description?: string | null;
     floor?: string | null;
+    building_id?: number | null;
+    wing_id?: number | null;
+    floor_id?: number | null;
   },
 ): Promise<Room> {
   return apiPatch(`${P}/rooms/${id}`, body);

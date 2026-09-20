@@ -6,19 +6,26 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import { DcimInnerTabs } from "./DcimInnerTabs";
+import { DcimRoomLocationFields, optionalId, type RoomLocationValue } from "./DcimRoomLocationFields";
 import styles from "./dcim.module.css";
 
 export function DcimRoomsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [siteFilter, setSiteFilter] = useState<string>("");
-  const [siteId, setSiteId] = useState<string>("");
+  const [loc, setLoc] = useState<RoomLocationValue>({
+    siteId: "",
+    buildingId: "",
+    wingId: "",
+    floorId: "",
+  });
   const [name, setName] = useState("");
-  const [floorNew, setFloorNew] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState("main");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
+  const buildingsQ = useQuery({ queryKey: ["dcim", "buildings"], queryFn: () => api.listBuildings() });
+  const wingsQ = useQuery({ queryKey: ["dcim", "wings"], queryFn: () => api.listWings() });
   const filterNum = useMemo(() => {
     const n = Number(siteFilter);
     return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -29,6 +36,16 @@ export function DcimRoomsPage() {
     for (const s of sitesQ.data ?? []) m.set(s.id, s.name);
     return m;
   }, [sitesQ.data]);
+  const buildingsById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const b of buildingsQ.data ?? []) m.set(b.id, b.name);
+    return m;
+  }, [buildingsQ.data]);
+  const wingsById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const w of wingsQ.data ?? []) m.set(w.id, w.name);
+    return m;
+  }, [wingsQ.data]);
 
   const roomsQ = useQuery({
     queryKey: ["dcim", "rooms", filterNum ?? "all"],
@@ -38,14 +55,15 @@ export function DcimRoomsPage() {
   const m = useMutation({
     mutationFn: () =>
       api.createRoom({
-        site_id: Number(siteId),
+        site_id: Number(loc.siteId),
         name: name.trim(),
-        floor: floorNew.trim() === "" ? undefined : floorNew.trim(),
+        building_id: optionalId(loc.buildingId),
+        wing_id: optionalId(loc.wingId),
+        floor_id: optionalId(loc.floorId),
       }),
     onSuccess: () => {
       setErr(null);
       setName("");
-      setFloorNew("");
       void qc.invalidateQueries({ queryKey: ["dcim", "rooms"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -79,31 +97,17 @@ export function DcimRoomsPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setErr(null);
-              if (!siteId) {
+              if (!loc.siteId) {
                 setErr(t("dcim.rooms.chooseSite"));
                 return;
               }
               m.mutate();
             }}
           >
-            <label>
-              {t("dcim.common.site")}
-              <select value={siteId} onChange={(e) => setSiteId(e.target.value)} required>
-                <option value="">{t("dcim.common.choose")}</option>
-                {(sitesQ.data ?? []).map((s) => (
-                  <option key={s.id} value={String(s.id)}>
-                    {s.name} ({s.slug})
-                  </option>
-                ))}
-              </select>
-            </label>
+            <DcimRoomLocationFields value={loc} onChange={setLoc} />
             <label>
               {t("dcim.rooms.roomName")}
               <input value={name} onChange={(e) => setName(e.target.value)} required />
-            </label>
-            <label>
-              {t("dcim.rooms.floor")}
-              <input value={floorNew} onChange={(e) => setFloorNew(e.target.value)} placeholder={t("dcim.rooms.floorPlaceholder")} />
             </label>
             <button type="submit" className={styles.btn} disabled={m.isPending || sitesQ.isLoading}>
               {m.isPending ? t("dcim.common.creating") : t("dcim.rooms.create")}
@@ -121,6 +125,8 @@ export function DcimRoomsPage() {
               <thead>
                 <tr>
                   <th>{t("dcim.rooms.tableSite")}</th>
+                  <th>{t("dcim.rooms.tableBuilding")}</th>
+                  <th>{t("dcim.rooms.tableWing")}</th>
                   <th>{t("dcim.rooms.floor")}</th>
                   <th>{t("dcim.common.name")}</th>
                 </tr>
@@ -129,6 +135,8 @@ export function DcimRoomsPage() {
                 {roomsQ.data.map((r) => (
                   <tr key={r.id}>
                     <td>{sitesById.get(r.site_id) ?? `#${r.site_id}`}</td>
+                    <td>{r.building_id != null ? (buildingsById.get(r.building_id) ?? `#${r.building_id}`) : "—"}</td>
+                    <td>{r.wing_id != null ? (wingsById.get(r.wing_id) ?? `#${r.wing_id}`) : "—"}</td>
                     <td>{r.floor ?? "—"}</td>
                     <td>
                       <Link to={`/dcim/rooms/${r.id}`} className={styles.tableLink}>

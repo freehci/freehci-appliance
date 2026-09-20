@@ -7,10 +7,23 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.dcim import DeviceInstance, DeviceModel, DeviceType, Manufacturer, Rack, RackPlacement, Room, Site
+from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamVlan, IpamVrf
 from app.models.tenant import Tenant
-from app.schemas.dcim import DeviceInstanceCreate, DeviceModelCreate, DeviceTypeCreate, ManufacturerCreate, RackCreate, RackPlacementCreate, RoomCreate, SiteCreate, SiteUpdate
+from app.schemas.dcim import (
+    BuildingCreate,
+    DeviceInstanceCreate,
+    DeviceModelCreate,
+    DeviceTypeCreate,
+    FloorCreate,
+    ManufacturerCreate,
+    RackCreate,
+    RackPlacementCreate,
+    RoomCreate,
+    SiteCreate,
+    SiteUpdate,
+    WingCreate,
+)
 from app.schemas.ipam import IpamVlanCreate, IpamVrfCreate, Ipv4AddressEnsure, Ipv4PrefixEnsure, Ipv6AddressEnsure, Ipv6PrefixEnsure
 from app.services import dcim as dcim_svc
 from app.services import ipam as ipam_svc
@@ -23,6 +36,18 @@ from app.schemas.tenant import TenantCreate
 
 def _site_by_slug(db: Session, slug: str) -> Site | None:
     return db.execute(select(Site).where(Site.slug == slug)).scalar_one_or_none()
+
+
+def _building(db: Session, site_id: int, slug: str) -> Building | None:
+    return db.execute(select(Building).where(Building.site_id == site_id, Building.slug == slug)).scalar_one_or_none()
+
+
+def _wing(db: Session, building_id: int, slug: str) -> Wing | None:
+    return db.execute(select(Wing).where(Wing.building_id == building_id, Wing.slug == slug)).scalar_one_or_none()
+
+
+def _floor(db: Session, building_id: int, slug: str) -> Floor | None:
+    return db.execute(select(Floor).where(Floor.building_id == building_id, Floor.slug == slug)).scalar_one_or_none()
 
 
 def _room(db: Session, site_id: int, name: str) -> Room | None:
@@ -73,12 +98,97 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
                 ),
             )
 
+    for b in doc.get("buildings") or []:
+        site = _site_by_slug(db, b["site_slug"])
+        if site is None:
+            continue
+        slug = str(b.get("slug") or "").strip().lower()
+        if not slug or _building(db, site.id, slug) is not None:
+            continue
+        dcim_svc.create_building(
+            db,
+            BuildingCreate(site_id=site.id, name=b.get("name") or slug, slug=slug, description=b.get("description")),
+        )
+
+    for w in doc.get("wings") or []:
+        site = _site_by_slug(db, w["site_slug"])
+        if site is None:
+            continue
+        bld = _building(db, site.id, str(w.get("building_slug") or "").strip().lower())
+        if bld is None:
+            continue
+        slug = str(w.get("slug") or "").strip().lower()
+        if not slug or _wing(db, bld.id, slug) is not None:
+            continue
+        dcim_svc.create_wing(
+            db,
+            WingCreate(building_id=bld.id, name=w.get("name") or slug, slug=slug, description=w.get("description")),
+        )
+
+    for f in doc.get("floors") or []:
+        site = _site_by_slug(db, f["site_slug"])
+        if site is None:
+            continue
+        bld = _building(db, site.id, str(f.get("building_slug") or "").strip().lower())
+        if bld is None:
+            continue
+        slug = str(f.get("slug") or "").strip().lower()
+        if not slug or _floor(db, bld.id, slug) is not None:
+            continue
+        wing_id = None
+        wing_slug = str(f.get("wing_slug") or "").strip().lower()
+        if wing_slug:
+            wing = _wing(db, bld.id, wing_slug)
+            if wing is not None:
+                wing_id = wing.id
+        dcim_svc.create_floor(
+            db,
+            FloorCreate(
+                building_id=bld.id,
+                wing_id=wing_id,
+                name=f.get("name") or slug,
+                slug=slug,
+                level=int(f.get("level") or 0),
+                description=f.get("description"),
+            ),
+        )
+
     for r in doc.get("rooms") or []:
         site = _site_by_slug(db, r["site_slug"])
         if site is None:
             continue
-        if _room(db, site.id, r["name"]) is None:
-            dcim_svc.create_room(db, RoomCreate(site_id=site.id, name=r["name"], description=r.get("description"), floor=r.get("floor")))
+        if _room(db, site.id, r["name"]) is not None:
+            continue
+        building_id = None
+        wing_id = None
+        floor_id = None
+        bslug = str(r.get("building_slug") or "").strip().lower()
+        if bslug:
+            bld = _building(db, site.id, bslug)
+            if bld is not None:
+                building_id = bld.id
+                wslug = str(r.get("wing_slug") or "").strip().lower()
+                if wslug:
+                    wing = _wing(db, bld.id, wslug)
+                    if wing is not None:
+                        wing_id = wing.id
+                fslug = str(r.get("floor_slug") or "").strip().lower()
+                if fslug:
+                    fl = _floor(db, bld.id, fslug)
+                    if fl is not None:
+                        floor_id = fl.id
+        dcim_svc.create_room(
+            db,
+            RoomCreate(
+                site_id=site.id,
+                name=r["name"],
+                description=r.get("description"),
+                floor=r.get("floor"),
+                building_id=building_id,
+                wing_id=wing_id,
+                floor_id=floor_id,
+            ),
+        )
 
     for k in doc.get("racks") or []:
         site = _site_by_slug(db, k["site_slug"])

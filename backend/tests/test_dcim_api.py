@@ -626,3 +626,80 @@ def test_rack_wall_mount_elevation() -> None:
         assert floor.status_code == 200, floor.text
         assert floor.json()["mounting"] == "floor"
         assert floor.json()["elevation_mm"] is None
+
+
+def test_dcim_building_wing_floor_hierarchy() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        site = client.post(
+            "/api/v1/dcim/sites",
+            json={"name": "Campus", "slug": f"campus-{uuid.uuid4().hex[:8]}"},
+        )
+        assert site.status_code == 200, site.text
+        site_id = site.json()["id"]
+
+        orphan = client.post("/api/v1/dcim/rooms", json={"site_id": site_id, "name": "Rett på site"})
+        assert orphan.status_code == 200, orphan.text
+        assert orphan.json()["building_id"] is None
+        assert orphan.json()["floor_id"] is None
+
+        bld = client.post(
+            "/api/v1/dcim/buildings",
+            json={"site_id": site_id, "name": "Hovedbygg", "slug": "hovedbygg"},
+        )
+        assert bld.status_code == 200, bld.text
+        building_id = bld.json()["id"]
+
+        on_building = client.post(
+            "/api/v1/dcim/rooms",
+            json={"site_id": site_id, "name": "Teknisk", "building_id": building_id},
+        )
+        assert on_building.status_code == 200, on_building.text
+        assert on_building.json()["building_id"] == building_id
+        assert on_building.json()["floor_id"] is None
+
+        wing = client.post(
+            "/api/v1/dcim/wings",
+            json={"building_id": building_id, "name": "Fløy A", "slug": "floy-a"},
+        )
+        assert wing.status_code == 200, wing.text
+        wing_id = wing.json()["id"]
+
+        fl = client.post(
+            "/api/v1/dcim/floors",
+            json={
+                "building_id": building_id,
+                "wing_id": wing_id,
+                "name": "2. etasje",
+                "slug": "etasje-2",
+                "level": 2,
+            },
+        )
+        assert fl.status_code == 200, fl.text
+        floor_id = fl.json()["id"]
+        assert fl.json()["wing_id"] == wing_id
+
+        room = client.post(
+            "/api/v1/dcim/rooms",
+            json={"site_id": site_id, "name": "A201", "floor_id": floor_id},
+        )
+        assert room.status_code == 200, room.text
+        body = room.json()
+        assert body["floor_id"] == floor_id
+        assert body["building_id"] == building_id
+        assert body["wing_id"] == wing_id
+        assert body["floor"] == "2. etasje"
+
+        listed = client.get("/api/v1/dcim/rooms", params={"floor_id": floor_id})
+        assert listed.status_code == 200
+        assert [r["name"] for r in listed.json()] == ["A201"]
+
+        blocked = client.delete(f"/api/v1/dcim/floors/{floor_id}")
+        assert blocked.status_code == 409
+
+        client.delete(f"/api/v1/dcim/rooms/{room.json()['id']}")
+        gone = client.delete(f"/api/v1/dcim/floors/{floor_id}")
+        assert gone.status_code == 204
+
+        still_blocked = client.delete(f"/api/v1/dcim/buildings/{building_id}")
+        assert still_blocked.status_code == 409

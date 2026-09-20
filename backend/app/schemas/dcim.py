@@ -169,11 +169,143 @@ class SiteAccessGrantRead(BaseModel):
     notes: str | None
 
 
+class BuildingCreate(BaseModel):
+    site_id: int
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class BuildingUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class BuildingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    name: str
+    slug: str
+    description: str | None
+
+
+class WingCreate(BaseModel):
+    building_id: int
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class WingUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class WingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    building_id: int
+    name: str
+    slug: str
+    description: str | None
+
+
+class FloorCreate(BaseModel):
+    building_id: int
+    wing_id: int | None = None
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    level: int = 0
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class FloorUpdate(BaseModel):
+    wing_id: int | None = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=64)
+    level: int | None = None
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+
+class FloorRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    building_id: int
+    wing_id: int | None
+    name: str
+    slug: str
+    level: int
+    description: str | None
+
+
 class RoomCreate(BaseModel):
     site_id: int
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     floor: str | None = Field(None, max_length=128)
+    building_id: int | None = None
+    wing_id: int | None = None
+    floor_id: int | None = None
 
 
 class RoomUpdate(BaseModel):
@@ -181,6 +313,9 @@ class RoomUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     floor: str | None = Field(None, max_length=128)
+    building_id: int | None = None
+    wing_id: int | None = None
+    floor_id: int | None = None
 
 
 class RoomRead(BaseModel):
@@ -188,6 +323,9 @@ class RoomRead(BaseModel):
 
     id: int
     site_id: int
+    building_id: int | None = None
+    wing_id: int | None = None
+    floor_id: int | None = None
     name: str
     description: str | None
     floor: str | None = None

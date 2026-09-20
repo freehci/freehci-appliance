@@ -146,6 +146,11 @@ def test_snapshot_apply_and_promote_checksum() -> None:
         assert doc["sites"][0]["slug"] == "snap-oslo"
         assert "id" not in doc["sites"][0]
         assert doc["racks"][0]["name"] == "RACK-1"
+        assert doc["buildings"] == []
+        assert doc["wings"] == []
+        assert doc["floors"] == []
+        assert doc["rooms"][0]["building_slug"] is None
+        assert doc["rooms"][0]["floor_slug"] is None
         assert doc["ipam"][0]["prefixes"][0]["cidr"] == "10.77.1.0/24"
         assert doc["ipam"][0]["prefixes"][0]["site_slug"] == "snap-oslo"
         again = client.get("/api/v1/federation/tenants/snap-co/snapshot")
@@ -167,5 +172,62 @@ def test_snapshot_apply_and_promote_checksum() -> None:
             cons = client.get("/api/v1/federation/tenants/snap-co/consistency")
             assert cons.status_code == 200
             assert cons.json()["checksum"] == checksum
+        finally:
+            db.close()
+
+
+def test_snapshot_includes_buildings_and_apply_old_rooms() -> None:
+    with _client() as client:
+        tenant = client.post("/api/v1/tenants", json={"name": "Bldg Co", "slug": "bldg-co"})
+        tid = tenant.json()["id"]
+        site = client.post(
+            "/api/v1/dcim/sites",
+            json={"name": "bldg-oslo", "slug": "bldg-oslo", "tenant_id": tid},
+        )
+        sid = site.json()["id"]
+        bld = client.post("/api/v1/dcim/buildings", json={"site_id": sid, "name": "A", "slug": "bygg-a"})
+        bid = bld.json()["id"]
+        fl = client.post(
+            "/api/v1/dcim/floors",
+            json={"building_id": bid, "name": "1. etasje", "slug": "etasje-1", "level": 1},
+        )
+        client.post(
+            "/api/v1/dcim/rooms",
+            json={"site_id": sid, "name": "R-A1", "floor_id": fl.json()["id"]},
+        )
+
+        snap = client.get("/api/v1/federation/tenants/bldg-co/snapshot")
+        assert snap.status_code == 200, snap.text
+        doc = snap.json()["document"]
+        assert doc["buildings"][0]["slug"] == "bygg-a"
+        assert doc["floors"][0]["slug"] == "etasje-1"
+        assert doc["rooms"][0]["building_slug"] == "bygg-a"
+        assert doc["rooms"][0]["floor_slug"] == "etasje-1"
+        assert doc["rooms"][0]["floor"] == "1. etasje"
+
+        client.post("/api/v1/tenants", json={"name": "Legacy Co", "slug": "legacy-co"})
+        old_doc = {
+            "apiVersion": "freehci.inventory/v1",
+            "kind": "TenantInventory",
+            "tenant": {"slug": "legacy-co", "name": "Legacy Co", "description": None},
+            "sites": [{"slug": "legacy-site", "name": "Legacy Site", "description": None}],
+            "rooms": [{"site_slug": "legacy-site", "name": "Old Room", "description": None, "floor": "B1"}],
+            "racks": [],
+            "manufacturers": [],
+            "device_types": [],
+            "device_models": [],
+            "devices": [],
+            "placements": [],
+            "ipam": [],
+        }
+        db = SessionLocal()
+        try:
+            fed_svc.apply_document_locally(db, old_doc)
+            rooms = client.get("/api/v1/dcim/rooms")
+            assert rooms.status_code == 200
+            found = [r for r in rooms.json() if r["name"] == "Old Room"]
+            assert found
+            assert found[0]["floor"] == "B1"
+            assert found[0]["building_id"] is None
         finally:
             db.close()

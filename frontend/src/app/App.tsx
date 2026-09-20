@@ -15,6 +15,12 @@ import { DcimOverviewPage } from "@/features/dcim/DcimOverviewPage";
 import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomDetailPage } from "@/features/dcim/DcimRoomDetailPage";
 import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
+import {
+  DcimBuildingDetailPage,
+  DcimFloorDetailPage,
+  DcimWingDetailPage,
+} from "@/features/dcim/DcimHierarchyPages";
+import { DcimSiteDetailPage } from "@/features/dcim/DcimSiteDetailPage";
 import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { DcimTenantsPage } from "@/features/dcim/DcimTenantsPage";
 import { IpamCircuitsPage } from "@/features/ipam/IpamCircuitsPage";
@@ -77,6 +83,10 @@ function AppRoutes() {
           <Route path="/dcim" element={<DcimLayout />}>
             <Route index element={<DcimOverviewPage />} />
             <Route path="sites" element={<DcimSitesPage />} />
+            <Route path="sites/:siteId" element={<DcimSiteDetailPage />} />
+            <Route path="sites/:siteId/buildings/:buildingId" element={<DcimBuildingDetailPage />} />
+            <Route path="sites/:siteId/buildings/:buildingId/wings/:wingId" element={<DcimWingDetailPage />} />
+            <Route path="sites/:siteId/buildings/:buildingId/floors/:floorId" element={<DcimFloorDetailPage />} />
             <Route path="tenants" element={<DcimTenantsPage />} />
             <Route path="rooms/:roomId" element={<DcimRoomDetailPage />} />
             <Route path="rooms" element={<DcimRoomsPage />} />

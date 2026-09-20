@@ -37,9 +37,38 @@ export type SiteAccessGrant = {
   notes: string | null;
 };
 
+export type Building = {
+  id: number;
+  site_id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+};
+
+export type Wing = {
+  id: number;
+  building_id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+};
+
+export type Floor = {
+  id: number;
+  building_id: number;
+  wing_id: number | null;
+  name: string;
+  slug: string;
+  level: number;
+  description: string | null;
+};
+
 export type Room = {
   id: number;
   site_id: number;
+  building_id: number | null;
+  wing_id: number | null;
+  floor_id: number | null;
   name: string;
   description: string | null;
   floor: string | null;

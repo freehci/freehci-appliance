@@ -220,7 +220,7 @@ export function DashboardHome() {
             ) : (
               <div className={styles.siteGrid}>
                 {siteCards.map((row) => (
-                  <Link key={row.site.id} to="/dcim/sites" className={styles.siteCard}>
+                  <Link key={row.site.id} to={`/dcim/sites/${row.site.id}`} className={styles.siteCard}>
                     <div className={styles.siteThumb}>
                       {row.site.has_banner ? (
                         <img

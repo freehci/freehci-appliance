@@ -25,6 +25,7 @@ from app.core.media_storage import (
     write_site_banner_file,
 )
 from app.models.dcim import (
+    Building,
     Component,
     ComponentChildTemplate,
     ComponentClass,
@@ -39,6 +40,7 @@ from app.models.dcim import (
     DeviceModelComponent,
     DeviceModelIdentity,
     DeviceType,
+    Floor,
     InterfaceIpAssignment,
     Manufacturer,
     ManufacturerIdentity,
@@ -48,6 +50,7 @@ from app.models.dcim import (
     Site,
     SiteAccessGrant,
     SiteRole,
+    Wing,
 )
 from app.models.iam import User
 from app.models.ipam import IpamIpv4Prefix
@@ -125,8 +128,15 @@ from app.schemas.dcim import (
     RackPlacementCreate,
     RackPlacementUpdate,
     RackUpdate,
+    BuildingCreate,
+    BuildingUpdate,
+    FloorCreate,
+    FloorUpdate,
     RoomCreate,
+    RoomRead,
     RoomUpdate,
+    WingCreate,
+    WingUpdate,
     SiteCreate,
     SiteAccessGrantCreate,
     SiteAccessGrantRead,
@@ -430,6 +440,10 @@ def delete_site(db: Session, site: Site) -> None:
     require_tenant_write(db, site.tenant_id)
     root: Path = get_settings().upload_root_path
     delete_site_banner_files(root, site.id)
+    for room in list(site.rooms):
+        delete_room_floorplan_files(root, room.id)
+        db.delete(room)
+    db.flush()
     db.delete(site)
     db.commit()
 
@@ -568,12 +582,336 @@ def delete_site_access_grant(db: Session, row: SiteAccessGrant) -> None:
     db.commit()
 
 
+# --- Buildings / wings / floors ---
+
+def _slug_conflict() -> HTTPException:
+    return HTTPException(status_code=409, detail="slug finnes allerede")
+
+
+def room_to_read(room: Room) -> RoomRead:
+    label = room.floor
+    loc = room.location_floor
+    if loc is not None:
+        label = loc.name
+    return RoomRead(
+        id=room.id,
+        site_id=room.site_id,
+        building_id=room.building_id,
+        wing_id=room.wing_id,
+        floor_id=room.floor_id,
+        name=room.name,
+        description=room.description,
+        floor=label,
+        has_floorplan=room.has_floorplan,
+    )
+
+
+def get_building(db: Session, building_id: int) -> Building | None:
+    return db.get(Building, building_id)
+
+
+def get_wing(db: Session, wing_id: int) -> Wing | None:
+    return db.get(Wing, wing_id)
+
+
+def get_floor(db: Session, floor_id: int) -> Floor | None:
+    return db.get(Floor, floor_id)
+
+
+def _require_building(db: Session, building_id: int) -> Building:
+    row = get_building(db, building_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="bygg ikke funnet")
+    return row
+
+
+def _require_wing(db: Session, wing_id: int) -> Wing:
+    row = get_wing(db, wing_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fløy ikke funnet")
+    return row
+
+
+def _require_floor(db: Session, floor_id: int) -> Floor:
+    row = get_floor(db, floor_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="etasje ikke funnet")
+    return row
+
+
+def _resolve_room_location(
+    db: Session,
+    *,
+    site_id: int,
+    building_id: int | None,
+    wing_id: int | None,
+    floor_id: int | None,
+) -> tuple[int | None, int | None, int | None, str | None]:
+    """Returnerer (building_id, wing_id, floor_id, floor_label)."""
+    if floor_id is not None:
+        fl = _require_floor(db, floor_id)
+        bld = _require_building(db, fl.building_id)
+        if bld.site_id != site_id:
+            raise HTTPException(status_code=400, detail="etasje tilhører ikke valgt site")
+        if wing_id is not None and fl.wing_id is not None and wing_id != fl.wing_id:
+            raise HTTPException(status_code=400, detail="etasje tilhører en annen fløy")
+        if building_id is not None and building_id != fl.building_id:
+            raise HTTPException(status_code=400, detail="etasje tilhører et annet bygg")
+        return fl.building_id, fl.wing_id, fl.id, fl.name
+    if wing_id is not None:
+        wing = _require_wing(db, wing_id)
+        bld = _require_building(db, wing.building_id)
+        if bld.site_id != site_id:
+            raise HTTPException(status_code=400, detail="fløy tilhører ikke valgt site")
+        if building_id is not None and building_id != wing.building_id:
+            raise HTTPException(status_code=400, detail="fløy tilhører et annet bygg")
+        return wing.building_id, wing.id, None, None
+    if building_id is not None:
+        bld = _require_building(db, building_id)
+        if bld.site_id != site_id:
+            raise HTTPException(status_code=400, detail="bygg tilhører ikke valgt site")
+        return bld.id, None, None, None
+    return None, None, None, None
+
+
+def list_buildings(db: Session, *, site_id: int | None = None) -> list[Building]:
+    q = select(Building).order_by(Building.name)
+    if site_id is not None:
+        q = q.where(Building.site_id == site_id)
+    return list(db.execute(q).scalars().all())
+
+
+def create_building(db: Session, data: BuildingCreate) -> Building:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, data.site_id)
+    if get_site(db, data.site_id) is None:
+        raise HTTPException(status_code=404, detail="site ikke funnet")
+    row = Building(
+        site_id=data.site_id,
+        name=data.name.strip(),
+        slug=data.slug,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _slug_conflict() from None
+    db.refresh(row)
+    return row
+
+
+def update_building(db: Session, row: Building, data: BuildingUpdate) -> Building:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "slug" in patch and patch["slug"] is not None:
+        row.slug = patch["slug"]
+    if "description" in patch:
+        v = patch["description"]
+        row.description = None if v is None else (str(v).strip() or None)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _slug_conflict() from None
+    db.refresh(row)
+    return row
+
+
+def delete_building(db: Session, row: Building) -> None:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
+    if db.execute(select(Room.id).where(Room.building_id == row.id).limit(1)).first():
+        raise HTTPException(status_code=409, detail="kan ikke slette bygg som har rom")
+    if db.execute(select(Floor.id).where(Floor.building_id == row.id).limit(1)).first():
+        raise HTTPException(status_code=409, detail="kan ikke slette bygg som har etasjer")
+    if db.execute(select(Wing.id).where(Wing.building_id == row.id).limit(1)).first():
+        raise HTTPException(status_code=409, detail="kan ikke slette bygg som har fløyer")
+    db.delete(row)
+    db.commit()
+
+
+def list_wings(db: Session, *, building_id: int | None = None) -> list[Wing]:
+    q = select(Wing).order_by(Wing.name)
+    if building_id is not None:
+        q = q.where(Wing.building_id == building_id)
+    return list(db.execute(q).scalars().all())
+
+
+def create_wing(db: Session, data: WingCreate) -> Wing:
+    from app.services.federation_guard import require_site_write
+
+    bld = _require_building(db, data.building_id)
+    require_site_write(db, bld.site_id)
+    row = Wing(
+        building_id=bld.id,
+        name=data.name.strip(),
+        slug=data.slug,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _slug_conflict() from None
+    db.refresh(row)
+    return row
+
+
+def update_wing(db: Session, row: Wing, data: WingUpdate) -> Wing:
+    from app.services.federation_guard import require_site_write
+
+    bld = _require_building(db, row.building_id)
+    require_site_write(db, bld.site_id)
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "slug" in patch and patch["slug"] is not None:
+        row.slug = patch["slug"]
+    if "description" in patch:
+        v = patch["description"]
+        row.description = None if v is None else (str(v).strip() or None)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _slug_conflict() from None
+    db.refresh(row)
+    return row
+
+
+def delete_wing(db: Session, row: Wing) -> None:
+    from app.services.federation_guard import require_site_write
+
+    bld = _require_building(db, row.building_id)
+    require_site_write(db, bld.site_id)
+    if db.execute(select(Room.id).where(Room.wing_id == row.id).limit(1)).first():
+        raise HTTPException(status_code=409, detail="kan ikke slette fløy som har rom")
+    if db.execute(select(Floor.id).where(Floor.wing_id == row.id).limit(1)).first():
+        raise HTTPException(status_code=409, detail="kan ikke slette fløy som har etasjer")
+    db.delete(row)
+    db.commit()
+
+
+def list_floors(
+    db: Session,
+    *,
+    building_id: int | None = None,
+    wing_id: int | None = None,
+) -> list[Floor]:
+    q = select(Floor).order_by(Floor.level, Floor.name)
+    if building_id is not None:
+        q = q.where(Floor.building_id == building_id)
+    if wing_id is not None:
+        q = q.where(Floor.wing_id == wing_id)
+    return list(db.execute(q).scalars().all())
+
+
+def create_floor(db: Session, data: FloorCreate) -> Floor:
+    from app.services.federation_guard import require_site_write
+
+    bld = _require_building(db, data.building_id)
+    require_site_write(db, bld.site_id)
+    wing_id = data.wing_id
+    if wing_id is not None:
+        wing = _require_wing(db, wing_id)
+        if wing.building_id != bld.id:
+            raise HTTPException(status_code=400, detail="fløy tilhører et annet bygg")
+    row = Floor(
+        building_id=bld.id,
+        wing_id=wing_id,
+        name=data.name.strip(),
+        slug=data.slug,
+        level=int(data.level),
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _slug_conflict() from None
+    db.refresh(row)
+    return row
+
+
+def update_floor(db: Session, row: Floor, data: FloorUpdate) -> Floor:
+    from app.services.federation_guard import require_site_write
+
+    bld = _require_building(db, row.building_id)
+    require_site_write(db, bld.site_id)
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "wing_id" in patch:
+        wing_id = patch["wing_id"]
+        if wing_id is not None:
+            wing = _require_wing(db, int(wing_id))
+            if wing.building_id != row.building_id:
+                raise HTTPException(status_code=400, detail="fløy tilhører et annet bygg")
+            row.wing_id = wing.id
+        else:
+            row.wing_id = None
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "slug" in patch and patch["slug"] is not None:
+        row.slug = patch["slug"]
+    if "level" in patch and patch["level"] is not None:
+        row.level = int(patch["level"])
+    if "description" in patch:
+        v = patch["description"]
+        row.description = None if v is None else (str(v).strip() or None)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _slug_conflict() from None
+    db.refresh(row)
+    return row
+
+
+def delete_floor(db: Session, row: Floor) -> None:
+    from app.services.federation_guard import require_site_write
+
+    bld = _require_building(db, row.building_id)
+    require_site_write(db, bld.site_id)
+    if db.execute(select(Room.id).where(Room.floor_id == row.id).limit(1)).first():
+        raise HTTPException(status_code=409, detail="kan ikke slette etasje som har rom")
+    db.delete(row)
+    db.commit()
+
+
 # --- Rooms ---
 
-def list_rooms(db: Session, *, site_id: int | None = None) -> list[Room]:
-    q = select(Room).order_by(Room.name)
+def list_rooms(
+    db: Session,
+    *,
+    site_id: int | None = None,
+    building_id: int | None = None,
+    wing_id: int | None = None,
+    floor_id: int | None = None,
+) -> list[Room]:
+    q = select(Room).options(selectinload(Room.location_floor)).order_by(Room.name)
     if site_id is not None:
         q = q.where(Room.site_id == site_id)
+    if building_id is not None:
+        q = q.where(Room.building_id == building_id)
+    if wing_id is not None:
+        q = q.where(Room.wing_id == wing_id)
+    if floor_id is not None:
+        q = q.where(Room.floor_id == floor_id)
     return list(db.execute(q).scalars().all())
 
 
@@ -582,25 +920,37 @@ def create_room(db: Session, data: RoomCreate) -> Room:
 
     require_site_write(db, data.site_id)
     if get_site(db, data.site_id) is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="site ikke funnet")
+    bid, wid, fid, floor_from_loc = _resolve_room_location(
+        db,
+        site_id=data.site_id,
+        building_id=data.building_id,
+        wing_id=data.wing_id,
+        floor_id=data.floor_id,
+    )
     fl = data.floor
     floor = None if fl is None else (str(fl).strip() or None)
+    if floor_from_loc:
+        floor = floor_from_loc
     row = Room(
         site_id=data.site_id,
+        building_id=bid,
+        wing_id=wid,
+        floor_id=fid,
         name=data.name.strip(),
         description=data.description,
         floor=floor,
     )
     db.add(row)
     db.commit()
-    db.refresh(row)
+    db.refresh(row, attribute_names=["location_floor"])
     return row
 
 
 def get_room(db: Session, room_id: int) -> Room | None:
-    return db.get(Room, room_id)
+    return db.execute(
+        select(Room).options(selectinload(Room.location_floor)).where(Room.id == room_id)
+    ).scalar_one_or_none()
 
 
 def update_room(db: Session, room: Room, data: RoomUpdate) -> Room:
@@ -617,16 +967,52 @@ def update_room(db: Session, room: Room, data: RoomUpdate) -> Room:
         if get_site(db, sid) is None:
             raise HTTPException(status_code=404, detail="site ikke funnet")
         room.site_id = sid
+        if not ({"building_id", "wing_id", "floor_id"} & patch.keys()):
+            if room.building_id or room.wing_id or room.floor_id:
+                bid, wid, fid, floor_from_loc = _resolve_room_location(
+                    db,
+                    site_id=room.site_id,
+                    building_id=room.building_id,
+                    wing_id=room.wing_id,
+                    floor_id=room.floor_id,
+                )
+                room.building_id = bid
+                room.wing_id = wid
+                room.floor_id = fid
+                if floor_from_loc:
+                    room.floor = floor_from_loc
+    loc_keys = {"building_id", "wing_id", "floor_id"}
+    if loc_keys & patch.keys():
+        next_floor_id = patch["floor_id"] if "floor_id" in patch else room.floor_id
+        next_wing_id = patch["wing_id"] if "wing_id" in patch else room.wing_id
+        next_building_id = patch["building_id"] if "building_id" in patch else room.building_id
+        if next_floor_id is not None:
+            next_building_id = None
+            next_wing_id = None
+        elif next_wing_id is not None:
+            next_building_id = None
+        bid, wid, fid, floor_from_loc = _resolve_room_location(
+            db,
+            site_id=room.site_id,
+            building_id=next_building_id,
+            wing_id=next_wing_id,
+            floor_id=next_floor_id,
+        )
+        room.building_id = bid
+        room.wing_id = wid
+        room.floor_id = fid
+        if floor_from_loc:
+            room.floor = floor_from_loc
     if "name" in patch and patch["name"] is not None:
         room.name = str(patch["name"]).strip()
     if "description" in patch:
         v = patch["description"]
         room.description = None if v is None else (str(v).strip() or None)
-    if "floor" in patch:
+    if "floor" in patch and room.floor_id is None:
         v = patch["floor"]
         room.floor = None if v is None else (str(v).strip() or None)
     db.commit()
-    db.refresh(room)
+    db.refresh(room, attribute_names=["location_floor"])
     return room
 
 

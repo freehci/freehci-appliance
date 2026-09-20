@@ -94,6 +94,12 @@ from app.schemas.dcim import (
     ManufacturerIdentityUpdate,
     ManufacturerRead,
     ManufacturerUpdate,
+    BuildingCreate,
+    BuildingRead,
+    BuildingUpdate,
+    FloorCreate,
+    FloorRead,
+    FloorUpdate,
     RackCreate,
     RackPlacementCreate,
     RackPlacementRead,
@@ -103,6 +109,9 @@ from app.schemas.dcim import (
     RoomCreate,
     RoomRead,
     RoomUpdate,
+    WingCreate,
+    WingRead,
+    WingUpdate,
     SiteCreate,
     SiteGeocodeRequest,
     SiteGeocodeResponse,
@@ -292,6 +301,121 @@ def delete_site(site_id: int, db: Session = Depends(get_db)) -> None:
     dcim_svc.delete_site(db, row)
 
 
+# --- Buildings / wings / floors ---
+
+
+@router.get("/buildings", response_model=list[BuildingRead])
+def list_buildings(
+    db: Session = Depends(get_db),
+    site_id: int | None = Query(None),
+) -> list[BuildingRead]:
+    return dcim_svc.list_buildings(db, site_id=site_id)
+
+
+@router.post("/buildings", response_model=BuildingRead)
+def create_building(data: BuildingCreate, db: Session = Depends(get_db)) -> BuildingRead:
+    return dcim_svc.create_building(db, data)
+
+
+@router.get("/buildings/{building_id}", response_model=BuildingRead)
+def get_building(building_id: int, db: Session = Depends(get_db)) -> BuildingRead:
+    row = dcim_svc.get_building(db, building_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="bygg ikke funnet")
+    return row
+
+
+@router.patch("/buildings/{building_id}", response_model=BuildingRead)
+def update_building(building_id: int, data: BuildingUpdate, db: Session = Depends(get_db)) -> BuildingRead:
+    row = dcim_svc.get_building(db, building_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="bygg ikke funnet")
+    return dcim_svc.update_building(db, row, data)
+
+
+@router.delete("/buildings/{building_id}", status_code=204)
+def delete_building(building_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_building(db, building_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="bygg ikke funnet")
+    dcim_svc.delete_building(db, row)
+
+
+@router.get("/wings", response_model=list[WingRead])
+def list_wings(
+    db: Session = Depends(get_db),
+    building_id: int | None = Query(None),
+) -> list[WingRead]:
+    return dcim_svc.list_wings(db, building_id=building_id)
+
+
+@router.post("/wings", response_model=WingRead)
+def create_wing(data: WingCreate, db: Session = Depends(get_db)) -> WingRead:
+    return dcim_svc.create_wing(db, data)
+
+
+@router.get("/wings/{wing_id}", response_model=WingRead)
+def get_wing(wing_id: int, db: Session = Depends(get_db)) -> WingRead:
+    row = dcim_svc.get_wing(db, wing_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fløy ikke funnet")
+    return row
+
+
+@router.patch("/wings/{wing_id}", response_model=WingRead)
+def update_wing(wing_id: int, data: WingUpdate, db: Session = Depends(get_db)) -> WingRead:
+    row = dcim_svc.get_wing(db, wing_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fløy ikke funnet")
+    return dcim_svc.update_wing(db, row, data)
+
+
+@router.delete("/wings/{wing_id}", status_code=204)
+def delete_wing(wing_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_wing(db, wing_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fløy ikke funnet")
+    dcim_svc.delete_wing(db, row)
+
+
+@router.get("/floors", response_model=list[FloorRead])
+def list_floors(
+    db: Session = Depends(get_db),
+    building_id: int | None = Query(None),
+    wing_id: int | None = Query(None),
+) -> list[FloorRead]:
+    return dcim_svc.list_floors(db, building_id=building_id, wing_id=wing_id)
+
+
+@router.post("/floors", response_model=FloorRead)
+def create_floor(data: FloorCreate, db: Session = Depends(get_db)) -> FloorRead:
+    return dcim_svc.create_floor(db, data)
+
+
+@router.get("/floors/{floor_id}", response_model=FloorRead)
+def get_floor(floor_id: int, db: Session = Depends(get_db)) -> FloorRead:
+    row = dcim_svc.get_floor(db, floor_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="etasje ikke funnet")
+    return row
+
+
+@router.patch("/floors/{floor_id}", response_model=FloorRead)
+def update_floor(floor_id: int, data: FloorUpdate, db: Session = Depends(get_db)) -> FloorRead:
+    row = dcim_svc.get_floor(db, floor_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="etasje ikke funnet")
+    return dcim_svc.update_floor(db, row, data)
+
+
+@router.delete("/floors/{floor_id}", status_code=204)
+def delete_floor(floor_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_floor(db, floor_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="etasje ikke funnet")
+    dcim_svc.delete_floor(db, row)
+
+
 # --- Rooms ---
 
 
@@ -299,13 +423,25 @@ def delete_site(site_id: int, db: Session = Depends(get_db)) -> None:
 def list_rooms(
     db: Session = Depends(get_db),
     site_id: int | None = Query(None),
+    building_id: int | None = Query(None),
+    wing_id: int | None = Query(None),
+    floor_id: int | None = Query(None),
 ) -> list[RoomRead]:
-    return dcim_svc.list_rooms(db, site_id=site_id)
+    return [
+        dcim_svc.room_to_read(r)
+        for r in dcim_svc.list_rooms(
+            db,
+            site_id=site_id,
+            building_id=building_id,
+            wing_id=wing_id,
+            floor_id=floor_id,
+        )
+    ]
 
 
 @router.post("/rooms", response_model=RoomRead)
 def create_room(data: RoomCreate, db: Session = Depends(get_db)) -> RoomRead:
-    return dcim_svc.create_room(db, data)
+    return dcim_svc.room_to_read(dcim_svc.create_room(db, data))
 
 
 @router.get("/rooms/{room_id}", response_model=RoomRead)
@@ -313,7 +449,7 @@ def get_room(room_id: int, db: Session = Depends(get_db)) -> RoomRead:
     row = dcim_svc.get_room(db, room_id)
     if row is None:
         raise HTTPException(status_code=404, detail="room ikke funnet")
-    return row
+    return dcim_svc.room_to_read(row)
 
 
 @router.patch("/rooms/{room_id}", response_model=RoomRead)
@@ -321,7 +457,7 @@ def update_room(room_id: int, data: RoomUpdate, db: Session = Depends(get_db)) -
     row = dcim_svc.get_room(db, room_id)
     if row is None:
         raise HTTPException(status_code=404, detail="room ikke funnet")
-    return dcim_svc.update_room(db, row, data)
+    return dcim_svc.room_to_read(dcim_svc.update_room(db, row, data))
 
 
 @router.delete("/rooms/{room_id}", status_code=204)
@@ -355,7 +491,7 @@ async def upload_room_floorplan(
     content = await file.read()
     mime = file.content_type or "application/octet-stream"
     dcim_svc.set_room_floorplan(db, row, content, mime)
-    return row
+    return dcim_svc.room_to_read(row)
 
 
 @router.delete("/rooms/{room_id}/floorplan", response_model=RoomRead)
@@ -364,7 +500,7 @@ def remove_room_floorplan(room_id: int, db: Session = Depends(get_db)) -> RoomRe
     if row is None:
         raise HTTPException(status_code=404, detail="room ikke funnet")
     dcim_svc.clear_room_floorplan(db, row)
-    return row
+    return dcim_svc.room_to_read(row)
 
 
 # --- Racks ---

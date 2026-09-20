@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
-from app.models.dcim import DeviceInstance, DeviceModel, DeviceType, Manufacturer, Rack, RackPlacement, Room, Site
+from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
 from app.models.tenant import Tenant
 from app.schemas.federation import (
@@ -433,10 +433,19 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
 def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
     sites = list(
         db.execute(
-            select(Site).where(Site.tenant_id == tenant.id).options(selectinload(Site.rooms).selectinload(Room.racks)),
+            select(Site)
+            .where(Site.tenant_id == tenant.id)
+            .options(
+                selectinload(Site.rooms).selectinload(Room.racks),
+                selectinload(Site.buildings).selectinload(Building.wings),
+                selectinload(Site.buildings).selectinload(Building.floors),
+            ),
         ).scalars().all(),
     )
     site_ids = [s.id for s in sites]
+    buildings = [b for s in sites for b in s.buildings]
+    wings = [w for b in buildings for w in b.wings]
+    floors = [f for b in buildings for f in b.floors]
     rooms = [r for s in sites for r in s.rooms]
     racks = [k for r in rooms for k in r.racks]
     devices = []
@@ -460,6 +469,9 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
     type_by_id = {t.id: t for t in types}
     model_by_id = {m.id: m for m in models}
     site_by_id = {s.id: s for s in sites}
+    building_by_id = {b.id: b for b in buildings}
+    wing_by_id = {w.id: w for w in wings}
+    floor_by_id = {f.id: f for f in floors}
     room_by_id = {r.id: r for r in rooms}
     rack_by_id = {k.id: k for k in racks}
     device_by_id = {d.id: d for d in devices}
@@ -480,8 +492,47 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
             }
             for s in sites
         ],
+        "buildings": [
+            {
+                "site_slug": site_by_id[b.site_id].slug,
+                "slug": b.slug,
+                "name": b.name,
+                "description": b.description,
+            }
+            for b in buildings
+        ],
+        "wings": [
+            {
+                "site_slug": site_by_id[building_by_id[w.building_id].site_id].slug,
+                "building_slug": building_by_id[w.building_id].slug,
+                "slug": w.slug,
+                "name": w.name,
+                "description": w.description,
+            }
+            for w in wings
+        ],
+        "floors": [
+            {
+                "site_slug": site_by_id[building_by_id[f.building_id].site_id].slug,
+                "building_slug": building_by_id[f.building_id].slug,
+                "wing_slug": wing_by_id[f.wing_id].slug if f.wing_id and f.wing_id in wing_by_id else None,
+                "slug": f.slug,
+                "name": f.name,
+                "level": f.level,
+                "description": f.description,
+            }
+            for f in floors
+        ],
         "rooms": [
-            {"site_slug": site_by_id[r.site_id].slug, "name": r.name, "description": r.description, "floor": r.floor}
+            {
+                "site_slug": site_by_id[r.site_id].slug,
+                "name": r.name,
+                "description": r.description,
+                "floor": floor_by_id[r.floor_id].name if r.floor_id and r.floor_id in floor_by_id else r.floor,
+                "building_slug": building_by_id[r.building_id].slug if r.building_id and r.building_id in building_by_id else None,
+                "wing_slug": wing_by_id[r.wing_id].slug if r.wing_id and r.wing_id in wing_by_id else None,
+                "floor_slug": floor_by_id[r.floor_id].slug if r.floor_id and r.floor_id in floor_by_id else None,
+            }
             for r in rooms
         ],
         "racks": [

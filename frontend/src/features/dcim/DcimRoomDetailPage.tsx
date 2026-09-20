@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import { DcimInnerTabs } from "./DcimInnerTabs";
+import { DcimRoomLocationFields, optionalId, type RoomLocationValue } from "./DcimRoomLocationFields";
 import { RoomAccessSurveillanceSection } from "./roomDemo/RoomAccessSurveillanceSection";
 import { RoomFireSafetySection } from "./roomDemo/RoomFireSafetySection";
 import { RoomPowerEnvironmentSection } from "./roomDemo/RoomPowerEnvironmentSection";
@@ -25,8 +26,12 @@ export function DcimRoomDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<RoomTab>("overview");
   const [name, setName] = useState("");
-  const [siteId, setSiteId] = useState("");
-  const [floor, setFloor] = useState("");
+  const [loc, setLoc] = useState<RoomLocationValue>({
+    siteId: "",
+    buildingId: "",
+    wingId: "",
+    floorId: "",
+  });
   const [description, setDescription] = useState("");
   const [planVersion, setPlanVersion] = useState("");
   const [floorplanImgUrl, setFloorplanImgUrl] = useState<string | null>(null);
@@ -38,7 +43,6 @@ export function DcimRoomDetailPage() {
     queryFn: () => api.getRoom(id),
     enabled: Number.isFinite(id) && id > 0,
   });
-  const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
   const racksQ = useQuery({
     queryKey: ["dcim", "racks", "room", id],
     queryFn: () => api.listRacks(id),
@@ -54,8 +58,12 @@ export function DcimRoomDetailPage() {
   useEffect(() => {
     if (!ro || hydrated.current) return;
     setName(ro.name);
-    setSiteId(String(ro.site_id));
-    setFloor(ro.floor ?? "");
+    setLoc({
+      siteId: String(ro.site_id),
+      buildingId: ro.building_id != null ? String(ro.building_id) : "",
+      wingId: ro.wing_id != null ? String(ro.wing_id) : "",
+      floorId: ro.floor_id != null ? String(ro.floor_id) : "",
+    });
     setDescription(ro.description ?? "");
     if (ro.has_floorplan) setPlanVersion(String(Date.now()));
     hydrated.current = true;
@@ -103,9 +111,11 @@ export function DcimRoomDetailPage() {
   const saveMu = useMutation({
     mutationFn: () =>
       api.updateRoom(id, {
-        site_id: siteId === "" ? undefined : Number(siteId),
+        site_id: loc.siteId === "" ? undefined : Number(loc.siteId),
         name: name.trim(),
-        floor: floor.trim() === "" ? null : floor.trim(),
+        building_id: optionalId(loc.buildingId),
+        wing_id: optionalId(loc.wingId),
+        floor_id: optionalId(loc.floorId),
         description: description.trim() === "" ? null : description.trim(),
       }),
     onSuccess: () => {
@@ -183,8 +193,31 @@ export function DcimRoomDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
+        <Link to="/dcim/sites" className={styles.tableLink}>
+          {t("nav.dcimSites")}
+        </Link>
+        {ro.building_id != null ? (
+          <>
+            {" / "}
+            <Link to={`/dcim/sites/${ro.site_id}/buildings/${ro.building_id}`} className={styles.tableLink}>
+              {t("dcim.common.building")}
+            </Link>
+          </>
+        ) : null}
+        {ro.floor_id != null && ro.building_id != null ? (
+          <>
+            {" / "}
+            <Link
+              to={`/dcim/sites/${ro.site_id}/buildings/${ro.building_id}/floors/${ro.floor_id}`}
+              className={styles.tableLink}
+            >
+              {t("dcim.common.floor")}
+            </Link>
+          </>
+        ) : null}
+        {" / "}
         <Link to="/dcim/rooms" className={styles.tableLink}>
-          ← {t("dcim.rooms.backToList")}
+          {t("dcim.rooms.backToList")}
         </Link>
       </p>
       <Panel title={ro.name}>
@@ -214,24 +247,16 @@ export function DcimRoomDetailPage() {
                   saveMu.mutate();
                 }}
               >
-                <label>
-                  {t("dcim.common.site")}
-                  <select value={siteId} onChange={(e) => setSiteId(e.target.value)} required>
-                    {(sitesQ.data ?? []).map((s) => (
-                      <option key={s.id} value={String(s.id)}>
-                        {s.name} ({s.slug})
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <DcimRoomLocationFields value={loc} onChange={setLoc} />
                 <label>
                   {t("dcim.common.name")}
                   <input value={name} onChange={(e) => setName(e.target.value)} required />
                 </label>
-                <label>
-                  {t("dcim.rooms.floor")}
-                  <input value={floor} onChange={(e) => setFloor(e.target.value)} placeholder={t("dcim.rooms.floorPlaceholder")} />
-                </label>
+                {ro.floor_id == null && ro.floor ? (
+                  <p className={styles.muted}>
+                    {t("dcim.rooms.legacyFloor")}: {ro.floor}
+                  </p>
+                ) : null}
                 <label>
                   {t("dcim.equip.mfr.description")}
                   <textarea

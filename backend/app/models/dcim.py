@@ -50,6 +50,7 @@ class Site(Base):
         return self.banner_relpath is not None
 
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="sites")
+    buildings: Mapped[list["Building"]] = relationship(back_populates="site", cascade="all, delete-orphan")
     rooms: Mapped[list["Room"]] = relationship(back_populates="site", cascade="all, delete-orphan")
     access_grants: Mapped[list["SiteAccessGrant"]] = relationship(
         back_populates="site",
@@ -93,11 +94,62 @@ class SiteAccessGrant(Base):
     user: Mapped["User"] = relationship("User")
 
 
+class Building(Base):
+    __tablename__ = "dcim_buildings"
+    __table_args__ = (UniqueConstraint("site_id", "slug", name="uq_dcim_building_site_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    site: Mapped["Site"] = relationship(back_populates="buildings")
+    wings: Mapped[list["Wing"]] = relationship(back_populates="building", cascade="all, delete-orphan")
+    floors: Mapped[list["Floor"]] = relationship(back_populates="building", cascade="all, delete-orphan")
+    rooms: Mapped[list["Room"]] = relationship(back_populates="building")
+
+
+class Wing(Base):
+    __tablename__ = "dcim_wings"
+    __table_args__ = (UniqueConstraint("building_id", "slug", name="uq_dcim_wing_building_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    building_id: Mapped[int] = mapped_column(ForeignKey("dcim_buildings.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    building: Mapped["Building"] = relationship(back_populates="wings")
+    floors: Mapped[list["Floor"]] = relationship(back_populates="wing")
+    rooms: Mapped[list["Room"]] = relationship(back_populates="wing")
+
+
+class Floor(Base):
+    __tablename__ = "dcim_floors"
+    __table_args__ = (UniqueConstraint("building_id", "slug", name="uq_dcim_floor_building_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    building_id: Mapped[int] = mapped_column(ForeignKey("dcim_buildings.id", ondelete="CASCADE"), nullable=False)
+    wing_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_wings.id", ondelete="RESTRICT"), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    building: Mapped["Building"] = relationship(back_populates="floors")
+    wing: Mapped["Wing | None"] = relationship(back_populates="floors")
+    rooms: Mapped[list["Room"]] = relationship(back_populates="location_floor")
+
+
 class Room(Base):
     __tablename__ = "dcim_rooms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    building_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_buildings.id", ondelete="RESTRICT"), nullable=True)
+    wing_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_wings.id", ondelete="RESTRICT"), nullable=True)
+    floor_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_floors.id", ondelete="RESTRICT"), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     floor: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -109,6 +161,9 @@ class Room(Base):
         return self.floorplan_relpath is not None
 
     site: Mapped["Site"] = relationship(back_populates="rooms")
+    building: Mapped["Building | None"] = relationship(back_populates="rooms")
+    wing: Mapped["Wing | None"] = relationship(back_populates="rooms")
+    location_floor: Mapped["Floor | None"] = relationship(back_populates="rooms")
     racks: Mapped[list["Rack"]] = relationship(back_populates="room", cascade="all, delete-orphan")
 
 

@@ -19,7 +19,19 @@ describe("dashboard summaries", () => {
     const sites = [
       { id: 1, tenant_id: 0, name: "Oslo", slug: "osl", description: null, created_at: "" },
     ] as Site[];
-    const rooms = [{ id: 10, site_id: 1, name: "A", description: null, floor: null, has_floorplan: false }] as Room[];
+    const rooms = [
+      {
+        id: 10,
+        site_id: 1,
+        building_id: null,
+        wing_id: null,
+        floor_id: null,
+        name: "A",
+        description: null,
+        floor: null,
+        has_floorplan: false,
+      },
+    ] as Room[];
     const racks = [{ id: 1, room_id: 10, name: "R1", u_height: 42, sort_order: 0 }] as Rack[];
     expect(buildSiteCards(sites, rooms, racks)[0]).toMatchObject({ rooms: 1, racks: 1 });
   });
