@@ -80,7 +80,7 @@ def test_prefix_create_returns_access_role() -> None:
         site = client.post("/api/v1/dcim/sites", json={"name": "Lab", "slug": "lab-role"}).json()
         pfx = client.post(
             "/api/v1/ipam/ipv4-prefixes",
-            json={"site_id": site["id"], "name": "LAN", "cidr": "10.81.42.0/24", "role": "active"},
+            json={"site_id": site["id"], "name": "LAN", "cidr": "10.203.42.0/24", "role": "active"},
         )
         assert pfx.status_code == 200, pfx.text
         body = pfx.json()
@@ -110,7 +110,7 @@ def test_assign_ip_without_rack_placement() -> None:
         if_id = client.post(f"/api/v1/dcim/devices/{dev_id}/interfaces", json={"name": "lo"}).json()["id"]
         pfx = client.post(
             "/api/v1/ipam/ipv4-prefixes",
-            json={"site_id": sid, "name": "LAN", "cidr": "10.88.77.0/30"},
+            json={"site_id": sid, "name": "LAN", "cidr": "10.204.77.0/30"},
         )
         assert pfx.status_code == 200, pfx.text
         pid = pfx.json()["id"]

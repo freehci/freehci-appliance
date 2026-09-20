@@ -341,7 +341,9 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
             f"/api/v1/dcim/devices/{dev_id}/interfaces/{if_id}/ip-assignments",
             json={"address": "10.10.1.1", "ipv4_prefix_id": pfx_aid},
         )
-        assert no_pl.status_code == 400
+        # Site arves fra prefiks — rack er ikke påkrevd.
+        assert no_pl.status_code == 200, no_pl.text
+        assert no_pl.json()["ipv4_prefix_id"] == pfx_aid
 
         pl = client.post(
             "/api/v1/dcim/placements",
@@ -370,7 +372,7 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
 
         gpx = client.get(f"/api/v1/ipam/ipv4-prefixes/{pfx_aid}")
         assert gpx.status_code == 200
-        assert gpx.json()["used_count"] == 1
+        assert gpx.json()["used_count"] == 2
         assert gpx.json()["address_total"] == 65536
 
         v6 = client.post(
@@ -388,7 +390,7 @@ def test_dcim_iface_ip_ipv4_prefix_validation() -> None:
 
         gpx2 = client.get(f"/api/v1/ipam/ipv4-prefixes/{pfx_aid}")
         # Utnyttelse følger adresse i CIDR, ikke bare FK: fjernet prefiks-lenke, IP ligger fortsatt i /16
-        assert gpx2.json()["used_count"] == 1
+        assert gpx2.json()["used_count"] == 2
 
 
 def test_patch_device_device_type_override_and_clear() -> None:

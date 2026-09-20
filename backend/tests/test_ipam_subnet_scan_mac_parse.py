@@ -29,4 +29,7 @@ def test_parse_ip_neigh_lladdr() -> None:
         "fe80::1 dev eth0 lladdr 00:11:22:33:44:55 router STALE\n"
     )
     m = _parse_ip_neigh_output(txt)
-    assert m == {"192.168.3.1": "aa:bb:cc:dd:ee:ff"}
+    assert m == {
+        "192.168.3.1": "aa:bb:cc:dd:ee:ff",
+        "fe80::1": "00:11:22:33:44:55",
+    }
