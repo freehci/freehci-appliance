@@ -45,6 +45,7 @@ from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
+from app.services import dcim_power as pwr_svc
 from app.services import ipam_bgp as bgp_svc
 from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
@@ -311,6 +312,9 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     for ipam in doc.get("ipam") or []:
         _apply_site_ipam(db, ipam)
+
+    site_by_slug = {s.slug: s for s in db.execute(select(Site)).scalars().all()}
+    pwr_svc.apply_from_document(db, doc, site_by_slug=site_by_slug)
 
 
 def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:

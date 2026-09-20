@@ -33,6 +33,7 @@ from app.schemas.federation import (
     FederationStatusRead,
     FederationTenantRoleRead,
 )
+from app.services import dcim_power as pwr_svc
 from app.services import ipam_sync
 from app.services.auth_admin import create_api_token, ensure_default_admin
 from app.services.federation_apply import apply_tenant_document
@@ -647,6 +648,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
             if p.rack_id in rack_by_id and p.device_id in device_by_id
         ],
         "ipam": [_ipam_for_site(db, s) for s in sites],
+        **pwr_svc.export_for_sites(db, sites),
     }
 
 

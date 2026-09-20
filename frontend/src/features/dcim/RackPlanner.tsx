@@ -536,6 +536,11 @@ export function RackPlanner({
 
   const columnU = useMemo(() => rackColumnU(visibleRacks), [visibleRacks]);
   const selectedDetailRack = selectedRackId != null ? (racks.find((r) => r.id === selectedRackId) ?? null) : null;
+  const rackFeedsQ = useQuery({
+    queryKey: ["dcim", "power-feeds", "rack", selectedDetailRack?.id ?? "none"],
+    queryFn: () => api.listPowerFeeds({ rackId: selectedDetailRack!.id }),
+    enabled: selectedDetailRack != null,
+  });
 
   useEffect(() => {
     if (!selectedDetailRack) return;
@@ -957,6 +962,12 @@ export function RackPlanner({
                 </dd>
                 <dt>{t("dcim.racks.detailLocation")}</dt>
                 <dd>{dash(roomLabelForRack(selectedDetailRack))}</dd>
+                <dt>{t("dcim.racks.powerFeeds")}</dt>
+                <dd>
+                  {(rackFeedsQ.data ?? []).length === 0
+                    ? t("dcim.racks.noFeeds")
+                    : (rackFeedsQ.data ?? []).map((f) => `${f.name} (${f.status})`).join(", ")}
+                </dd>
                 <dt>{t("dcim.racks.brand")}</dt>
                 <dd>{dash(selectedDetailRack.brand)}</dd>
                 <dt>{t("dcim.racks.tableDims")}</dt>

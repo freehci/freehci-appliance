@@ -8,6 +8,7 @@ import { ApiError, apiGet } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
 import { DcimOwnerComponentsPanel } from "./DcimOwnerComponentsPanel";
+import { DevicePortsCablesPanel } from "./DevicePortsCablesPanel";
 import { DCIM_DEVICE_ICON_URL_ATTR } from "./modelImages";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
 import type { DeviceInterface, DeviceIpAssignment } from "./types";
@@ -761,6 +762,12 @@ export function DcimDeviceDetailPage() {
             <DcimOwnerComponentsPanel
               ownerKind="device"
               ownerId={id}
+              canCopyFromModel={dev.device_model_id != null}
+              onError={setErr}
+            />
+            <DevicePortsCablesPanel
+              deviceId={id}
+              siteId={dev.site_id ?? dev.effective_site_id}
               canCopyFromModel={dev.device_model_id != null}
               onError={setErr}
             />

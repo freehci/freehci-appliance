@@ -583,3 +583,82 @@ export type RackPlacement = {
   u_position: number;
   mounting: string;
 };
+
+export type PowerPanel = {
+  id: number;
+  site_id: number;
+  room_id: number | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+};
+
+export type PowerCircuit = {
+  id: number;
+  panel_id: number;
+  name: string;
+  breaker_label: string | null;
+  rating_amps: number | null;
+  voltage: number | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type PowerFeed = {
+  id: number;
+  circuit_id: number;
+  name: string;
+  slug: string;
+  rack_id: number | null;
+  status: string;
+  supply: string | null;
+  phase: string | null;
+  description: string | null;
+  panel_name: string | null;
+  circuit_name: string | null;
+  rack_name: string | null;
+  created_at: string;
+};
+
+export type DevicePort = {
+  id: number;
+  device_id: number;
+  kind: string;
+  name: string;
+  label: string | null;
+  connector: string | null;
+  rear_port_id: number | null;
+  power_port_id: number | null;
+  created_at: string;
+};
+
+export type CableTermination = {
+  id: number;
+  cable_id: number;
+  end: string;
+  object_type: string;
+  object_id: number;
+  label: string | null;
+};
+
+export type Cable = {
+  id: number;
+  site_id: number;
+  name: string;
+  slug: string;
+  cable_type: string;
+  status: string;
+  color: string | null;
+  length_m: number | null;
+  description: string | null;
+  terminations: CableTermination[];
+  created_at: string;
+};
+
+export type CablePathHop = {
+  object_type: string;
+  object_id: number;
+  label: string;
+  via: string | null;
+};

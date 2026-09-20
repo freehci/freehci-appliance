@@ -849,3 +849,114 @@ class RackPlacement(Base):
 
     rack: Mapped["Rack"] = relationship(back_populates="placements")
     device: Mapped["DeviceInstance"] = relationship(back_populates="placement")
+
+
+class PowerPanel(Base):
+    """Elektrisk tavle. UPS/PDU er Device, ikke eget objekt."""
+
+    __tablename__ = "dcim_power_panels"
+    __table_args__ = (UniqueConstraint("site_id", "slug", name="uq_dcim_power_panel_site_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_rooms.id", ondelete="SET NULL"), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class PowerCircuit(Base):
+    """Elektrisk kurs på en tavle. Ikke det samme som IPAM-samband."""
+
+    __tablename__ = "dcim_power_circuits"
+    __table_args__ = (UniqueConstraint("panel_id", "name", name="uq_dcim_power_circuit_panel_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    panel_id: Mapped[int] = mapped_column(ForeignKey("dcim_power_panels.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    breaker_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rating_amps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    voltage: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class PowerFeed(Base):
+    """Mate fra kurs mot rack/PDU. Måleverdier lagres ikke her."""
+
+    __tablename__ = "dcim_power_feeds"
+    __table_args__ = (UniqueConstraint("circuit_id", "slug", name="uq_dcim_power_feed_circuit_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    circuit_id: Mapped[int] = mapped_column(ForeignKey("dcim_power_circuits.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    rack_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_racks.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    supply: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    phase: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class DevicePort(Base):
+    """Strømport, uttak eller patchport på en Device. Patchpanel er Device."""
+
+    __tablename__ = "dcim_device_ports"
+    __table_args__ = (UniqueConstraint("device_id", "kind", "name", name="uq_dcim_device_port_kind_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_instances.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    connector: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rear_port_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_ports.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    power_port_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_ports.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class Cable(Base):
+    """Fysisk kabel med nøyaktig to termineringer."""
+
+    __tablename__ = "dcim_cables"
+    __table_args__ = (UniqueConstraint("site_id", "slug", name="uq_dcim_cable_site_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    cable_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="connected")
+    color: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    length_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    terminations: Mapped[list["CableTermination"]] = relationship(
+        back_populates="cable",
+        cascade="all, delete-orphan",
+    )
+
+
+class CableTermination(Base):
+    __tablename__ = "dcim_cable_terminations"
+    __table_args__ = (
+        UniqueConstraint("cable_id", "end", name="uq_dcim_cable_term_end"),
+        UniqueConstraint("object_type", "object_id", name="uq_dcim_cable_term_object"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cable_id: Mapped[int] = mapped_column(ForeignKey("dcim_cables.id", ondelete="CASCADE"), nullable=False)
+    end: Mapped[str] = mapped_column(String(1), nullable=False)
+    object_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    object_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    cable: Mapped["Cable"] = relationship(back_populates="terminations")

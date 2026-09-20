@@ -1405,3 +1405,222 @@ class RackPlacementUpdate(BaseModel):
         if x not in ("front", "rear"):
             raise ValueError("mounting må være front eller rear")
         return x
+
+
+POWER_FEED_STATUSES = frozenset({"planned", "active", "offline"})
+POWER_SUPPLIES = frozenset({"ac", "dc"})
+POWER_PHASES = frozenset({"single", "three"})
+DEVICE_PORT_KINDS = frozenset({"power-port", "power-outlet", "front-port", "rear-port"})
+CABLE_TYPES = frozenset({"power", "cat5e", "cat6", "cat6a", "sm-os2", "mm-om4", "dac", "coax", "other"})
+CABLE_STATUSES = frozenset({"planned", "connected", "disabled"})
+CABLE_OBJECT_TYPES = frozenset({"power-feed", "device-port", "interface"})
+
+
+class PowerPanelCreate(BaseModel):
+    site_id: int = Field(..., ge=1)
+    room_id: int | None = Field(None, ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    description: str | None = None
+
+
+class PowerPanelRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    room_id: int | None
+    name: str
+    slug: str
+    description: str | None
+    created_at: dt.datetime
+
+
+class PowerCircuitCreate(BaseModel):
+    panel_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=128)
+    breaker_label: str | None = Field(None, max_length=64)
+    rating_amps: int | None = Field(None, ge=1, le=10_000)
+    voltage: int | None = Field(None, ge=1, le=100_000)
+    description: str | None = None
+
+
+class PowerCircuitRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    panel_id: int
+    name: str
+    breaker_label: str | None
+    rating_amps: int | None
+    voltage: int | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class PowerFeedCreate(BaseModel):
+    circuit_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    rack_id: int | None = Field(None, ge=1)
+    status: str = "planned"
+    supply: str | None = None
+    phase: str | None = None
+    description: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def feed_status_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in POWER_FEED_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(POWER_FEED_STATUSES))}")
+        return s
+
+    @field_validator("supply")
+    @classmethod
+    def supply_ok(cls, v: str | None) -> str | None:
+        if v is None or v.strip() == "":
+            return None
+        s = v.strip().lower()
+        if s not in POWER_SUPPLIES:
+            raise ValueError("supply må være ac eller dc")
+        return s
+
+    @field_validator("phase")
+    @classmethod
+    def phase_ok(cls, v: str | None) -> str | None:
+        if v is None or v.strip() == "":
+            return None
+        s = v.strip().lower()
+        if s not in POWER_PHASES:
+            raise ValueError("phase må være single eller three")
+        return s
+
+
+class PowerFeedRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    circuit_id: int
+    name: str
+    slug: str
+    rack_id: int | None
+    status: str
+    supply: str | None
+    phase: str | None
+    description: str | None
+    panel_name: str | None = None
+    circuit_name: str | None = None
+    rack_name: str | None = None
+    created_at: dt.datetime
+
+
+class DevicePortCreate(BaseModel):
+    kind: str
+    name: str = Field(..., min_length=1, max_length=128)
+    label: str | None = Field(None, max_length=128)
+    connector: str | None = Field(None, max_length=64)
+    rear_port_id: int | None = Field(None, ge=1)
+    power_port_id: int | None = Field(None, ge=1)
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in DEVICE_PORT_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(DEVICE_PORT_KINDS))}")
+        return s
+
+
+class DevicePortRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    kind: str
+    name: str
+    label: str | None
+    connector: str | None
+    rear_port_id: int | None
+    power_port_id: int | None
+    created_at: dt.datetime
+
+
+class CableTerminationIn(BaseModel):
+    object_type: str
+    object_id: int = Field(..., ge=1)
+
+    @field_validator("object_type")
+    @classmethod
+    def obj_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in CABLE_OBJECT_TYPES:
+            raise ValueError(f"object_type må være en av: {', '.join(sorted(CABLE_OBJECT_TYPES))}")
+        return s
+
+
+class CableCreate(BaseModel):
+    site_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    cable_type: str
+    status: str = "connected"
+    color: str | None = Field(None, max_length=32)
+    length_m: float | None = Field(None, ge=0, le=100_000)
+    description: str | None = None
+    a: CableTerminationIn
+    z: CableTerminationIn
+
+    @field_validator("cable_type")
+    @classmethod
+    def type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in CABLE_TYPES:
+            raise ValueError(f"cable_type må være en av: {', '.join(sorted(CABLE_TYPES))}")
+        return s
+
+    @field_validator("status")
+    @classmethod
+    def cable_status_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in CABLE_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(CABLE_STATUSES))}")
+        return s
+
+
+class CableTerminationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    cable_id: int
+    end: str
+    object_type: str
+    object_id: int
+    label: str | None = None
+
+
+class CableRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    name: str
+    slug: str
+    cable_type: str
+    status: str
+    color: str | None
+    length_m: float | None
+    description: str | None
+    terminations: list[CableTerminationRead]
+    created_at: dt.datetime
+
+
+class CablePathHop(BaseModel):
+    object_type: str
+    object_id: int
+    label: str
+    via: str | None = None
+
+
+class CablePathRead(BaseModel):
+    hops: list[CablePathHop]

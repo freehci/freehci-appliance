@@ -38,6 +38,12 @@ import type {
   ManufacturerIdentity,
   DeviceModelTemplate,
   DeviceModelTemplateQuality,
+  DevicePort,
+  PowerPanel,
+  PowerCircuit,
+  PowerFeed,
+  Cable,
+  CablePathHop,
   NetBoxDtlApply,
   NetBoxDtlImport,
   NetBoxDtlItem,
@@ -1222,4 +1228,132 @@ export function updatePlacement(
 
 export function deletePlacement(id: number): Promise<void> {
   return apiDelete(`${P}/placements/${id}`);
+}
+
+export function listPowerPanels(siteId?: number, roomId?: number): Promise<PowerPanel[]> {
+  const params = new URLSearchParams();
+  if (siteId != null) params.set("site_id", String(siteId));
+  if (roomId != null) params.set("room_id", String(roomId));
+  const s = params.toString();
+  return apiGet(`${P}/power-panels${s ? `?${s}` : ""}`);
+}
+
+export function createPowerPanel(body: {
+  site_id: number;
+  room_id?: number | null;
+  name: string;
+  slug?: string | null;
+}): Promise<PowerPanel> {
+  return apiPost(`${P}/power-panels`, body);
+}
+
+export function deletePowerPanel(id: number): Promise<void> {
+  return apiDelete(`${P}/power-panels/${id}`);
+}
+
+export function listPowerCircuits(panelId?: number, siteId?: number): Promise<PowerCircuit[]> {
+  const params = new URLSearchParams();
+  if (panelId != null) params.set("panel_id", String(panelId));
+  if (siteId != null) params.set("site_id", String(siteId));
+  const s = params.toString();
+  return apiGet(`${P}/power-circuits${s ? `?${s}` : ""}`);
+}
+
+export function createPowerCircuit(body: {
+  panel_id: number;
+  name: string;
+  breaker_label?: string | null;
+  rating_amps?: number | null;
+  voltage?: number | null;
+}): Promise<PowerCircuit> {
+  return apiPost(`${P}/power-circuits`, body);
+}
+
+export function deletePowerCircuit(id: number): Promise<void> {
+  return apiDelete(`${P}/power-circuits/${id}`);
+}
+
+export function listPowerFeeds(opts?: {
+  siteId?: number;
+  circuitId?: number;
+  rackId?: number;
+  roomId?: number;
+}): Promise<PowerFeed[]> {
+  const params = new URLSearchParams();
+  if (opts?.siteId != null) params.set("site_id", String(opts.siteId));
+  if (opts?.circuitId != null) params.set("circuit_id", String(opts.circuitId));
+  if (opts?.rackId != null) params.set("rack_id", String(opts.rackId));
+  if (opts?.roomId != null) params.set("room_id", String(opts.roomId));
+  const s = params.toString();
+  return apiGet(`${P}/power-feeds${s ? `?${s}` : ""}`);
+}
+
+export function createPowerFeed(body: {
+  circuit_id: number;
+  name: string;
+  slug?: string | null;
+  rack_id?: number | null;
+  status?: string;
+  supply?: string | null;
+  phase?: string | null;
+}): Promise<PowerFeed> {
+  return apiPost(`${P}/power-feeds`, body);
+}
+
+export function deletePowerFeed(id: number): Promise<void> {
+  return apiDelete(`${P}/power-feeds/${id}`);
+}
+
+export function listDevicePorts(deviceId: number): Promise<DevicePort[]> {
+  return apiGet(`${P}/devices/${deviceId}/ports`);
+}
+
+export function createDevicePort(
+  deviceId: number,
+  body: {
+    kind: string;
+    name: string;
+    label?: string | null;
+    connector?: string | null;
+    rear_port_id?: number | null;
+    power_port_id?: number | null;
+  },
+): Promise<DevicePort> {
+  return apiPost(`${P}/devices/${deviceId}/ports`, body);
+}
+
+export function copyDevicePortsFromTemplates(deviceId: number): Promise<DevicePort[]> {
+  return apiPost(`${P}/devices/${deviceId}/ports/from-templates`, {});
+}
+
+export function deleteDevicePort(portId: number): Promise<void> {
+  return apiDelete(`${P}/device-ports/${portId}`);
+}
+
+export function getDevicePortPath(portId: number): Promise<{ hops: CablePathHop[] }> {
+  return apiGet(`${P}/device-ports/${portId}/path`);
+}
+
+export function listCables(siteId?: number, deviceId?: number): Promise<Cable[]> {
+  const params = new URLSearchParams();
+  if (siteId != null) params.set("site_id", String(siteId));
+  if (deviceId != null) params.set("device_id", String(deviceId));
+  const s = params.toString();
+  return apiGet(`${P}/cables${s ? `?${s}` : ""}`);
+}
+
+export function createCable(body: {
+  site_id: number;
+  name: string;
+  slug?: string | null;
+  cable_type: string;
+  status?: string;
+  a: { object_type: string; object_id: number };
+  z: { object_type: string; object_id: number };
+}): Promise<Cable> {
+  return apiPost(`${P}/cables`, body);
+}
+
+export function deleteCable(id: number): Promise<void> {
+  return apiDelete(`${P}/cables/${id}`);
 }

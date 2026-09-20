@@ -11,7 +11,7 @@ import { DcimInnerTabs } from "./DcimInnerTabs";
 import { DcimRoomLocationFields, optionalId, type RoomLocationValue } from "./DcimRoomLocationFields";
 import { RoomAccessSurveillanceSection } from "./roomDemo/RoomAccessSurveillanceSection";
 import { RoomFireSafetySection } from "./roomDemo/RoomFireSafetySection";
-import { RoomPowerEnvironmentSection } from "./roomDemo/RoomPowerEnvironmentSection";
+import { RoomPowerInventorySection } from "./RoomPowerInventorySection";
 import styles from "./dcim.module.css";
 
 type RoomTab = "overview" | "floorplan" | "accessSurveillance" | "powerCooling" | "fireSafety";
@@ -330,7 +330,9 @@ export function DcimRoomDetailPage() {
 
         {tab === "accessSurveillance" ? <RoomAccessSurveillanceSection /> : null}
 
-        {tab === "powerCooling" ? <RoomPowerEnvironmentSection roomId={id} /> : null}
+        {tab === "powerCooling" ? (
+          ro ? <RoomPowerInventorySection roomId={id} siteId={ro.site_id} /> : null
+        ) : null}
 
         {tab === "fireSafety" ? <RoomFireSafetySection roomId={id} /> : null}
 

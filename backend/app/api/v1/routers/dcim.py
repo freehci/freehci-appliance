@@ -123,8 +123,20 @@ from app.schemas.dcim import (
     SiteRoleUpdate,
     SiteRead,
     SiteUpdate,
+    PowerPanelCreate,
+    PowerPanelRead,
+    PowerCircuitCreate,
+    PowerCircuitRead,
+    PowerFeedCreate,
+    PowerFeedRead,
+    DevicePortCreate,
+    DevicePortRead,
+    CableCreate,
+    CableRead,
+    CablePathRead,
 )
 from app.services import dcim as dcim_svc
+from app.services import dcim_power as power_svc
 from app.services import geocoding as geocode_svc
 from app.services import netbox_device_type_library as netbox_dtl_svc
 from app.services import redfish_schema_bundle as redfish_schema_svc
@@ -1630,3 +1642,148 @@ def delete_placement(pid: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="plassering ikke funnet")
     dcim_svc.delete_placement(db, row)
+
+
+@router.get("/power-panels", response_model=list[PowerPanelRead])
+def list_power_panels(
+    site_id: int | None = Query(None),
+    room_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[PowerPanelRead]:
+    return [power_svc.panel_to_read(r) for r in power_svc.list_panels(db, site_id=site_id, room_id=room_id)]
+
+
+@router.post("/power-panels", response_model=PowerPanelRead)
+def create_power_panel(data: PowerPanelCreate, db: Session = Depends(get_db)) -> PowerPanelRead:
+    return power_svc.panel_to_read(power_svc.create_panel(db, data))
+
+
+@router.delete("/power-panels/{panel_id}", status_code=204)
+def delete_power_panel(panel_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_panel(db, panel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tavle ikke funnet")
+    power_svc.delete_panel(db, row)
+
+
+@router.get("/power-circuits", response_model=list[PowerCircuitRead])
+def list_power_circuits(
+    panel_id: int | None = Query(None),
+    site_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[PowerCircuitRead]:
+    return [power_svc.circuit_to_read(r) for r in power_svc.list_circuits(db, panel_id=panel_id, site_id=site_id)]
+
+
+@router.post("/power-circuits", response_model=PowerCircuitRead)
+def create_power_circuit(data: PowerCircuitCreate, db: Session = Depends(get_db)) -> PowerCircuitRead:
+    return power_svc.circuit_to_read(power_svc.create_circuit(db, data))
+
+
+@router.delete("/power-circuits/{circuit_id}", status_code=204)
+def delete_power_circuit(circuit_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kurs ikke funnet")
+    power_svc.delete_circuit(db, row)
+
+
+@router.get("/power-feeds", response_model=list[PowerFeedRead])
+def list_power_feeds(
+    site_id: int | None = Query(None),
+    circuit_id: int | None = Query(None),
+    rack_id: int | None = Query(None),
+    room_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[PowerFeedRead]:
+    return [
+        power_svc.feed_to_read(db, r)
+        for r in power_svc.list_feeds(db, site_id=site_id, circuit_id=circuit_id, rack_id=rack_id, room_id=room_id)
+    ]
+
+
+@router.post("/power-feeds", response_model=PowerFeedRead)
+def create_power_feed(data: PowerFeedCreate, db: Session = Depends(get_db)) -> PowerFeedRead:
+    return power_svc.feed_to_read(db, power_svc.create_feed(db, data))
+
+
+@router.delete("/power-feeds/{feed_id}", status_code=204)
+def delete_power_feed(feed_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_feed(db, feed_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="feed ikke funnet")
+    power_svc.delete_feed(db, row)
+
+
+@router.get("/devices/{did}/ports", response_model=list[DevicePortRead])
+def list_device_ports(did: int, db: Session = Depends(get_db)) -> list[DevicePortRead]:
+    if dcim_svc.get_device(db, did) is None:
+        raise HTTPException(status_code=404, detail="enhet ikke funnet")
+    return [power_svc.port_to_read(r) for r in power_svc.list_ports(db, device_id=did)]
+
+
+@router.post("/devices/{did}/ports", response_model=DevicePortRead)
+def create_device_port(did: int, data: DevicePortCreate, db: Session = Depends(get_db)) -> DevicePortRead:
+    return power_svc.port_to_read(power_svc.create_port(db, did, data))
+
+
+@router.post("/devices/{did}/ports/from-templates", response_model=list[DevicePortRead])
+def copy_device_ports_from_templates(did: int, db: Session = Depends(get_db)) -> list[DevicePortRead]:
+    return [power_svc.port_to_read(r) for r in power_svc.copy_ports_from_templates(db, did)]
+
+
+@router.delete("/device-ports/{port_id}", status_code=204)
+def delete_device_port(port_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_port(db, port_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="port ikke funnet")
+    power_svc.delete_port(db, row)
+
+
+@router.get("/device-ports/{port_id}/path", response_model=CablePathRead)
+def device_port_path(port_id: int, db: Session = Depends(get_db)) -> CablePathRead:
+    if power_svc.get_port(db, port_id) is None:
+        raise HTTPException(status_code=404, detail="port ikke funnet")
+    return power_svc.trace_path(db, "device-port", port_id)
+
+
+@router.get("/cables", response_model=list[CableRead])
+def list_cables(
+    site_id: int | None = Query(None),
+    device_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[CableRead]:
+    return [power_svc.cable_to_read(db, r) for r in power_svc.list_cables(db, site_id=site_id, device_id=device_id)]
+
+
+@router.post("/cables", response_model=CableRead)
+def create_cable(data: CableCreate, db: Session = Depends(get_db)) -> CableRead:
+    return power_svc.cable_to_read(db, power_svc.create_cable(db, data))
+
+
+@router.get("/cables/{cable_id}", response_model=CableRead)
+def get_cable(cable_id: int, db: Session = Depends(get_db)) -> CableRead:
+    row = power_svc.get_cable(db, cable_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kabel ikke funnet")
+    return power_svc.cable_to_read(db, row)
+
+
+@router.get("/cables/{cable_id}/path", response_model=CablePathRead)
+def cable_path(cable_id: int, db: Session = Depends(get_db)) -> CablePathRead:
+    row = power_svc.get_cable(db, cable_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kabel ikke funnet")
+    read = power_svc.cable_to_read(db, row)
+    start = next((t for t in read.terminations if t.end == "a"), None)
+    if start is None:
+        return CablePathRead(hops=[])
+    return power_svc.trace_path(db, start.object_type, start.object_id)
+
+
+@router.delete("/cables/{cable_id}", status_code=204)
+def delete_cable(cable_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_cable(db, cable_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kabel ikke funnet")
+    power_svc.delete_cable(db, row)
