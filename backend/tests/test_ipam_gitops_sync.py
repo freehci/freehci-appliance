@@ -47,6 +47,22 @@ def test_bulk_ensure_and_yaml_export() -> None:
         assert "10.93.10.0/24" in yml.text
         assert "10.93.10.10" in yml.text
         assert "sync-a-lan" in yml.text
+        assert "site_slug" in yml.text
+
+        slug_ok = client.post(
+            "/api/v1/ipam/bulk-ensure",
+            json={
+                "update": True,
+                "prefixes": [
+                    {"site_slug": "sync-a", "cidr": "10.93.10.0/24", "name": "LAN-slugs", "slug": "sync-a-lan"},
+                ],
+                "addresses": [
+                    {"site_slug": "sync-a", "prefix_cidr": "10.93.10.0/24", "address": "10.93.10.11", "mode": "reserve"},
+                ],
+            },
+        )
+        assert slug_ok.status_code == 200, slug_ok.text
+        assert slug_ok.json()["failed"] == 0
 
 
 def test_drift_unmanaged_and_missing() -> None:

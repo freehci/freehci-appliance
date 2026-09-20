@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.routers import (
     auth,
     dcim,
+    federation,
     health,
     iam,
     ipam,
@@ -26,3 +27,4 @@ api_router.include_router(ipam.router)
 api_router.include_router(system_update.router)
 api_router.include_router(network_scan.router)
 api_router.include_router(snmp.router)
+api_router.include_router(federation.router)

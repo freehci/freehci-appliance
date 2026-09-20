@@ -56,6 +56,9 @@ def _require_site(db: Session, site_id: int) -> Site:
     s = db.get(Site, site_id)
     if s is None:
         raise ValueError("site ikke funnet")
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, site_id)
     return s
 
 
@@ -100,11 +103,17 @@ def get_vrf(db: Session, vrf_id: int) -> IpamVrf | None:
 
 
 def delete_vrf(db: Session, row: IpamVrf) -> None:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
     db.delete(row)
     db.commit()
 
 
 def update_vrf(db: Session, row: IpamVrf, data: IpamVrfUpdate) -> IpamVrf:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise ipam_error(400, "empty_patch", "ingen felter å oppdatere")
@@ -194,11 +203,17 @@ def get_vlan(db: Session, vlan_id: int) -> IpamVlan | None:
 
 
 def delete_vlan(db: Session, row: IpamVlan) -> None:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
     db.delete(row)
     db.commit()
 
 
 def update_vlan(db: Session, row: IpamVlan, data: IpamVlanUpdate) -> IpamVlan:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise ipam_error(400, "empty_patch", "ingen felter å oppdatere")

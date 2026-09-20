@@ -130,9 +130,10 @@ class Ipv4PrefixCreate(BaseModel):
 
 
 class Ipv4PrefixEnsure(BaseModel):
-    """Idempotent opprett/hent prefiks på (site_id, vrf_id, cidr)."""
+    """Idempotent opprett/hent prefiks på (site, vrf, cidr). site_id eller site_slug kreves."""
 
-    site_id: int
+    site_id: int | None = Field(None, ge=1)
+    site_slug: str | None = Field(None, max_length=64)
     cidr: str = Field(..., min_length=1, max_length=32)
     name: str | None = Field(None, min_length=1, max_length=255)
     slug: str | None = Field(None, min_length=1, max_length=128)
@@ -141,10 +142,19 @@ class Ipv4PrefixEnsure(BaseModel):
     description: str | None = None
     subnet_services: SubnetServices | dict[str, Any] | None = None
     tenant_id: int | None = Field(None, ge=1)
+    tenant_slug: str | None = Field(None, max_length=64)
     vlan_id: int | None = Field(None, ge=1)
+    vlan_slug: str | None = Field(None, max_length=128)
     vrf_id: int | None = Field(None, ge=1)
+    vrf_slug: str | None = Field(None, max_length=128)
     overlap_policy: str | None = None
     dual_stack_group_id: int | None = Field(None, ge=1)
+
+    @model_validator(mode="after")
+    def site_ref_present(self) -> Ipv4PrefixEnsure:
+        if self.site_id is None and not (self.site_slug or "").strip():
+            raise ValueError("site_id eller site_slug kreves")
+        return self
 
     @field_validator("cidr")
     @classmethod
@@ -430,7 +440,10 @@ class PrefixAddressGridRead(BaseModel):
 
 
 class Ipv4AddressEnsure(BaseModel):
-    ipv4_prefix_id: int = Field(..., ge=1)
+    ipv4_prefix_id: int | None = Field(None, ge=1)
+    prefix_cidr: str | None = Field(None, max_length=32)
+    site_id: int | None = Field(None, ge=1)
+    site_slug: str | None = Field(None, max_length=64)
     address: str = Field(..., min_length=1, max_length=45)
     mode: str | None = Field(None, description="reserve | assign — overstyrer status hvis satt")
     status: str | None = Field(None, description="planned | reserved | assigned | dhcp | discovered | deprecated")
@@ -469,6 +482,12 @@ class Ipv4AddressEnsure(BaseModel):
     @classmethod
     def role_ok_ens_addr(cls, v: str | None) -> str | None:
         return _role_ok(v, _ADDRESS_ROLES, "role")
+
+    @model_validator(mode="after")
+    def prefix_ref_present(self) -> Ipv4AddressEnsure:
+        if self.ipv4_prefix_id is None and not (self.prefix_cidr or "").strip():
+            raise ValueError("ipv4_prefix_id eller prefix_cidr kreves")
+        return self
 
 
 class Ipv4AddressPatch(BaseModel):
@@ -923,7 +942,10 @@ class Ipv6PrefixAllocate(Ipv4PrefixAllocate):
 
 
 class Ipv6AddressEnsure(BaseModel):
-    ipv6_prefix_id: int = Field(..., ge=1)
+    ipv6_prefix_id: int | None = Field(None, ge=1)
+    prefix_cidr: str | None = Field(None, max_length=64)
+    site_id: int | None = Field(None, ge=1)
+    site_slug: str | None = Field(None, max_length=64)
     address: str = Field(..., min_length=1, max_length=64)
     mode: str | None = None
     status: str | None = None
@@ -949,6 +971,12 @@ class Ipv6AddressEnsure(BaseModel):
     @classmethod
     def role_ok_v6(cls, v: str | None) -> str | None:
         return _role_ok(v, _ADDRESS_ROLES, "role")
+
+    @model_validator(mode="after")
+    def prefix_ref_present_v6(self) -> Ipv6AddressEnsure:
+        if self.ipv6_prefix_id is None and not (self.prefix_cidr or "").strip():
+            raise ValueError("ipv6_prefix_id eller prefix_cidr kreves")
+        return self
 
 
 class Ipv6AddressRequest(BaseModel):

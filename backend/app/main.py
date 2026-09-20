@@ -14,6 +14,7 @@ from app.core.db import SessionLocal
 from app.core.logging import setup_logging
 from app.integrations.registry import registry
 from app.services.auth_admin import ensure_default_admin
+from app.services import federation as fed_svc
 from app.services import ipam_etag as etag_svc
 
 settings = get_settings()
@@ -69,6 +70,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         ensure_default_admin(db)
+        fed_svc.ensure_local_instance(db)
     finally:
         db.close()
 

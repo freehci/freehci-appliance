@@ -18,6 +18,9 @@ def ensure_default_tenant(db: Session) -> int:
     db.add(t)
     db.commit()
     db.refresh(t)
+    from app.services.federation import assign_local_primary
+
+    assign_local_primary(db, t.id)
     return t.id
 
 
@@ -38,6 +41,9 @@ def create_tenant(db: Session, data: TenantCreate) -> Tenant:
         db.rollback()
         raise
     db.refresh(row)
+    from app.services.federation import assign_local_primary
+
+    assign_local_primary(db, row.id)
     return row
 
 

@@ -132,6 +132,15 @@ class Settings(BaseSettings):
         description="Maks antall filer i NetBox Device Type Library ZIP",
     )
 
+    federation_instance_name: str = Field(
+        default="",
+        description="Visningsnavn for denne instansen i federation (tomt = hostname).",
+    )
+    federation_instance_uuid: str | None = Field(
+        default=None,
+        description="Valgfri stabil instans-UUID. Tomt = genereres og lagres i DB.",
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

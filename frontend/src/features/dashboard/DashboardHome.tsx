@@ -7,6 +7,7 @@ import type { DeviceInstance, DeviceModel } from "@/features/dcim/types";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import { prefixUsage } from "@/features/ipam/prefixPageUi";
 import * as netscanApi from "@/features/networkScans/networkScanApi";
+import * as federationApi from "@/features/integrations/federationApi";
 import * as systemApi from "@/features/system/systemApi";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
@@ -68,6 +69,11 @@ export function DashboardHome() {
   const systemQ = useQuery({
     queryKey: ["system", "status"],
     queryFn: systemApi.systemStatus,
+    refetchInterval: 30_000,
+  });
+  const fedQ = useQuery({
+    queryKey: ["federation", "status"],
+    queryFn: federationApi.federationStatus,
     refetchInterval: 30_000,
   });
 
@@ -383,6 +389,26 @@ export function DashboardHome() {
                 {systemQ.data?.updater_available ? t("dashboard.systemAvailable") : t("dashboard.systemUnavailable")}
               </span>
             </div>
+            <div className={styles.statusRow}>
+              <span>{t("dashboard.replicasTitle")}</span>
+              <span>
+                {fedQ.data?.peers.length
+                  ? fedQ.data.peers.map((p) => `${p.name} (${p.status})`).join(", ")
+                  : t("dashboard.replicasNone")}
+              </span>
+            </div>
+            {(fedQ.data?.tenants ?? []).filter((x) => !x.is_primary_here || x.frozen).map((ten) => (
+              <div className={styles.statusRow} key={ten.tenant_id}>
+                <span>{ten.tenant_name}</span>
+                <span className={styles.warn}>
+                  {ten.frozen
+                    ? t("integrations.frozen")
+                    : ten.is_primary_here
+                      ? t("dashboard.replicaPrimary")
+                      : t("dashboard.replicaReadonly")}
+                </span>
+              </div>
+            ))}
           </div>
         </article>
       </section>

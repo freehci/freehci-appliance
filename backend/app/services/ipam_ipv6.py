@@ -274,6 +274,9 @@ def find_by_site_vrf_cidr(db: Session, *, site_id: int, cidr: str, vrf_id: int |
 
 
 def create_ipv6_prefix(db: Session, data: Ipv6PrefixCreate) -> Ipv6PrefixRead:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, data.site_id)
     ipam_svc._validate_prefix_refs(
         db, site_id=data.site_id, tenant_id=data.tenant_id, vlan_id=data.vlan_id, vrf_id=data.vrf_id,
     )
@@ -349,6 +352,12 @@ def _unique_v6_slug(db: Session, *, site_id: int, desired: str, explicit: bool) 
 
 
 def ensure_ipv6_prefix(db: Session, data: Ipv6PrefixEnsure, *, update: bool = False) -> Ipv6PrefixRead:
+    from app.services.ipam_refs import resolve_prefix_ensure
+
+    data = resolve_prefix_ensure(db, data)  # type: ignore[assignment]
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, data.site_id)
     cidr = _normalize_cidr(data.cidr)
     existing = find_by_site_vrf_cidr(db, site_id=data.site_id, cidr=cidr, vrf_id=data.vrf_id)
     if existing is not None:
@@ -455,7 +464,14 @@ def _addr_read(row: IpamIpv6Address, *, created: bool | None = None) -> Ipv6Addr
 
 
 def ensure_ipv6_address(db: Session, data: Ipv6AddressEnsure, *, update: bool = False) -> Ipv6AddressRead:
-    pfx = db.get(IpamIpv6Prefix, data.ipv6_prefix_id)
+    from app.services.ipam_refs import resolve_ipv6_prefix_id
+
+    prefix_id = resolve_ipv6_prefix_id(db, data)
+    pfx = db.get(IpamIpv6Prefix, prefix_id)
+    if pfx is not None:
+        from app.services.federation_guard import require_site_write
+
+        require_site_write(db, pfx.site_id)
     if pfx is None:
         raise ipam_error(404, "prefix_not_found", "prefiks ikke funnet")
     ipam_svc.require_host_allocation(pfx)

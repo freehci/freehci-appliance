@@ -49,6 +49,8 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         if path == f"{api}/auth/login" or path == f"{api}/auth/agent":
             return await call_next(request)
+        if path == f"{api}/federation/hello" or path == f"{api}/federation/accept-peer":
+            return await call_next(request)
         if path in {f"{api}/openapi.json", f"{api}/docs", f"{api}/redoc"} or path.startswith(f"{api}/docs/"):
             return await call_next(request)
         if request.method == "GET" and _is_public_dcim_media_get(path, self.settings.api_v1_prefix):
@@ -90,6 +92,9 @@ class ApiAuthMiddleware(BaseHTTPMiddleware):
             denied = _deny_ipam_scope(request, scopes)
             if denied is not None:
                 return denied
+            denied_fed = _deny_federation_only(request, scopes)
+            if denied_fed is not None:
+                return denied_fed
             return await call_next(request)
 
         try:
@@ -120,5 +125,19 @@ def _deny_ipam_scope(request: Request, scopes: frozenset[str] | None) -> JSONRes
         return None
     return JSONResponse(
         {"detail": {"code": "insufficient_scope", "detail": "API-nøkkelen mangler nødvendig IPAM-scope"}},
+        status_code=403,
+    )
+
+
+def _deny_federation_only(request: Request, scopes: frozenset[str] | None) -> JSONResponse | None:
+    """Nøkler med bare scope=federation skal kun nå /federation/."""
+    if not scopes or "federation" not in scopes:
+        return None
+    if scopes - {"federation"}:
+        return None
+    if "/federation/" in request.url.path:
+        return None
+    return JSONResponse(
+        {"detail": {"code": "insufficient_scope", "detail": "federation-nøkkel kan bare brukes mot /federation/"}},
         status_code=403,
     )

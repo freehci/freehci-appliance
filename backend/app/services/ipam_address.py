@@ -179,7 +179,14 @@ def _parse_ipv4_in_prefix(pfx: IpamIpv4Prefix, address: str) -> ipaddress.IPv4Ad
 
 
 def ensure_ipv4_address(db: Session, data: Ipv4AddressEnsure, *, update: bool = False) -> Ipv4AddressRead:
-    pfx = db.get(IpamIpv4Prefix, data.ipv4_prefix_id)
+    from app.services.ipam_refs import resolve_ipv4_prefix_id
+
+    prefix_id = resolve_ipv4_prefix_id(db, data)
+    pfx = db.get(IpamIpv4Prefix, prefix_id)
+    if pfx is not None:
+        from app.services.federation_guard import require_site_write
+
+        require_site_write(db, pfx.site_id)
     if pfx is None:
         raise ipam_error(404, "prefix_not_found", "prefiks ikke funnet")
     ip = _parse_ipv4_in_prefix(pfx, data.address)

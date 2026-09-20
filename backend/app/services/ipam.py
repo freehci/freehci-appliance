@@ -690,6 +690,9 @@ def find_ipv4_prefix_by_site_vrf_cidr(
 
 
 def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, data.site_id)
     _validate_prefix_refs(
         db,
         site_id=data.site_id,
@@ -786,6 +789,12 @@ def _apply_prefix_ensure_update(db: Session, row: IpamIpv4Prefix, data: Ipv4Pref
 
 
 def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure, *, update: bool = False) -> Ipv4PrefixRead:
+    from app.services.ipam_refs import resolve_prefix_ensure
+
+    data = resolve_prefix_ensure(db, data)  # type: ignore[assignment]
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, data.site_id)
     cidr = _normalize_ipv4_cidr(data.cidr)
     existing = find_ipv4_prefix_by_site_vrf_cidr(db, site_id=data.site_id, cidr=cidr, vrf_id=data.vrf_id)
     if existing is not None:
@@ -835,6 +844,9 @@ def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure, *, update: bool = Fa
 
 
 def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate) -> Ipv4PrefixRead:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise ipam_error(400, "empty_patch", "ingen felter å oppdatere")
@@ -946,6 +958,9 @@ def _prefix_address_count(db: Session, prefix_id: int) -> int:
 
 
 def delete_ipv4_prefix(db: Session, row: IpamIpv4Prefix, *, cascade: bool = False) -> None:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
     _delete_ipv4_prefix_tree(db, row, cascade=cascade)
     db.commit()
 

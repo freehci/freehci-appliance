@@ -330,6 +330,9 @@ def create_site(db: Session, data: SiteCreate) -> Site:
         tid = data.tenant_id
     else:
         tid = tenant_svc.ensure_default_tenant(db)
+    from app.services.federation_guard import require_tenant_write
+
+    require_tenant_write(db, tid)
     row = Site(
         tenant_id=tid,
         name=data.name.strip(),
@@ -356,6 +359,9 @@ def get_site(db: Session, site_id: int) -> Site | None:
 
 
 def update_site(db: Session, site: Site, data: SiteUpdate) -> Site:
+    from app.services.federation_guard import require_tenant_write
+
+    require_tenant_write(db, site.tenant_id)
     if data.tenant_id is not None:
         if tenant_svc.get_tenant(db, data.tenant_id) is None:
             raise HTTPException(status_code=404, detail="tenant ikke funnet")
@@ -388,6 +394,9 @@ def update_site(db: Session, site: Site, data: SiteUpdate) -> Site:
 
 
 def set_site_banner(db: Session, site: Site, content: bytes, mime: str) -> None:
+    from app.services.federation_guard import require_tenant_write
+
+    require_tenant_write(db, site.tenant_id)
     if len(content) > SITE_BANNER_MAX_BYTES:
         raise HTTPException(status_code=413, detail="banner for stort (maks 8 MiB)")
     if mime not in ALLOWED_BANNER_MIME:
@@ -404,6 +413,9 @@ def set_site_banner(db: Session, site: Site, content: bytes, mime: str) -> None:
 
 
 def clear_site_banner(db: Session, site: Site) -> None:
+    from app.services.federation_guard import require_tenant_write
+
+    require_tenant_write(db, site.tenant_id)
     root: Path = get_settings().upload_root_path
     delete_site_banner_files(root, site.id)
     site.banner_relpath = None
@@ -413,6 +425,9 @@ def clear_site_banner(db: Session, site: Site) -> None:
 
 
 def delete_site(db: Session, site: Site) -> None:
+    from app.services.federation_guard import require_tenant_write
+
+    require_tenant_write(db, site.tenant_id)
     root: Path = get_settings().upload_root_path
     delete_site_banner_files(root, site.id)
     db.delete(site)
@@ -563,6 +578,9 @@ def list_rooms(db: Session, *, site_id: int | None = None) -> list[Room]:
 
 
 def create_room(db: Session, data: RoomCreate) -> Room:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, data.site_id)
     if get_site(db, data.site_id) is None:
         from fastapi import HTTPException
 
@@ -586,6 +604,9 @@ def get_room(db: Session, room_id: int) -> Room | None:
 
 
 def update_room(db: Session, room: Room, data: RoomUpdate) -> Room:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, room.site_id)
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
@@ -635,6 +656,9 @@ def clear_room_floorplan(db: Session, room: Room) -> None:
 
 
 def delete_room(db: Session, room: Room) -> None:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, room.site_id)
     root: Path = get_settings().upload_root_path
     delete_room_floorplan_files(root, room.id)
     db.delete(room)
@@ -661,8 +685,12 @@ def list_racks(db: Session, *, room_id: int | None = None) -> list[Rack]:
 
 
 def create_rack(db: Session, data: RackCreate) -> Rack:
-    if get_room(db, data.room_id) is None:
+    room = get_room(db, data.room_id)
+    if room is None:
         raise HTTPException(status_code=404, detail="room ikke funnet")
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, room.site_id)
     if data.tenant_id is not None and tenant_svc.get_tenant(db, data.tenant_id) is None:
         raise HTTPException(status_code=404, detail="tenant ikke funnet")
     row = Rack(
@@ -693,6 +721,11 @@ def get_rack(db: Session, rack_id: int) -> Rack | None:
 
 
 def update_rack(db: Session, rack: Rack, data: RackUpdate) -> Rack:
+    room = get_room(db, rack.room_id)
+    if room is not None:
+        from app.services.federation_guard import require_site_write
+
+        require_site_write(db, room.site_id)
     payload = data.model_dump(exclude_unset=True)
 
     if "name" in payload and payload["name"] is not None:
@@ -762,6 +795,11 @@ def update_rack(db: Session, rack: Rack, data: RackUpdate) -> Rack:
 
 
 def delete_rack(db: Session, rack: Rack) -> None:
+    room = get_room(db, rack.room_id)
+    if room is not None:
+        from app.services.federation_guard import require_site_write
+
+        require_site_write(db, room.site_id)
     db.delete(rack)
     db.commit()
 
@@ -1144,6 +1182,9 @@ def list_devices(db: Session) -> list[DeviceInstanceRead]:
 
 
 def create_device(db: Session, data: DeviceInstanceCreate) -> DeviceInstanceRead:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, data.site_id)
     if data.device_model_id is not None and get_device_model(db, data.device_model_id) is None:
         raise HTTPException(status_code=404, detail="device_model ikke funnet")
     if data.device_type_id is not None and get_device_type(db, data.device_type_id) is None:
@@ -1171,6 +1212,11 @@ def get_device(db: Session, did: int) -> DeviceInstance | None:
 
 
 def update_device(db: Session, row: DeviceInstance, data: DeviceInstanceUpdate) -> DeviceInstanceRead:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
+    if data.site_id is not None:
+        require_site_write(db, data.site_id)
     patch = data.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
@@ -1212,6 +1258,9 @@ def update_device(db: Session, row: DeviceInstance, data: DeviceInstanceUpdate) 
 
 
 def delete_device(db: Session, row: DeviceInstance) -> None:
+    from app.services.federation_guard import require_site_write
+
+    require_site_write(db, row.site_id)
     db.delete(row)
     db.commit()
 
@@ -4128,6 +4177,11 @@ def create_placement(db: Session, data: RackPlacementCreate) -> RackPlacement:
     rack = get_rack(db, data.rack_id)
     if rack is None:
         raise HTTPException(status_code=404, detail="rack ikke funnet")
+    room = get_room(db, rack.room_id)
+    if room is not None:
+        from app.services.federation_guard import require_site_write
+
+        require_site_write(db, room.site_id)
     device = get_device(db, data.device_id)
     if device is None:
         raise HTTPException(status_code=404, detail="device ikke funnet")
