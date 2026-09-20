@@ -12,5 +12,6 @@ import app.models.ipam  # noqa: F401
 import app.models.snmp_catalog  # noqa: F401
 import app.models.network_scan  # noqa: F401
 import app.models.federation  # noqa: F401
+import app.models.integration  # noqa: F401
 
 __all__ = ["Base"]

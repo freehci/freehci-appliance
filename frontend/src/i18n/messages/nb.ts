@@ -1889,6 +1889,21 @@ export const nb = {
   "integrations.title": "Integrasjoner",
   "integrations.intro":
     "Tilkoblinger og utgående webhooks. Plugin-pakker ligger under Utvidelser. Replikaer styres på System.",
+  "integrations.tabs": "Integrasjonsseksjoner",
+  "integrations.tabConnections": "Tilkoblinger",
+  "integrations.tabWebhooks": "Webhooks",
+  "integrations.connectionsHint":
+    "En tilkobling er en instans av en plugin-pakke: URL, hemmelighetsreferanse og mapping. To kilder som ser samme server knyttes sammen; konflikt vises i stedet for en ny enhet.",
+  "integrations.connectionsEmpty": "Ingen tilkoblinger ennå.",
+  "integrations.addConnection": "Ny tilkobling",
+  "integrations.plugin": "Plugin-pakke",
+  "integrations.choosePlugin": "Velg plugin",
+  "integrations.baseUrl": "Base-URL",
+  "integrations.credential": "Hemmelighetsref",
+  "integrations.lastSync": "Siste synk",
+  "integrations.neverSynced": "Ikke synket",
+  "integrations.conflictsTitle": "Identitetskonflikter",
+  "integrations.conflictsHint": "Samme eksterne identitet peker på mer enn én enhet. Ingenting er slått sammen.",
   "extensions.title": "Utvidelser",
   "extensions.intro":
     "Installer valgfrie backend-plugins som ZIP eller fra Git. Hver installasjon må inneholde plugin.py som eksporterer «plugin» (BackendPlugin). Start API-containeren på nytt for å laste inn nye plugins.",

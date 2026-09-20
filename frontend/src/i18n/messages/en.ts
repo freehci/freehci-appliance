@@ -1879,6 +1879,21 @@ export const en = {
   "integrations.title": "Integrations",
   "integrations.intro":
     "Connections and outbound webhooks. Plugin packages live under Extensions. Replicas are managed on System.",
+  "integrations.tabs": "Integration sections",
+  "integrations.tabConnections": "Connections",
+  "integrations.tabWebhooks": "Webhooks",
+  "integrations.connectionsHint":
+    "A connection is an instance of a plugin package: URL, credential reference and mapping. Two sources that see the same server are linked; a clash is shown instead of a second device.",
+  "integrations.connectionsEmpty": "No connections yet.",
+  "integrations.addConnection": "Add connection",
+  "integrations.plugin": "Plugin package",
+  "integrations.choosePlugin": "Choose plugin",
+  "integrations.baseUrl": "Base URL",
+  "integrations.credential": "Credential ref",
+  "integrations.lastSync": "Last sync",
+  "integrations.neverSynced": "Not synced",
+  "integrations.conflictsTitle": "Identity conflicts",
+  "integrations.conflictsHint": "Same external identity points at more than one device. Nothing was merged.",
   "extensions.title": "Extensions",
   "extensions.intro":
     "Install optional backend plugins as a ZIP or from Git. Each installed folder must contain plugin.py exporting plugin (BackendPlugin). Restart the API container to load new plugins.",

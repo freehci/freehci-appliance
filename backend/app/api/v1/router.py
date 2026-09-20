@@ -6,6 +6,7 @@ from app.api.v1.routers import (
     federation,
     health,
     iam,
+    integration_connections,
     ipam,
     network_scan,
     plugin_install,
@@ -28,3 +29,4 @@ api_router.include_router(system_update.router)
 api_router.include_router(network_scan.router)
 api_router.include_router(snmp.router)
 api_router.include_router(federation.router)
+api_router.include_router(integration_connections.router)
