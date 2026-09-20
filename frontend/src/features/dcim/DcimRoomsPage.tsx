@@ -5,6 +5,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { asList, dcimKeys } from "./dcimQuery";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import { DcimRoomLocationFields, optionalId, type RoomLocationValue } from "./DcimRoomLocationFields";
 import styles from "./dcim.module.css";
@@ -24,8 +25,8 @@ export function DcimRoomsPage() {
   const [tab, setTab] = useState("main");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
-  const buildingsQ = useQuery({ queryKey: ["dcim", "buildings"], queryFn: () => api.listBuildings() });
-  const wingsQ = useQuery({ queryKey: ["dcim", "wings"], queryFn: () => api.listWings() });
+  const buildingsQ = useQuery({ queryKey: dcimKeys.buildings(), queryFn: () => api.listBuildings() });
+  const wingsQ = useQuery({ queryKey: dcimKeys.wings(), queryFn: () => api.listWings() });
   const filterNum = useMemo(() => {
     const n = Number(siteFilter);
     return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -38,17 +39,17 @@ export function DcimRoomsPage() {
   }, [sitesQ.data]);
   const buildingsById = useMemo(() => {
     const m = new Map<number, string>();
-    for (const b of buildingsQ.data ?? []) m.set(b.id, b.name);
+    for (const b of asList(buildingsQ.data)) m.set(b.id, b.name);
     return m;
   }, [buildingsQ.data]);
   const wingsById = useMemo(() => {
     const m = new Map<number, string>();
-    for (const w of wingsQ.data ?? []) m.set(w.id, w.name);
+    for (const w of asList(wingsQ.data)) m.set(w.id, w.name);
     return m;
   }, [wingsQ.data]);
 
   const roomsQ = useQuery({
-    queryKey: ["dcim", "rooms", filterNum ?? "all"],
+    queryKey: dcimKeys.rooms(filterNum),
     queryFn: () => api.listRooms(filterNum),
   });
 
@@ -119,8 +120,8 @@ export function DcimRoomsPage() {
             </p>
           ) : null}
           {roomsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
-          {roomsQ.data && roomsQ.data.length === 0 ? <p className={styles.muted}>{t("dcim.rooms.empty")}</p> : null}
-          {roomsQ.data && roomsQ.data.length > 0 ? (
+          {roomsQ.data && asList(roomsQ.data).length === 0 ? <p className={styles.muted}>{t("dcim.rooms.empty")}</p> : null}
+          {asList(roomsQ.data).length > 0 ? (
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -132,7 +133,7 @@ export function DcimRoomsPage() {
                 </tr>
               </thead>
               <tbody>
-                {roomsQ.data.map((r) => (
+                {asList(roomsQ.data).map((r) => (
                   <tr key={r.id}>
                     <td>{sitesById.get(r.site_id) ?? `#${r.site_id}`}</td>
                     <td>{r.building_id != null ? (buildingsById.get(r.building_id) ?? `#${r.building_id}`) : "—"}</td>

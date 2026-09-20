@@ -10,6 +10,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as ipamApi from "@/features/ipam/ipamApi";
 import * as api from "./dcimApi";
+import { asList, dcimKeys } from "./dcimQuery";
 import styles from "./dcim.module.css";
 
 import marker2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -50,7 +51,7 @@ export function DcimSiteDetailPage() {
   const hydrated = useRef(false);
 
   const siteQ = useQuery({
-    queryKey: ["dcim", "sites", siteId],
+    queryKey: dcimKeys.site(siteId),
     queryFn: () => api.getSite(siteId),
     enabled: ok,
   });
@@ -63,12 +64,12 @@ export function DcimSiteDetailPage() {
     enabled: ok,
   });
   const buildingsQ = useQuery({
-    queryKey: ["dcim", "buildings", siteId],
+    queryKey: dcimKeys.buildings(siteId),
     queryFn: () => api.listBuildings(siteId),
     enabled: ok,
   });
   const roomsQ = useQuery({
-    queryKey: ["dcim", "rooms", siteId],
+    queryKey: dcimKeys.rooms(siteId),
     queryFn: () => api.listRooms(siteId),
     enabled: ok,
   });
@@ -98,7 +99,7 @@ export function DcimSiteDetailPage() {
   }, [site]);
 
   const roomsWithoutBuilding = useMemo(
-    () => (roomsQ.data ?? []).filter((r) => r.building_id == null),
+    () => asList(roomsQ.data).filter((r) => r.building_id == null),
     [roomsQ.data],
   );
   const latLon = useMemo(() => {
@@ -494,8 +495,8 @@ export function DcimSiteDetailPage() {
               {t("dcim.buildings.loadError")} {(buildingsQ.error as Error).message}
             </p>
           ) : null}
-          {(buildingsQ.data ?? []).length === 0 ? <p className={styles.muted}>{t("dcim.buildings.empty")}</p> : null}
-          {(buildingsQ.data ?? []).length > 0 ? (
+          {asList(buildingsQ.data).length === 0 ? <p className={styles.muted}>{t("dcim.buildings.empty")}</p> : null}
+          {asList(buildingsQ.data).length > 0 ? (
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -504,7 +505,7 @@ export function DcimSiteDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {(buildingsQ.data ?? []).map((b) => (
+                {asList(buildingsQ.data).map((b) => (
                   <tr key={b.id}>
                     <td>
                       <Link to={`/dcim/sites/${siteId}/buildings/${b.id}`} className={styles.tableLink}>

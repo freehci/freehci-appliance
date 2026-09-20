@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { dcimKeys } from "./dcimQuery";
 import { DcimInnerTabs } from "./DcimInnerTabs";
 import { DcimRoomLocationFields, optionalId, type RoomLocationValue } from "./DcimRoomLocationFields";
 import { RoomAccessSurveillanceSection } from "./roomDemo/RoomAccessSurveillanceSection";
@@ -39,7 +40,7 @@ export function DcimRoomDetailPage() {
   const hydrated = useRef(false);
 
   const roomQ = useQuery({
-    queryKey: ["dcim", "rooms", id],
+    queryKey: dcimKeys.room(id),
     queryFn: () => api.getRoom(id),
     enabled: Number.isFinite(id) && id > 0,
   });

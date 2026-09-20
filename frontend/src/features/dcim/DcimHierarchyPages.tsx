@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
+import { asList, dcimKeys } from "./dcimQuery";
 import type { Room } from "./types";
 import styles from "./dcim.module.css";
 
@@ -21,12 +22,13 @@ function RoomTable({
   rooms,
   empty,
 }: {
-  rooms: Room[] | undefined;
+  rooms: Room[] | Room | undefined;
   empty: string;
 }) {
   const { t } = useI18n();
+  const rows = asList(rooms);
   if (rooms == null) return <p className={styles.muted}>{t("dcim.common.loading")}</p>;
-  if (rooms.length === 0) return <p className={styles.muted}>{empty}</p>;
+  if (rows.length === 0) return <p className={styles.muted}>{empty}</p>;
   return (
     <table className={styles.table}>
       <thead>
@@ -36,7 +38,7 @@ function RoomTable({
         </tr>
       </thead>
       <tbody>
-        {rooms.map((r) => (
+        {rows.map((r) => (
           <tr key={r.id}>
             <td>
               <Link to={`/dcim/rooms/${r.id}`} className={styles.tableLink}>
@@ -71,30 +73,30 @@ export function DcimBuildingDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const ok = Number.isFinite(siteId) && siteId > 0 && Number.isFinite(buildingId) && buildingId > 0;
-  const siteQ = useQuery({ queryKey: ["dcim", "sites", siteId], queryFn: () => api.getSite(siteId), enabled: ok });
+  const siteQ = useQuery({ queryKey: dcimKeys.site(siteId), queryFn: () => api.getSite(siteId), enabled: ok });
   const buildingQ = useQuery({
-    queryKey: ["dcim", "buildings", buildingId],
+    queryKey: dcimKeys.building(buildingId),
     queryFn: () => api.getBuilding(buildingId),
     enabled: ok,
   });
   const wingsQ = useQuery({
-    queryKey: ["dcim", "wings", buildingId],
+    queryKey: dcimKeys.wings(buildingId),
     queryFn: () => api.listWings(buildingId),
     enabled: ok,
   });
   const floorsQ = useQuery({
-    queryKey: ["dcim", "floors", buildingId],
+    queryKey: dcimKeys.floors({ buildingId }),
     queryFn: () => api.listFloors({ buildingId }),
     enabled: ok,
   });
   const roomsQ = useQuery({
-    queryKey: ["dcim", "rooms", "building", buildingId],
+    queryKey: dcimKeys.roomsByBuilding(buildingId),
     queryFn: () => api.listRooms(undefined, { buildingId }),
     enabled: ok,
   });
 
   const roomsWithoutFloor = useMemo(
-    () => (roomsQ.data ?? []).filter((r) => r.floor_id == null),
+    () => asList(roomsQ.data).filter((r) => r.floor_id == null),
     [roomsQ.data],
   );
 
@@ -208,8 +210,8 @@ export function DcimBuildingDetailPage() {
               {createWing.isPending ? t("dcim.common.creating") : t("dcim.wings.create")}
             </button>
           </form>
-          {(wingsQ.data ?? []).length === 0 ? <p className={styles.muted}>{t("dcim.wings.empty")}</p> : null}
-          {(wingsQ.data ?? []).length > 0 ? (
+          {asList(wingsQ.data).length === 0 ? <p className={styles.muted}>{t("dcim.wings.empty")}</p> : null}
+          {asList(wingsQ.data).length > 0 ? (
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -218,7 +220,7 @@ export function DcimBuildingDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {(wingsQ.data ?? []).map((w) => (
+                {asList(wingsQ.data).map((w) => (
                   <tr key={w.id}>
                     <td>
                       <Link
@@ -268,7 +270,7 @@ export function DcimBuildingDetailPage() {
               {t("dcim.floors.optionalWing")}
               <select value={floorWingId} onChange={(e) => setFloorWingId(e.target.value)}>
                 <option value="">{t("dcim.common.skip")}</option>
-                {(wingsQ.data ?? []).map((w) => (
+                {asList(wingsQ.data).map((w) => (
                   <option key={w.id} value={String(w.id)}>
                     {w.name}
                   </option>
@@ -279,8 +281,8 @@ export function DcimBuildingDetailPage() {
               {createFloor.isPending ? t("dcim.common.creating") : t("dcim.floors.create")}
             </button>
           </form>
-          {(floorsQ.data ?? []).length === 0 ? <p className={styles.muted}>{t("dcim.floors.empty")}</p> : null}
-          {(floorsQ.data ?? []).length > 0 ? (
+          {asList(floorsQ.data).length === 0 ? <p className={styles.muted}>{t("dcim.floors.empty")}</p> : null}
+          {asList(floorsQ.data).length > 0 ? (
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -290,7 +292,7 @@ export function DcimBuildingDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {(floorsQ.data ?? []).map((f) => (
+                {asList(floorsQ.data).map((f) => (
                   <tr key={f.id}>
                     <td>{f.level}</td>
                     <td>
@@ -301,7 +303,7 @@ export function DcimBuildingDetailPage() {
                         {f.name}
                       </Link>
                     </td>
-                    <td>{(wingsQ.data ?? []).find((w) => w.id === f.wing_id)?.name ?? "—"}</td>
+                    <td>{asList(wingsQ.data).find((w) => w.id === f.wing_id)?.name ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -361,25 +363,25 @@ export function DcimWingDetailPage() {
     Number.isFinite(wingId) &&
     wingId > 0;
 
-  const siteQ = useQuery({ queryKey: ["dcim", "sites", siteId], queryFn: () => api.getSite(siteId), enabled: ok });
+  const siteQ = useQuery({ queryKey: dcimKeys.site(siteId), queryFn: () => api.getSite(siteId), enabled: ok });
   const buildingQ = useQuery({
-    queryKey: ["dcim", "buildings", buildingId],
+    queryKey: dcimKeys.building(buildingId),
     queryFn: () => api.getBuilding(buildingId),
     enabled: ok,
   });
-  const wingQ = useQuery({ queryKey: ["dcim", "wings", wingId], queryFn: () => api.getWing(wingId), enabled: ok });
+  const wingQ = useQuery({ queryKey: dcimKeys.wing(wingId), queryFn: () => api.getWing(wingId), enabled: ok });
   const floorsQ = useQuery({
-    queryKey: ["dcim", "floors", buildingId, "wing", wingId],
+    queryKey: dcimKeys.floors({ buildingId, wingId }),
     queryFn: () => api.listFloors({ buildingId, wingId }),
     enabled: ok,
   });
   const roomsQ = useQuery({
-    queryKey: ["dcim", "rooms", "wing", wingId],
+    queryKey: dcimKeys.roomsByWing(wingId),
     queryFn: () => api.listRooms(undefined, { wingId }),
     enabled: ok,
   });
   const roomsWithoutFloor = useMemo(
-    () => (roomsQ.data ?? []).filter((r) => r.floor_id == null),
+    () => asList(roomsQ.data).filter((r) => r.floor_id == null),
     [roomsQ.data],
   );
 
@@ -482,8 +484,8 @@ export function DcimWingDetailPage() {
               {createFloor.isPending ? t("dcim.common.creating") : t("dcim.floors.create")}
             </button>
           </form>
-          {(floorsQ.data ?? []).length === 0 ? <p className={styles.muted}>{t("dcim.floors.empty")}</p> : null}
-          {(floorsQ.data ?? []).length > 0 ? (
+          {asList(floorsQ.data).length === 0 ? <p className={styles.muted}>{t("dcim.floors.empty")}</p> : null}
+          {asList(floorsQ.data).length > 0 ? (
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -492,7 +494,7 @@ export function DcimWingDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {(floorsQ.data ?? []).map((f) => (
+                {asList(floorsQ.data).map((f) => (
                   <tr key={f.id}>
                     <td>{f.level}</td>
                     <td>
@@ -558,15 +560,15 @@ export function DcimFloorDetailPage() {
     Number.isFinite(floorId) &&
     floorId > 0;
 
-  const siteQ = useQuery({ queryKey: ["dcim", "sites", siteId], queryFn: () => api.getSite(siteId), enabled: ok });
+  const siteQ = useQuery({ queryKey: dcimKeys.site(siteId), queryFn: () => api.getSite(siteId), enabled: ok });
   const buildingQ = useQuery({
-    queryKey: ["dcim", "buildings", buildingId],
+    queryKey: dcimKeys.building(buildingId),
     queryFn: () => api.getBuilding(buildingId),
     enabled: ok,
   });
-  const floorQ = useQuery({ queryKey: ["dcim", "floors", floorId], queryFn: () => api.getFloor(floorId), enabled: ok });
+  const floorQ = useQuery({ queryKey: dcimKeys.floor(floorId), queryFn: () => api.getFloor(floorId), enabled: ok });
   const roomsQ = useQuery({
-    queryKey: ["dcim", "rooms", "floor", floorId],
+    queryKey: dcimKeys.roomsByFloor(floorId),
     queryFn: () => api.listRooms(undefined, { floorId }),
     enabled: ok,
   });

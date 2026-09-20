@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n/I18nProvider";
 import * as api from "./dcimApi";
+import { asList, dcimKeys } from "./dcimQuery";
 
 export type RoomLocationValue = {
   siteId: string;
@@ -22,23 +23,25 @@ export function DcimRoomLocationFields({ value, onChange, requireSite = true }: 
   const siteNum = Number(value.siteId);
   const buildingNum = Number(value.buildingId);
   const buildingsQ = useQuery({
-    queryKey: ["dcim", "buildings", siteNum || "none"],
+    queryKey: dcimKeys.buildings(Number.isFinite(siteNum) && siteNum > 0 ? siteNum : undefined),
     queryFn: () => api.listBuildings(siteNum),
     enabled: Number.isFinite(siteNum) && siteNum > 0,
   });
   const wingsQ = useQuery({
-    queryKey: ["dcim", "wings", buildingNum || "none"],
+    queryKey: dcimKeys.wings(Number.isFinite(buildingNum) && buildingNum > 0 ? buildingNum : undefined),
     queryFn: () => api.listWings(buildingNum),
     enabled: Number.isFinite(buildingNum) && buildingNum > 0,
   });
   const floorsQ = useQuery({
-    queryKey: ["dcim", "floors", buildingNum || "none"],
+    queryKey: dcimKeys.floors(
+      Number.isFinite(buildingNum) && buildingNum > 0 ? { buildingId: buildingNum } : undefined,
+    ),
     queryFn: () => api.listFloors({ buildingId: buildingNum }),
     enabled: Number.isFinite(buildingNum) && buildingNum > 0,
   });
 
   const floors = useMemo(() => {
-    const all = floorsQ.data ?? [];
+    const all = asList(floorsQ.data);
     if (value.wingId === "") return all;
     const wid = Number(value.wingId);
     return all.filter((f) => f.wing_id === wid);
@@ -73,7 +76,7 @@ export function DcimRoomLocationFields({ value, onChange, requireSite = true }: 
           }
         >
           <option value="">{t("dcim.common.skip")}</option>
-          {(buildingsQ.data ?? []).map((b) => (
+          {asList(buildingsQ.data).map((b) => (
             <option key={b.id} value={String(b.id)}>
               {b.name}
             </option>
@@ -88,7 +91,7 @@ export function DcimRoomLocationFields({ value, onChange, requireSite = true }: 
           onChange={(e) => onChange({ ...value, wingId: e.target.value, floorId: "" })}
         >
           <option value="">{t("dcim.common.skip")}</option>
-          {(wingsQ.data ?? []).map((w) => (
+          {asList(wingsQ.data).map((w) => (
             <option key={w.id} value={String(w.id)}>
               {w.name}
             </option>
