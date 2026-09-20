@@ -16,6 +16,9 @@ export function PlatformClustersPage() {
   const [kind, setKind] = useState<api.ClusterKind>("other");
   const [memberCluster, setMemberCluster] = useState("");
   const [memberDevice, setMemberDevice] = useState("");
+  const [vmCluster, setVmCluster] = useState("");
+  const [vmName, setVmName] = useState("");
+  const [vmDevice, setVmDevice] = useState("");
 
   const clQ = useQuery({ queryKey: ["platform-clusters"], queryFn: api.listClusters });
   const devQ = useQuery({ queryKey: ["dcim-devices"], queryFn: listDevices });
@@ -37,6 +40,20 @@ export function PlatformClustersPage() {
     onSuccess: () => {
       setErr(null);
       setMemberDevice("");
+      void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
+    },
+    onError: fail,
+  });
+  const vmM = useMutation({
+    mutationFn: () =>
+      api.createVm(Number(vmCluster), {
+        name: vmName.trim(),
+        device_id: vmDevice ? Number(vmDevice) : null,
+        status: "active",
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setVmName("");
       void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
     },
     onError: fail,
@@ -92,6 +109,18 @@ export function PlatformClustersPage() {
                 ))}
               </ul>
             ) : null}
+            <p className={dcimStyles.muted}>{t("platform.vms")}</p>
+            {(c.vms ?? []).length === 0 ? <p className={dcimStyles.muted}>{t("platform.noVms")}</p> : null}
+            {(c.vms ?? []).length > 0 ? (
+              <ul className={dcimStyles.ipList}>
+                {(c.vms ?? []).map((v) => (
+                  <li key={v.id}>
+                    {v.name} — {v.status}
+                    {v.device_id != null ? ` → ${devices.get(v.device_id) ?? `#${v.device_id}`}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
         ))}
         {(clQ.data ?? []).length > 0 ? (
@@ -126,6 +155,45 @@ export function PlatformClustersPage() {
             </label>
             <button type="submit" className={dcimStyles.btn} disabled={addM.isPending || !memberCluster || !memberDevice}>
               {t("platform.addMember")}
+            </button>
+          </form>
+        ) : null}
+        {(clQ.data ?? []).length > 0 ? (
+          <form
+            className={dcimStyles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (vmCluster && vmName.trim()) vmM.mutate();
+            }}
+          >
+            <label>
+              {t("platform.cluster")}
+              <select value={vmCluster} onChange={(e) => setVmCluster(e.target.value)}>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("platform.vmName")}
+              <input value={vmName} onChange={(e) => setVmName(e.target.value)} />
+            </label>
+            <label>
+              {t("platform.vmHost")}
+              <select value={vmDevice} onChange={(e) => setVmDevice(e.target.value)}>
+                <option value="">{t("dcim.common.none")}</option>
+                {(devQ.data ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className={dcimStyles.btn} disabled={vmM.isPending || !vmCluster || !vmName.trim()}>
+              {t("platform.addVm")}
             </button>
           </form>
         ) : null}

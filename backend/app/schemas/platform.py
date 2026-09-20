@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 CLUSTER_KINDS = frozenset({"proxmox", "talos", "other"})
 MEMBER_ROLES = frozenset({"node", "control", "worker", "other"})
+VM_STATUSES = frozenset({"planned", "active", "retired"})
 
 
 class PlatformClusterCreate(BaseModel):
@@ -49,6 +50,33 @@ class PlatformClusterMemberRead(BaseModel):
     created_at: dt.datetime
 
 
+class PlatformVirtualMachineCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    device_id: int | None = Field(None, ge=1)
+    status: str = "planned"
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "planned"
+        if s not in VM_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(VM_STATUSES))}")
+        return s
+
+
+class PlatformVirtualMachineRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    cluster_id: int
+    device_id: int | None
+    status: str
+    created_at: dt.datetime
+
+
 class PlatformClusterRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -60,3 +88,4 @@ class PlatformClusterRead(BaseModel):
     description: str | None
     created_at: dt.datetime
     members: list[PlatformClusterMemberRead] = Field(default_factory=list)
+    vms: list[PlatformVirtualMachineRead] = Field(default_factory=list)

@@ -51,7 +51,10 @@ class ServiceDeployment(Base):
         ForeignKey("catalog_service_template_versions.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    device_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_instances.id", ondelete="RESTRICT"), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     ipv4_prefix_id: Mapped[int | None] = mapped_column(
         ForeignKey("ipam_ipv4_prefixes.id", ondelete="SET NULL"),
         nullable=True,
@@ -63,6 +66,10 @@ class ServiceDeployment(Base):
     finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cluster_id: Mapped[int | None] = mapped_column(
         ForeignKey("platform_clusters.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    vm_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_virtual_machines.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -104,13 +111,20 @@ class ServiceInstance(Base):
         ForeignKey("catalog_service_deployments.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    device_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_instances.id", ondelete="RESTRICT"), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     ipv4_address_id: Mapped[int | None] = mapped_column(
         ForeignKey("ipam_ipv4_addresses.id", ondelete="SET NULL"),
         nullable=True,
     )
     cluster_id: Mapped[int | None] = mapped_column(
         ForeignKey("platform_clusters.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    vm_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_virtual_machines.id", ondelete="SET NULL"),
         nullable=True,
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")

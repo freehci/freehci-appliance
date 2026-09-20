@@ -6,6 +6,7 @@ import { listDevices } from "@/features/dcim/dcimApi";
 import { DcimInnerTabs } from "@/features/dcim/DcimInnerTabs";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { listIpv4Prefixes } from "@/features/ipam/ipamApi";
+import { listClusters } from "@/features/platform/platformApi";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as api from "./catalogApi";
@@ -34,6 +35,7 @@ export function ServiceCatalogPage() {
   const [deviceIds, setDeviceIds] = useState<number[]>([]);
   const [clusterName, setClusterName] = useState("");
   const [clusterKind, setClusterKind] = useState("other");
+  const [targetClusterId, setTargetClusterId] = useState("");
   const [prefixId, setPrefixId] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -42,6 +44,7 @@ export function ServiceCatalogPage() {
   const instQ = useQuery({ queryKey: ["service-instances"], queryFn: api.listInstances });
   const devQ = useQuery({ queryKey: ["dcim-devices"], queryFn: listDevices });
   const pfxQ = useQuery({ queryKey: ["ipam-ipv4-prefixes"], queryFn: () => listIpv4Prefixes() });
+  const clQ = useQuery({ queryKey: ["platform-clusters"], queryFn: listClusters });
 
   const versions = useMemo(
     () => (tmplQ.data ?? []).flatMap((tmpl) => tmpl.versions.map((v) => ({ tmpl, v }))),
@@ -50,13 +53,14 @@ export function ServiceCatalogPage() {
   const selected = (depQ.data ?? []).find((d) => d.id === selectedId) ?? null;
   const selectedVersion = versions.find(({ v }) => String(v.id) === versionId);
   const isCluster = selectedVersion?.v.spec.kind === "cluster";
+  const isVm = selectedVersion?.v.spec.kind === "virtual_machine";
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
 
   const createTmpl = useMutation({
     mutationFn: () =>
       api.createTemplate({
         name: name.trim(),
-        spec: { kind, reserve_ipv4: kind === "cluster" ? false : reserve },
+        spec: { kind, reserve_ipv4: kind === "device_instance" ? reserve : false },
       }),
     onSuccess: () => {
       setErr(null);
@@ -68,18 +72,25 @@ export function ServiceCatalogPage() {
 
   const planM = useMutation({
     mutationFn: () =>
-      isCluster
+      isVm
         ? api.createDeployment({
             template_version_id: Number(versionId),
-            device_ids: deviceIds,
+            cluster_id: Number(targetClusterId),
+            device_id: deviceId ? Number(deviceId) : null,
             name: clusterName.trim(),
-            cluster_kind: clusterKind,
           })
-        : api.createDeployment({
-            template_version_id: Number(versionId),
-            device_id: Number(deviceId),
-            ipv4_prefix_id: prefixId ? Number(prefixId) : null,
-          }),
+        : isCluster
+          ? api.createDeployment({
+              template_version_id: Number(versionId),
+              device_ids: deviceIds,
+              name: clusterName.trim(),
+              cluster_kind: clusterKind,
+            })
+          : api.createDeployment({
+              template_version_id: Number(versionId),
+              device_id: Number(deviceId),
+              ipv4_prefix_id: prefixId ? Number(prefixId) : null,
+            }),
     onSuccess: (row) => {
       setErr(null);
       setSelectedId(row.id);
@@ -135,6 +146,7 @@ export function ServiceCatalogPage() {
                 <select value={kind} onChange={(e) => setKind(e.target.value as api.ServiceTemplateSpec["kind"])}>
                   <option value="device_instance">{t("catalog.kindDevice")}</option>
                   <option value="cluster">{t("catalog.kindCluster")}</option>
+                  <option value="virtual_machine">{t("catalog.kindVm")}</option>
                 </select>
               </label>
               {kind === "device_instance" ? (
@@ -187,7 +199,12 @@ export function ServiceCatalogPage() {
               className={dcimStyles.formRow}
               onSubmit={(e) => {
                 e.preventDefault();
-                if (versionId && (isCluster ? deviceIds.length > 0 : deviceId)) planM.mutate();
+                if (
+                  versionId &&
+                  (isVm ? targetClusterId && clusterName.trim() : isCluster ? deviceIds.length > 0 : deviceId)
+                ) {
+                  planM.mutate();
+                }
               }}
             >
               <label>
@@ -201,7 +218,36 @@ export function ServiceCatalogPage() {
                   ))}
                 </select>
               </label>
-              {isCluster ? (
+              {isVm ? (
+                <>
+                  <label>
+                    {t("platform.cluster")}
+                    <select value={targetClusterId} onChange={(e) => setTargetClusterId(e.target.value)}>
+                      <option value="">{t("dcim.common.choose")}</option>
+                      {(clQ.data ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t("platform.vmName")}
+                    <input value={clusterName} onChange={(e) => setClusterName(e.target.value)} />
+                  </label>
+                  <label>
+                    {t("platform.vmHost")}
+                    <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+                      <option value="">{t("dcim.common.none")}</option>
+                      {(devQ.data ?? []).map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : isCluster ? (
                 <>
                   <label>
                     {t("platform.cluster")}
@@ -261,7 +307,15 @@ export function ServiceCatalogPage() {
               <button
                 type="submit"
                 className={dcimStyles.btn}
-                disabled={planM.isPending || !versionId || (isCluster ? deviceIds.length === 0 : !deviceId)}
+                disabled={
+                  planM.isPending ||
+                  !versionId ||
+                  (isVm
+                    ? !targetClusterId || !clusterName.trim()
+                    : isCluster
+                      ? deviceIds.length === 0
+                      : !deviceId)
+                }
               >
                 {t("catalog.plan")}
               </button>
@@ -273,11 +327,13 @@ export function ServiceCatalogPage() {
                 </h3>
                 <p>
                   {selected.plan_json.template.name} {selected.plan_json.template.version}
-                  {selected.plan_json.cluster?.name
-                    ? ` → ${selected.plan_json.cluster.name} (${selected.plan_json.cluster.kind})`
-                    : selected.plan_json.device
-                      ? ` → ${selected.plan_json.device.name}`
-                      : ""}
+                  {selected.plan_json.vm?.name
+                    ? ` → ${selected.plan_json.vm.name}`
+                    : selected.plan_json.cluster?.name
+                      ? ` → ${selected.plan_json.cluster.name} (${selected.plan_json.cluster.kind})`
+                      : selected.plan_json.device
+                        ? ` → ${selected.plan_json.device.name}`
+                        : ""}
                 </p>
                 {selected.plan_json.devices && selected.plan_json.devices.length > 0 ? (
                   <p>{selected.plan_json.devices.map((d) => d.name).join(", ")}</p>
@@ -319,6 +375,7 @@ export function ServiceCatalogPage() {
                 {selected.instance ? (
                   <p>
                     {t("catalog.instance")}: {selected.instance.name}
+                    {selected.instance.vm_id != null ? ` (VM #${selected.instance.vm_id})` : ""}
                     {selected.instance.cluster_id != null ? ` (cluster #${selected.instance.cluster_id})` : ""}
                     {selected.instance.ipv4_address_id != null
                       ? ` (IPv4 #${selected.instance.ipv4_address_id})`

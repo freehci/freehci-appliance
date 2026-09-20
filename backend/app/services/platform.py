@@ -1,4 +1,4 @@
-"""Ærlig cluster-inventar — uten observert helsestatus eller VM-liste."""
+"""Ærlig cluster- og VM-inventar — uten observert helse eller kapasitet."""
 
 from __future__ import annotations
 
@@ -9,12 +9,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.platform import PlatformCluster, PlatformClusterMember
+from app.models.platform import PlatformCluster, PlatformClusterMember, PlatformVirtualMachine
 from app.schemas.platform import (
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
     PlatformClusterMemberRead,
     PlatformClusterRead,
+    PlatformVirtualMachineCreate,
+    PlatformVirtualMachineRead,
 )
 from app.services import dcim as dcim_svc
 
@@ -34,13 +36,14 @@ def cluster_to_read(row: PlatformCluster) -> PlatformClusterRead:
         description=row.description,
         created_at=row.created_at,
         members=[PlatformClusterMemberRead.model_validate(m) for m in row.members],
+        vms=[PlatformVirtualMachineRead.model_validate(v) for v in row.vms],
     )
 
 
 def _load(db: Session, cluster_id: int) -> PlatformCluster | None:
     return db.execute(
         select(PlatformCluster)
-        .options(selectinload(PlatformCluster.members))
+        .options(selectinload(PlatformCluster.members), selectinload(PlatformCluster.vms))
         .where(PlatformCluster.id == cluster_id)
     ).scalar_one_or_none()
 
@@ -49,7 +52,7 @@ def list_clusters(db: Session) -> list[PlatformCluster]:
     return list(
         db.execute(
             select(PlatformCluster)
-            .options(selectinload(PlatformCluster.members))
+            .options(selectinload(PlatformCluster.members), selectinload(PlatformCluster.vms))
             .order_by(PlatformCluster.name)
         ).scalars().all()
     )
@@ -119,6 +122,64 @@ def remove_member(db: Session, cluster: PlatformCluster, member_id: int) -> None
     row = db.get(PlatformClusterMember, member_id)
     if row is None or row.cluster_id != cluster.id:
         raise HTTPException(status_code=404, detail="medlem ikke funnet")
+    db.delete(row)
+    db.commit()
+
+
+def device_is_member(db: Session, cluster_id: int, device_id: int) -> bool:
+    return (
+        db.execute(
+            select(PlatformClusterMember.id).where(
+                PlatformClusterMember.cluster_id == cluster_id,
+                PlatformClusterMember.device_id == device_id,
+            )
+        ).scalar_one_or_none()
+        is not None
+    )
+
+
+def get_vm(db: Session, vm_id: int) -> PlatformVirtualMachine | None:
+    return db.get(PlatformVirtualMachine, vm_id)
+
+
+def get_vm_by_slug(db: Session, slug: str) -> PlatformVirtualMachine | None:
+    return db.execute(select(PlatformVirtualMachine).where(PlatformVirtualMachine.slug == slug)).scalar_one_or_none()
+
+
+def vm_to_read(row: PlatformVirtualMachine) -> PlatformVirtualMachineRead:
+    return PlatformVirtualMachineRead.model_validate(row)
+
+
+def create_vm(db: Session, cluster: PlatformCluster, data: PlatformVirtualMachineCreate) -> PlatformVirtualMachine:
+    slug = _slugify(data.slug or data.name)
+    if get_vm_by_slug(db, slug) is not None:
+        raise HTTPException(status_code=409, detail="vm-slug finnes allerede")
+    if data.device_id is not None:
+        if dcim_svc.get_device(db, data.device_id) is None:
+            raise HTTPException(status_code=404, detail="enhet ikke funnet")
+        if not device_is_member(db, cluster.id, data.device_id):
+            raise HTTPException(status_code=400, detail="enheten er ikke medlem av clusteret")
+    row = PlatformVirtualMachine(
+        name=data.name.strip(),
+        slug=slug,
+        cluster_id=cluster.id,
+        device_id=data.device_id,
+        status=data.status,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="vm-slug finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def delete_vm(db: Session, cluster: PlatformCluster, vm_id: int) -> None:
+    row = db.get(PlatformVirtualMachine, vm_id)
+    if row is None or row.cluster_id != cluster.id:
+        raise HTTPException(status_code=404, detail="vm ikke funnet")
     db.delete(row)
     db.commit()
 

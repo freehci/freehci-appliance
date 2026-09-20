@@ -2011,7 +2011,7 @@ export const en = {
 
   "catalog.title": "Service catalog",
   "catalog.intro":
-    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance or cluster membership. They do not install an OS or hypervisor.",
+    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership or VM. They do not install an OS or create a guest.",
   "catalog.tabs": "Catalog sections",
   "catalog.tabTemplates": "Templates",
   "catalog.tabDeploy": "Deploy",
@@ -2038,11 +2038,12 @@ export const en = {
   "catalog.kind": "Kind",
   "catalog.kindDevice": "Device instance",
   "catalog.kindCluster": "Cluster membership",
+  "catalog.kindVm": "Virtual machine",
   "catalog.devices": "Devices",
 
   "platform.title": "Clusters",
   "platform.intro":
-    "Inventory of clusters and which existing devices belong to them. Kind is declared by hand. No VM list, datastore capacity or observed health is invented.",
+    "Inventory of clusters, members and registered VMs. Kind and VM status are declared by hand. No datastore capacity or observed power state is invented.",
   "platform.empty": "No clusters yet.",
   "platform.addCluster": "Add cluster",
   "platform.kind": "Kind",
@@ -2050,6 +2051,11 @@ export const en = {
   "platform.cluster": "Cluster",
   "platform.noMembers": "No members yet.",
   "platform.addMember": "Add member",
+  "platform.vms": "Virtual machines",
+  "platform.noVms": "No VMs registered.",
+  "platform.vmName": "VM name",
+  "platform.vmHost": "Host device (optional)",
+  "platform.addVm": "Register VM",
 } as const;
 
 export type MessageKey = keyof typeof en;

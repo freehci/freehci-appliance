@@ -12,6 +12,16 @@ export type PlatformClusterMember = {
   created_at: string;
 };
 
+export type PlatformVirtualMachine = {
+  id: number;
+  name: string;
+  slug: string;
+  cluster_id: number;
+  device_id: number | null;
+  status: string;
+  created_at: string;
+};
+
 export type PlatformCluster = {
   id: number;
   name: string;
@@ -21,6 +31,7 @@ export type PlatformCluster = {
   description: string | null;
   created_at: string;
   members: PlatformClusterMember[];
+  vms: PlatformVirtualMachine[];
 };
 
 export function listClusters(): Promise<PlatformCluster[]> {
@@ -45,4 +56,11 @@ export function addClusterMember(
 
 export function deleteCluster(id: number): Promise<void> {
   return apiDelete(`${P}/${id}`);
+}
+
+export function createVm(
+  clusterId: number,
+  body: { name: string; slug?: string | null; device_id?: number | null; status?: string },
+): Promise<PlatformVirtualMachine> {
+  return apiPost(`${P}/${clusterId}/vms`, body);
 }

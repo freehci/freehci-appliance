@@ -31,7 +31,12 @@ from app.schemas.catalog import (
     ServiceTemplateVersionRead,
 )
 from app.schemas.ipam import Ipv4AddressRequest
-from app.schemas.platform import CLUSTER_KINDS, PlatformClusterCreate, PlatformClusterMemberCreate
+from app.schemas.platform import (
+    CLUSTER_KINDS,
+    PlatformClusterCreate,
+    PlatformClusterMemberCreate,
+    PlatformVirtualMachineCreate,
+)
 from app.services import dcim as dcim_svc
 from app.services import ipam as ipam_svc
 from app.services import platform as plat_svc
@@ -80,6 +85,7 @@ def deployment_to_read(db: Session, row: ServiceDeployment) -> ServiceDeployment
         template_version_id=row.template_version_id,
         device_id=row.device_id,
         cluster_id=row.cluster_id,
+        vm_id=row.vm_id,
         ipv4_prefix_id=row.ipv4_prefix_id,
         status=row.status,
         plan_json=row.plan_json,
@@ -305,6 +311,90 @@ def build_cluster_plan(
     }
 
 
+def build_vm_plan(
+    db: Session,
+    version: ServiceTemplateVersion,
+    cluster_id: int | None,
+    name: str | None,
+    device_id: int | None,
+    prefix_id: int | None,
+) -> dict:
+    template = db.get(ServiceTemplate, version.template_id)
+    spec = version.spec if isinstance(version.spec, dict) else {}
+    reserve = bool(spec.get("reserve_ipv4"))
+    blockers: list[str] = []
+    vm_name = (name or "").strip()
+    if not vm_name:
+        blockers.append("vm_name_required")
+    cluster = plat_svc.get_cluster(db, cluster_id) if cluster_id else None
+    if cluster is None:
+        blockers.append("cluster_required" if not cluster_id else "cluster_not_found")
+    device_info: dict | None = None
+    if device_id is not None:
+        device = dcim_svc.get_device(db, device_id)
+        if device is None:
+            blockers.append("device_not_found")
+        elif cluster is not None and not plat_svc.device_is_member(db, cluster.id, device.id):
+            blockers.append("device_not_member")
+        elif device is not None:
+            device_info = {
+                "id": device.id,
+                "name": device.name,
+                "site_id": dcim_svc.device_effective_site_id(db, device.id),
+            }
+    slug = _slugify(vm_name) if vm_name else None
+    if slug and plat_svc.get_vm_by_slug(db, slug) is not None:
+        blockers.append("vm_slug_taken")
+    prefix_info: dict | None = None
+    site_id = device_info["site_id"] if device_info else (cluster.site_id if cluster else None)
+    if reserve:
+        if prefix_id is None:
+            blockers.append("prefix_required")
+        else:
+            pfx = db.get(IpamIpv4Prefix, prefix_id)
+            if pfx is None:
+                blockers.append("prefix_not_found")
+            else:
+                read = ipam_svc.ipv4_prefix_read(db, pfx)
+                prefix_info = {
+                    "id": pfx.id,
+                    "cidr": pfx.cidr,
+                    "name": pfx.name,
+                    "site_id": pfx.site_id,
+                    "used_count": read.used_count,
+                    "usable_hosts": read.usable_hosts,
+                }
+                if site_id is not None and int(site_id) != int(pfx.site_id):
+                    blockers.append("prefix_site_mismatch")
+                if read.usable_hosts <= read.used_count:
+                    blockers.append("prefix_exhausted")
+    return {
+        "kind": "virtual_machine",
+        "template": {
+            "id": template.id if template else version.template_id,
+            "name": template.name if template else None,
+            "version": version.version,
+        },
+        "cluster": (
+            {"id": cluster.id, "name": cluster.name, "kind": cluster.kind, "slug": cluster.slug}
+            if cluster is not None
+            else None
+        ),
+        "vm": {"name": vm_name or None, "slug": slug},
+        "device": device_info,
+        "requested_name": vm_name or None,
+        "cluster_id": cluster.id if cluster is not None else cluster_id,
+        "reserve_ipv4": reserve,
+        "prefix": prefix_info,
+        "blockers": list(dict.fromkeys(blockers)),
+        "can_run": len(blockers) == 0,
+        "notes": [
+            "Registrerer en VM på et eksisterende cluster.",
+            "Oppretter eller starter ikke en virtuell maskin.",
+        ],
+    }
+
+
 def list_deployments(db: Session) -> list[ServiceDeployment]:
     return list(
         db.execute(
@@ -343,6 +433,21 @@ def create_deployment(db: Session, data: ServiceDeploymentCreate) -> ServiceDepl
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
     ids = _device_ids_from(data)
+    if spec.get("kind") == "virtual_machine":
+        plan = build_vm_plan(db, version, data.cluster_id, data.name, data.device_id, data.ipv4_prefix_id)
+        row = ServiceDeployment(
+            template_version_id=version.id,
+            device_id=data.device_id,
+            cluster_id=data.cluster_id,
+            ipv4_prefix_id=data.ipv4_prefix_id,
+            status="planned",
+            plan_json=plan,
+        )
+        db.add(row)
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
     if spec.get("kind") == "cluster":
         plan = build_cluster_plan(db, version, ids, data.name, data.cluster_kind)
         if not ids:
@@ -476,6 +581,127 @@ def _run_cluster(db: Session, row: ServiceDeployment, version: ServiceTemplateVe
     return loaded
 
 
+def _run_vm(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion) -> ServiceDeployment:
+    prev = row.plan_json if isinstance(row.plan_json, dict) else {}
+    plan = build_vm_plan(
+        db,
+        version,
+        row.cluster_id or prev.get("cluster_id"),
+        prev.get("requested_name"),
+        row.device_id,
+        row.ipv4_prefix_id,
+    )
+    row.plan_json = plan
+    if not plan["can_run"]:
+        db.commit()
+        raise HTTPException(status_code=400, detail={"code": "cannot_run", "blockers": plan["blockers"]})
+
+    row.status = "running"
+    row.started_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+
+    cluster = plat_svc.get_cluster(db, row.cluster_id)
+    assert cluster is not None
+    _add_step(db, row, "validate_cluster", "ok", cluster.name)
+    db.commit()
+
+    try:
+        vm = plat_svc.create_vm(
+            db,
+            cluster,
+            PlatformVirtualMachineCreate(
+                name=plan["vm"]["name"],
+                slug=plan["vm"]["slug"],
+                device_id=row.device_id,
+                status="active",
+            ),
+        )
+        row.vm_id = vm.id
+        _add_step(db, row, "record_vm", "ok", f"{vm.name} #{vm.id}")
+        db.commit()
+    except HTTPException as exc:
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_vm", "failed", _exc_detail(exc))
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    address_id: int | None = None
+    spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("reserve_ipv4"):
+        if row.ipv4_prefix_id is None:
+            row.status = "failed"
+            row.finished_at = dt.datetime.now(dt.timezone.utc)
+            _add_step(db, row, "reserve_ipv4", "failed", "prefix_required")
+            db.commit()
+            loaded = get_deployment(db, row.id)
+            assert loaded is not None
+            return loaded
+        try:
+            addr = request_ipv4_address(
+                db,
+                Ipv4AddressRequest(
+                    ipv4_prefix_id=row.ipv4_prefix_id,
+                    mode="reserve",
+                    device_id=row.device_id,
+                    note=f"service catalog vm deployment {row.id}",
+                ),
+            )
+            address_id = addr.id
+            _add_step(db, row, "reserve_ipv4", "ok", addr.address)
+            db.commit()
+        except HTTPException as exc:
+            row.status = "failed"
+            row.finished_at = dt.datetime.now(dt.timezone.utc)
+            _add_step(db, row, "reserve_ipv4", "failed", _exc_detail(exc))
+            db.commit()
+            loaded = get_deployment(db, row.id)
+            assert loaded is not None
+            return loaded
+    else:
+        _add_step(db, row, "reserve_ipv4", "skipped", "malen ber ikke om IPv4-reservasjon")
+        db.commit()
+
+    template = db.get(ServiceTemplate, version.template_id)
+    name = plan["vm"]["name"]
+    slug = _slugify(f"{template.slug if template else 'svc'}-vm-{row.id}")
+    inst = ServiceInstance(
+        name=name[:255],
+        slug=slug,
+        template_version_id=version.id,
+        deployment_id=row.id,
+        device_id=row.device_id,
+        cluster_id=row.cluster_id,
+        vm_id=row.vm_id,
+        ipv4_address_id=address_id,
+        status="active",
+    )
+    db.add(inst)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        row = get_deployment(db, row.id)
+        assert row is not None
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_instance", "failed", "instans-slug finnes allerede")
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    _add_step(db, row, "record_instance", "ok", f"instans #{inst.id}")
+    row.status = "succeeded"
+    row.finished_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+    loaded = get_deployment(db, row.id)
+    assert loaded is not None
+    return loaded
+
+
 def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if row.status != "planned":
         raise HTTPException(status_code=409, detail="deployment er allerede kjørt")
@@ -483,6 +709,8 @@ def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if version is None:
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("kind") == "virtual_machine":
+        return _run_vm(db, row, version)
     if spec.get("kind") == "cluster":
         return _run_cluster(db, row, version)
     device = dcim_svc.get_device(db, row.device_id)

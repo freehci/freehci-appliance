@@ -2021,7 +2021,7 @@ export const nb = {
 
   "catalog.title": "Servicekatalog",
   "catalog.intro":
-    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans eller clustermedlemskap. De installerer ikke OS eller hypervisor.",
+    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans, clustermedlemskap eller VM. De installerer ikke OS og oppretter ikke en gjest.",
   "catalog.tabs": "Katalogseksjoner",
   "catalog.tabTemplates": "Maler",
   "catalog.tabDeploy": "Deploy",
@@ -2048,11 +2048,12 @@ export const nb = {
   "catalog.kind": "Kind",
   "catalog.kindDevice": "Enhetsinstans",
   "catalog.kindCluster": "Clustermedlemskap",
+  "catalog.kindVm": "Virtuell maskin",
   "catalog.devices": "Enheter",
 
   "platform.title": "Clustere",
   "platform.intro":
-    "Inventar over clustere og hvilke eksisterende enheter som hører til. Kind settes manuelt. Ingen VM-liste, datastore-kapasitet eller observert helse finnes opp.",
+    "Inventar over clustere, medlemmer og registrerte VM-er. Kind og VM-status settes manuelt. Ingen datastore-kapasitet eller observert strømtilstand finnes opp.",
   "platform.empty": "Ingen clustere ennå.",
   "platform.addCluster": "Nytt cluster",
   "platform.kind": "Kind",
@@ -2060,4 +2061,9 @@ export const nb = {
   "platform.cluster": "Cluster",
   "platform.noMembers": "Ingen medlemmer ennå.",
   "platform.addMember": "Legg til medlem",
+  "platform.vms": "Virtuelle maskiner",
+  "platform.noVms": "Ingen VM-er registrert.",
+  "platform.vmName": "VM-navn",
+  "platform.vmHost": "Vertsenhet (valgfritt)",
+  "platform.addVm": "Registrer VM",
 } satisfies Record<MessageKey, string>;

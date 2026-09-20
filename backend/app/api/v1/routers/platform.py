@@ -9,6 +9,8 @@ from app.schemas.platform import (
     PlatformClusterMemberCreate,
     PlatformClusterMemberRead,
     PlatformClusterRead,
+    PlatformVirtualMachineCreate,
+    PlatformVirtualMachineRead,
 )
 from app.services import platform as plat_svc
 
@@ -59,3 +61,23 @@ def remove_member(cluster_id: int, member_id: int, db: Session = Depends(get_db)
     if row is None:
         raise HTTPException(status_code=404, detail="cluster ikke funnet")
     plat_svc.remove_member(db, row, member_id)
+
+
+@router.post("/{cluster_id}/vms", response_model=PlatformVirtualMachineRead)
+def create_vm(
+    cluster_id: int,
+    data: PlatformVirtualMachineCreate,
+    db: Session = Depends(get_db),
+) -> PlatformVirtualMachineRead:
+    row = plat_svc.get_cluster(db, cluster_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="cluster ikke funnet")
+    return plat_svc.vm_to_read(plat_svc.create_vm(db, row, data))
+
+
+@router.delete("/{cluster_id}/vms/{vm_id}", status_code=204)
+def delete_vm(cluster_id: int, vm_id: int, db: Session = Depends(get_db)) -> None:
+    row = plat_svc.get_cluster(db, cluster_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="cluster ikke funnet")
+    plat_svc.delete_vm(db, row, vm_id)

@@ -27,6 +27,11 @@ class PlatformCluster(Base):
         cascade="all, delete-orphan",
         order_by="PlatformClusterMember.id",
     )
+    vms: Mapped[list["PlatformVirtualMachine"]] = relationship(
+        back_populates="cluster",
+        cascade="all, delete-orphan",
+        order_by="PlatformVirtualMachine.id",
+    )
 
 
 class PlatformClusterMember(Base):
@@ -40,3 +45,23 @@ class PlatformClusterMember(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     cluster: Mapped["PlatformCluster"] = relationship(back_populates="members")
+
+
+class PlatformVirtualMachine(Base):
+    """Registrert VM-inventar. Ingen observert strømtilstand eller oppfunnet kapasitet."""
+
+    __tablename__ = "platform_virtual_machines"
+    __table_args__ = (UniqueConstraint("slug", name="uq_platform_vm_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    cluster_id: Mapped[int] = mapped_column(ForeignKey("platform_clusters.id", ondelete="CASCADE"), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    cluster: Mapped["PlatformCluster"] = relationship(back_populates="vms")
