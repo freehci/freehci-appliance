@@ -2,6 +2,23 @@ import { useEffect, useRef, type ReactNode } from "react";
 import type { Ipv4Prefix } from "./types";
 import styles from "./prefixPage.module.css";
 
+export function readSubnetServices(raw: Record<string, unknown> | null | undefined): {
+  gateway: string | null;
+  dhcp: string | null;
+  dns: string[];
+} {
+  const s = raw ?? {};
+  const gateway = typeof s.gateway === "string" && s.gateway.trim() ? s.gateway.trim() : null;
+  const dhcp = typeof s.dhcp_server === "string" && s.dhcp_server.trim() ? s.dhcp_server.trim() : null;
+  let dns: string[] = [];
+  if (Array.isArray(s.dns)) {
+    dns = s.dns.map(String).map((x) => x.trim()).filter(Boolean);
+  } else if (typeof s.dns === "string") {
+    dns = s.dns.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+  }
+  return { gateway, dhcp, dns };
+}
+
 export function prefixUsage(p: Ipv4Prefix): { used: number; total: number; pct: number } {
   const used = p.used_count ?? 0;
   const total = p.usable_hosts && p.usable_hosts > 0 ? p.usable_hosts : p.address_total;

@@ -306,13 +306,11 @@ export function IpamPrefixesPage() {
     setDrawerMode(null);
     setSelectedId(null);
     setMenuForId(null);
-    setExploreStack([{ id: p.id, name: p.name, cidr: p.cidr }]);
-    setErr(null);
+    nav(`/ipam/prefixes/${p.id}`);
   };
 
   const drillChild = (p: Ipv4Prefix) => {
-    setExploreStack((s) => [...s, { id: p.id, name: p.name, cidr: p.cidr }]);
-    setErr(null);
+    nav(`/ipam/prefixes/${p.id}`);
   };
 
   const createPfx = useMutation({
@@ -1927,13 +1925,21 @@ export function IpamPrefixesPage() {
                               <span className={prefixStyles.treeToggle} aria-hidden />
                             )}
                             <span>
-                              <span className={prefixStyles.treeName}>{x.name}</span>
+                              <Link
+                                to={`/ipam/prefixes/${x.id}`}
+                                className={`${prefixStyles.treeName} ${prefixStyles.treeNameLink}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {x.name}
+                              </Link>
                               <span className={prefixStyles.treeCidr}>{prefixMetaLine(x)}</span>
                             </span>
                           </div>
                         </td>
                         <td>
-                          <code>{x.cidr}</code>
+                          <Link to={`/ipam/prefixes/${x.id}`} className={prefixStyles.cidrLink} onClick={(e) => e.stopPropagation()}>
+                            <code>{x.cidr}</code>
+                          </Link>
                         </td>
                         <td>{siteNameById.get(x.site_id) ?? `#${x.site_id}`}</td>
                         <td>

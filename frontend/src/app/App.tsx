@@ -21,6 +21,7 @@ import { IpamCircuitsPage } from "@/features/ipam/IpamCircuitsPage";
 import { IpamGitopsPage } from "@/features/ipam/IpamGitopsPage";
 import { IpamIpv6PrefixesPage } from "@/features/ipam/IpamIpv6PrefixesPage";
 import { IpamLayout } from "@/features/ipam/IpamLayout";
+import { IpamPrefixDetailPage } from "@/features/ipam/IpamPrefixDetailPage";
 import { IpamPrefixesPage } from "@/features/ipam/IpamPrefixesPage";
 import { IpamVlansPage } from "@/features/ipam/IpamVlansPage";
 import { IpamVrfsPage } from "@/features/ipam/IpamVrfsPage";
@@ -90,6 +91,7 @@ function AppRoutes() {
           <Route path="/ipam" element={<IpamLayout />}>
             <Route index element={<Navigate to="prefixes" replace />} />
             <Route path="prefixes" element={<IpamPrefixesPage />} />
+            <Route path="prefixes/:prefixId" element={<IpamPrefixDetailPage />} />
             <Route path="ipv6" element={<IpamIpv6PrefixesPage />} />
             <Route path="gitops" element={<IpamGitopsPage />} />
             <Route path="vlans" element={<IpamVlansPage />} />

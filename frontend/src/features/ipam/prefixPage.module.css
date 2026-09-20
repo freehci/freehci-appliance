@@ -201,6 +201,18 @@
   font-weight: 600;
 }
 
+.treeNameLink,
+.cidrLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.treeNameLink:hover,
+.cidrLink:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
 .treeCidr {
   display: block;
   font-family: var(--font-mono, ui-monospace, monospace);
