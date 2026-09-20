@@ -22,6 +22,9 @@ export function PlatformClustersPage() {
   const [stCluster, setStCluster] = useState("");
   const [stName, setStName] = useState("");
   const [stKind, setStKind] = useState("other");
+  const [vifCluster, setVifCluster] = useState("");
+  const [vifVm, setVifVm] = useState("");
+  const [vifName, setVifName] = useState("");
 
   const clQ = useQuery({ queryKey: ["platform-clusters"], queryFn: api.listClusters });
   const devQ = useQuery({ queryKey: ["dcim-devices"], queryFn: listDevices });
@@ -67,6 +70,16 @@ export function PlatformClustersPage() {
     onSuccess: () => {
       setErr(null);
       setStName("");
+      void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
+    },
+    onError: fail,
+  });
+  const vifM = useMutation({
+    mutationFn: () =>
+      api.createVif(Number(vifCluster), Number(vifVm), { name: vifName.trim(), status: "active" }),
+    onSuccess: () => {
+      setErr(null);
+      setVifName("");
       void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
     },
     onError: fail,
@@ -130,6 +143,9 @@ export function PlatformClustersPage() {
                   <li key={v.id}>
                     {v.name} — {v.status}
                     {v.device_id != null ? ` → ${devices.get(v.device_id) ?? `#${v.device_id}`}` : ""}
+                    {(v.interfaces ?? []).length > 0
+                      ? ` — ${(v.interfaces ?? []).map((i) => i.name).join(", ")}`
+                      : ` — ${t("platform.noVifs")}`}
                   </li>
                 ))}
               </ul>
@@ -256,6 +272,60 @@ export function PlatformClustersPage() {
             </label>
             <button type="submit" className={dcimStyles.btn} disabled={stM.isPending || !stCluster || !stName.trim()}>
               {t("platform.addStorage")}
+            </button>
+          </form>
+        ) : null}
+        {(clQ.data ?? []).some((c) => (c.vms ?? []).length > 0) ? (
+          <form
+            className={dcimStyles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (vifCluster && vifVm && vifName.trim()) vifM.mutate();
+            }}
+          >
+            <label>
+              {t("platform.cluster")}
+              <select
+                value={vifCluster}
+                onChange={(e) => {
+                  setVifCluster(e.target.value);
+                  setVifVm("");
+                }}
+              >
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => (c.vms ?? []).length > 0)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("platform.vm")}
+              <select value={vifVm} onChange={(e) => setVifVm(e.target.value)}>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => String(c.id) === vifCluster)
+                  .flatMap((c) => c.vms ?? [])
+                  .map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("platform.vifName")}
+              <input value={vifName} onChange={(e) => setVifName(e.target.value)} />
+            </label>
+            <button
+              type="submit"
+              className={dcimStyles.btn}
+              disabled={vifM.isPending || !vifCluster || !vifVm || !vifName.trim()}
+            >
+              {t("platform.addVif")}
             </button>
           </form>
         ) : null}

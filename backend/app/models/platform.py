@@ -70,6 +70,11 @@ class PlatformVirtualMachine(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     cluster: Mapped["PlatformCluster"] = relationship(back_populates="vms")
+    interfaces: Mapped[list["PlatformVirtualInterface"]] = relationship(
+        back_populates="vm",
+        cascade="all, delete-orphan",
+        order_by="PlatformVirtualInterface.id",
+    )
 
 
 class PlatformStoragePool(Base):
@@ -87,3 +92,19 @@ class PlatformStoragePool(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     cluster: Mapped["PlatformCluster"] = relationship(back_populates="storage_pools")
+
+
+class PlatformVirtualInterface(Base):
+    """Registrert virtuelt grensesnitt. Ingen oppfunnet MAC eller observert lenketilstand."""
+
+    __tablename__ = "platform_virtual_interfaces"
+    __table_args__ = (UniqueConstraint("slug", name="uq_platform_vif_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    vm_id: Mapped[int] = mapped_column(ForeignKey("platform_virtual_machines.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    vm: Mapped["PlatformVirtualMachine"] = relationship(back_populates="interfaces")

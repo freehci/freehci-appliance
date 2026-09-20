@@ -13,6 +13,7 @@ from app.models.platform import (
     PlatformCluster,
     PlatformClusterMember,
     PlatformStoragePool,
+    PlatformVirtualInterface,
     PlatformVirtualMachine,
 )
 from app.schemas.platform import (
@@ -22,6 +23,8 @@ from app.schemas.platform import (
     PlatformClusterRead,
     PlatformStoragePoolCreate,
     PlatformStoragePoolRead,
+    PlatformVirtualInterfaceCreate,
+    PlatformVirtualInterfaceRead,
     PlatformVirtualMachineCreate,
     PlatformVirtualMachineRead,
 )
@@ -53,7 +56,7 @@ def _load(db: Session, cluster_id: int) -> PlatformCluster | None:
         select(PlatformCluster)
         .options(
             selectinload(PlatformCluster.members),
-            selectinload(PlatformCluster.vms),
+            selectinload(PlatformCluster.vms).selectinload(PlatformVirtualMachine.interfaces),
             selectinload(PlatformCluster.storage_pools),
         )
         .where(PlatformCluster.id == cluster_id)
@@ -66,7 +69,7 @@ def list_clusters(db: Session) -> list[PlatformCluster]:
             select(PlatformCluster)
             .options(
                 selectinload(PlatformCluster.members),
-                selectinload(PlatformCluster.vms),
+                selectinload(PlatformCluster.vms).selectinload(PlatformVirtualMachine.interfaces),
                 selectinload(PlatformCluster.storage_pools),
             )
             .order_by(PlatformCluster.name)
@@ -223,6 +226,52 @@ def create_storage_pool(
         raise HTTPException(status_code=409, detail="lagringspool-slug finnes allerede")
     db.refresh(row)
     return row
+
+
+def get_vif_by_slug(db: Session, slug: str) -> PlatformVirtualInterface | None:
+    return db.execute(select(PlatformVirtualInterface).where(PlatformVirtualInterface.slug == slug)).scalar_one_or_none()
+
+
+def vif_to_read(row: PlatformVirtualInterface) -> PlatformVirtualInterfaceRead:
+    return PlatformVirtualInterfaceRead.model_validate(row)
+
+
+def create_vif(
+    db: Session,
+    cluster: PlatformCluster,
+    vm: PlatformVirtualMachine,
+    data: PlatformVirtualInterfaceCreate,
+) -> PlatformVirtualInterface:
+    if vm.cluster_id != cluster.id:
+        raise HTTPException(status_code=404, detail="vm ikke funnet")
+    slug = _slugify(data.slug or data.name)
+    if get_vif_by_slug(db, slug) is not None:
+        raise HTTPException(status_code=409, detail="vif-slug finnes allerede")
+    row = PlatformVirtualInterface(
+        name=data.name.strip(),
+        slug=slug,
+        vm_id=vm.id,
+        status=data.status,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="vif-slug finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def delete_vif(db: Session, cluster: PlatformCluster, vm_id: int, iface_id: int) -> None:
+    vm = db.get(PlatformVirtualMachine, vm_id)
+    if vm is None or vm.cluster_id != cluster.id:
+        raise HTTPException(status_code=404, detail="vm ikke funnet")
+    row = db.get(PlatformVirtualInterface, iface_id)
+    if row is None or row.vm_id != vm.id:
+        raise HTTPException(status_code=404, detail="virtuelt grensesnitt ikke funnet")
+    db.delete(row)
+    db.commit()
 
 
 def delete_storage_pool(db: Session, cluster: PlatformCluster, pool_id: int) -> None:

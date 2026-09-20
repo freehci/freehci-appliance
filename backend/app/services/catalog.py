@@ -37,6 +37,7 @@ from app.schemas.platform import (
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
     PlatformStoragePoolCreate,
+    PlatformVirtualInterfaceCreate,
     PlatformVirtualMachineCreate,
 )
 from app.services import dcim as dcim_svc
@@ -89,6 +90,7 @@ def deployment_to_read(db: Session, row: ServiceDeployment) -> ServiceDeployment
         cluster_id=row.cluster_id,
         vm_id=row.vm_id,
         storage_pool_id=row.storage_pool_id,
+        virtual_interface_id=row.virtual_interface_id,
         ipv4_prefix_id=row.ipv4_prefix_id,
         status=row.status,
         plan_json=row.plan_json,
@@ -447,6 +449,56 @@ def build_storage_plan(
     }
 
 
+def build_vif_plan(
+    db: Session,
+    version: ServiceTemplateVersion,
+    vm_id: int | None,
+    name: str | None,
+) -> dict:
+    template = db.get(ServiceTemplate, version.template_id)
+    blockers: list[str] = []
+    iface_name = (name or "").strip()
+    if not iface_name:
+        blockers.append("vif_name_required")
+    vm = plat_svc.get_vm(db, vm_id) if vm_id else None
+    if vm is None:
+        blockers.append("vm_required" if not vm_id else "vm_not_found")
+    cluster = plat_svc.get_cluster(db, vm.cluster_id) if vm is not None else None
+    slug = _slugify(iface_name) if iface_name else None
+    if slug and plat_svc.get_vif_by_slug(db, slug) is not None:
+        blockers.append("vif_slug_taken")
+    return {
+        "kind": "virtual_interface",
+        "template": {
+            "id": template.id if template else version.template_id,
+            "name": template.name if template else None,
+            "version": version.version,
+        },
+        "cluster": (
+            {"id": cluster.id, "name": cluster.name, "kind": cluster.kind, "slug": cluster.slug}
+            if cluster is not None
+            else None
+        ),
+        "vm": (
+            {"id": vm.id, "name": vm.name, "slug": vm.slug}
+            if vm is not None
+            else None
+        ),
+        "vif": {"name": iface_name or None, "slug": slug},
+        "requested_name": iface_name or None,
+        "vm_id": vm.id if vm is not None else vm_id,
+        "cluster_id": cluster.id if cluster is not None else None,
+        "reserve_ipv4": False,
+        "prefix": None,
+        "blockers": list(dict.fromkeys(blockers)),
+        "can_run": len(blockers) == 0,
+        "notes": [
+            "Registrerer et virtuelt grensesnitt på en eksisterende VM.",
+            "Oppretter ikke NIC i hypervisoren og finner ikke opp MAC.",
+        ],
+    }
+
+
 def list_deployments(db: Session) -> list[ServiceDeployment]:
     return list(
         db.execute(
@@ -485,6 +537,22 @@ def create_deployment(db: Session, data: ServiceDeploymentCreate) -> ServiceDepl
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
     ids = _device_ids_from(data)
+    if spec.get("kind") == "virtual_interface":
+        plan = build_vif_plan(db, version, data.vm_id, data.name)
+        row = ServiceDeployment(
+            template_version_id=version.id,
+            device_id=None,
+            cluster_id=plan.get("cluster_id"),
+            vm_id=data.vm_id,
+            ipv4_prefix_id=None,
+            status="planned",
+            plan_json=plan,
+        )
+        db.add(row)
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
     if spec.get("kind") == "storage_pool":
         plan = build_storage_plan(db, version, data.cluster_id, data.name, data.storage_kind)
         row = ServiceDeployment(
@@ -853,6 +921,93 @@ def _run_storage(db: Session, row: ServiceDeployment, version: ServiceTemplateVe
     return loaded
 
 
+def _run_vif(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion) -> ServiceDeployment:
+    prev = row.plan_json if isinstance(row.plan_json, dict) else {}
+    plan = build_vif_plan(
+        db,
+        version,
+        row.vm_id or prev.get("vm_id"),
+        prev.get("requested_name"),
+    )
+    row.plan_json = plan
+    if not plan["can_run"]:
+        db.commit()
+        raise HTTPException(status_code=400, detail={"code": "cannot_run", "blockers": plan["blockers"]})
+
+    row.status = "running"
+    row.started_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+
+    vm = plat_svc.get_vm(db, row.vm_id)
+    assert vm is not None
+    cluster = plat_svc.get_cluster(db, vm.cluster_id)
+    assert cluster is not None
+    _add_step(db, row, "validate_vm", "ok", vm.name)
+    db.commit()
+
+    try:
+        iface = plat_svc.create_vif(
+            db,
+            cluster,
+            vm,
+            PlatformVirtualInterfaceCreate(
+                name=plan["vif"]["name"],
+                slug=plan["vif"]["slug"],
+                status="active",
+            ),
+        )
+        row.virtual_interface_id = iface.id
+        row.cluster_id = cluster.id
+        _add_step(db, row, "record_vif", "ok", f"{iface.name} #{iface.id}")
+        db.commit()
+    except HTTPException as exc:
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_vif", "failed", _exc_detail(exc))
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    template = db.get(ServiceTemplate, version.template_id)
+    name = plan["vif"]["name"]
+    slug = _slugify(f"{template.slug if template else 'svc'}-vif-{row.id}")
+    inst = ServiceInstance(
+        name=name[:255],
+        slug=slug,
+        template_version_id=version.id,
+        deployment_id=row.id,
+        device_id=None,
+        cluster_id=row.cluster_id,
+        vm_id=row.vm_id,
+        virtual_interface_id=row.virtual_interface_id,
+        ipv4_address_id=None,
+        status="active",
+    )
+    db.add(inst)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        row = get_deployment(db, row.id)
+        assert row is not None
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_instance", "failed", "instans-slug finnes allerede")
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    _add_step(db, row, "record_instance", "ok", f"instans #{inst.id}")
+    row.status = "succeeded"
+    row.finished_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+    loaded = get_deployment(db, row.id)
+    assert loaded is not None
+    return loaded
+
+
 def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if row.status != "planned":
         raise HTTPException(status_code=409, detail="deployment er allerede kjørt")
@@ -860,6 +1015,8 @@ def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if version is None:
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("kind") == "virtual_interface":
+        return _run_vif(db, row, version)
     if spec.get("kind") == "storage_pool":
         return _run_storage(db, row, version)
     if spec.get("kind") == "virtual_machine":

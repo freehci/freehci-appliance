@@ -11,6 +11,7 @@ MEMBER_ROLES = frozenset({"node", "control", "worker", "other"})
 VM_STATUSES = frozenset({"planned", "active", "retired"})
 STORAGE_KINDS = frozenset({"datastore", "pool", "other"})
 STORAGE_STATUSES = frozenset({"planned", "active", "retired"})
+VIF_STATUSES = frozenset({"planned", "active", "retired"})
 
 
 class PlatformClusterCreate(BaseModel):
@@ -67,6 +68,31 @@ class PlatformVirtualMachineCreate(BaseModel):
         return s
 
 
+class PlatformVirtualInterfaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    vm_id: int
+    status: str
+    created_at: dt.datetime
+
+
+class PlatformVirtualInterfaceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    status: str = "planned"
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "planned"
+        if s not in VIF_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(VIF_STATUSES))}")
+        return s
+
+
 class PlatformVirtualMachineRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -77,6 +103,7 @@ class PlatformVirtualMachineRead(BaseModel):
     device_id: int | None
     status: str
     created_at: dt.datetime
+    interfaces: list[PlatformVirtualInterfaceRead] = Field(default_factory=list)
 
 
 class PlatformStoragePoolCreate(BaseModel):

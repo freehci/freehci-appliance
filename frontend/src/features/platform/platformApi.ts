@@ -12,6 +12,15 @@ export type PlatformClusterMember = {
   created_at: string;
 };
 
+export type PlatformVirtualInterface = {
+  id: number;
+  name: string;
+  slug: string;
+  vm_id: number;
+  status: string;
+  created_at: string;
+};
+
 export type PlatformVirtualMachine = {
   id: number;
   name: string;
@@ -20,6 +29,7 @@ export type PlatformVirtualMachine = {
   device_id: number | null;
   status: string;
   created_at: string;
+  interfaces?: PlatformVirtualInterface[];
 };
 
 export type PlatformStoragePool = {
@@ -81,4 +91,12 @@ export function createVm(
   body: { name: string; slug?: string | null; device_id?: number | null; status?: string },
 ): Promise<PlatformVirtualMachine> {
   return apiPost(`${P}/${clusterId}/vms`, body);
+}
+
+export function createVif(
+  clusterId: number,
+  vmId: number,
+  body: { name: string; slug?: string | null; status?: string },
+): Promise<PlatformVirtualInterface> {
+  return apiPost(`${P}/${clusterId}/vms/${vmId}/interfaces`, body);
 }
