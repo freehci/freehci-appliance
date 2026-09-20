@@ -7,6 +7,8 @@ import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as ipamApi from "./ipamApi";
+import prefixStyles from "./prefixPage.module.css";
+import { PrefixDrawer } from "./prefixPageUi";
 
 export function IpamVlansPage() {
   const { t } = useI18n();
@@ -20,6 +22,7 @@ export function IpamVlansPage() {
   const [name, setName] = useState("");
   const [vrfId, setVrfId] = useState("");
   const [vlanTenantId, setVlanTenantId] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -110,6 +113,7 @@ export function IpamVlansPage() {
       setName("");
       setVrfId("");
       setVlanTenantId("");
+      setDrawerOpen(false);
       void qc.invalidateQueries({ queryKey: ["ipam", "vlans"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -124,12 +128,33 @@ export function IpamVlansPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const openCreate = () => {
+    setErr(null);
+    if (filterSite && siteId === "") setSiteId(filterSite);
+    setDrawerOpen(true);
+  };
+
   return (
-    <Panel title={t("ipam.vlan.title")}>
-      <p className={dcimStyles.muted}>{t("ipam.vlan.intro")}</p>
+    <Panel>
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
-      <div className={dcimStyles.formRow} style={{ marginTop: "var(--space-2)", flexWrap: "wrap" }}>
-        <label>
+      <header className={prefixStyles.pageHead}>
+        <div>
+          <p className={prefixStyles.crumb}>
+            {t("ipam.ipv4.crumbIpam")}
+            <span className={prefixStyles.crumbSep}>/</span>
+            {t("nav.segments")}
+          </p>
+          <h1 className={prefixStyles.title}>{t("ipam.vlan.title")}</h1>
+          <p className={prefixStyles.intro}>{t("ipam.vlan.intro")}</p>
+        </div>
+        <div className={prefixStyles.headActions}>
+          <button type="button" className={dcimStyles.btn} onClick={openCreate}>
+            + {t("ipam.vlan.new")}
+          </button>
+        </div>
+      </header>
+      <div className={prefixStyles.toolbar}>
+        <label className={prefixStyles.toolbarField}>
           {t("ipam.ipv4.filterSite")}
           <select
             value={filterSite}
@@ -152,83 +177,14 @@ export function IpamVlansPage() {
           </select>
         </label>
       </div>
-      <h3 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
-        {t("ipam.vlan.addTitle")}
-      </h3>
-      <form
-        className={dcimStyles.formRow}
-        style={{ flexWrap: "wrap", alignItems: "flex-end" }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          setErr(null);
-          createM.mutate();
-        }}
-      >
-        <label>
-          {t("ipam.ipv4.site")}
-          <select
-            value={siteId}
-            onChange={(e) => {
-              setSiteId(e.target.value);
-              setVrfId("");
-            }}
-            required
-          >
-            <option value="">{t("ipam.vrf.chooseSite")}</option>
-            {(sitesQ.data ?? []).map((s) => (
-              <option key={s.id} value={String(s.id)}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          VLAN ID
-          <input
-            type="number"
-            min={1}
-            max={4094}
-            value={vid}
-            onChange={(e) => setVid(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          {t("ipam.ipv4.name")}
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label>
-          {t("ipam.vlan.vrfOptional")}
-          <select value={vrfId} onChange={(e) => setVrfId(e.target.value)} disabled={siteId === ""}>
-            <option value="">{t("ipam.vlan.noVrf")}</option>
-            {(vrfsQ.data ?? []).map((v) => (
-              <option key={v.id} value={String(v.id)}>
-                {v.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t("ipam.vlan.tenantOptional")}
-          <select value={vlanTenantId} onChange={(e) => setVlanTenantId(e.target.value)}>
-            <option value="">{t("dcim.common.none")}</option>
-            {(tenantsQ.data ?? []).map((tn) => (
-              <option key={tn.id} value={String(tn.id)}>
-                {tn.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" className={dcimStyles.btn} disabled={createM.isPending}>
-          {createM.isPending ? "…" : t("ipam.vlan.create")}
-        </button>
-      </form>
       {vlansQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
+      <div className={prefixStyles.tableCard}>
       {vlansQ.data && vlansQ.data.length === 0 && !vlansQ.isLoading ? (
-        <p className={dcimStyles.muted}>{t("ipam.vlan.empty")}</p>
+        <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>{t("ipam.vlan.empty")}</p>
       ) : null}
       {vlansQ.data && vlansQ.data.length > 0 ? (
-        <table className={dcimStyles.table} style={{ marginTop: "var(--space-3)" }}>
+        <div className={prefixStyles.tableScroll}>
+        <table className={dcimStyles.table}>
           <thead>
             <tr>
               <th>{t("ipam.ipv4.site")}</th>
@@ -319,7 +275,85 @@ export function IpamVlansPage() {
             ))}
           </tbody>
         </table>
+        </div>
       ) : null}
+      </div>
+      <PrefixDrawer
+        title={t("ipam.vlan.addTitle")}
+        open={drawerOpen}
+        onClose={() => {
+          if (!createM.isPending) setDrawerOpen(false);
+        }}
+        footer={
+          <>
+            <button type="button" className={dcimStyles.btn} disabled={createM.isPending} onClick={() => setDrawerOpen(false)}>
+              {t("dcim.common.cancel")}
+            </button>
+            <button
+              type="button"
+              className={dcimStyles.btn}
+              disabled={createM.isPending}
+              onClick={() => {
+                setErr(null);
+                createM.mutate();
+              }}
+            >
+              {createM.isPending ? t("dcim.common.creating") : t("ipam.vlan.create")}
+            </button>
+          </>
+        }
+      >
+        <div className={prefixStyles.drawerFields}>
+          <label>
+            {t("ipam.ipv4.site")}
+            <select
+              value={siteId}
+              onChange={(e) => {
+                setSiteId(e.target.value);
+                setVrfId("");
+              }}
+              required
+            >
+              <option value="">{t("ipam.vrf.chooseSite")}</option>
+              {(sitesQ.data ?? []).map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            VLAN ID
+            <input type="number" min={1} max={4094} value={vid} onChange={(e) => setVid(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.ipv4.name")}
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.vlan.vrfOptional")}
+            <select value={vrfId} onChange={(e) => setVrfId(e.target.value)} disabled={siteId === ""}>
+              <option value="">{t("ipam.vlan.noVrf")}</option>
+              {(vrfsQ.data ?? []).map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.vlan.tenantOptional")}
+            <select value={vlanTenantId} onChange={(e) => setVlanTenantId(e.target.value)}>
+              <option value="">{t("dcim.common.none")}</option>
+              {(tenantsQ.data ?? []).map((tn) => (
+                <option key={tn.id} value={String(tn.id)}>
+                  {tn.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </PrefixDrawer>
     </Panel>
   );
 }

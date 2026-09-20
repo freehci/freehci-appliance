@@ -6,6 +6,8 @@ import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as ipamApi from "./ipamApi";
+import prefixStyles from "./prefixPage.module.css";
+import { PrefixDrawer } from "./prefixPageUi";
 
 export function IpamCircuitsPage() {
   const { t } = useI18n();
@@ -26,6 +28,7 @@ export function IpamCircuitsPage() {
   const [termSite, setTermSite] = useState("");
   const [aSiteId, setASiteId] = useState("");
   const [zSiteId, setZSiteId] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
@@ -62,6 +65,7 @@ export function IpamCircuitsPage() {
       setProvider("");
       setEstablished("");
       setContractEnd("");
+      setDrawerOpen(false);
       void qc.invalidateQueries({ queryKey: ["ipam", "circuits"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -93,12 +97,35 @@ export function IpamCircuitsPage() {
   });
 
   return (
-    <Panel title={t("ipam.circuits.title")}>
-      <p className={dcimStyles.muted}>{t("ipam.circuits.intro")}</p>
-      <p className={dcimStyles.muted}>{t("ipam.circuits.placementHint")}</p>
+    <Panel>
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
-      <div className={dcimStyles.formRow} style={{ marginTop: "var(--space-2)", flexWrap: "wrap" }}>
-        <label>
+      <header className={prefixStyles.pageHead}>
+        <div>
+          <p className={prefixStyles.crumb}>
+            {t("ipam.ipv4.crumbIpam")}
+            <span className={prefixStyles.crumbSep}>/</span>
+            {t("nav.circuits")}
+          </p>
+          <h1 className={prefixStyles.title}>{t("ipam.circuits.title")}</h1>
+          <p className={prefixStyles.intro}>{t("ipam.circuits.intro")}</p>
+          <p className={prefixStyles.intro}>{t("ipam.circuits.placementHint")}</p>
+        </div>
+        <div className={prefixStyles.headActions}>
+          <button
+            type="button"
+            className={dcimStyles.btn}
+            onClick={() => {
+              setErr(null);
+              if (filterTenant && tenantId === "") setTenantId(filterTenant);
+              setDrawerOpen(true);
+            }}
+          >
+            + {t("ipam.circuits.new")}
+          </button>
+        </div>
+      </header>
+      <div className={prefixStyles.toolbar}>
+        <label className={prefixStyles.toolbarField}>
           {t("ipam.circuits.filterTenant")}
           <select value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)}>
             <option value="">{t("ipam.circuits.allTenants")}</option>
@@ -110,96 +137,20 @@ export function IpamCircuitsPage() {
           </select>
         </label>
       </div>
-      <h3 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
-        {t("ipam.circuits.addTitle")}
-      </h3>
-      <form
-        className={dcimStyles.formRow}
-        style={{ flexDirection: "column", alignItems: "stretch", maxWidth: "32rem", gap: "var(--space-2)" }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          setErr(null);
-          createM.mutate();
-        }}
-      >
-        <label>
-          {t("ipam.circuits.tenant")}
-          <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-            <option value="">{t("ipam.circuits.noTenant")}</option>
-            {(tenantsQ.data ?? []).map((tn) => (
-              <option key={tn.id} value={String(tn.id)}>
-                {tn.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t("ipam.circuits.number")}
-          <input value={circuitNumber} onChange={(e) => setCircuitNumber(e.target.value)} required />
-        </label>
-        <label>
-          {t("ipam.ipv4.name")}
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label>
-          {t("ipam.circuits.type")}
-          <select value={circuitType} onChange={(e) => setCircuitType(e.target.value)}>
-            <option value="fiber">{t("ipam.circuits.type.fiber")}</option>
-            <option value="vpn">{t("ipam.circuits.type.vpn")}</option>
-            <option value="wireguard">{t("ipam.circuits.type.wireguard")}</option>
-            <option value="radio">{t("ipam.circuits.type.radio")}</option>
-            <option value="leased_line">{t("ipam.circuits.type.leased_line")}</option>
-            <option value="other">{t("ipam.circuits.type.other")}</option>
-          </select>
-        </label>
-        <label>
-          {t("ipam.circuits.aSite")}
-          <select value={aSiteId} onChange={(e) => setASiteId(e.target.value)}>
-            <option value="">{t("ipam.circuits.noSite")}</option>
-            {(sitesQ.data ?? []).map((s) => (
-              <option key={s.id} value={String(s.id)}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t("ipam.circuits.zSite")}
-          <select value={zSiteId} onChange={(e) => setZSiteId(e.target.value)}>
-            <option value="">{t("ipam.circuits.noSite")}</option>
-            {(sitesQ.data ?? []).map((s) => (
-              <option key={s.id} value={String(s.id)}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-          <input type="checkbox" checked={isLeased} onChange={(e) => setIsLeased(e.target.checked)} />
-          {t("ipam.circuits.leased")}
-        </label>
-        <label>
-          {t("ipam.circuits.provider")}
-          <input value={provider} onChange={(e) => setProvider(e.target.value)} />
-        </label>
-        <label>
-          {t("ipam.circuits.established")}
-          <input type="date" value={established} onChange={(e) => setEstablished(e.target.value)} />
-        </label>
-        <label>
-          {t("ipam.circuits.contractEnd")}
-          <input type="date" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} />
-        </label>
-        <button type="submit" className={dcimStyles.btn} disabled={createM.isPending}>
-          {createM.isPending ? "…" : t("ipam.circuits.create")}
-        </button>
-      </form>
-      {circuitsQ.isLoading ? <p className={dcimStyles.muted}>{t("dcim.common.loading")}</p> : null}
+      <div className={prefixStyles.tableCard}>
+      {circuitsQ.isLoading ? (
+        <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
+          {t("dcim.common.loading")}
+        </p>
+      ) : null}
       {circuitsQ.data && circuitsQ.data.length === 0 && !circuitsQ.isLoading ? (
-        <p className={dcimStyles.muted}>{t("ipam.circuits.empty")}</p>
+        <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
+          {t("ipam.circuits.empty")}
+        </p>
       ) : null}
       {circuitsQ.data && circuitsQ.data.length > 0 ? (
-        <table className={dcimStyles.table} style={{ marginTop: "var(--space-3)" }}>
+        <div className={prefixStyles.tableScroll}>
+        <table className={dcimStyles.table}>
           <thead>
             <tr>
               <th>{t("ipam.circuits.number")}</th>
@@ -243,7 +194,105 @@ export function IpamCircuitsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       ) : null}
+      </div>
+      <PrefixDrawer
+        title={t("ipam.circuits.addTitle")}
+        open={drawerOpen}
+        onClose={() => {
+          if (!createM.isPending) setDrawerOpen(false);
+        }}
+        footer={
+          <>
+            <button type="button" className={dcimStyles.btn} disabled={createM.isPending} onClick={() => setDrawerOpen(false)}>
+              {t("dcim.common.cancel")}
+            </button>
+            <button
+              type="button"
+              className={dcimStyles.btn}
+              disabled={createM.isPending}
+              onClick={() => {
+                setErr(null);
+                createM.mutate();
+              }}
+            >
+              {createM.isPending ? t("dcim.common.creating") : t("ipam.circuits.create")}
+            </button>
+          </>
+        }
+      >
+        <div className={prefixStyles.drawerFields}>
+          <label>
+            {t("ipam.circuits.tenant")}
+            <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+              <option value="">{t("ipam.circuits.noTenant")}</option>
+              {(tenantsQ.data ?? []).map((tn) => (
+                <option key={tn.id} value={String(tn.id)}>
+                  {tn.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.circuits.number")}
+            <input value={circuitNumber} onChange={(e) => setCircuitNumber(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.ipv4.name")}
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.circuits.type")}
+            <select value={circuitType} onChange={(e) => setCircuitType(e.target.value)}>
+              <option value="fiber">{t("ipam.circuits.type.fiber")}</option>
+              <option value="vpn">{t("ipam.circuits.type.vpn")}</option>
+              <option value="wireguard">{t("ipam.circuits.type.wireguard")}</option>
+              <option value="radio">{t("ipam.circuits.type.radio")}</option>
+              <option value="leased_line">{t("ipam.circuits.type.leased_line")}</option>
+              <option value="other">{t("ipam.circuits.type.other")}</option>
+            </select>
+          </label>
+          <label>
+            {t("ipam.circuits.aSite")}
+            <select value={aSiteId} onChange={(e) => setASiteId(e.target.value)}>
+              <option value="">{t("ipam.circuits.noSite")}</option>
+              {(sitesQ.data ?? []).map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.circuits.zSite")}
+            <select value={zSiteId} onChange={(e) => setZSiteId(e.target.value)}>
+              <option value="">{t("ipam.circuits.noSite")}</option>
+              {(sitesQ.data ?? []).map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={prefixStyles.drawerCheck}>
+            <input type="checkbox" checked={isLeased} onChange={(e) => setIsLeased(e.target.checked)} />
+            {t("ipam.circuits.leased")}
+          </label>
+          <label>
+            {t("ipam.circuits.provider")}
+            <input value={provider} onChange={(e) => setProvider(e.target.value)} />
+          </label>
+          <label>
+            {t("ipam.circuits.established")}
+            <input type="date" value={established} onChange={(e) => setEstablished(e.target.value)} />
+          </label>
+          <label>
+            {t("ipam.circuits.contractEnd")}
+            <input type="date" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} />
+          </label>
+        </div>
+      </PrefixDrawer>
       {termCircuitId != null ? (
         <section className={dcimStyles.mfrDetailSection} style={{ marginTop: "var(--space-3)" }}>
           <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.termTitle")}</h3>

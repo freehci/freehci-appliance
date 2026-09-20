@@ -1493,9 +1493,10 @@ export const en = {
   "ipam.scan.last": "Last scan",
   "ipam.scan.ping": "Ping",
 
-  "ipam.vrf.title": "VRFs (per site)",
+  "ipam.vrf.title": "Routing",
   "ipam.vrf.intro": "Route distinguisher is optional. Names are unique per site.",
-  "ipam.vrf.addTitle": "Add VRF",
+  "ipam.vrf.addTitle": "Add routing domain",
+  "ipam.vrf.new": "New routing domain",
   "ipam.vrf.chooseSite": "Choose site",
   "ipam.vrf.name": "VRF name",
   "ipam.vrf.rd": "Route distinguisher (RD)",
@@ -1503,15 +1504,16 @@ export const en = {
   "ipam.vrf.create": "Create VRF",
   "ipam.vrf.empty": "No VRFs yet.",
 
-  "ipam.vlan.title": "VLANs (per site)",
+  "ipam.vlan.title": "Segments",
   "ipam.vlan.intro": "802.1Q VLAN IDs are unique per site. Optionally attach a VLAN to a VRF for L3 context.",
-  "ipam.vlan.addTitle": "Add VLAN",
+  "ipam.vlan.addTitle": "Add segment",
+  "ipam.vlan.new": "New segment",
   "ipam.vlan.vrfOptional": "VRF (optional)",
   "ipam.vlan.noVrf": "— none —",
   "ipam.vlan.create": "Create VLAN",
   "ipam.vlan.empty": "No VLANs yet.",
 
-  "ipam.circuits.title": "Circuits (links)",
+  "ipam.circuits.title": "Circuits",
   "ipam.circuits.intro":
     "Logical transport between two points: fiber, VPN, WireGuard, radio, leased line, etc. Tenant is optional (internal WG does not need one). Each circuit has a stable circuit number.",
   "ipam.circuits.placementHint":
@@ -1519,6 +1521,7 @@ export const en = {
   "ipam.circuits.filterTenant": "Tenant",
   "ipam.circuits.allTenants": "All tenants",
   "ipam.circuits.addTitle": "Add circuit",
+  "ipam.circuits.new": "New circuit",
   "ipam.circuits.tenant": "Tenant",
   "ipam.circuits.chooseTenant": "Choose tenant",
   "ipam.circuits.noTenant": "— none (internal / WireGuard) —",
