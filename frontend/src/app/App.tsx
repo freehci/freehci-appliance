@@ -9,22 +9,20 @@ import { DcimDeviceModelDetailPage } from "@/features/dcim/DcimDeviceModelDetail
 import { DcimDeviceNewPage } from "@/features/dcim/DcimDeviceNewPage";
 import { DcimDeviceTypeDetailPage } from "@/features/dcim/DcimDeviceTypeDetailPage";
 import { DcimEquipmentPage } from "@/features/dcim/DcimEquipmentPage";
+import { DcimLocationsPage } from "@/features/dcim/DcimLocationsPage";
 import { DcimManufacturerDetailPage } from "@/features/dcim/DcimManufacturerDetailPage";
 import { DcimLayout } from "@/features/dcim/DcimLayout";
 import { DcimOverviewPage } from "@/features/dcim/DcimOverviewPage";
 import { DcimRacksPage } from "@/features/dcim/DcimRacksPage";
 import { DcimRoomDetailPage } from "@/features/dcim/DcimRoomDetailPage";
-import { DcimRoomsPage } from "@/features/dcim/DcimRoomsPage";
 import {
   DcimBuildingDetailPage,
   DcimFloorDetailPage,
   DcimWingDetailPage,
 } from "@/features/dcim/DcimHierarchyPages";
 import { DcimSiteDetailPage } from "@/features/dcim/DcimSiteDetailPage";
-import { DcimSitesPage } from "@/features/dcim/DcimSitesPage";
 import { DcimTenantsPage } from "@/features/dcim/DcimTenantsPage";
 import { IpamCircuitsPage } from "@/features/ipam/IpamCircuitsPage";
-import { IpamGitopsPage } from "@/features/ipam/IpamGitopsPage";
 import { IpamIpv6PrefixesPage } from "@/features/ipam/IpamIpv6PrefixesPage";
 import { IpamLayout } from "@/features/ipam/IpamLayout";
 import { IpamPrefixDetailPage } from "@/features/ipam/IpamPrefixDetailPage";
@@ -44,6 +42,7 @@ import { SystemStatusPage } from "@/features/system/SystemStatusPage";
 import { usePluginRouteElements } from "@/plugins/PluginRoutes";
 import { PluginProvider } from "@/plugins/PluginContext";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { ExtensionsPage } from "@/features/integrations/ExtensionsPage";
 import { IntegrationsPage } from "@/features/integrations/IntegrationsPage";
 import { IamGroupDetailPage } from "@/features/iam/IamGroupDetailPage";
 import { IamGroupsPage } from "@/features/iam/IamGroupsPage";
@@ -82,15 +81,17 @@ function AppRoutes() {
           <Route path="/account/access" element={<AccountAccessPage />} />
           <Route path="/dcim" element={<DcimLayout />}>
             <Route index element={<DcimOverviewPage />} />
-            <Route path="sites" element={<DcimSitesPage />} />
+            <Route path="locations" element={<DcimLocationsPage />} />
+            <Route path="sites" element={<Navigate to="/dcim/locations" replace />} />
             <Route path="sites/:siteId" element={<DcimSiteDetailPage />} />
             <Route path="sites/:siteId/buildings/:buildingId" element={<DcimBuildingDetailPage />} />
             <Route path="sites/:siteId/buildings/:buildingId/wings/:wingId" element={<DcimWingDetailPage />} />
             <Route path="sites/:siteId/buildings/:buildingId/floors/:floorId" element={<DcimFloorDetailPage />} />
-            <Route path="tenants" element={<DcimTenantsPage />} />
+            <Route path="tenants" element={<Navigate to="/admin/organizations" replace />} />
             <Route path="rooms/:roomId" element={<DcimRoomDetailPage />} />
-            <Route path="rooms" element={<DcimRoomsPage />} />
+            <Route path="rooms" element={<Navigate to="/dcim/locations" replace />} />
             <Route path="racks" element={<DcimRacksPage />} />
+            <Route path="models" element={<DcimEquipmentPage variant="library" />} />
             <Route path="equipment" element={<DcimEquipmentPage />} />
             <Route path="equipment/devices/new" element={<DcimDeviceNewPage />} />
             <Route path="equipment/devices/:deviceId" element={<DcimDeviceDetailPage />} />
@@ -103,7 +104,9 @@ function AppRoutes() {
             <Route path="prefixes" element={<IpamPrefixesPage />} />
             <Route path="prefixes/:prefixId" element={<IpamPrefixDetailPage />} />
             <Route path="ipv6" element={<IpamIpv6PrefixesPage />} />
-            <Route path="gitops" element={<IpamGitopsPage />} />
+            <Route path="gitops" element={<Navigate to="/jobs/templates" replace />} />
+            <Route path="segments" element={<Navigate to="/ipam/vlans" replace />} />
+            <Route path="routing" element={<Navigate to="/ipam/vrfs" replace />} />
             <Route path="vlans" element={<IpamVlansPage />} />
             <Route path="vrfs" element={<IpamVrfsPage />} />
             <Route path="circuits" element={<IpamCircuitsPage />} />
@@ -122,6 +125,8 @@ function AppRoutes() {
           </Route>
           <Route path="/system" element={<SystemStatusPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
+          <Route path="/extensions" element={<ExtensionsPage />} />
+          <Route path="/admin/organizations" element={<DcimTenantsPage />} />
           <Route path="/iam" element={<IamLayout />}>
             <Route index element={<Navigate to="users" replace />} />
             <Route path="persons" element={<Navigate to="/iam/users" replace />} />

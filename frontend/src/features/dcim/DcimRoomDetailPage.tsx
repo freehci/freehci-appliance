@@ -156,7 +156,7 @@ export function DcimRoomDetailPage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["dcim", "rooms"] });
       void qc.invalidateQueries({ queryKey: ["dcim", "racks"] });
-      void navigate("/dcim/rooms");
+      void navigate("/dcim/locations");
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -165,7 +165,7 @@ export function DcimRoomDetailPage() {
     return (
       <Panel title={t("dcim.rooms.detailTitle")}>
         <p className={styles.err}>{t("dcim.rooms.invalidId")}</p>
-        <Link to="/dcim/rooms" className={styles.tableLink}>
+        <Link to="/dcim/locations" className={styles.tableLink}>
           {t("dcim.rooms.backToList")}
         </Link>
       </Panel>
@@ -176,7 +176,7 @@ export function DcimRoomDetailPage() {
     return (
       <Panel title={t("dcim.rooms.detailTitle")}>
         <p className={styles.err}>{(roomQ.error as Error).message}</p>
-        <Link to="/dcim/rooms" className={styles.tableLink}>
+        <Link to="/dcim/locations" className={styles.tableLink}>
           {t("dcim.rooms.backToList")}
         </Link>
       </Panel>
@@ -194,7 +194,7 @@ export function DcimRoomDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        <Link to="/dcim/sites" className={styles.tableLink}>
+        <Link to="/dcim/locations" className={styles.tableLink}>
           {t("nav.dcimSites")}
         </Link>
         {ro.building_id != null ? (
@@ -217,7 +217,7 @@ export function DcimRoomDetailPage() {
           </>
         ) : null}
         {" / "}
-        <Link to="/dcim/rooms" className={styles.tableLink}>
+        <Link to="/dcim/locations" className={styles.tableLink}>
           {t("dcim.rooms.backToList")}
         </Link>
       </p>

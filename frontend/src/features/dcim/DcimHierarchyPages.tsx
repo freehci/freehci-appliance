@@ -173,7 +173,7 @@ export function DcimBuildingDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        {crumb("/dcim/sites", t("nav.dcimSites"))}
+        {crumb("/dcim/locations", t("nav.locations"))}
         {" / "}
         {crumb(`/dcim/sites/${site.id}`, site.name)}
         {" / "}
@@ -442,7 +442,7 @@ export function DcimWingDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        {crumb("/dcim/sites", t("nav.dcimSites"))}
+        {crumb("/dcim/locations", t("nav.locations"))}
         {" / "}
         {crumb(`/dcim/sites/${site.id}`, site.name)}
         {" / "}
@@ -626,7 +626,7 @@ export function DcimFloorDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        {crumb("/dcim/sites", t("nav.dcimSites"))}
+        {crumb("/dcim/locations", t("nav.locations"))}
         {" / "}
         {crumb(`/dcim/sites/${site.id}`, site.name)}
         {" / "}

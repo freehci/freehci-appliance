@@ -4,6 +4,7 @@ import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import * as dcimApi from "@/features/dcim/dcimApi";
 import * as ipamApi from "@/features/ipam/ipamApi";
+import { IpamAuditSection, IpamDriftSection, IpamSitePicker } from "@/features/ipam/IpamGitopsPanels";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -20,6 +21,7 @@ export function JobsTemplatesPage() {
   const [customName, setCustomName] = useState("");
   const [customPorts, setCustomPorts] = useState("1883,502,22");
   const [bindingDeleteId, setBindingDeleteId] = useState<number | null>(null);
+  const [driftSiteId, setDriftSiteId] = useState("");
 
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const prefixesQ = useQuery({
@@ -231,6 +233,11 @@ export function JobsTemplatesPage() {
         ) : (
           <p className={dcimStyles.muted}>{t("netscan.bindingsEmpty")}</p>
         )}
+      </Panel>
+      <Panel title={t("ipam.gitops.driftTitle")}>
+        <IpamSitePicker siteId={driftSiteId} onChange={setDriftSiteId} />
+        <IpamDriftSection siteId={driftSiteId} />
+        <IpamAuditSection siteId={driftSiteId} />
       </Panel>
       <ConfirmModal
         open={bindingDeleteId != null}

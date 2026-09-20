@@ -136,7 +136,7 @@ export function DashboardHome() {
       {loadErr ? <p className={styles.err}>{(loadErr as Error).message}</p> : null}
 
       <section className={styles.kpiRow}>
-        <Link to="/dcim/sites" className={styles.kpi}>
+        <Link to="/dcim/locations" className={styles.kpi}>
           <span className={styles.kpiIcon}>
             <SidebarNavIcon name="dcimSites" size={18} />
           </span>
@@ -210,7 +210,7 @@ export function DashboardHome() {
         <article className={styles.card}>
           <div className={styles.cardHead}>
             <h2 className={styles.cardTitle}>{t("dashboard.sitesTitle")}</h2>
-            <Link to="/dcim/sites" className={styles.cardLink}>
+            <Link to="/dcim/locations" className={styles.cardLink}>
               {t("dashboard.seeAll")}
             </Link>
           </div>

@@ -82,3 +82,35 @@
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
 }
+
+.domainBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  text-align: left;
+}
+
+.domainBtn:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-text);
+}
+
+.domainOpen {
+  color: var(--color-text);
+}
+
+.chevron {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}

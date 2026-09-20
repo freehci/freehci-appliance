@@ -240,7 +240,7 @@ export function DcimSiteDetailPage() {
     return (
       <Panel title={t("nav.dcimSites")}>
         <p className={styles.err}>{(siteQ.error as Error).message}</p>
-        <Link to="/dcim/sites" className={styles.tableLink}>
+        <Link to="/dcim/locations" className={styles.tableLink}>
           {t("dcim.sites.backToList")}
         </Link>
       </Panel>
@@ -257,7 +257,7 @@ export function DcimSiteDetailPage() {
   return (
     <>
       <p className={styles.mfrDetailBack}>
-        <Link to="/dcim/sites" className={styles.tableLink}>
+        <Link to="/dcim/locations" className={styles.tableLink}>
           ← {t("dcim.sites.backToList")}
         </Link>
       </p>

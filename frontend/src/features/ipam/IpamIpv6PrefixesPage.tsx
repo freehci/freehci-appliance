@@ -6,6 +6,7 @@ import * as dcimApi from "@/features/dcim/dcimApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
+import { IpamFamilyTabs } from "./IpamFamilyTabs";
 import * as ipamApi from "./ipamApi";
 import type { Ipv6Prefix } from "./types";
 import { OVERLAP_POLICIES, PREFIX_ROLES, PREFIX_STATUSES } from "./types";
@@ -196,6 +197,7 @@ export function IpamIpv6PrefixesPage() {
 
   return (
     <Panel title={t("ipam.ipv6.title")}>
+      <IpamFamilyTabs />
       <p className={dcimStyles.muted}>{t("ipam.ipv6.intro")}</p>
       {err ? <p className={dcimStyles.err}>{err}</p> : null}
 

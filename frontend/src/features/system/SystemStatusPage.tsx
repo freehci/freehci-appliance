@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Panel } from "@/components/ui/Panel";
 import dcimStyles from "@/features/dcim/dcim.module.css";
-import * as federationApi from "@/features/integrations/federationApi";
+import { FederationReplicasPanel } from "@/features/integrations/FederationReplicasPanel";
 import { useI18n } from "@/i18n/I18nProvider";
 import * as systemApi from "./systemApi";
 
@@ -23,12 +23,6 @@ export function SystemStatusPage() {
     queryFn: () => systemApi.systemStatus(),
     refetchInterval: 15_000,
   });
-  const fedQ = useQuery({
-    queryKey: ["federation", "status"],
-    queryFn: federationApi.federationStatus,
-    refetchInterval: 15_000,
-  });
-
   const status = q.data;
   const updateCheck = status?.update_check;
   const updater = status?.updater_status;
@@ -131,36 +125,7 @@ export function SystemStatusPage() {
         {logText || t("system.statusNoLog")}
       </pre>
     </Panel>
-    <Panel title={t("dashboard.replicasTitle")}>
-      {fedQ.isError ? <p className={dcimStyles.err}>{(fedQ.error as Error).message}</p> : null}
-      <p className={dcimStyles.muted}>
-        {fedQ.data
-          ? `${fedQ.data.name} · ${fedQ.data.instance_uuid}`
-          : t("dcim.common.loading")}
-      </p>
-      {fedQ.data?.peers.length ? (
-        <ul>
-          {fedQ.data.peers.map((p) => (
-            <li key={p.id}>
-              {p.name} — {p.base_url} ({p.status})
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className={dcimStyles.muted}>{t("dashboard.replicasNone")}</p>
-      )}
-      {fedQ.data?.tenants.length ? (
-        <ul>
-          {fedQ.data.tenants.map((ten) => (
-            <li key={ten.tenant_id}>
-              {ten.tenant_name} —{" "}
-              {ten.is_primary_here ? t("dashboard.replicaPrimary") : t("dashboard.replicaReadonly")}
-              {ten.frozen ? ` · ${t("integrations.frozen")}` : ""}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </Panel>
+    <FederationReplicasPanel />
     </div>
   );
 }

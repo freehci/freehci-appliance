@@ -14,7 +14,14 @@ import { deviceInstanceListThumbSrc, deviceModelListThumbSrc } from "./modelImag
 import type { DeviceInstance, DeviceModel, DeviceType, NetBoxDtlItem, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
 
 type EquipTab = "mfr" | "dt" | "dm" | "dev" | "pl" | "cmp";
+type EquipVariant = "devices" | "library";
 type NetBoxTreeGroup = "manufacturer" | "device_type";
+const LIBRARY_TABS = new Set<EquipTab>(["mfr", "dt", "dm", "cmp"]);
+
+function parseEquipTab(raw: string | null, fallback: EquipTab): EquipTab {
+  if (raw === "mfr" || raw === "dt" || raw === "dm" || raw === "dev" || raw === "pl" || raw === "cmp") return raw;
+  return fallback;
+}
 
 function netboxDeviceTypeLabel(item: NetBoxDtlItem): string {
   const raw = item.raw_json;
@@ -51,11 +58,12 @@ function groupNetBoxItems(items: NetBoxDtlItem[], groupBy: NetBoxTreeGroup): Arr
     ]);
 }
 
-export function DcimEquipmentPage() {
+export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVariant }) {
   const { t } = useI18n();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const defaultTab: EquipTab = variant === "library" ? "mfr" : "dev";
   const [err, setErr] = useState<string | null>(null);
 
   const [mfrName, setMfrName] = useState("");
@@ -82,10 +90,7 @@ export function DcimEquipmentPage() {
   const [plMount, setPlMount] = useState("front");
   const [rackFilter, setRackFilter] = useState<string>("");
   const [devListFilter, setDevListFilter] = useState("");
-  const [equipTab, setEquipTab] = useState<EquipTab>(() => {
-    const tab = searchParams.get("tab");
-    return tab === "dt" || tab === "dm" || tab === "dev" || tab === "pl" || tab === "cmp" ? tab : "mfr";
-  });
+  const [equipTab, setEquipTab] = useState<EquipTab>(() => parseEquipTab(searchParams.get("tab"), defaultTab));
   const [mfrPendingDelete, setMfrPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [dtPendingDelete, setDtPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [plPendingRemove, setPlPendingRemove] = useState<RackPlacement | null>(null);
@@ -184,11 +189,8 @@ export function DcimEquipmentPage() {
   }, [devicesQ.data]);
 
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "mfr" || tab === "dt" || tab === "dm" || tab === "dev" || tab === "pl" || tab === "cmp") {
-      setEquipTab(tab);
-    }
-  }, [searchParams]);
+    setEquipTab(parseEquipTab(searchParams.get("tab"), defaultTab));
+  }, [searchParams, defaultTab]);
 
   const filteredDevices = useMemo(() => {
     const rows = devicesQ.data ?? [];
@@ -392,7 +394,7 @@ export function DcimEquipmentPage() {
 
   return (
     <>
-    <Panel title={t("nav.dcimEquipment")}>
+    <Panel title={t(variant === "library" ? "nav.modelLibrary" : "nav.devices")}>
       {err ? <p className={styles.err}>{err}</p> : null}
       <p className={styles.muted} style={{ marginTop: 0 }}>
         {t("dcim.equip.introBody")}
@@ -410,11 +412,11 @@ export function DcimEquipmentPage() {
         onChange={(id) => {
           const nextTab = id as EquipTab;
           setEquipTab(nextTab);
-          setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            next.set("tab", nextTab);
-            return next;
-          });
+          const library = LIBRARY_TABS.has(nextTab);
+          const path = library ? "/dcim/models" : "/dcim/equipment";
+          const next = new URLSearchParams(searchParams);
+          next.set("tab", nextTab);
+          navigate(`${path}?${next.toString()}`);
         }}
         ariaLabel={t("dcim.innerNavAria")}
       />

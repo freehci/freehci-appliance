@@ -18,6 +18,7 @@ import {
   parseIpv4Cidr,
 } from "./ipv4PrefixTree";
 import * as ipamApi from "./ipamApi";
+import { IpamFamilyTabs } from "./IpamFamilyTabs";
 import { IpamIpRequestModal } from "./IpamIpRequestModal";
 import prefixStyles from "./prefixPage.module.css";
 import {
@@ -900,7 +901,6 @@ export function IpamPrefixesPage() {
   const exportSite = () => {
     if (siteIdFilter == null) {
       setErr(t("ipam.ipv4.exportNeedSite"));
-      nav("/ipam/gitops");
       return;
     }
     void ipamApi
@@ -920,6 +920,7 @@ export function IpamPrefixesPage() {
 
   return (
     <Panel>
+      <IpamFamilyTabs />
       {ipRequestCtx ? (
         <IpamIpRequestModal
           open
@@ -947,8 +948,8 @@ export function IpamPrefixesPage() {
           <p className={prefixStyles.intro}>{t("ipam.ipv4.intro")}</p>
         </div>
         <div className={prefixStyles.headActions}>
-          <Link to="/ipam/gitops" className={dcimStyles.btn}>
-            {t("ipam.ipv4.docs")}
+          <Link to="/jobs/templates" className={dcimStyles.btn}>
+            {t("ipam.gitops.driftTitle")}
           </Link>
           <button type="button" className={dcimStyles.btn} onClick={exportSite}>
             {t("ipam.ipv4.export")}

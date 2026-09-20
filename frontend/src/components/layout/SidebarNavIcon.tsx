@@ -16,7 +16,14 @@ export type SidebarNavIconName =
   | "dcimRooms"
   | "dcimRacks"
   | "dcimEquipment"
-  | "plugins";
+  | "plugins"
+  | "locations"
+  | "devices"
+  | "models"
+  | "discovery"
+  | "access"
+  | "orgs"
+  | "extensions";
 
 function Svg({ size, children }: { size: 16 | 18; children: ReactNode }) {
   return (
@@ -154,11 +161,60 @@ export function SidebarNavIcon({ name, size = 18 }: { name: SidebarNavIconName; 
         </S>
       );
     case "plugins":
+    case "extensions":
       return (
         <S>
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
           <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
           <line x1="12" y1="22.08" x2="12" y2="12" />
+        </S>
+      );
+    case "locations":
+      return (
+        <S>
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+          <circle cx="12" cy="10" r="3" />
+        </S>
+      );
+    case "devices":
+      return (
+        <S>
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <rect x="9" y="9" width="6" height="6" />
+          <line x1="9" y1="2" x2="9" y2="4" />
+          <line x1="15" y1="2" x2="15" y2="4" />
+        </S>
+      );
+    case "models":
+      return (
+        <S>
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          <line x1="8" y1="7" x2="16" y2="7" />
+          <line x1="8" y1="11" x2="14" y2="11" />
+        </S>
+      );
+    case "discovery":
+      return (
+        <S>
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </S>
+      );
+    case "access":
+      return (
+        <S>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+          <circle cx="12" cy="11" r="2" />
+        </S>
+      );
+    case "orgs":
+      return (
+        <S>
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </S>
       );
   }

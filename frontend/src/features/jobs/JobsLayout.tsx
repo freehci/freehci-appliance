@@ -30,7 +30,7 @@ export function JobsLayout() {
             <span className={dcimTabStyles.iconWrap}>
               <JobsTabIcon name="templates" />
             </span>
-            <span>{t("jobs.tabTemplates")}</span>
+            <span>{t("nav.discovery")}</span>
           </NavLink>
         </div>
       </nav>
