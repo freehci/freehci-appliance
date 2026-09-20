@@ -207,6 +207,17 @@
   text-decoration: none;
 }
 
+button.treeNameLink,
+button.cidrLink {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
 .treeNameLink:hover,
 .cidrLink:hover {
   color: var(--color-accent);

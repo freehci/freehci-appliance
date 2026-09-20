@@ -48,6 +48,28 @@ export function buildIpv6ChildrenByParent(rows: Ipv6Prefix[]): {
   return { roots, childrenByParentId };
 }
 
+export function filterIpv6KeepingAncestors(
+  all: Ipv6Prefix[],
+  childrenByParentId: Map<number, Ipv6Prefix[]>,
+  match: (p: Ipv6Prefix) => boolean,
+): Ipv6Prefix[] {
+  const parentOf = new Map<number, number>();
+  for (const [pid, kids] of childrenByParentId) {
+    for (const k of kids) parentOf.set(k.id, pid);
+  }
+  const keep = new Set<number>();
+  for (const p of all) {
+    if (!match(p)) continue;
+    keep.add(p.id);
+    let cur = parentOf.get(p.id);
+    while (cur != null && !keep.has(cur)) {
+      keep.add(cur);
+      cur = parentOf.get(cur);
+    }
+  }
+  return all.filter((p) => keep.has(p.id));
+}
+
 export function flattenIpv6Tree(
   roots: Ipv6Prefix[],
   childrenByParentId: Map<number, Ipv6Prefix[]>,

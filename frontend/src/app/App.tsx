@@ -22,6 +22,7 @@ import {
 } from "@/features/dcim/DcimHierarchyPages";
 import { DcimSiteDetailPage } from "@/features/dcim/DcimSiteDetailPage";
 import { DcimTenantsPage } from "@/features/dcim/DcimTenantsPage";
+import { IpamAddressingLayout } from "@/features/ipam/IpamAddressingLayout";
 import { IpamCircuitsPage } from "@/features/ipam/IpamCircuitsPage";
 import { IpamIpv6PrefixesPage } from "@/features/ipam/IpamIpv6PrefixesPage";
 import { IpamLayout } from "@/features/ipam/IpamLayout";
@@ -101,9 +102,11 @@ function AppRoutes() {
           </Route>
           <Route path="/ipam" element={<IpamLayout />}>
             <Route index element={<Navigate to="prefixes" replace />} />
-            <Route path="prefixes" element={<IpamPrefixesPage />} />
+            <Route element={<IpamAddressingLayout />}>
+              <Route path="prefixes" element={<IpamPrefixesPage />} />
+              <Route path="ipv6" element={<IpamIpv6PrefixesPage />} />
+            </Route>
             <Route path="prefixes/:prefixId" element={<IpamPrefixDetailPage />} />
-            <Route path="ipv6" element={<IpamIpv6PrefixesPage />} />
             <Route path="gitops" element={<Navigate to="/jobs/templates" replace />} />
             <Route path="segments" element={<Navigate to="/ipam/vlans" replace />} />
             <Route path="routing" element={<Navigate to="/ipam/vrfs" replace />} />

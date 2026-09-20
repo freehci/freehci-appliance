@@ -1478,9 +1478,9 @@ export const nb = {
   "ipam.gitops.action": "Handling",
   "ipam.gitops.resource": "Ressurs",
 
-  "ipam.ipv6.title": "IPAM — IPv6-prefiks",
+  "ipam.ipv6.title": "IPv6-prefiks",
   "ipam.ipv6.intro":
-    "Samme GitOps-kontrakt som IPv4: rolle, status, overlap, dual-stack, split, skann og ledige ranges. Grid er begrenset til /118.",
+    "Prefiks er unike per site. Samme CIDR kan finnes på flere sites. Listen er et tre: barn ligger under den strammeste omstørende forelderen. Samme rolle, status, overlap og dual-stack som IPv4. Adressegrid er begrenset til /118.",
   "ipam.ipv6.addTitle": "Legg til IPv6-prefiks",
   "ipam.ipv6.allTitle": "Alle IPv6-prefiks",
   "ipam.ipv6.empty": "Ingen IPv6-prefiks ennå.",

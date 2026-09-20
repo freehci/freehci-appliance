@@ -1468,9 +1468,9 @@ export const en = {
   "ipam.gitops.action": "Action",
   "ipam.gitops.resource": "Resource",
 
-  "ipam.ipv6.title": "IPAM — IPv6 prefixes",
+  "ipam.ipv6.title": "IPv6 prefixes",
   "ipam.ipv6.intro":
-    "Same GitOps contract as IPv4: role, status, overlap, dual-stack, split, scan, and free ranges. Grid is limited to /118.",
+    "Prefixes are unique per site. Nested CIDRs appear under containing parents. Same role, status, overlap and dual-stack fields as IPv4. The address grid is limited to /118.",
   "ipam.ipv6.addTitle": "Add IPv6 prefix",
   "ipam.ipv6.allTitle": "All IPv6 prefixes",
   "ipam.ipv6.empty": "No IPv6 prefixes yet.",

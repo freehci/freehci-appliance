@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
-import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as dcimApi from "@/features/dcim/dcimApi";
@@ -18,7 +17,6 @@ import {
   parseIpv4Cidr,
 } from "./ipv4PrefixTree";
 import * as ipamApi from "./ipamApi";
-import { IpamFamilyTabs } from "./IpamFamilyTabs";
 import { IpamIpRequestModal } from "./IpamIpRequestModal";
 import prefixStyles from "./prefixPage.module.css";
 import {
@@ -919,8 +917,7 @@ export function IpamPrefixesPage() {
   };
 
   return (
-    <Panel>
-      <IpamFamilyTabs />
+    <>
       {ipRequestCtx ? (
         <IpamIpRequestModal
           open
@@ -2630,6 +2627,6 @@ export function IpamPrefixesPage() {
           delPfx.mutate(deletePrefixTarget.id, { onSettled: () => setDeletePrefixTarget(null) });
         }}
       />
-    </Panel>
+    </>
   );
 }
