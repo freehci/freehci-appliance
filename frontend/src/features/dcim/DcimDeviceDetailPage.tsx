@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { catalogProvisionHref } from "@/features/catalog/catalogHref";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -674,7 +675,7 @@ export function DcimDeviceDetailPage() {
               {t("dcim.equip.dev.classificationNote")}
             </p>
             <p>
-              <Link to={`/services?tab=deploy&device=${dev.id}`} className={styles.tableLink}>
+              <Link to={catalogProvisionHref(dev.id)} className={styles.tableLink}>
                 {t("catalog.provision")}
               </Link>
               <span className={styles.muted}> — {t("catalog.provisionHint")}</span>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { catalogProvisionHref } from "@/features/catalog/catalogHref";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/messages/en";
@@ -1114,6 +1115,13 @@ export function RackPlanner({
                 </button>
                 <Link to={`/dcim/equipment/devices/${selectedDevice.id}`} className={baseStyles.btn}>
                   {t("dcim.racks.openDevice")}
+                </Link>
+                <Link
+                  to={catalogProvisionHref(selectedDevice.id)}
+                  className={baseStyles.btn}
+                  title={t("catalog.provisionHint")}
+                >
+                  {t("catalog.provision")}
                 </Link>
               </div>
             </>

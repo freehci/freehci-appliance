@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { catalogProvisionHref } from "@/features/catalog/catalogHref";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Panel } from "@/components/ui/Panel";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -1068,6 +1069,9 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
               <i className="fas fa-plus" aria-hidden /> {t("dcim.equip.dev.newButton")}
             </Link>
           </div>
+          <p className={styles.muted} style={{ marginTop: "var(--space-2)" }}>
+            {t("catalog.provisionHint")}
+          </p>
           <div className={styles.formRow} style={{ marginTop: "var(--space-2)" }}>
             <label style={{ flex: "1 1 16rem" }}>
               {t("dcim.equip.dev.filterList")}
@@ -1092,6 +1096,7 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
                   <th>{t("dcim.equip.dev.effectiveTypeCol")}</th>
                   <th>{t("dcim.equip.dev.roleCol")}</th>
                   <th>{t("dcim.equip.dev.placementCol")}</th>
+                  <th>{t("catalog.provision")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1167,6 +1172,15 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
                         ) : (
                           "—"
                         )}
+                      </td>
+                      <td>
+                        <Link
+                          to={catalogProvisionHref(x.id)}
+                          className={styles.tableLink}
+                          title={t("catalog.provisionHint")}
+                        >
+                          {t("catalog.provision")}
+                        </Link>
                       </td>
                     </tr>
                   );
@@ -1255,6 +1269,7 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
                 <th>{t("dcim.equip.pl.uPos")}</th>
                 <th>{t("dcim.equip.pl.mount")}</th>
                 <th>{t("dcim.equip.pl.openInRack")}</th>
+                <th>{t("catalog.provision")}</th>
                 <th />
               </tr>
             </thead>
@@ -1309,6 +1324,19 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
                       >
                         {t("dcim.equip.pl.openInRack")}
                       </Link>
+                    </td>
+                    <td>
+                      {devRow ? (
+                        <Link
+                          to={catalogProvisionHref(devRow.id)}
+                          className={styles.tableLink}
+                          title={t("catalog.provisionHint")}
+                        >
+                          {t("catalog.provision")}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td>
                       <div className={styles.tableIconActions}>

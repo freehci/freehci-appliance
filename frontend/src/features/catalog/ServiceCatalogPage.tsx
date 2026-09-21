@@ -46,7 +46,12 @@ export function ServiceCatalogPage() {
 
   useEffect(() => {
     const fromUrl = searchParams.get("device");
-    if (fromUrl) setDeviceId(fromUrl);
+    if (!fromUrl) return;
+    setDeviceId(fromUrl);
+    const n = Number(fromUrl);
+    if (Number.isFinite(n) && n > 0) {
+      setDeviceIds((prev) => (prev.includes(n) ? prev : [n, ...prev]));
+    }
   }, [searchParams]);
 
   const tmplQ = useQuery({ queryKey: ["service-templates"], queryFn: api.listTemplates });
