@@ -119,6 +119,16 @@ export type DeviceType = {
   fa_icon: string | null;
 };
 
+export type DeviceRoleKind = "core" | "edge" | "hypervisor" | "other";
+
+export type DeviceRole = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: DeviceRoleKind;
+  description: string | null;
+};
+
 export type DeviceModelBrief = {
   id: number;
   name: string;
@@ -152,6 +162,7 @@ export type DeviceInstance = {
   id: number;
   device_model_id: number | null;
   device_type_id: number | null;
+  device_role_id: number | null;
   effective_device_type_id: number | null;
   site_id: number | null;
   /** Lagret site, ellers rack → rom */

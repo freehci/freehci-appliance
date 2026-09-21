@@ -453,6 +453,58 @@ class DeviceTypeRead(BaseModel):
     fa_icon: str | None = None
 
 
+DEVICE_ROLE_KINDS = frozenset({"core", "edge", "hypervisor", "other"})
+
+
+class DeviceRoleCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    kind: str = "other"
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "other"
+        if s not in DEVICE_ROLE_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(DEVICE_ROLE_KINDS))}")
+        return s
+
+
+class DeviceRoleUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    kind: str | None = None
+    description: str | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower() or "other"
+        if s not in DEVICE_ROLE_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(DEVICE_ROLE_KINDS))}")
+        return s
+
+
+class DeviceRoleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    kind: str
+    description: str | None
+
+
 class DeviceModelBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -518,6 +570,7 @@ class DeviceModelRead(BaseModel):
 class DeviceInstanceCreate(BaseModel):
     device_model_id: int | None = None
     device_type_id: int | None = None
+    device_role_id: int | None = None
     site_id: int | None = Field(None, ge=1, description="DCIM-site; arves fra rack/rom hvis utelatt")
     name: str = Field(..., min_length=1, max_length=255)
     serial_number: str | None = Field(None, max_length=128)
@@ -528,6 +581,7 @@ class DeviceInstanceCreate(BaseModel):
 class DeviceInstanceUpdate(BaseModel):
     device_model_id: int | None = None
     device_type_id: int | None = None
+    device_role_id: int | None = None
     site_id: int | None = Field(None, ge=1)
     name: str | None = Field(None, min_length=1, max_length=255)
     serial_number: str | None = Field(None, max_length=128)
@@ -541,6 +595,7 @@ class DeviceInstanceRead(BaseModel):
     id: int
     device_model_id: int | None
     device_type_id: int | None
+    device_role_id: int | None = None
     effective_device_type_id: int | None
     site_id: int | None = None
     # Lagret site, ellers rack → rom. Brukes for IPAM-prefiks i riktig site.

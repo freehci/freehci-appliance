@@ -17,6 +17,7 @@ export function DcimDeviceNewPage() {
   const [err, setErr] = useState<string | null>(null);
   const [devModel, setDevModel] = useState("");
   const [devDt, setDevDt] = useState("");
+  const [devRole, setDevRole] = useState("");
   const [devName, setDevName] = useState("");
   const [devSite, setDevSite] = useState("");
   const [devAttrsJson, setDevAttrsJson] = useState("{}");
@@ -24,6 +25,7 @@ export function DcimDeviceNewPage() {
 
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
   const deviceTypesQ = useQuery({ queryKey: ["dcim", "device-types"], queryFn: api.listDeviceTypes });
+  const deviceRolesQ = useQuery({ queryKey: ["dcim", "device-roles"], queryFn: api.listDeviceRoles });
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: api.listSites });
 
   useEffect(() => {
@@ -69,6 +71,7 @@ export function DcimDeviceNewPage() {
         name: devName.trim(),
         device_model_id: devModel === "" ? null : Number(devModel),
         device_type_id: devDt === "" ? null : Number(devDt),
+        device_role_id: devRole === "" ? null : Number(devRole),
         site_id: devSite === "" ? null : Number(devSite),
         attributes: attrsOut,
       });
@@ -117,6 +120,17 @@ export function DcimDeviceNewPage() {
               {(deviceTypesQ.data ?? []).map((d) => (
                 <option key={d.id} value={String(d.id)}>
                   {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("dcim.equip.dev.roleLabel")}
+            <select value={devRole} onChange={(e) => setDevRole(e.target.value)}>
+              <option value="">{t("dcim.equip.dev.roleNone")}</option>
+              {(deviceRolesQ.data ?? []).map((r) => (
+                <option key={r.id} value={String(r.id)}>
+                  {r.name} ({r.kind})
                 </option>
               ))}
             </select>

@@ -39,6 +39,7 @@ from app.models.dcim import (
     DeviceModel,
     DeviceModelComponent,
     DeviceModelIdentity,
+    DeviceRole,
     DeviceType,
     Floor,
     InterfaceIpAssignment,
@@ -115,6 +116,8 @@ from app.schemas.dcim import (
     DeviceModelIdentityRead,
     DeviceModelIdentityUpdate,
     DeviceModelRead,
+    DeviceRoleCreate,
+    DeviceRoleUpdate,
     DeviceTypeCreate,
     DeviceTypeUpdate,
     ManufacturerCreate,
@@ -1358,6 +1361,76 @@ def delete_device_type(db: Session, row: DeviceType) -> None:
     db.commit()
 
 
+# --- Device roles (funksjon, ikke fysisk type) ---
+
+
+def list_device_roles(db: Session) -> list[DeviceRole]:
+    return list(db.execute(select(DeviceRole).order_by(DeviceRole.name)).scalars().all())
+
+
+def get_device_role(db: Session, rid: int) -> DeviceRole | None:
+    return db.get(DeviceRole, rid)
+
+
+def create_device_role(db: Session, data: DeviceRoleCreate) -> DeviceRole:
+    existing = db.execute(select(DeviceRole).where(DeviceRole.slug == data.slug)).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="enhetsrolle-slug finnes allerede")
+    name = data.name.strip()
+    named = db.execute(select(DeviceRole).where(DeviceRole.name == name)).scalar_one_or_none()
+    if named is not None:
+        raise HTTPException(status_code=409, detail="enhetsrolle-navn finnes allerede")
+    row = DeviceRole(
+        name=name,
+        slug=data.slug,
+        kind=data.kind,
+        description=None if data.description is None else (data.description.strip() or None),
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="enhetsrolle-slug finnes allerede") from e
+    db.refresh(row)
+    return row
+
+
+def update_device_role(db: Session, row: DeviceRole, data: DeviceRoleUpdate) -> DeviceRole:
+    patch = data.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="ingen felter å oppdatere")
+    if "name" in patch:
+        nm = patch["name"]
+        if not nm or not str(nm).strip():
+            raise HTTPException(status_code=400, detail="navn kan ikke være tomt")
+        name = str(nm).strip()
+        clash = db.execute(
+            select(DeviceRole).where(DeviceRole.name == name, DeviceRole.id != row.id)
+        ).scalar_one_or_none()
+        if clash is not None:
+            raise HTTPException(status_code=409, detail="enhetsrolle-navn finnes allerede")
+        row.name = name
+    if "kind" in patch and patch["kind"] is not None:
+        row.kind = patch["kind"]
+    if "description" in patch:
+        v = patch["description"]
+        row.description = None if v is None else (str(v).strip() or None)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="enhetsrolle-navn finnes allerede") from e
+    db.refresh(row)
+    return row
+
+
+def delete_device_role(db: Session, row: DeviceRole) -> None:
+    db.execute(update(DeviceInstance).where(DeviceInstance.device_role_id == row.id).values(device_role_id=None))
+    db.delete(row)
+    db.commit()
+
+
 # --- Device models ---
 
 
@@ -1552,6 +1625,7 @@ def device_instance_read(
         id=dev.id,
         device_model_id=dev.device_model_id,
         device_type_id=dev.device_type_id,
+        device_role_id=getattr(dev, "device_role_id", None),
         effective_device_type_id=_effective_device_type_id(db, dev),
         site_id=getattr(dev, "site_id", None),
         effective_site_id=es,
@@ -1576,12 +1650,15 @@ def create_device(db: Session, data: DeviceInstanceCreate) -> DeviceInstanceRead
         raise HTTPException(status_code=404, detail="device_model ikke funnet")
     if data.device_type_id is not None and get_device_type(db, data.device_type_id) is None:
         raise HTTPException(status_code=404, detail="device_type ikke funnet")
+    if data.device_role_id is not None and get_device_role(db, data.device_role_id) is None:
+        raise HTTPException(status_code=404, detail="device_role ikke funnet")
     if data.site_id is not None and get_site(db, data.site_id) is None:
         raise HTTPException(status_code=404, detail="site ikke funnet")
     attrs = data.attributes
     row = DeviceInstance(
         device_model_id=data.device_model_id,
         device_type_id=data.device_type_id,
+        device_role_id=data.device_role_id,
         site_id=data.site_id,
         name=data.name.strip(),
         serial_number=data.serial_number,
@@ -1617,6 +1694,11 @@ def update_device(db: Session, row: DeviceInstance, data: DeviceInstanceUpdate) 
         if tid is not None and get_device_type(db, tid) is None:
             raise HTTPException(status_code=404, detail="device_type ikke funnet")
         row.device_type_id = tid
+    if "device_role_id" in patch:
+        rid = patch["device_role_id"]
+        if rid is not None and get_device_role(db, rid) is None:
+            raise HTTPException(status_code=404, detail="device_role ikke funnet")
+        row.device_role_id = rid
     if "site_id" in patch:
         sid = patch["site_id"]
         if sid is not None and get_site(db, sid) is None:

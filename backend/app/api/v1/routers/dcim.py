@@ -84,6 +84,9 @@ from app.schemas.dcim import (
     DeviceModelComponentUpdate,
     DeviceModelRead,
     DeviceModelUpdate,
+    DeviceRoleCreate,
+    DeviceRoleRead,
+    DeviceRoleUpdate,
     DeviceTypeCreate,
     DeviceTypeRead,
     DeviceTypeUpdate,
@@ -715,6 +718,43 @@ def delete_device_type(tid: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="device_type ikke funnet")
     dcim_svc.delete_device_type(db, row)
+
+
+# --- Device roles ---
+
+
+@router.get("/device-roles", response_model=list[DeviceRoleRead])
+def list_device_roles(db: Session = Depends(get_db)) -> list[DeviceRoleRead]:
+    return dcim_svc.list_device_roles(db)
+
+
+@router.post("/device-roles", response_model=DeviceRoleRead)
+def create_device_role(data: DeviceRoleCreate, db: Session = Depends(get_db)) -> DeviceRoleRead:
+    return dcim_svc.create_device_role(db, data)
+
+
+@router.get("/device-roles/{rid}", response_model=DeviceRoleRead)
+def get_device_role(rid: int, db: Session = Depends(get_db)) -> DeviceRoleRead:
+    row = dcim_svc.get_device_role(db, rid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_role ikke funnet")
+    return row
+
+
+@router.patch("/device-roles/{rid}", response_model=DeviceRoleRead)
+def patch_device_role(rid: int, data: DeviceRoleUpdate, db: Session = Depends(get_db)) -> DeviceRoleRead:
+    row = dcim_svc.get_device_role(db, rid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_role ikke funnet")
+    return dcim_svc.update_device_role(db, row, data)
+
+
+@router.delete("/device-roles/{rid}", status_code=204)
+def delete_device_role(rid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_role(db, rid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="device_role ikke funnet")
+    dcim_svc.delete_device_role(db, row)
 
 
 # --- Component classes / library ---

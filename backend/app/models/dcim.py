@@ -256,6 +256,22 @@ class DeviceType(Base):
     fa_icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
+class DeviceRole(Base):
+    """Funksjon i nettverket (core, edge, hypervisor) — atskilt fra fysisk type og produktmodell."""
+
+    __tablename__ = "dcim_device_roles"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_dcim_device_role_slug"),
+        UniqueConstraint("name", name="uq_dcim_device_role_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class DeviceModel(Base):
     __tablename__ = "dcim_device_models"
 
@@ -335,6 +351,10 @@ class DeviceInstance(Base):
     )
     device_type_id: Mapped[int | None] = mapped_column(
         ForeignKey("dcim_device_types.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    device_role_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_roles.id", ondelete="SET NULL"),
         nullable=True,
     )
     site_id: Mapped[int | None] = mapped_column(

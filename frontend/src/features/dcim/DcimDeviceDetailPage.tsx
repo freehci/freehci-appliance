@@ -80,6 +80,7 @@ export function DcimDeviceDetailPage() {
   const [ipPrefix, setIpPrefix] = useState("");
   const [ipPrefixDraft, setIpPrefixDraft] = useState<Record<number, string>>({});
   const [typeEdit, setTypeEdit] = useState("");
+  const [roleEdit, setRoleEdit] = useState("");
   const [serialDraft, setSerialDraft] = useState("");
   const [assetDraft, setAssetDraft] = useState("");
   const [iconUrlDraft, setIconUrlDraft] = useState("");
@@ -113,6 +114,11 @@ export function DcimDeviceDetailPage() {
   const typesQ = useQuery({
     queryKey: ["dcim", "device-types"],
     queryFn: api.listDeviceTypes,
+  });
+
+  const rolesQ = useQuery({
+    queryKey: ["dcim", "device-roles"],
+    queryFn: api.listDeviceRoles,
   });
 
   const modelsQ = useQuery({
@@ -180,6 +186,13 @@ export function DcimDeviceDetailPage() {
     const row = (modelsQ.data ?? []).find((x) => x.id === mid);
     return row ? row.name : `#${mid}`;
   }, [deviceQ.data?.device_model_id, modelsQ.data]);
+
+  const roleLabel = useMemo(() => {
+    const rid = deviceQ.data?.device_role_id;
+    if (rid == null) return null;
+    const row = (rolesQ.data ?? []).find((x) => x.id === rid);
+    return row ? `${row.name} (${row.kind})` : `#${rid}`;
+  }, [deviceQ.data?.device_role_id, rolesQ.data]);
 
   const siteLabel = useMemo(() => {
     const sid = deviceQ.data?.effective_site_id;
@@ -274,6 +287,7 @@ export function DcimDeviceDetailPage() {
     const d = deviceQ.data;
     if (!d) return;
     setTypeEdit(d.device_type_id != null ? String(d.device_type_id) : "");
+    setRoleEdit(d.device_role_id != null ? String(d.device_role_id) : "");
     setSerialDraft(d.serial_number ?? "");
     setAssetDraft(d.asset_tag ?? "");
     const a = d.attributes ?? {};
@@ -285,6 +299,7 @@ export function DcimDeviceDetailPage() {
   }, [
     deviceQ.data?.id,
     deviceQ.data?.device_type_id,
+    deviceQ.data?.device_role_id,
     deviceQ.data?.serial_number,
     deviceQ.data?.asset_tag,
     deviceQ.data?.attributes,
@@ -299,6 +314,23 @@ export function DcimDeviceDetailPage() {
 
   const patchDeviceType = useMutation({
     mutationFn: (device_type_id: number | null) => api.updateDevice(id, { device_type_id }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const roleDirty = useMemo(() => {
+    const d = deviceQ.data;
+    if (!d) return false;
+    const next = roleEdit === "" ? null : Number(roleEdit);
+    return d.device_role_id !== next;
+  }, [deviceQ.data, roleEdit]);
+
+  const patchDeviceRole = useMutation({
+    mutationFn: (device_role_id: number | null) => api.updateDevice(id, { device_role_id }),
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
@@ -654,6 +686,8 @@ export function DcimDeviceDetailPage() {
               <dd>{modelLabel ?? "—"}</dd>
               <dt>{t("dcim.equip.dev.effectiveTypeCol")}</dt>
               <dd>{typeLabel ?? "—"}</dd>
+              <dt>{t("dcim.equip.dev.roleCol")}</dt>
+              <dd>{roleLabel ?? "—"}</dd>
               <dt>{t("dcim.equip.dev.siteCol")}</dt>
               <dd>{siteLabel ?? "—"}</dd>
             </dl>
@@ -751,6 +785,37 @@ export function DcimDeviceDetailPage() {
                   }}
                 >
                   {patchDeviceType.isPending ? "…" : t("dcim.equip.dev.typeSave")}
+                </button>
+              </div>
+            </section>
+            <section className={styles.mfrDetailSection}>
+              <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.roleSection")}</h3>
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.role.hint")}
+              </p>
+              <div className={styles.formRow}>
+                <label>
+                  {t("dcim.equip.dev.roleLabel")}
+                  <select value={roleEdit} onChange={(e) => setRoleEdit(e.target.value)}>
+                    <option value="">{t("dcim.equip.dev.roleNone")}</option>
+                    {(rolesQ.data ?? []).map((x) => (
+                      <option key={x.id} value={String(x.id)}>
+                        {x.name} ({x.kind})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={!roleDirty || patchDeviceRole.isPending || rolesQ.isLoading}
+                  onClick={() => {
+                    setErr(null);
+                    const next = roleEdit === "" ? null : Number(roleEdit);
+                    patchDeviceRole.mutate(next);
+                  }}
+                >
+                  {patchDeviceRole.isPending ? "…" : t("dcim.equip.dev.roleSave")}
                 </button>
               </div>
             </section>

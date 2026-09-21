@@ -14,6 +14,7 @@ function dev(id: number, modelId: number): DeviceInstance {
     id,
     device_model_id: modelId,
     device_type_id: null,
+    device_role_id: null,
     effective_device_type_id: null,
     site_id: null,
     effective_site_id: null,

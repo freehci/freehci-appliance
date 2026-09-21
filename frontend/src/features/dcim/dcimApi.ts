@@ -27,6 +27,7 @@ import type {
   DeviceModel,
   DeviceModelIdentity,
   DeviceModelComponent,
+  DeviceRole,
   DeviceType,
   ExternalInventoryImportApply,
   ExternalIdentityObservation,
@@ -492,6 +493,30 @@ export function updateDeviceType(
 
 export function deleteDeviceType(id: number): Promise<void> {
   return apiDelete(`${P}/device-types/${id}`);
+}
+
+export function listDeviceRoles(): Promise<DeviceRole[]> {
+  return apiGet(`${P}/device-roles`);
+}
+
+export function createDeviceRole(body: {
+  name: string;
+  slug: string;
+  kind?: string;
+  description?: string | null;
+}): Promise<DeviceRole> {
+  return apiPost(`${P}/device-roles`, body);
+}
+
+export function updateDeviceRole(
+  id: number,
+  body: { name?: string; kind?: string; description?: string | null },
+): Promise<DeviceRole> {
+  return apiPatch(`${P}/device-roles/${id}`, body);
+}
+
+export function deleteDeviceRole(id: number): Promise<void> {
+  return apiDelete(`${P}/device-roles/${id}`);
 }
 
 export function listComponentClasses(): Promise<ComponentClass[]> {
@@ -1181,6 +1206,7 @@ export function deleteDeviceIpAssignment(deviceId: number, assignmentId: number)
 export function createDevice(body: {
   device_model_id?: number | null;
   device_type_id?: number | null;
+  device_role_id?: number | null;
   site_id?: number | null;
   name: string;
   serial_number?: string | null;
@@ -1195,6 +1221,7 @@ export function updateDevice(
   body: {
     device_model_id?: number | null;
     device_type_id?: number | null;
+    device_role_id?: number | null;
     site_id?: number | null;
     name?: string;
     serial_number?: string | null;

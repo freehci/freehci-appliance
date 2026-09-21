@@ -10,6 +10,7 @@ export type DcimInnerTabIcon =
   | "rackAdmin"
   | "manufacturers"
   | "deviceTypes"
+  | "deviceRoles"
   | "deviceModels"
   | "devices"
   | "placements"
@@ -103,6 +104,13 @@ export function DcimTabIcon({ name }: { name: DcimInnerTabIcon }) {
           <polygon points="12 2 2 7 12 12 22 7 12 2" />
           <polyline points="2 17 12 22 22 17" />
           <polyline points="2 12 12 17 22 12" />
+        </Svg>
+      );
+    case "deviceRoles":
+      return (
+        <Svg>
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+          <line x1="7" y1="7" x2="7.01" y2="7" />
         </Svg>
       );
     case "deviceModels":
