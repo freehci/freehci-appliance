@@ -84,6 +84,8 @@ export function DcimDeviceDetailPage() {
   const [roleEdit, setRoleEdit] = useState("");
   const [artPick, setArtPick] = useState("");
   const [artIntent, setArtIntent] = useState<"recorded" | "intended">("recorded");
+  const [vrfPick, setVrfPick] = useState("");
+  const [vrfIntent, setVrfIntent] = useState<"recorded" | "intended">("recorded");
   const [serialDraft, setSerialDraft] = useState("");
   const [assetDraft, setAssetDraft] = useState("");
   const [iconUrlDraft, setIconUrlDraft] = useState("");
@@ -142,6 +144,16 @@ export function DcimDeviceDetailPage() {
 
   const deviceSiteId = deviceQ.data?.effective_site_id ?? null;
 
+  const vrfsQ = useQuery({
+    queryKey: ["ipam", "vrfs", deviceSiteId ?? "none"],
+    queryFn: () => ipamApi.listIpamVrfs(deviceSiteId!),
+    enabled: deviceSiteId != null && deviceSiteId > 0,
+  });
+  const vrfInstQ = useQuery({
+    queryKey: ["ipam", "vrf-instances", "device", id],
+    queryFn: () => ipamApi.listVrfInstances({ deviceId: id }),
+    enabled: Number.isFinite(id) && id > 0,
+  });
   const prefixesQ = useQuery({
     queryKey: ["ipam", "ipv4-prefixes", deviceSiteId ?? "none"],
     queryFn: () => ipamApi.listIpv4Prefixes(deviceSiteId!),
@@ -365,6 +377,24 @@ export function DcimDeviceDetailPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "artifacts"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const recordVrf = useMutation({
+    mutationFn: () =>
+      ipamApi.createVrfInstance(Number(vrfPick), { device_id: id, intent: vrfIntent }),
+    onSuccess: () => {
+      setErr(null);
+      setVrfPick("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-instances"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delVrfInst = useMutation({
+    mutationFn: (instanceId: number) => ipamApi.deleteVrfInstance(instanceId),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-instances"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -904,6 +934,63 @@ export function DcimDeviceDetailPage() {
                 </ul>
               ) : (
                 <p className={styles.muted}>{t("dcim.equip.artifact.deviceEmpty")}</p>
+              )}
+            </section>
+            <section className={styles.mfrDetailSection}>
+              <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.dev.vrfSection")}</h3>
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.dev.vrfHint")}
+              </p>
+              <div className={styles.formRow}>
+                <label>
+                  VRF
+                  <select value={vrfPick} onChange={(e) => setVrfPick(e.target.value)}>
+                    <option value="">{t("ipam.vrf.chooseVrf")}</option>
+                    {(vrfsQ.data ?? []).map((x) => (
+                      <option key={x.id} value={String(x.id)}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("ipam.vrf.instanceIntent")}
+                  <select value={vrfIntent} onChange={(e) => setVrfIntent(e.target.value as "recorded" | "intended")}>
+                    <option value="recorded">{t("ipam.vrf.intentRecorded")}</option>
+                    <option value="intended">{t("ipam.vrf.intentIntended")}</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={!vrfPick || recordVrf.isPending}
+                  onClick={() => {
+                    setErr(null);
+                    recordVrf.mutate();
+                  }}
+                >
+                  {recordVrf.isPending ? "…" : t("dcim.common.add")}
+                </button>
+              </div>
+              {(vrfInstQ.data ?? []).length > 0 ? (
+                <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem" }}>
+                  {(vrfInstQ.data ?? []).map((r) => (
+                    <li key={r.id}>
+                      {r.vrf_name}
+                      {r.effective_rd ? ` · ${r.effective_rd}` : ""} ({r.intent}){" "}
+                      <button
+                        type="button"
+                        className={styles.tableIconBtn}
+                        onClick={() => delVrfInst.mutate(r.id)}
+                        disabled={delVrfInst.isPending}
+                      >
+                        {t("dcim.common.remove")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.muted}>{t("ipam.vrf.instanceEmpty")}</p>
               )}
             </section>
             {hasAttrs ? (

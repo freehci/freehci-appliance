@@ -11,7 +11,7 @@ import * as ipamApi from "./ipamApi";
 import prefixStyles from "./prefixPage.module.css";
 import { PrefixDrawer } from "./prefixPageUi";
 
-const TABS = new Set(["vrfs", "as", "bgp"]);
+const TABS = new Set(["vrfs", "instances", "as", "bgp"]);
 
 export function IpamVrfsPage() {
   const { t } = useI18n();
@@ -49,6 +49,10 @@ export function IpamVrfsPage() {
   const [bgpVrf, setBgpVrf] = useState("");
   const [bgpV6, setBgpV6] = useState(false);
   const [bgpDrawer, setBgpDrawer] = useState(false);
+  const [instVrf, setInstVrf] = useState("");
+  const [instDevice, setInstDevice] = useState("");
+  const [instRd, setInstRd] = useState("");
+  const [instIntent, setInstIntent] = useState("recorded");
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -65,6 +69,11 @@ export function IpamVrfsPage() {
   const bgpQ = useQuery({
     queryKey: ["ipam", "bgp-sessions", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listBgpSessions(siteIdFilter),
+  });
+  const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: dcimApi.listDevices });
+  const instQ = useQuery({
+    queryKey: ["ipam", "vrf-instances", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listVrfInstances({ siteId: siteIdFilter }),
   });
 
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
@@ -179,6 +188,31 @@ export function IpamVrfsPage() {
     onError: fail,
   });
 
+  const createInstM = useMutation({
+    mutationFn: () =>
+      ipamApi.createVrfInstance(Number(instVrf), {
+        device_id: Number(instDevice),
+        intent: instIntent,
+        route_distinguisher: instRd.trim() === "" ? null : instRd.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setInstVrf("");
+      setInstDevice("");
+      setInstRd("");
+      setInstIntent("recorded");
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-instances"] });
+    },
+    onError: fail,
+  });
+  const delInstM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteVrfInstance(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-instances"] });
+    },
+    onError: fail,
+  });
   const delBgpM = useMutation({
     mutationFn: (id: number) => ipamApi.deleteBgpSession(id),
     onSuccess: () => {
@@ -205,25 +239,27 @@ export function IpamVrfsPage() {
           <h1 className={prefixStyles.title}>{t("ipam.vrf.title")}</h1>
           <p className={prefixStyles.intro}>{t("ipam.vrf.intro")}</p>
         </div>
-        <div className={prefixStyles.headActions}>
-          <button
-            type="button"
-            className={dcimStyles.btn}
-            onClick={() => {
-              setErr(null);
-              if (tab === "as") setAsDrawer(true);
-              else if (tab === "bgp") {
-                if (filterSite && bgpSite === "") setBgpSite(filterSite);
-                setBgpDrawer(true);
-              } else {
-                if (filterSite && siteId === "") setSiteId(filterSite);
-                setDrawerOpen(true);
-              }
-            }}
-          >
-            + {newLabel}
-          </button>
-        </div>
+        {tab !== "instances" ? (
+          <div className={prefixStyles.headActions}>
+            <button
+              type="button"
+              className={dcimStyles.btn}
+              onClick={() => {
+                setErr(null);
+                if (tab === "as") setAsDrawer(true);
+                else if (tab === "bgp") {
+                  if (filterSite && bgpSite === "") setBgpSite(filterSite);
+                  setBgpDrawer(true);
+                } else {
+                  if (filterSite && siteId === "") setSiteId(filterSite);
+                  setDrawerOpen(true);
+                }
+              }}
+            >
+              + {newLabel}
+            </button>
+          </div>
+        ) : null}
       </header>
       <DcimInnerTabs
         ariaLabel={t("ipam.routing.tabs")}
@@ -231,6 +267,7 @@ export function IpamVrfsPage() {
         onChange={setTab}
         tabs={[
           { id: "vrfs", label: t("ipam.routing.tabVrfs") },
+          { id: "instances", label: t("ipam.routing.tabInstances") },
           { id: "as", label: t("ipam.routing.tabAs") },
           { id: "bgp", label: t("ipam.routing.tabBgp") },
         ]}
@@ -289,6 +326,104 @@ export function IpamVrfsPage() {
               </table>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {tab === "instances" ? (
+        <div className={prefixStyles.tableCard}>
+          <p className={dcimStyles.muted} style={{ padding: "var(--space-3)", paddingBottom: 0 }}>
+            {t("ipam.vrf.instanceIntro")}
+          </p>
+          {instQ.data && instQ.data.length > 0 ? (
+            <div className={prefixStyles.tableScroll}>
+              <table className={dcimStyles.table}>
+                <thead>
+                  <tr>
+                    <th>{t("ipam.vrf.name")}</th>
+                    <th>{t("ipam.vrf.instanceDevice")}</th>
+                    <th>{t("ipam.vrf.instanceIntent")}</th>
+                    <th>{t("ipam.vrf.effectiveRd")}</th>
+                    <th>{t("ipam.ipv4.actionsCol")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {instQ.data.map((x) => (
+                    <tr key={x.id}>
+                      <td>{x.vrf_name}</td>
+                      <td>{x.device_name}</td>
+                      <td>
+                        {x.intent === "intended" ? t("ipam.vrf.intentIntended") : t("ipam.vrf.intentRecorded")}
+                      </td>
+                      <td>{x.effective_rd ?? "—"}</td>
+                      <td>
+                        <button type="button" className={dcimStyles.btnLink} onClick={() => delInstM.mutate(x.id)}>
+                          {t("dcim.common.delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
+              {t("ipam.vrf.instanceEmpty")}
+            </p>
+          )}
+          <form
+            className={dcimStyles.formRow}
+            style={{ flexWrap: "wrap", padding: "var(--space-3)" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              createInstM.mutate();
+            }}
+          >
+            <label>
+              VRF
+              <select value={instVrf} onChange={(e) => setInstVrf(e.target.value)} required>
+                <option value="">{t("ipam.vrf.chooseVrf")}</option>
+                {(vrfsQ.data ?? []).map((v) => (
+                  <option key={v.id} value={String(v.id)}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.vrf.instanceDevice")}
+              <select value={instDevice} onChange={(e) => setInstDevice(e.target.value)} required>
+                <option value="">{t("ipam.vrf.chooseDevice")}</option>
+                {(devicesQ.data ?? [])
+                  .filter((d) => {
+                    if (!instVrf) return true;
+                    const vrf = (vrfsQ.data ?? []).find((v) => v.id === Number(instVrf));
+                    if (!vrf) return true;
+                    const site = d.effective_site_id ?? d.site_id;
+                    return site === vrf.site_id;
+                  })
+                  .map((d) => (
+                    <option key={d.id} value={String(d.id)}>
+                      {d.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.vrf.instanceIntent")}
+              <select value={instIntent} onChange={(e) => setInstIntent(e.target.value)}>
+                <option value="recorded">{t("ipam.vrf.intentRecorded")}</option>
+                <option value="intended">{t("ipam.vrf.intentIntended")}</option>
+              </select>
+            </label>
+            <label>
+              {t("ipam.vrf.instanceRdOverride")}
+              <input value={instRd} onChange={(e) => setInstRd(e.target.value)} placeholder={t("ipam.vrf.rdPlaceholder")} />
+            </label>
+            <button type="submit" className={dcimStyles.btn} disabled={createInstM.isPending || !instVrf || !instDevice}>
+              {t("ipam.vrf.instanceAdd")}
+            </button>
+          </form>
         </div>
       ) : null}
 

@@ -233,9 +233,9 @@ class IpamIpv4Address(Base):
 
 
 class IpamVrf(Base):
-    """Logisk L3-VRF (rutekontekst) per site — ikke enhetsinstans.
+    """Logisk L3-VRF (rutekontekst) per site.
 
-    Instans (PE/VRF på boks) kommer senere. RD valideres som ASN:nn eller IPv4:nn.
+    Enhetsinstans ligger i IpamVrfInstance. RD valideres som ASN:nn eller IPv4:nn.
     """
 
     __tablename__ = "ipam_vrfs"
@@ -260,6 +260,37 @@ class IpamVrf(Base):
     )
 
     vlans: Mapped[list["IpamVlan"]] = relationship(back_populates="vrf")
+
+
+class IpamVrfInstance(Base):
+    """VRF registrert på en enhet. Ikke påført config, RT eller RIB."""
+
+    __tablename__ = "ipam_vrf_instances"
+    __table_args__ = (
+        UniqueConstraint("vrf_id", "device_id", name="uq_ipam_vrf_instance_vrf_device"),
+        UniqueConstraint("vrf_id", "slug", name="uq_ipam_vrf_instance_vrf_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vrf_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    # recorded | intended — aldri applied.
+    intent: Mapped[str] = mapped_column(String(32), nullable=False, default="recorded")
+    # Tom = arv fra logisk VRF.
+    route_distinguisher: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
 
 class IpamVlanGroup(Base):

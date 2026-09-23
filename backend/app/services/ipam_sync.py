@@ -9,12 +9,13 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.dcim import Site
+from app.models.dcim import DeviceInstance, Site
 from app.models.ipam import (
     IpamAutonomousSystem,
     IpamIpv4Address,
     IpamIpv4Prefix,
     IpamIpv4Range,
+    IpamVrfInstance,
     IpamProvider,
     IpamScanHost,
     IpamSubnetScan,
@@ -199,6 +200,17 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if as_ids
         else {}
     )
+    vrf_instances = (
+        list(db.execute(select(IpamVrfInstance).where(IpamVrfInstance.vrf_id.in_(list(vrf_by_id)))).scalars().all())
+        if vrf_by_id
+        else []
+    )
+    inst_device_ids = {x.device_id for x in vrf_instances}
+    inst_device_by_id = (
+        {d.id: d for d in db.execute(select(DeviceInstance).where(DeviceInstance.id.in_(inst_device_ids))).scalars().all()}
+        if inst_device_ids
+        else {}
+    )
     range_rows = (
         list(
             db.execute(select(IpamIpv4Range).where(IpamIpv4Range.ipv4_prefix_id.in_(list(prefix_by_id)))).scalars().all()
@@ -344,6 +356,18 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "desired_status": s.desired_status,
             }
             for s in bgp_sessions
+        ],
+        "vrf_instances": [
+            {
+                "vrf_slug": vrf_by_id[x.vrf_id].slug if x.vrf_id in vrf_by_id else None,
+                "site_slug": site.slug,
+                "device_name": inst_device_by_id[x.device_id].name if x.device_id in inst_device_by_id else None,
+                "slug": x.slug,
+                "intent": x.intent,
+                "route_distinguisher": x.route_distinguisher,
+                "description": x.description,
+            }
+            for x in vrf_instances
         ],
         "ipv4_ranges": [
             {

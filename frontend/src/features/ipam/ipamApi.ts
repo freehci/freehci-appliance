@@ -24,6 +24,7 @@ import type {
   IpamAutonomousSystem,
   IpamBgpSession,
   IpamVrf,
+  IpamVrfInstance,
   IpamWebhook,
   IpamWebhookDelivery,
   PrefixAddressGridRead,
@@ -318,6 +319,32 @@ export function patchIpamVrf(
 
 export function deleteIpamVrf(id: number): Promise<void> {
   return apiDelete(`${P}/vrfs/${id}`);
+}
+
+export function listVrfInstances(opts?: { vrfId?: number; deviceId?: number; siteId?: number }): Promise<IpamVrfInstance[]> {
+  const params = new URLSearchParams();
+  if (opts?.vrfId != null) params.set("vrf_id", String(opts.vrfId));
+  if (opts?.deviceId != null) params.set("device_id", String(opts.deviceId));
+  if (opts?.siteId != null) params.set("site_id", String(opts.siteId));
+  const s = params.toString();
+  return apiGet(`${P}/vrf-instances${s ? `?${s}` : ""}`);
+}
+
+export function createVrfInstance(
+  vrfId: number,
+  body: {
+    device_id: number;
+    slug?: string | null;
+    intent?: string;
+    route_distinguisher?: string | null;
+    description?: string | null;
+  },
+): Promise<IpamVrfInstance> {
+  return apiPost(`${P}/vrfs/${vrfId}/instances`, body);
+}
+
+export function deleteVrfInstance(id: number): Promise<void> {
+  return apiDelete(`${P}/vrf-instances/${id}`);
 }
 
 export function listAutonomousSystems(tenantId?: number): Promise<IpamAutonomousSystem[]> {

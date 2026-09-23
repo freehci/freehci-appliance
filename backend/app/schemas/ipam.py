@@ -37,6 +37,7 @@ NO_HOST_ALLOC_ROLES = frozenset({"container", "overlay-pod", "overlay-service"})
 NO_VLAN_ROLES = frozenset({"container", "overlay-pod", "overlay-service", "p2p"})
 NO_HOST_ALLOC_STATUSES = frozenset({"reserved", "deprecated"})
 IPV4_RANGE_KINDS = frozenset({"allocation", "reserved", "dhcp", "other"})
+VRF_INSTANCE_INTENTS = frozenset({"recorded", "intended"})
 
 
 def _csv_or_list(v: Any) -> list[str]:
@@ -768,6 +769,78 @@ class IpamVrfRead(BaseModel):
     route_distinguisher: str | None
     description: str | None
     created: bool | None = None
+    created_at: dt.datetime
+
+
+class IpamVrfInstanceCreate(BaseModel):
+    """Registrer logisk VRF på en enhet. Påfører ikke config, RT eller RIB."""
+
+    device_id: int = Field(..., ge=1)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    intent: str = Field("recorded", description="recorded | intended")
+    route_distinguisher: str | None = Field(None, max_length=64, description="Valgfri RD på instansen; tom arver fra VRF")
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+    @field_validator("intent")
+    @classmethod
+    def intent_ok(cls, v: str) -> str:
+        return _role_ok(v, VRF_INSTANCE_INTENTS, "intent") or "recorded"
+
+    @field_validator("route_distinguisher")
+    @classmethod
+    def rd_ok(cls, v: str | None) -> str | None:
+        return normalize_route_distinguisher(v)
+
+
+class IpamVrfInstanceUpdate(BaseModel):
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    intent: str | None = None
+    route_distinguisher: str | None = Field(None, max_length=64)
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip_up(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+    @field_validator("intent")
+    @classmethod
+    def intent_ok_up(cls, v: str | None) -> str | None:
+        return _role_ok(v, VRF_INSTANCE_INTENTS, "intent")
+
+    @field_validator("route_distinguisher")
+    @classmethod
+    def rd_ok_up(cls, v: str | None) -> str | None:
+        return normalize_route_distinguisher(v)
+
+
+class IpamVrfInstanceRead(BaseModel):
+    id: int
+    vrf_id: int
+    vrf_name: str
+    vrf_slug: str
+    device_id: int
+    device_name: str
+    slug: str
+    intent: str
+    route_distinguisher: str | None
+    effective_rd: str | None = Field(None, description="Instans-RD hvis satt, ellers VRF-RD")
+    description: str | None
     created_at: dt.datetime
 
 

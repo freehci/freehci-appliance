@@ -78,6 +78,9 @@ from app.schemas.ipam import (
     IpamBgpSessionUpdate,
     IpamVrfCreate,
     IpamVrfEnsure,
+    IpamVrfInstanceCreate,
+    IpamVrfInstanceRead,
+    IpamVrfInstanceUpdate,
     IpamVrfRead,
     IpamVrfUpdate,
     IpamAuditEventRead,
@@ -121,6 +124,7 @@ from app.services import ipam_etag as etag_svc
 from app.services import ipam_sync as sync_svc
 from app.services import ipam_webhooks as hook_svc
 from app.services import ipam_range as range_svc
+from app.services import ipam_vrf_instance as vrfi_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
 
@@ -588,6 +592,63 @@ def delete_ipam_vrf(vrf_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
     fac_svc.delete_vrf(db, row)
+
+
+@router.get("/vrfs/{vrf_id}/instances", response_model=list[IpamVrfInstanceRead])
+def list_vrf_instances_for_vrf(vrf_id: int, db: Session = Depends(get_db)) -> list[IpamVrfInstanceRead]:
+    row = fac_svc.get_vrf(db, vrf_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
+    return [vrfi_svc.instance_to_read(db, x) for x in vrfi_svc.list_instances(db, vrf_id=vrf_id)]
+
+
+@router.post("/vrfs/{vrf_id}/instances", response_model=IpamVrfInstanceRead)
+def create_vrf_instance(vrf_id: int, data: IpamVrfInstanceCreate, db: Session = Depends(get_db)) -> IpamVrfInstanceRead:
+    row = fac_svc.get_vrf(db, vrf_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
+    return vrfi_svc.create_instance(db, row, data)
+
+
+@router.get("/vrf-instances", response_model=list[IpamVrfInstanceRead])
+def list_vrf_instances(
+    vrf_id: int | None = Query(None),
+    device_id: int | None = Query(None),
+    site_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamVrfInstanceRead]:
+    return [
+        vrfi_svc.instance_to_read(db, x)
+        for x in vrfi_svc.list_instances(db, vrf_id=vrf_id, device_id=device_id, site_id=site_id)
+    ]
+
+
+@router.get("/vrf-instances/{instance_id}", response_model=IpamVrfInstanceRead)
+def get_vrf_instance(instance_id: int, db: Session = Depends(get_db)) -> IpamVrfInstanceRead:
+    row = vrfi_svc.get_instance(db, instance_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_instance_not_found", "detail": "VRF-instans ikke funnet"})
+    return vrfi_svc.instance_to_read(db, row)
+
+
+@router.patch("/vrf-instances/{instance_id}", response_model=IpamVrfInstanceRead)
+def patch_vrf_instance(
+    instance_id: int,
+    data: IpamVrfInstanceUpdate,
+    db: Session = Depends(get_db),
+) -> IpamVrfInstanceRead:
+    row = vrfi_svc.get_instance(db, instance_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_instance_not_found", "detail": "VRF-instans ikke funnet"})
+    return vrfi_svc.update_instance(db, row, data)
+
+
+@router.delete("/vrf-instances/{instance_id}", status_code=204)
+def delete_vrf_instance(instance_id: int, db: Session = Depends(get_db)) -> None:
+    row = vrfi_svc.get_instance(db, instance_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_instance_not_found", "detail": "VRF-instans ikke funnet"})
+    vrfi_svc.delete_instance(db, row)
 
 
 @router.get("/autonomous-systems", response_model=list[IpamAutonomousSystemRead])

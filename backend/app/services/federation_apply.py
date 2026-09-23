@@ -40,9 +40,11 @@ from app.schemas.ipam import (
     IpamVpnServiceCreate,
     IpamVrfCreate,
     IPV4_RANGE_KINDS,
+    VRF_INSTANCE_INTENTS,
     Ipv4AddressEnsure,
     Ipv4PrefixEnsure,
     Ipv4RangeCreate,
+    IpamVrfInstanceCreate,
     Ipv6AddressEnsure,
     Ipv6PrefixEnsure,
 )
@@ -61,6 +63,7 @@ from app.services import ipam as ipam_svc
 from app.services import platform as plat_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_range as range_svc
+from app.services import ipam_vrf_instance as vrfi_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
 from app.services import dcim_power as pwr_svc
@@ -406,6 +409,40 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         found = db.execute(select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == v["slug"])).scalar_one_or_none()
         if found is None:
             fac_svc.create_vrf(db, IpamVrfCreate(site_id=site.id, name=v.get("name") or v["slug"], slug=v["slug"]))
+    for inst in ipam.get("vrf_instances") or []:
+        vrf_slug = str(inst.get("vrf_slug") or "").strip().lower()
+        device_name = str(inst.get("device_name") or "").strip()
+        slug = str(inst.get("slug") or "").strip().lower()
+        if not vrf_slug or not device_name:
+            continue
+        vrf = db.execute(
+            select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug),
+        ).scalar_one_or_none()
+        device = _device_by_site_name(db, site.slug, device_name)
+        if vrf is None or device is None:
+            continue
+        if vrfi_svc.get_instance_by_slug(db, vrf.id, slug or device.name) is not None:
+            continue
+        existing = [
+            x
+            for x in vrfi_svc.list_instances(db, vrf_id=vrf.id, device_id=device.id)
+        ]
+        if existing:
+            continue
+        intent = str(inst.get("intent") or "recorded").strip().lower() or "recorded"
+        if intent not in VRF_INSTANCE_INTENTS:
+            intent = "recorded"
+        vrfi_svc.create_instance(
+            db,
+            vrf,
+            IpamVrfInstanceCreate(
+                device_id=device.id,
+                slug=slug or None,
+                intent=intent,
+                route_distinguisher=inst.get("route_distinguisher"),
+                description=inst.get("description"),
+            ),
+        )
     for g in ipam.get("vlan_groups") or []:
         found = db.execute(
             select(IpamVlanGroup).where(IpamVlanGroup.site_id == site.id, IpamVlanGroup.slug == g["slug"]),

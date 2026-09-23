@@ -219,6 +219,21 @@ export type IpamVrf = {
   created_at: string;
 };
 
+export type IpamVrfInstance = {
+  id: number;
+  vrf_id: number;
+  vrf_name: string;
+  vrf_slug: string;
+  device_id: number;
+  device_name: string;
+  slug: string;
+  intent: "recorded" | "intended" | string;
+  route_distinguisher: string | null;
+  effective_rd: string | null;
+  description: string | null;
+  created_at: string;
+};
+
 export type IpamAutonomousSystem = {
   id: number;
   asn: number;
