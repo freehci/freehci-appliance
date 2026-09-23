@@ -19,6 +19,9 @@ _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "wireguard", "radio", "leased_line",
 TRANSPORT_CIRCUIT_TYPES = frozenset({"fiber", "radio", "leased_line"})
 CLASSIFY_CIRCUIT_TYPES = frozenset({"vpn", "wireguard", "other"})
 CIRCUIT_LAYERS = frozenset({"transport", "overlay"})
+CIRCUIT_SERVICE_TYPES = frozenset({"internet", "ethernet", "dark-fiber", "other"})
+CIRCUIT_MEDIA = frozenset({"fiber", "copper", "radio", "other"})
+CIRCUIT_OPERATIONAL_STATUSES = frozenset({"planned", "active", "offline", "decommissioned"})
 VPN_MEMBER_ROLES = frozenset({"hub", "spoke", "peer", "client", "other"})
 VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
 TUNNEL_STATUSES = frozenset({"planned", "active", "deprecated"})
@@ -1251,6 +1254,9 @@ class IpamCircuitCreate(BaseModel):
     contract_end_on: dt.date | None = None
     a_site_id: int | None = Field(None, ge=1)
     z_site_id: int | None = Field(None, ge=1)
+    service_type: str | None = Field(None, max_length=32)
+    medium: str | None = Field(None, max_length=32)
+    operational_status: str | None = Field(None, max_length=32)
 
     @field_validator("circuit_type")
     @classmethod
@@ -1270,6 +1276,42 @@ class IpamCircuitCreate(BaseModel):
             return None
         if s not in CIRCUIT_LAYERS:
             raise ValueError(f"layer må være en av: {', '.join(sorted(CIRCUIT_LAYERS))}")
+        return s
+
+    @field_validator("service_type")
+    @classmethod
+    def service_type_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_SERVICE_TYPES:
+            raise ValueError(f"service_type må være en av: {', '.join(sorted(CIRCUIT_SERVICE_TYPES))}")
+        return s
+
+    @field_validator("medium")
+    @classmethod
+    def medium_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_MEDIA:
+            raise ValueError(f"medium må være en av: {', '.join(sorted(CIRCUIT_MEDIA))}")
+        return s
+
+    @field_validator("operational_status")
+    @classmethod
+    def operational_status_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_OPERATIONAL_STATUSES:
+            raise ValueError(f"operational_status må være en av: {', '.join(sorted(CIRCUIT_OPERATIONAL_STATUSES))}")
         return s
 
 
@@ -1294,6 +1336,9 @@ class IpamCircuitUpdate(BaseModel):
     tenant_id: int | None = Field(None, ge=1)
     a_site_id: int | None = Field(None, ge=1)
     z_site_id: int | None = Field(None, ge=1)
+    service_type: str | None = Field(None, max_length=32)
+    medium: str | None = Field(None, max_length=32)
+    operational_status: str | None = Field(None, max_length=32)
 
     @field_validator("circuit_type")
     @classmethod
@@ -1315,6 +1360,42 @@ class IpamCircuitUpdate(BaseModel):
             return None
         if s not in CIRCUIT_LAYERS:
             raise ValueError(f"layer må være en av: {', '.join(sorted(CIRCUIT_LAYERS))}")
+        return s
+
+    @field_validator("service_type")
+    @classmethod
+    def service_type_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_SERVICE_TYPES:
+            raise ValueError(f"service_type må være en av: {', '.join(sorted(CIRCUIT_SERVICE_TYPES))}")
+        return s
+
+    @field_validator("medium")
+    @classmethod
+    def medium_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_MEDIA:
+            raise ValueError(f"medium må være en av: {', '.join(sorted(CIRCUIT_MEDIA))}")
+        return s
+
+    @field_validator("operational_status")
+    @classmethod
+    def operational_status_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_OPERATIONAL_STATUSES:
+            raise ValueError(f"operational_status må være en av: {', '.join(sorted(CIRCUIT_OPERATIONAL_STATUSES))}")
         return s
 
 
@@ -1343,6 +1424,9 @@ class IpamCircuitRead(BaseModel):
     description: str | None
     circuit_type: str
     layer: str | None = None
+    service_type: str | None = None
+    medium: str | None = None
+    operational_status: str | None = None
     is_leased: bool
     provider_name: str | None
     provider_id: int | None = None

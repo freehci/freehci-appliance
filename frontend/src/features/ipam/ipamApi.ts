@@ -528,6 +528,9 @@ export function createIpamCircuit(body: {
   contract_end_on?: string | null;
   a_site_id?: number | null;
   z_site_id?: number | null;
+  service_type?: string | null;
+  medium?: string | null;
+  operational_status?: string | null;
 }): Promise<IpamCircuit> {
   return apiPost(`${P}/circuits`, body);
 }
@@ -550,6 +553,9 @@ export function patchIpamCircuit(
     cir_mbps: number | null;
     established_on: string | null;
     contract_end_on: string | null;
+    service_type: string | null;
+    medium: string | null;
+    operational_status: string | null;
   }>,
 ): Promise<IpamCircuit> {
   return apiPatch(`${P}/circuits/${id}`, body);

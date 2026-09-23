@@ -517,7 +517,8 @@ class IpamCircuitGroup(Base):
 class IpamCircuit(Base):
     """Transport mellom to punkter. Overlay (VPN) er VPNService etter manuell klassifisering.
 
-    `layer` er nullable og fylles aldri automatisk fra `circuit_type`.
+    `layer`, `service_type`, `medium` og `operational_status` er nullable
+    og fylles aldri automatisk fra `circuit_type`.
     `provider_name` er historisk fritekst; `provider_id` settes bare når brukeren velger.
     """
 
@@ -546,6 +547,9 @@ class IpamCircuit(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     circuit_type: Mapped[str] = mapped_column(String(32), nullable=False)
     layer: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    service_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    medium: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    operational_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_leased: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     provider_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     provider_id: Mapped[int | None] = mapped_column(

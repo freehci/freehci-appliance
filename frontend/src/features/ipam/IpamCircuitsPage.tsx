@@ -63,6 +63,9 @@ export function IpamCircuitsPage() {
   const [providerCircuitId, setProviderCircuitId] = useState("");
   const [capacityMbps, setCapacityMbps] = useState("");
   const [cirMbps, setCirMbps] = useState("");
+  const [serviceType, setServiceType] = useState("");
+  const [medium, setMedium] = useState("");
+  const [operationalStatus, setOperationalStatus] = useState("");
   const [established, setEstablished] = useState("");
   const [contractEnd, setContractEnd] = useState("");
   const [termCircuitId, setTermCircuitId] = useState<number | null>(null);
@@ -180,6 +183,9 @@ export function IpamCircuitsPage() {
         contract_end_on: contractEnd.trim() === "" ? null : contractEnd.trim(),
         a_site_id: aSiteId === "" ? null : Number(aSiteId),
         z_site_id: zSiteId === "" ? null : Number(zSiteId),
+        service_type: serviceType === "" ? null : serviceType,
+        medium: medium === "" ? null : medium,
+        operational_status: operationalStatus === "" ? null : operationalStatus,
       }),
     onSuccess: () => {
       setErr(null);
@@ -192,6 +198,9 @@ export function IpamCircuitsPage() {
       setProviderCircuitId("");
       setCapacityMbps("");
       setCirMbps("");
+      setServiceType("");
+      setMedium("");
+      setOperationalStatus("");
       setEstablished("");
       setContractEnd("");
       setDrawerOpen(false);
@@ -504,6 +513,9 @@ export function IpamCircuitsPage() {
                     <th>{t("ipam.circuits.number")}</th>
                     <th>{t("ipam.ipv4.name")}</th>
                     <th>{t("ipam.circuits.type")}</th>
+                    <th>{t("ipam.circuits.serviceType")}</th>
+                    <th>{t("ipam.circuits.medium")}</th>
+                    <th>{t("ipam.circuits.operationalStatus")}</th>
                     <th>{t("ipam.circuits.layer")}</th>
                     <th>{t("ipam.circuits.aSite")}</th>
                     <th>{t("ipam.circuits.zSite")}</th>
@@ -522,6 +534,9 @@ export function IpamCircuitsPage() {
                       <td>{c.circuit_number}</td>
                       <td>{c.name}</td>
                       <td>{typeLabel(c.circuit_type)}</td>
+                      <td>{c.service_type ?? "—"}</td>
+                      <td>{c.medium ?? "—"}</td>
+                      <td>{c.operational_status ?? "—"}</td>
                       <td>{c.layer ?? t("ipam.circuits.layerUnset")}</td>
                       <td>{siteName(c.a_site_id)}</td>
                       <td>{siteName(c.z_site_id)}</td>
@@ -1198,6 +1213,37 @@ export function IpamCircuitsPage() {
           <label>
             {t("ipam.circuits.providerCircuitId")}
             <input value={providerCircuitId} onChange={(e) => setProviderCircuitId(e.target.value)} />
+          </label>
+          <p className={dcimStyles.muted}>{t("ipam.circuits.attrHint")}</p>
+          <label>
+            {t("ipam.circuits.serviceType")}
+            <select value={serviceType} onChange={(e) => setServiceType(e.target.value)}>
+              <option value="">{t("ipam.circuits.attrUnset")}</option>
+              <option value="internet">internet</option>
+              <option value="ethernet">ethernet</option>
+              <option value="dark-fiber">dark-fiber</option>
+              <option value="other">other</option>
+            </select>
+          </label>
+          <label>
+            {t("ipam.circuits.medium")}
+            <select value={medium} onChange={(e) => setMedium(e.target.value)}>
+              <option value="">{t("ipam.circuits.attrUnset")}</option>
+              <option value="fiber">fiber</option>
+              <option value="copper">copper</option>
+              <option value="radio">radio</option>
+              <option value="other">other</option>
+            </select>
+          </label>
+          <label>
+            {t("ipam.circuits.operationalStatus")}
+            <select value={operationalStatus} onChange={(e) => setOperationalStatus(e.target.value)}>
+              <option value="">{t("ipam.circuits.attrUnset")}</option>
+              <option value="planned">planned</option>
+              <option value="active">active</option>
+              <option value="offline">offline</option>
+              <option value="decommissioned">decommissioned</option>
+            </select>
           </label>
           <p className={dcimStyles.muted}>{t("ipam.circuits.rateHint")}</p>
           <label>

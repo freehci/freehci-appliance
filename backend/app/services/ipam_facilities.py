@@ -620,6 +620,9 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
         description=data.description,
         circuit_type=data.circuit_type,
         layer=data.layer,
+        service_type=data.service_type,
+        medium=data.medium,
+        operational_status=data.operational_status,
         is_leased=data.is_leased,
         provider_name=data.provider_name.strip() if data.provider_name else None,
         provider_id=provider_id,
@@ -657,6 +660,12 @@ def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> Ip
         row.circuit_type = data.circuit_type
     if data.layer is not None:
         row.layer = data.layer
+    if data.service_type is not None:
+        row.service_type = data.service_type
+    if data.medium is not None:
+        row.medium = data.medium
+    if data.operational_status is not None:
+        row.operational_status = data.operational_status
     if data.is_leased is not None:
         row.is_leased = data.is_leased
     if data.provider_name is not None:
