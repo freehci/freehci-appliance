@@ -18,6 +18,7 @@ from app.models.ipam import (
     IpamRouteTarget,
     IpamVrfInstance,
     IpamVrfRouteTarget,
+    IpamCircuitGroup,
     IpamContract,
     IpamProvider,
     IpamScanHost,
@@ -181,6 +182,12 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
     v6_by_id = {p.id: p for p in v6}
     site_ids = {c.a_site_id for c in circuits if c.a_site_id} | {c.z_site_id for c in circuits if c.z_site_id}
     site_by_id = {s.id: s for s in db.execute(select(Site).where(Site.id.in_(site_ids))).scalars().all()} if site_ids else {}
+    group_ids = {c.group_id for c in circuits if getattr(c, "group_id", None)}
+    group_by_id = (
+        {g.id: g for g in db.execute(select(IpamCircuitGroup).where(IpamCircuitGroup.id.in_(group_ids))).scalars().all()}
+        if group_ids
+        else {}
+    )
     contract_ids = {c.contract_id for c in circuits if getattr(c, "contract_id", None)}
     contract_by_id = (
         {x.id: x for x in db.execute(select(IpamContract).where(IpamContract.id.in_(contract_ids))).scalars().all()}
@@ -339,6 +346,15 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             if a.status in _HELD
         ],
         "providers": [{"name": p.name, "slug": p.slug} for p in provider_by_id.values()],
+        "circuit_groups": [
+            {
+                "name": g.name,
+                "slug": g.slug,
+                "shared_risk": g.shared_risk,
+                "description": g.description,
+            }
+            for g in group_by_id.values()
+        ],
         "contracts": [
             {
                 "name": c.name,
@@ -373,6 +389,11 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "contract_slug": (
                     contract_by_id[c.contract_id].slug
                     if getattr(c, "contract_id", None) and c.contract_id in contract_by_id
+                    else None
+                ),
+                "group_slug": (
+                    group_by_id[c.group_id].slug
+                    if getattr(c, "group_id", None) and c.group_id in group_by_id
                     else None
                 ),
             }

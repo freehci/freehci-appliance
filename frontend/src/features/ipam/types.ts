@@ -335,9 +335,20 @@ export type IpamCircuit = {
   provider_id: number | null;
   provider_account_id: number | null;
   contract_id: number | null;
+  group_id: number | null;
   needs_classification: boolean;
   established_on: string | null;
   contract_end_on: string | null;
+  created_at: string;
+};
+
+export type IpamCircuitGroup = {
+  id: number;
+  tenant_id: number | null;
+  name: string;
+  slug: string;
+  shared_risk: string | null;
+  description: string | null;
   created_at: string;
 };
 

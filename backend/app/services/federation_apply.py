@@ -35,6 +35,7 @@ from app.schemas.ipam import (
     IpamAutonomousSystemCreate,
     IpamBgpSessionCreate,
     IpamCircuitCreate,
+    IpamCircuitGroupCreate,
     IpamContractCreate,
     IpamProviderCreate,
     IpamVlanCreate,
@@ -592,6 +593,22 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         found = prov_svc.get_provider_by_slug(db, p["slug"])
         if found is None:
             prov_svc.create_provider(db, IpamProviderCreate(name=p.get("name") or p["slug"], slug=p["slug"]))
+    for g in ipam.get("circuit_groups") or []:
+        slug = (g.get("slug") or "").strip()
+        if not slug:
+            continue
+        found = fac_svc.get_circuit_group_by_slug(db, slug)
+        if found is not None:
+            continue
+        fac_svc.create_circuit_group(
+            db,
+            IpamCircuitGroupCreate(
+                name=g.get("name") or slug,
+                slug=slug,
+                shared_risk=g.get("shared_risk"),
+                description=g.get("description"),
+            ),
+        )
     for c in ipam.get("contracts") or []:
         slug = (c.get("slug") or "").strip()
         provider = prov_svc.get_provider_by_slug(db, c["provider_slug"]) if c.get("provider_slug") else None
@@ -631,6 +648,7 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         contract = None
         if provider is not None and c.get("contract_slug"):
             contract = prov_svc.get_contract_by_slug(db, provider.id, c["contract_slug"])
+        group = fac_svc.get_circuit_group_by_slug(db, c["group_slug"]) if c.get("group_slug") else None
         fac_svc.create_circuit(
             db,
             IpamCircuitCreate(
@@ -641,6 +659,7 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 provider_id=provider.id if provider is not None else None,
                 provider_name=c.get("provider_name"),
                 contract_id=contract.id if contract is not None else None,
+                group_id=group.id if group is not None else None,
                 a_site_id=a_site.id if a_site is not None else None,
                 z_site_id=z_site.id if z_site is not None else None,
             ),

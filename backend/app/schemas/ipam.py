@@ -1240,6 +1240,7 @@ class IpamCircuitCreate(BaseModel):
     provider_id: int | None = Field(None, ge=1)
     provider_account_id: int | None = Field(None, ge=1)
     contract_id: int | None = Field(None, ge=1)
+    group_id: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     a_site_id: int | None = Field(None, ge=1)
@@ -1276,6 +1277,7 @@ class IpamCircuitUpdate(BaseModel):
     provider_id: int | None = Field(None, ge=1)
     provider_account_id: int | None = Field(None, ge=1)
     contract_id: int | None = Field(None, ge=1)
+    group_id: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     tenant_id: int | None = Field(None, ge=1)
@@ -1335,6 +1337,7 @@ class IpamCircuitRead(BaseModel):
     provider_id: int | None = None
     provider_account_id: int | None = None
     contract_id: int | None = None
+    group_id: int | None = None
     needs_classification: bool = False
     established_on: dt.date | None
     contract_end_on: dt.date | None
@@ -1344,6 +1347,38 @@ class IpamCircuitRead(BaseModel):
 class IpamCircuitClassifyRead(BaseModel):
     circuit: IpamCircuitRead
     vpn_service_id: int | None = None
+
+
+class IpamCircuitGroupCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    tenant_id: int | None = Field(None, ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    shared_risk: str | None = None
+    description: str | None = None
+
+
+class IpamCircuitGroupUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    tenant_id: int | None = Field(None, ge=1)
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    shared_risk: str | None = None
+    description: str | None = None
+
+
+class IpamCircuitGroupRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tenant_id: int | None
+    name: str
+    slug: str
+    shared_risk: str | None
+    description: str | None
+    created_at: dt.datetime
 
 
 class IpamCircuitTerminationCreate(BaseModel):

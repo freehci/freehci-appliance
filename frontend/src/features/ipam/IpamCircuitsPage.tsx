@@ -13,7 +13,7 @@ import prefixStyles from "./prefixPage.module.css";
 import { PrefixDrawer } from "./prefixPageUi";
 import type { IpamCircuit } from "./types";
 
-const TABS = new Set(["transport", "overlay", "providers"]);
+const TABS = new Set(["transport", "overlay", "providers", "groups"]);
 const TRANSPORT_TYPES = ["fiber", "radio", "leased_line"] as const;
 
 function isTransportRow(c: IpamCircuit): boolean {
@@ -30,6 +30,10 @@ function providerLabel(
 
 function contractLabel(c: IpamCircuit, contracts: { id: number; name: string }[]): string {
   return contracts.find((x) => x.id === c.contract_id)?.name ?? "—";
+}
+
+function groupLabel(c: IpamCircuit, groups: { id: number; name: string }[]): string {
+  return groups.find((x) => x.id === c.group_id)?.name ?? "—";
 }
 
 export function IpamCircuitsPage() {
@@ -55,6 +59,7 @@ export function IpamCircuitsPage() {
   const [providerId, setProviderId] = useState("");
   const [providerName, setProviderName] = useState("");
   const [contractId, setContractId] = useState("");
+  const [groupId, setGroupId] = useState("");
   const [established, setEstablished] = useState("");
   const [contractEnd, setContractEnd] = useState("");
   const [termCircuitId, setTermCircuitId] = useState<number | null>(null);
@@ -88,6 +93,12 @@ export function IpamCircuitsPage() {
   const [ctrRef, setCtrRef] = useState("");
   const [ctrStart, setCtrStart] = useState("");
   const [ctrEnd, setCtrEnd] = useState("");
+  const [grpName, setGrpName] = useState("");
+  const [grpSlug, setGrpSlug] = useState("");
+  const [grpRisk, setGrpRisk] = useState("");
+  const [grpDrawer, setGrpDrawer] = useState(false);
+  const [openGrpId, setOpenGrpId] = useState<number | null>(null);
+  const [assignCircuitId, setAssignCircuitId] = useState("");
 
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
@@ -118,6 +129,7 @@ export function IpamCircuitsPage() {
     enabled: openProvId != null,
   });
   const contractsQ = useQuery({ queryKey: ["ipam", "contracts"], queryFn: () => ipamApi.listIpamContracts() });
+  const groupsQ = useQuery({ queryKey: ["ipam", "circuit-groups"], queryFn: () => ipamApi.listIpamCircuitGroups() });
   const openContractsQ = useQuery({
     queryKey: ["ipam", "contracts", openProvId],
     queryFn: () => ipamApi.listIpamContracts(openProvId!),
@@ -157,6 +169,7 @@ export function IpamCircuitsPage() {
         provider_id: providerId === "" ? null : Number(providerId),
         provider_name: providerName.trim() === "" ? null : providerName.trim(),
         contract_id: contractId === "" ? null : Number(contractId),
+        group_id: groupId === "" ? null : Number(groupId),
         established_on: established.trim() === "" ? null : established.trim(),
         contract_end_on: contractEnd.trim() === "" ? null : contractEnd.trim(),
         a_site_id: aSiteId === "" ? null : Number(aSiteId),
@@ -169,6 +182,7 @@ export function IpamCircuitsPage() {
       setProviderName("");
       setProviderId("");
       setContractId("");
+      setGroupId("");
       setEstablished("");
       setContractEnd("");
       setDrawerOpen(false);
@@ -335,6 +349,46 @@ export function IpamCircuitsPage() {
     onError: fail,
   });
 
+  const createGrpM = useMutation({
+    mutationFn: () =>
+      ipamApi.createIpamCircuitGroup({
+        name: grpName.trim(),
+        slug: grpSlug.trim() || null,
+        shared_risk: grpRisk.trim() || null,
+        tenant_id: filterTenant === "" ? null : Number(filterTenant),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setGrpName("");
+      setGrpSlug("");
+      setGrpRisk("");
+      setGrpDrawer(false);
+      void qc.invalidateQueries({ queryKey: ["ipam", "circuit-groups"] });
+    },
+    onError: fail,
+  });
+
+  const delGrpM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteIpamCircuitGroup(id),
+    onSuccess: () => {
+      setErr(null);
+      setOpenGrpId(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "circuit-groups"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "circuits"] });
+    },
+    onError: fail,
+  });
+
+  const assignGrpM = useMutation({
+    mutationFn: () => ipamApi.patchIpamCircuit(Number(assignCircuitId), { group_id: openGrpId }),
+    onSuccess: () => {
+      setErr(null);
+      setAssignCircuitId("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "circuits"] });
+    },
+    onError: fail,
+  });
+
   const siteName = (id: number | null | undefined) =>
     (sitesQ.data ?? []).find((s) => s.id === id)?.name ?? "—";
   const devices = devicesQ.data ?? [];
@@ -355,7 +409,13 @@ export function IpamCircuitsPage() {
   };
 
   const newLabel =
-    tab === "providers" ? t("ipam.circuits.newProvider") : tab === "overlay" ? t("ipam.circuits.newVpn") : t("ipam.circuits.new");
+    tab === "providers"
+      ? t("ipam.circuits.newProvider")
+      : tab === "overlay"
+        ? t("ipam.circuits.newVpn")
+        : tab === "groups"
+          ? t("ipam.circuits.newGroup")
+          : t("ipam.circuits.new");
 
   return (
     <Panel>
@@ -379,6 +439,7 @@ export function IpamCircuitsPage() {
               setErr(null);
               if (tab === "providers") setProvDrawer(true);
               else if (tab === "overlay") setVpnDrawer(true);
+              else if (tab === "groups") setGrpDrawer(true);
               else {
                 if (filterTenant && tenantId === "") setTenantId(filterTenant);
                 setDrawerOpen(true);
@@ -397,6 +458,7 @@ export function IpamCircuitsPage() {
           { id: "transport", label: t("ipam.circuits.tabTransport") },
           { id: "overlay", label: t("ipam.circuits.tabOverlay") },
           { id: "providers", label: t("ipam.circuits.tabProviders") },
+          { id: "groups", label: t("ipam.circuits.tabGroups") },
         ]}
       />
       <div className={prefixStyles.toolbar}>
@@ -439,6 +501,7 @@ export function IpamCircuitsPage() {
                     <th>{t("ipam.circuits.leased")}</th>
                     <th>{t("ipam.circuits.provider")}</th>
                     <th>{t("ipam.circuits.contract")}</th>
+                    <th>{t("ipam.circuits.group")}</th>
                     <th>{t("ipam.ipv4.actionsCol")}</th>
                   </tr>
                 </thead>
@@ -454,6 +517,7 @@ export function IpamCircuitsPage() {
                       <td>{c.is_leased ? t("ipam.circuits.yes") : t("ipam.circuits.no")}</td>
                       <td>{providerLabel(c, providersQ.data ?? [])}</td>
                       <td>{contractLabel(c, contractsQ.data ?? [])}</td>
+                      <td>{groupLabel(c, groupsQ.data ?? [])}</td>
                       <td>
                         <button
                           type="button"
@@ -810,6 +874,104 @@ export function IpamCircuitsPage() {
         </div>
       ) : null}
 
+      {tab === "groups" ? (
+        <div className={prefixStyles.tableCard}>
+          <p className={dcimStyles.muted} style={{ padding: "var(--space-3)", paddingBottom: 0 }}>
+            {t("ipam.circuits.groupHint")}
+          </p>
+          {groupsQ.isLoading ? (
+            <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
+              {t("dcim.common.loading")}
+            </p>
+          ) : null}
+          {(groupsQ.data ?? []).length === 0 && !groupsQ.isLoading ? (
+            <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
+              {t("ipam.circuits.emptyGroups")}
+            </p>
+          ) : null}
+          {(groupsQ.data ?? []).length > 0 ? (
+            <div className={prefixStyles.tableScroll}>
+              <table className={dcimStyles.table}>
+                <thead>
+                  <tr>
+                    <th>{t("ipam.ipv4.name")}</th>
+                    <th>Slug</th>
+                    <th>{t("ipam.circuits.sharedRisk")}</th>
+                    <th>{t("ipam.ipv4.actionsCol")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(groupsQ.data ?? []).map((g) => (
+                    <tr key={g.id}>
+                      <td>{g.name}</td>
+                      <td>{g.slug}</td>
+                      <td>{g.shared_risk ?? "—"}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className={dcimStyles.btnLink}
+                          onClick={() => setOpenGrpId(openGrpId === g.id ? null : g.id)}
+                        >
+                          {openGrpId === g.id ? t("ipam.circuits.hideMembers") : t("ipam.circuits.showMembers")}
+                        </button>{" "}
+                        <button
+                          type="button"
+                          className={dcimStyles.btnLink}
+                          disabled={delGrpM.isPending}
+                          onClick={() => delGrpM.mutate(g.id)}
+                        >
+                          {t("dcim.common.delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {openGrpId != null ? (
+            <section className={dcimStyles.mfrDetailSection} style={{ padding: "var(--space-3)" }}>
+              <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.members")}</h3>
+              <ul className={dcimStyles.ipList}>
+                {(circuitsQ.data ?? [])
+                  .filter((c) => c.group_id === openGrpId)
+                  .map((c) => (
+                    <li key={c.id}>
+                      {c.circuit_number} · {c.name}
+                    </li>
+                  ))}
+              </ul>
+              <form
+                className={dcimStyles.formRow}
+                style={{ flexWrap: "wrap" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setErr(null);
+                  assignGrpM.mutate();
+                }}
+              >
+                <label>
+                  {t("ipam.circuits.number")}
+                  <select value={assignCircuitId} onChange={(e) => setAssignCircuitId(e.target.value)} required>
+                    <option value="">{t("ipam.circuits.noCircuit")}</option>
+                    {(circuitsQ.data ?? [])
+                      .filter((c) => c.group_id !== openGrpId)
+                      .map((c) => (
+                        <option key={c.id} value={String(c.id)}>
+                          {c.circuit_number} · {c.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <button type="submit" className={dcimStyles.btn} disabled={assignGrpM.isPending || assignCircuitId === ""}>
+                  {t("ipam.circuits.addMember")}
+                </button>
+              </form>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
+
       {termCircuitId != null && tab === "transport" ? (
         <section className={dcimStyles.mfrDetailSection} style={{ marginTop: "var(--space-3)" }}>
           <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.termTitle")}</h3>
@@ -1003,6 +1165,17 @@ export function IpamCircuitsPage() {
             </select>
           </label>
           <label>
+            {t("ipam.circuits.group")}
+            <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+              <option value="">{t("ipam.circuits.noGroup")}</option>
+              {(groupsQ.data ?? []).map((g) => (
+                <option key={g.id} value={String(g.id)}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             {t("ipam.circuits.providerFreeText")}
             <input value={providerName} onChange={(e) => setProviderName(e.target.value)} />
           </label>
@@ -1103,6 +1276,48 @@ export function IpamCircuitsPage() {
           <label>
             Slug
             <input value={provSlug} onChange={(e) => setProvSlug(e.target.value)} />
+          </label>
+        </div>
+      </PrefixDrawer>
+
+      <PrefixDrawer
+        title={t("ipam.circuits.addGroup")}
+        open={grpDrawer}
+        onClose={() => {
+          if (!createGrpM.isPending) setGrpDrawer(false);
+        }}
+        footer={
+          <>
+            <button type="button" className={dcimStyles.btn} disabled={createGrpM.isPending} onClick={() => setGrpDrawer(false)}>
+              {t("dcim.common.cancel")}
+            </button>
+            <button
+              type="button"
+              className={dcimStyles.btn}
+              disabled={createGrpM.isPending}
+              onClick={() => {
+                setErr(null);
+                createGrpM.mutate();
+              }}
+            >
+              {createGrpM.isPending ? t("dcim.common.creating") : t("ipam.circuits.createGroup")}
+            </button>
+          </>
+        }
+      >
+        <div className={prefixStyles.drawerFields}>
+          <p className={dcimStyles.muted}>{t("ipam.circuits.groupHint")}</p>
+          <label>
+            {t("ipam.ipv4.name")}
+            <input value={grpName} onChange={(e) => setGrpName(e.target.value)} required />
+          </label>
+          <label>
+            Slug
+            <input value={grpSlug} onChange={(e) => setGrpSlug(e.target.value)} />
+          </label>
+          <label>
+            {t("ipam.circuits.sharedRisk")}
+            <input value={grpRisk} onChange={(e) => setGrpRisk(e.target.value)} />
           </label>
         </div>
       </PrefixDrawer>

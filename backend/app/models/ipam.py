@@ -491,6 +491,29 @@ class IpamContract(Base):
     provider: Mapped["IpamProvider"] = relationship(back_populates="contracts")
 
 
+class IpamCircuitGroup(Base):
+    """Redundansgruppe. Knytter samband som deler feilrisiko. Aldri påstå uavhengighet."""
+
+    __tablename__ = "ipam_circuit_groups"
+    __table_args__ = (UniqueConstraint("tenant_scope", "slug", name="uq_ipam_circuit_group_tenant_scope_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tenant_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    shared_risk: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class IpamCircuit(Base):
     """Transport mellom to punkter. Overlay (VPN) er VPNService etter manuell klassifisering.
 
@@ -532,6 +555,10 @@ class IpamCircuit(Base):
     )
     contract_id: Mapped[int | None] = mapped_column(
         ForeignKey("ipam_contracts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_circuit_groups.id", ondelete="SET NULL"),
         nullable=True,
     )
     established_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)

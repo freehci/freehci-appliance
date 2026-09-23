@@ -9,12 +9,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.dcim import DeviceInstance, DeviceInterface, Site
-from app.models.ipam import IpamCircuit, IpamCircuitTermination, IpamVlan, IpamVlanGroup, IpamVrf
+from app.models.ipam import IpamCircuit, IpamCircuitGroup, IpamCircuitTermination, IpamVlan, IpamVlanGroup, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.ipam import (
     CLASSIFY_CIRCUIT_TYPES,
     IpamCircuitClassify,
     IpamCircuitCreate,
+    IpamCircuitGroupCreate,
+    IpamCircuitGroupRead,
+    IpamCircuitGroupUpdate,
     IpamCircuitRead,
     IpamCircuitTerminationCreate,
     IpamCircuitTerminationRead,
@@ -413,6 +416,7 @@ def list_circuits(
     tenant_id: int | None = None,
     site_id: int | None = None,
     layer: str | None = None,
+    group_id: int | None = None,
     needs_classification: bool | None = None,
 ) -> list[IpamCircuit]:
     q = select(IpamCircuit).order_by(IpamCircuit.circuit_number)
@@ -422,12 +426,119 @@ def list_circuits(
         q = q.where((IpamCircuit.a_site_id == site_id) | (IpamCircuit.z_site_id == site_id))
     if layer is not None:
         q = q.where(IpamCircuit.layer == layer)
+    if group_id is not None:
+        q = q.where(IpamCircuit.group_id == group_id)
     rows = list(db.execute(q).scalars().all())
     if needs_classification is True:
         return [r for r in rows if circuit_needs_classification(r)]
     if needs_classification is False:
         return [r for r in rows if not circuit_needs_classification(r)]
     return rows
+
+
+def _unique_group_slug(db: Session, tenant_scope: int, desired: str, *, exclude_id: int | None = None) -> str:
+    base = _slugify(desired)
+    candidate = base
+    n = 2
+    while True:
+        q = select(IpamCircuitGroup.id).where(
+            IpamCircuitGroup.tenant_scope == tenant_scope,
+            IpamCircuitGroup.slug == candidate,
+        )
+        if exclude_id is not None:
+            q = q.where(IpamCircuitGroup.id != exclude_id)
+        if db.execute(q).scalar_one_or_none() is None:
+            return candidate
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+
+
+def list_circuit_groups(db: Session, *, tenant_id: int | None = None) -> list[IpamCircuitGroup]:
+    q = select(IpamCircuitGroup).order_by(IpamCircuitGroup.name)
+    if tenant_id is not None:
+        q = q.where(IpamCircuitGroup.tenant_id == tenant_id)
+    return list(db.execute(q).scalars().all())
+
+
+def get_circuit_group(db: Session, group_id: int) -> IpamCircuitGroup | None:
+    return db.get(IpamCircuitGroup, group_id)
+
+
+def get_circuit_group_by_slug(db: Session, slug: str, *, tenant_scope: int = 0) -> IpamCircuitGroup | None:
+    return db.execute(
+        select(IpamCircuitGroup).where(
+            IpamCircuitGroup.tenant_scope == tenant_scope,
+            IpamCircuitGroup.slug == slug,
+        ),
+    ).scalar_one_or_none()
+
+
+def create_circuit_group(db: Session, data: IpamCircuitGroupCreate) -> IpamCircuitGroup:
+    if data.tenant_id is not None:
+        _require_tenant(db, data.tenant_id)
+    tenant_scope = int(data.tenant_id) if data.tenant_id is not None else 0
+    slug = _slugify(data.slug) if data.slug else _unique_group_slug(db, tenant_scope, data.name)
+    row = IpamCircuitGroup(
+        tenant_id=data.tenant_id,
+        tenant_scope=tenant_scope,
+        name=data.name.strip(),
+        slug=slug,
+        shared_risk=data.shared_risk.strip() if data.shared_risk else None,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(row)
+    return row
+
+
+def update_circuit_group(db: Session, row: IpamCircuitGroup, data: IpamCircuitGroupUpdate) -> IpamCircuitGroup:
+    if data.tenant_id is not None:
+        _require_tenant(db, data.tenant_id)
+        row.tenant_id = data.tenant_id
+        row.tenant_scope = int(data.tenant_id)
+    if data.name is not None:
+        row.name = data.name.strip()
+    if data.slug is not None:
+        row.slug = _slugify(data.slug)
+    if data.shared_risk is not None:
+        row.shared_risk = data.shared_risk.strip() if data.shared_risk else None
+    if data.description is not None:
+        row.description = data.description
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_circuit_group(db: Session, row: IpamCircuitGroup) -> None:
+    for circ in db.execute(select(IpamCircuit).where(IpamCircuit.group_id == row.id)).scalars().all():
+        circ.group_id = None
+    db.delete(row)
+    db.commit()
+
+
+def require_circuit_group_ref(
+    db: Session,
+    *,
+    group_id: int | None,
+    tenant_id: int | None,
+) -> IpamCircuitGroup | None:
+    if group_id is None:
+        return None
+    row = db.get(IpamCircuitGroup, group_id)
+    if row is None:
+        raise ipam_error(404, "circuit_group_not_found", "redundansgruppe ikke funnet")
+    if row.tenant_id is not None and tenant_id is not None and row.tenant_id != tenant_id:
+        raise ipam_error(400, "circuit_group_tenant_mismatch", "gruppen tilhører en annen tenant")
+    return row
+
+
+def circuit_group_to_read(row: IpamCircuitGroup) -> IpamCircuitGroupRead:
+    return IpamCircuitGroupRead.model_validate(row)
 
 
 def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
@@ -444,9 +555,13 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
     if contract is not None and provider_id is None:
         provider_id = contract.provider_id
     require_provider_refs(db, provider_id=provider_id, provider_account_id=data.provider_account_id)
+    tenant_id = data.tenant_id
+    group = require_circuit_group_ref(db, group_id=data.group_id, tenant_id=tenant_id)
+    if group is not None and tenant_id is None and group.tenant_id is not None:
+        tenant_id = group.tenant_id
     row = IpamCircuit(
-        tenant_id=data.tenant_id,
-        tenant_scope=int(data.tenant_id) if data.tenant_id is not None else 0,
+        tenant_id=tenant_id,
+        tenant_scope=int(tenant_id) if tenant_id is not None else 0,
         a_site_id=data.a_site_id,
         z_site_id=data.z_site_id,
         circuit_number=data.circuit_number.strip(),
@@ -459,6 +574,7 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
         provider_id=provider_id,
         provider_account_id=data.provider_account_id,
         contract_id=data.contract_id,
+        group_id=data.group_id,
         established_on=data.established_on,
         contract_end_on=data.contract_end_on,
     )
@@ -511,6 +627,10 @@ def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> Ip
         row.provider_account_id = data.provider_account_id
     if data.contract_id is not None:
         row.contract_id = data.contract_id
+    if data.group_id is not None:
+        tenant_for_group = data.tenant_id if data.tenant_id is not None else row.tenant_id
+        require_circuit_group_ref(db, group_id=data.group_id, tenant_id=tenant_for_group)
+        row.group_id = data.group_id
     if data.established_on is not None:
         row.established_on = data.established_on
     if data.contract_end_on is not None:

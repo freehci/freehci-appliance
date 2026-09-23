@@ -457,6 +457,16 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
         ],
         "ipv6_addresses": v6_addrs,
         "providers": [{"name": p.get("name"), "slug": p.get("slug")} for p in raw.get("providers") or [] if p.get("slug")],
+        "circuit_groups": [
+            {
+                "name": g.get("name"),
+                "slug": g.get("slug"),
+                "shared_risk": g.get("shared_risk"),
+                "description": g.get("description"),
+            }
+            for g in raw.get("circuit_groups") or []
+            if g.get("slug")
+        ],
         "contracts": [
             {
                 "name": c.get("name"),
@@ -482,6 +492,7 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "provider_slug": c.get("provider_slug"),
                 "provider_name": c.get("provider_name"),
                 "contract_slug": c.get("contract_slug"),
+                "group_slug": c.get("group_slug"),
             }
             for c in raw.get("circuits") or []
             if c.get("circuit_number")

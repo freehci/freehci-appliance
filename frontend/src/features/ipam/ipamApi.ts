@@ -10,6 +10,7 @@ import type {
   Ipv4PrefixSplitResponse,
   IpamAuditEvent,
   IpamCircuit,
+  IpamCircuitGroup,
   IpamCircuitTermination,
   IpamContract,
   IpamProvider,
@@ -516,6 +517,7 @@ export function createIpamCircuit(body: {
   provider_id?: number | null;
   provider_account_id?: number | null;
   contract_id?: number | null;
+  group_id?: number | null;
   established_on?: string | null;
   contract_end_on?: string | null;
   a_site_id?: number | null;
@@ -535,6 +537,8 @@ export function patchIpamCircuit(
     provider_name: string | null;
     provider_id: number | null;
     provider_account_id: number | null;
+    contract_id: number | null;
+    group_id: number | null;
     established_on: string | null;
     contract_end_on: string | null;
   }>,
@@ -544,6 +548,25 @@ export function patchIpamCircuit(
 
 export function deleteIpamCircuit(id: number): Promise<void> {
   return apiDelete(`${P}/circuits/${id}`);
+}
+
+export function listIpamCircuitGroups(tenantId?: number): Promise<IpamCircuitGroup[]> {
+  const q = tenantId != null ? `?tenant_id=${encodeURIComponent(String(tenantId))}` : "";
+  return apiGet(`${P}/circuit-groups${q}`);
+}
+
+export function createIpamCircuitGroup(body: {
+  name: string;
+  slug?: string | null;
+  shared_risk?: string | null;
+  description?: string | null;
+  tenant_id?: number | null;
+}): Promise<IpamCircuitGroup> {
+  return apiPost(`${P}/circuit-groups`, body);
+}
+
+export function deleteIpamCircuitGroup(id: number): Promise<void> {
+  return apiDelete(`${P}/circuit-groups/${id}`);
 }
 
 export function classifyIpamCircuit(

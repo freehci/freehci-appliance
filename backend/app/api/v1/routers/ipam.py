@@ -37,6 +37,9 @@ from app.schemas.ipam import (
     IpamCircuitClassify,
     IpamCircuitClassifyRead,
     IpamCircuitCreate,
+    IpamCircuitGroupCreate,
+    IpamCircuitGroupRead,
+    IpamCircuitGroupUpdate,
     IpamCircuitRead,
     IpamCircuitTerminationCreate,
     IpamCircuitTerminationRead,
@@ -965,6 +968,7 @@ def list_ipam_circuits(
     tenant_id: int | None = Query(None, description="Filtrer på tenant-id"),
     site_id: int | None = Query(None, description="Filtrer på A- eller Z-site"),
     layer: str | None = Query(None, description="transport eller overlay"),
+    group_id: int | None = Query(None, description="Filtrer på redundansgruppe"),
     needs_classification: bool | None = Query(None),
     db: Session = Depends(get_db),
 ) -> list[IpamCircuitRead]:
@@ -975,6 +979,7 @@ def list_ipam_circuits(
             tenant_id=tenant_id,
             site_id=site_id,
             layer=layer,
+            group_id=group_id,
             needs_classification=needs_classification,
         )
     ]
@@ -1009,6 +1014,55 @@ def delete_ipam_circuit(circuit_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="samband ikke funnet")
     fac_svc.delete_circuit(db, row)
+
+
+@router.get("/circuit-groups", response_model=list[IpamCircuitGroupRead])
+def list_ipam_circuit_groups(
+    tenant_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamCircuitGroupRead]:
+    return [fac_svc.circuit_group_to_read(r) for r in fac_svc.list_circuit_groups(db, tenant_id=tenant_id)]
+
+
+@router.post("/circuit-groups", response_model=IpamCircuitGroupRead)
+def create_ipam_circuit_group(data: IpamCircuitGroupCreate, db: Session = Depends(get_db)) -> IpamCircuitGroupRead:
+    try:
+        return fac_svc.circuit_group_to_read(fac_svc.create_circuit_group(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="gruppeslug finnes allerede") from e
+
+
+@router.get("/circuit-groups/{group_id}", response_model=IpamCircuitGroupRead)
+def get_ipam_circuit_group(group_id: int, db: Session = Depends(get_db)) -> IpamCircuitGroupRead:
+    row = fac_svc.get_circuit_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="redundansgruppe ikke funnet")
+    return fac_svc.circuit_group_to_read(row)
+
+
+@router.patch("/circuit-groups/{group_id}", response_model=IpamCircuitGroupRead)
+def patch_ipam_circuit_group(
+    group_id: int,
+    data: IpamCircuitGroupUpdate,
+    db: Session = Depends(get_db),
+) -> IpamCircuitGroupRead:
+    row = fac_svc.get_circuit_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="redundansgruppe ikke funnet")
+    try:
+        return fac_svc.circuit_group_to_read(fac_svc.update_circuit_group(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/circuit-groups/{group_id}", status_code=204)
+def delete_ipam_circuit_group(group_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_circuit_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="redundansgruppe ikke funnet")
+    fac_svc.delete_circuit_group(db, row)
 
 
 @router.get("/circuits/{circuit_id}/terminations", response_model=list[IpamCircuitTerminationRead])
