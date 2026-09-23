@@ -39,6 +39,8 @@ from app.models.dcim import (
     DeviceModel,
     DeviceModelComponent,
     DeviceModelIdentity,
+    DeviceArtifact,
+    DeviceArtifactRecord,
     DeviceRole,
     DeviceType,
     Floor,
@@ -116,6 +118,11 @@ from app.schemas.dcim import (
     DeviceModelIdentityRead,
     DeviceModelIdentityUpdate,
     DeviceModelRead,
+    DeviceArtifactCreate,
+    DeviceArtifactRecordCreate,
+    DeviceArtifactRecordRead,
+    DeviceArtifactRead,
+    DeviceArtifactUpdate,
     DeviceRoleCreate,
     DeviceRoleUpdate,
     DeviceTypeCreate,
@@ -1431,6 +1438,114 @@ def update_device_role(db: Session, row: DeviceRole, data: DeviceRoleUpdate) -> 
 
 def delete_device_role(db: Session, row: DeviceRole) -> None:
     db.execute(update(DeviceInstance).where(DeviceInstance.device_role_id == row.id).values(device_role_id=None))
+    db.delete(row)
+    db.commit()
+
+
+def artifact_to_read(row: DeviceArtifact) -> DeviceArtifactRead:
+    return DeviceArtifactRead.model_validate(row)
+
+
+def record_to_read(db: Session, row: DeviceArtifactRecord) -> DeviceArtifactRecordRead:
+    art = db.get(DeviceArtifact, row.artifact_id)
+    return DeviceArtifactRecordRead(
+        id=row.id,
+        device_id=row.device_id,
+        artifact_id=row.artifact_id,
+        intent=row.intent,
+        artifact=artifact_to_read(art) if art is not None else None,
+    )
+
+
+def list_device_artifacts(db: Session) -> list[DeviceArtifact]:
+    return list(db.execute(select(DeviceArtifact).order_by(DeviceArtifact.name)).scalars().all())
+
+
+def get_device_artifact(db: Session, aid: int) -> DeviceArtifact | None:
+    return db.get(DeviceArtifact, aid)
+
+
+def get_device_artifact_by_slug(db: Session, slug: str) -> DeviceArtifact | None:
+    return db.execute(select(DeviceArtifact).where(DeviceArtifact.slug == slug)).scalar_one_or_none()
+
+
+def create_device_artifact(db: Session, data: DeviceArtifactCreate) -> DeviceArtifact:
+    if get_device_artifact_by_slug(db, data.slug) is not None:
+        raise HTTPException(status_code=409, detail="artefakt-slug finnes allerede")
+    row = DeviceArtifact(
+        name=data.name.strip(),
+        slug=data.slug,
+        kind=data.kind,
+        version=data.version.strip(),
+        description=(data.description or "").strip() or None,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_device_artifact(db: Session, row: DeviceArtifact, data: DeviceArtifactUpdate) -> DeviceArtifact:
+    patch = data.model_dump(exclude_unset=True)
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip()
+    if "kind" in patch and patch["kind"] is not None:
+        row.kind = patch["kind"]
+    if "version" in patch and patch["version"] is not None:
+        row.version = str(patch["version"]).strip()
+    if "description" in patch:
+        row.description = (str(patch["description"]).strip() or None) if patch["description"] is not None else None
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_device_artifact(db: Session, row: DeviceArtifact) -> None:
+    recs = list(
+        db.execute(select(DeviceArtifactRecord).where(DeviceArtifactRecord.artifact_id == row.id)).scalars().all()
+    )
+    for rec in recs:
+        db.delete(rec)
+    db.delete(row)
+    db.commit()
+
+
+def list_device_artifact_records(db: Session, device_id: int) -> list[DeviceArtifactRecord]:
+    return list(
+        db.execute(
+            select(DeviceArtifactRecord).where(DeviceArtifactRecord.device_id == device_id).order_by(DeviceArtifactRecord.id)
+        ).scalars().all()
+    )
+
+
+def get_device_artifact_record(db: Session, record_id: int) -> DeviceArtifactRecord | None:
+    return db.get(DeviceArtifactRecord, record_id)
+
+
+def record_device_artifact(
+    db: Session,
+    device: DeviceInstance,
+    data: DeviceArtifactRecordCreate,
+) -> DeviceArtifactRecord:
+    art = get_device_artifact(db, data.artifact_id)
+    if art is None:
+        raise HTTPException(status_code=404, detail="artefakt ikke funnet")
+    exists = db.execute(
+        select(DeviceArtifactRecord.id).where(
+            DeviceArtifactRecord.device_id == device.id,
+            DeviceArtifactRecord.artifact_id == art.id,
+        )
+    ).scalar_one_or_none()
+    if exists:
+        raise HTTPException(status_code=409, detail="artefaktet er allerede registrert på enheten")
+    row = DeviceArtifactRecord(device_id=device.id, artifact_id=art.id, intent=data.intent)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_device_artifact_record(db: Session, row: DeviceArtifactRecord) -> None:
     db.delete(row)
     db.commit()
 

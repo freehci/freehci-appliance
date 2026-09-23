@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
-from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, DeviceArtifact, DeviceArtifactRecord, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamIpv4Address
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -72,6 +72,7 @@ _STRIP_KEYS = frozenset(
         "template_id",
         "deployment_id",
         "ipv4_address_id",
+        "artifact_id",
     },
 )
 
@@ -677,8 +678,71 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         "device_roles": [
             {"slug": r.slug, "name": r.name, "kind": r.kind, "description": r.description} for r in roles
         ],
+        **_export_device_artifacts(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **pwr_svc.export_for_sites(db, sites),
+    }
+
+
+def _export_device_artifacts(
+    db: Session,
+    *,
+    devices: list[DeviceInstance],
+    site_by_id: dict[int, Site],
+    device_by_id: dict[int, DeviceInstance],
+) -> dict[str, Any]:
+    device_ids = {d.id for d in devices}
+    records = (
+        list(
+            db.execute(select(DeviceArtifactRecord).where(DeviceArtifactRecord.device_id.in_(device_ids))).scalars().all()
+        )
+        if device_ids
+        else []
+    )
+    inst_art = (
+        list(
+            db.execute(
+                select(ServiceInstance.artifact_id).where(
+                    ServiceInstance.device_id.in_(device_ids),
+                    ServiceInstance.artifact_id.is_not(None),
+                )
+            ).scalars().all()
+        )
+        if device_ids
+        else []
+    )
+    art_ids = {r.artifact_id for r in records} | {i for i in inst_art if i}
+    artifacts = (
+        list(db.execute(select(DeviceArtifact).where(DeviceArtifact.id.in_(art_ids))).scalars().all()) if art_ids else []
+    )
+    art_by_id = {a.id: a for a in artifacts}
+    return {
+        "device_artifacts": [
+            {
+                "slug": a.slug,
+                "name": a.name,
+                "kind": a.kind,
+                "version": a.version,
+                "description": a.description,
+            }
+            for a in artifacts
+        ],
+        "device_artifact_records": [
+            {
+                "device_name": device_by_id[r.device_id].name if r.device_id in device_by_id else None,
+                "site_slug": (
+                    site_by_id[device_by_id[r.device_id].site_id].slug
+                    if r.device_id in device_by_id
+                    and device_by_id[r.device_id].site_id
+                    and device_by_id[r.device_id].site_id in site_by_id
+                    else None
+                ),
+                "artifact_slug": art_by_id[r.artifact_id].slug if r.artifact_id in art_by_id else None,
+                "intent": r.intent,
+            }
+            for r in records
+            if r.device_id in device_by_id and r.artifact_id in art_by_id
+        ],
     }
 
 
@@ -826,6 +890,7 @@ def _export_platform_catalog(
         pool = pool_by_id.get(inst.storage_pool_id) if inst.storage_pool_id else None
         cloud = cloud_by_id.get(inst.cloud_subscription_id) if inst.cloud_subscription_id else None
         addr = addr_by_id.get(inst.ipv4_address_id) if inst.ipv4_address_id else None
+        art_row = db.get(DeviceArtifact, inst.artifact_id) if inst.artifact_id else None
         instance_docs.append(
             {
                 "slug": inst.slug,
@@ -841,6 +906,7 @@ def _export_platform_catalog(
                 "virtual_interface_slug": iface.slug if iface else None,
                 "virtual_disk_slug": disk.slug if disk else None,
                 "cloud_subscription_slug": cloud.slug if cloud else None,
+                "artifact_slug": art_row.slug if art_row is not None else None,
                 "ipv4_address": addr.address if addr else None,
             }
         )

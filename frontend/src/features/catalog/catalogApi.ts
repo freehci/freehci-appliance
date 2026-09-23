@@ -10,8 +10,11 @@ export type ServiceTemplateSpec = {
     | "storage_pool"
     | "virtual_interface"
     | "virtual_disk"
-    | "cloud_subscription";
+    | "cloud_subscription"
+    | "artifact";
   reserve_ipv4: boolean;
+  artifact_kind?: string;
+  version?: string | null;
 };
 
 export type ServiceTemplateVersion = {
@@ -52,6 +55,7 @@ export type ServiceInstance = {
   virtual_interface_id: number | null;
   virtual_disk_id: number | null;
   cloud_subscription_id: number | null;
+  artifact_id: number | null;
   ipv4_address_id: number | null;
   status: string;
   created_at: string;
@@ -93,6 +97,7 @@ export type ServiceDeployment = {
   virtual_interface_id: number | null;
   virtual_disk_id: number | null;
   cloud_subscription_id: number | null;
+  artifact_id: number | null;
   ipv4_prefix_id: number | null;
   status: string;
   plan_json: ServicePlan | null;

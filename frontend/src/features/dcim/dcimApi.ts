@@ -27,6 +27,8 @@ import type {
   DeviceModel,
   DeviceModelIdentity,
   DeviceModelComponent,
+  DeviceArtifact,
+  DeviceArtifactRecord,
   DeviceRole,
   DeviceType,
   ExternalInventoryImportApply,
@@ -517,6 +519,39 @@ export function updateDeviceRole(
 
 export function deleteDeviceRole(id: number): Promise<void> {
   return apiDelete(`${P}/device-roles/${id}`);
+}
+
+export function listDeviceArtifacts(): Promise<DeviceArtifact[]> {
+  return apiGet(`${P}/device-artifacts`);
+}
+
+export function createDeviceArtifact(body: {
+  name: string;
+  slug: string;
+  kind?: string;
+  version: string;
+  description?: string | null;
+}): Promise<DeviceArtifact> {
+  return apiPost(`${P}/device-artifacts`, body);
+}
+
+export function deleteDeviceArtifact(id: number): Promise<void> {
+  return apiDelete(`${P}/device-artifacts/${id}`);
+}
+
+export function listDeviceArtifactRecords(deviceId: number): Promise<DeviceArtifactRecord[]> {
+  return apiGet(`${P}/devices/${deviceId}/artifacts`);
+}
+
+export function recordDeviceArtifact(
+  deviceId: number,
+  body: { artifact_id: number; intent?: string },
+): Promise<DeviceArtifactRecord> {
+  return apiPost(`${P}/devices/${deviceId}/artifacts`, body);
+}
+
+export function deleteDeviceArtifactRecord(deviceId: number, recordId: number): Promise<void> {
+  return apiDelete(`${P}/devices/${deviceId}/artifacts/${recordId}`);
 }
 
 export function listComponentClasses(): Promise<ComponentClass[]> {

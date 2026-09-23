@@ -15,13 +15,18 @@ TEMPLATE_KINDS = frozenset(
         "virtual_interface",
         "virtual_disk",
         "cloud_subscription",
+        "artifact",
     }
 )
+
+ARTIFACT_KINDS = frozenset({"firmware", "bios", "os-image", "other"})
 
 
 class ServiceTemplateSpec(BaseModel):
     kind: str = "device_instance"
     reserve_ipv4: bool = False
+    artifact_kind: str = "other"
+    version: str | None = None
 
     @field_validator("kind")
     @classmethod
@@ -29,8 +34,16 @@ class ServiceTemplateSpec(BaseModel):
         s = (v or "").strip()
         if s not in TEMPLATE_KINDS:
             raise ValueError(
-                "kind må være device_instance, cluster, virtual_machine, storage_pool, virtual_interface, virtual_disk eller cloud_subscription"
+                "kind må være device_instance, cluster, virtual_machine, storage_pool, virtual_interface, virtual_disk, cloud_subscription eller artifact"
             )
+        return s
+
+    @field_validator("artifact_kind")
+    @classmethod
+    def artifact_kind_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "other"
+        if s not in ARTIFACT_KINDS:
+            raise ValueError(f"artifact_kind må være en av: {', '.join(sorted(ARTIFACT_KINDS))}")
         return s
 
 
@@ -107,6 +120,7 @@ class ServiceInstanceRead(BaseModel):
     virtual_interface_id: int | None = None
     virtual_disk_id: int | None = None
     cloud_subscription_id: int | None = None
+    artifact_id: int | None = None
     ipv4_address_id: int | None
     status: str
     created_at: dt.datetime
@@ -124,6 +138,7 @@ class ServiceDeploymentRead(BaseModel):
     virtual_interface_id: int | None = None
     virtual_disk_id: int | None = None
     cloud_subscription_id: int | None = None
+    artifact_id: int | None = None
     ipv4_prefix_id: int | None
     status: str
     plan_json: dict | None

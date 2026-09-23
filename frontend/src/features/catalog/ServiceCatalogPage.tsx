@@ -41,6 +41,8 @@ export function ServiceCatalogPage() {
   const [diskKind, setDiskKind] = useState("other");
   const [diskPoolId, setDiskPoolId] = useState("");
   const [cloudKind, setCloudKind] = useState("other");
+  const [artifactKind, setArtifactKind] = useState("other");
+  const [artifactVersion, setArtifactVersion] = useState("");
   const [prefixId, setPrefixId] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -73,6 +75,7 @@ export function ServiceCatalogPage() {
   const isVif = selectedVersion?.v.spec.kind === "virtual_interface";
   const isDisk = selectedVersion?.v.spec.kind === "virtual_disk";
   const isCloud = selectedVersion?.v.spec.kind === "cloud_subscription";
+  const isArtifact = selectedVersion?.v.spec.kind === "artifact";
   const selectedVmCluster = (clQ.data ?? []).find((c) => (c.vms ?? []).some((v) => String(v.id) === targetVmId));
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
 
@@ -80,7 +83,13 @@ export function ServiceCatalogPage() {
     mutationFn: () =>
       api.createTemplate({
         name: name.trim(),
-        spec: { kind, reserve_ipv4: kind === "device_instance" || kind === "virtual_interface" ? reserve : false },
+        spec: {
+          kind,
+          reserve_ipv4: kind === "device_instance" || kind === "virtual_interface" ? reserve : false,
+          ...(kind === "artifact"
+            ? { artifact_kind: artifactKind, version: artifactVersion.trim() || null }
+            : {}),
+        },
       }),
     onSuccess: () => {
       setErr(null);
@@ -92,7 +101,13 @@ export function ServiceCatalogPage() {
 
   const planM = useMutation({
     mutationFn: () =>
-      isCloud
+      isArtifact
+        ? api.createDeployment({
+            template_version_id: Number(versionId),
+            name: clusterName.trim(),
+            device_id: deviceId ? Number(deviceId) : null,
+          })
+        : isCloud
         ? api.createDeployment({
             template_version_id: Number(versionId),
             name: clusterName.trim(),
@@ -200,8 +215,26 @@ export function ServiceCatalogPage() {
                   <option value="virtual_interface">{t("catalog.kindVif")}</option>
                   <option value="virtual_disk">{t("catalog.kindDisk")}</option>
                   <option value="cloud_subscription">{t("catalog.kindCloud")}</option>
+                  <option value="artifact">{t("catalog.kindArtifact")}</option>
                 </select>
               </label>
+              {kind === "artifact" ? (
+                <>
+                  <label>
+                    {t("dcim.equip.artifact.kind")}
+                    <select value={artifactKind} onChange={(e) => setArtifactKind(e.target.value)}>
+                      <option value="firmware">{t("dcim.equip.artifact.kindFirmware")}</option>
+                      <option value="bios">{t("dcim.equip.artifact.kindBios")}</option>
+                      <option value="os-image">{t("dcim.equip.artifact.kindOs")}</option>
+                      <option value="other">{t("dcim.equip.artifact.kindOther")}</option>
+                    </select>
+                  </label>
+                  <label>
+                    {t("dcim.equip.artifact.version")}
+                    <input value={artifactVersion} onChange={(e) => setArtifactVersion(e.target.value)} />
+                  </label>
+                </>
+              ) : null}
               {kind === "device_instance" || kind === "virtual_interface" ? (
                 <label>
                   {t("catalog.reserveIpv4")}
@@ -254,7 +287,9 @@ export function ServiceCatalogPage() {
                 e.preventDefault();
                 if (
                   versionId &&
-                  (isCloud
+                  (isArtifact
+                    ? clusterName.trim()
+                    : isCloud
                     ? clusterName.trim()
                     : isDisk || isVif
                       ? targetVmId && clusterName.trim()
@@ -279,7 +314,25 @@ export function ServiceCatalogPage() {
                   ))}
                 </select>
               </label>
-              {isCloud ? (
+              {isArtifact ? (
+                <>
+                  <label>
+                    {t("dcim.common.name")}
+                    <input value={clusterName} onChange={(e) => setClusterName(e.target.value)} />
+                  </label>
+                  <label>
+                    {t("catalog.device")}
+                    <select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+                      <option value="">{t("dcim.common.choose")}</option>
+                      {(devQ.data ?? []).map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : isCloud ? (
                 <>
                   <label>
                     {t("platform.cloudName")}
@@ -489,7 +542,9 @@ export function ServiceCatalogPage() {
                 disabled={
                   planM.isPending ||
                   !versionId ||
-                  (isCloud
+                  (isArtifact
+                    ? !clusterName.trim()
+                    : isCloud
                     ? !clusterName.trim()
                     : isDisk || isVif
                       ? !targetVmId || !clusterName.trim()
@@ -566,6 +621,9 @@ export function ServiceCatalogPage() {
                 {selected.instance ? (
                   <p>
                     {t("catalog.instance")}: {selected.instance.name}
+                    {selected.instance.artifact_id != null
+                      ? ` (artifact #${selected.instance.artifact_id})`
+                      : ""}
                     {selected.instance.cloud_subscription_id != null
                       ? ` (cloud #${selected.instance.cloud_subscription_id})`
                       : ""}
@@ -648,7 +706,9 @@ export function ServiceCatalogPage() {
                       <td>{i.name}</td>
                       <td>{i.slug}</td>
                       <td>
-                        {i.cloud_subscription_id != null
+                        {i.artifact_id != null
+                          ? `artifact #${i.artifact_id}`
+                          : i.cloud_subscription_id != null
                           ? `cloud #${i.cloud_subscription_id}`
                           : i.virtual_disk_id != null
                           ? `disk #${i.virtual_disk_id}`

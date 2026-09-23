@@ -21,6 +21,7 @@ from app.models.catalog import (
 from app.models.dcim import DeviceInstance
 from app.models.ipam import IpamIpv4Prefix
 from app.schemas.catalog import (
+    ARTIFACT_KINDS,
     ServiceDeploymentCreate,
     ServiceDeploymentRead,
     ServiceDeploymentStepRead,
@@ -31,6 +32,7 @@ from app.schemas.catalog import (
     ServiceTemplateVersionCreate,
     ServiceTemplateVersionRead,
 )
+from app.schemas.dcim import DeviceArtifactCreate, DeviceArtifactRecordCreate
 from app.schemas.ipam import Ipv4AddressRequest
 from app.schemas.platform import (
     CLOUD_KINDS,
@@ -98,6 +100,7 @@ def deployment_to_read(db: Session, row: ServiceDeployment) -> ServiceDeployment
         virtual_interface_id=row.virtual_interface_id,
         virtual_disk_id=row.virtual_disk_id,
         cloud_subscription_id=row.cloud_subscription_id,
+        artifact_id=getattr(row, "artifact_id", None),
         ipv4_prefix_id=row.ipv4_prefix_id,
         status=row.status,
         plan_json=row.plan_json,
@@ -639,6 +642,54 @@ def build_cloud_plan(
     }
 
 
+def build_artifact_plan(
+    db: Session,
+    version: ServiceTemplateVersion,
+    name: str | None,
+    device_id: int | None,
+) -> dict:
+    template = db.get(ServiceTemplate, version.template_id)
+    spec = version.spec if isinstance(version.spec, dict) else {}
+    blockers: list[str] = []
+    art_name = (name or "").strip()
+    if not art_name:
+        blockers.append("artifact_name_required")
+    ver = str(spec.get("version") or "").strip()
+    if not ver:
+        blockers.append("version_required")
+    kind = str(spec.get("artifact_kind") or "other").strip().lower() or "other"
+    if kind not in ARTIFACT_KINDS:
+        blockers.append("unknown_artifact_kind")
+        kind = "other"
+    slug = _slugify(art_name) if art_name else None
+    if slug and dcim_svc.get_device_artifact_by_slug(db, slug) is not None:
+        blockers.append("artifact_slug_taken")
+    device = dcim_svc.get_device(db, device_id) if device_id else None
+    if device_id and device is None:
+        blockers.append("device_not_found")
+    return {
+        "kind": "artifact",
+        "template": {
+            "id": template.id if template else version.template_id,
+            "name": template.name if template else None,
+            "version": version.version,
+        },
+        "artifact": {"name": art_name or None, "slug": slug, "kind": kind, "version": ver or None},
+        "device": (
+            {"id": device.id, "name": device.name, "site_id": device.site_id} if device is not None else None
+        ),
+        "requested_name": art_name or None,
+        "reserve_ipv4": False,
+        "prefix": None,
+        "blockers": list(dict.fromkeys(blockers)),
+        "can_run": len(blockers) == 0,
+        "notes": [
+            "Registrerer en firmware-, BIOS- eller OS-image-versjon.",
+            "Påfører ikke firmware, BIOS eller OS, og lagrer ikke binærfil.",
+        ],
+    }
+
+
 def list_deployments(db: Session) -> list[ServiceDeployment]:
     return list(
         db.execute(
@@ -677,6 +728,20 @@ def create_deployment(db: Session, data: ServiceDeploymentCreate) -> ServiceDepl
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
     ids = _device_ids_from(data)
+    if spec.get("kind") == "artifact":
+        plan = build_artifact_plan(db, version, data.name, data.device_id)
+        row = ServiceDeployment(
+            template_version_id=version.id,
+            device_id=data.device_id,
+            ipv4_prefix_id=None,
+            status="planned",
+            plan_json=plan,
+        )
+        db.add(row)
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
     if spec.get("kind") == "cloud_subscription":
         plan = build_cloud_plan(db, version, data.name, data.cloud_kind)
         row = ServiceDeployment(
@@ -1319,6 +1384,100 @@ def _run_disk(db: Session, row: ServiceDeployment, version: ServiceTemplateVersi
     return loaded
 
 
+def _run_artifact(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion) -> ServiceDeployment:
+    prev = row.plan_json if isinstance(row.plan_json, dict) else {}
+    plan = build_artifact_plan(db, version, prev.get("requested_name"), row.device_id)
+    row.plan_json = plan
+    if not plan["can_run"]:
+        db.commit()
+        raise HTTPException(status_code=400, detail={"code": "cannot_run", "blockers": plan["blockers"]})
+
+    row.status = "running"
+    row.started_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+
+    info = plan["artifact"]
+    try:
+        art = dcim_svc.create_device_artifact(
+            db,
+            DeviceArtifactCreate(
+                name=info["name"],
+                slug=info["slug"],
+                kind=info["kind"],
+                version=info["version"],
+            ),
+        )
+        row.artifact_id = art.id
+        _add_step(db, row, "record_artifact", "ok", f"{art.name} {art.version} #{art.id}")
+        db.commit()
+    except HTTPException as exc:
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_artifact", "failed", _exc_detail(exc))
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    device = dcim_svc.get_device(db, row.device_id) if row.device_id else None
+    if device is not None:
+        try:
+            dcim_svc.record_device_artifact(
+                db,
+                device,
+                DeviceArtifactRecordCreate(artifact_id=art.id, intent="recorded"),
+            )
+            _add_step(db, row, "record_on_device", "ok", f"{device.name} #{device.id}")
+            db.commit()
+        except HTTPException as exc:
+            row.status = "failed"
+            row.finished_at = dt.datetime.now(dt.timezone.utc)
+            _add_step(db, row, "record_on_device", "failed", _exc_detail(exc))
+            db.commit()
+            loaded = get_deployment(db, row.id)
+            assert loaded is not None
+            return loaded
+    else:
+        _add_step(db, row, "record_on_device", "skipped", "ingen enhet valgt")
+        db.commit()
+
+    template = db.get(ServiceTemplate, version.template_id)
+    name = info["name"]
+    slug = _slugify(f"{template.slug if template else 'svc'}-artifact-{row.id}")
+    inst = ServiceInstance(
+        name=name[:255],
+        slug=slug,
+        template_version_id=version.id,
+        deployment_id=row.id,
+        device_id=row.device_id,
+        artifact_id=row.artifact_id,
+        ipv4_address_id=None,
+        status="active",
+    )
+    db.add(inst)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        row = get_deployment(db, row.id)
+        assert row is not None
+        row.status = "failed"
+        row.finished_at = dt.datetime.now(dt.timezone.utc)
+        _add_step(db, row, "record_instance", "failed", "instans-slug finnes allerede")
+        db.commit()
+        loaded = get_deployment(db, row.id)
+        assert loaded is not None
+        return loaded
+
+    _add_step(db, row, "record_instance", "ok", f"instans #{inst.id}")
+    row.status = "succeeded"
+    row.finished_at = dt.datetime.now(dt.timezone.utc)
+    db.commit()
+    loaded = get_deployment(db, row.id)
+    assert loaded is not None
+    return loaded
+
+
 def _run_cloud(db: Session, row: ServiceDeployment, version: ServiceTemplateVersion) -> ServiceDeployment:
     prev = row.plan_json if isinstance(row.plan_json, dict) else {}
     plan = build_cloud_plan(db, version, prev.get("requested_name"), prev.get("cloud_kind"))
@@ -1397,6 +1556,8 @@ def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
     if version is None:
         raise HTTPException(status_code=404, detail="malversjon ikke funnet")
     spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("kind") == "artifact":
+        return _run_artifact(db, row, version)
     if spec.get("kind") == "cloud_subscription":
         return _run_cloud(db, row, version)
     if spec.get("kind") == "virtual_disk":
@@ -1569,6 +1730,7 @@ def import_instance(
     virtual_interface_id: int | None = None,
     virtual_disk_id: int | None = None,
     cloud_subscription_id: int | None = None,
+    artifact_id: int | None = None,
     ipv4_address_id: int | None = None,
 ) -> ServiceInstance:
     """Registrer en tjenesteinstans uten å kjøre deployment-steg."""
@@ -1585,6 +1747,7 @@ def import_instance(
         virtual_interface_id=virtual_interface_id,
         virtual_disk_id=virtual_disk_id,
         cloud_subscription_id=cloud_subscription_id,
+        artifact_id=artifact_id,
         status="imported",
         plan_json={"source": "federation"},
     )
@@ -1602,6 +1765,7 @@ def import_instance(
         virtual_interface_id=virtual_interface_id,
         virtual_disk_id=virtual_disk_id,
         cloud_subscription_id=cloud_subscription_id,
+        artifact_id=artifact_id,
         ipv4_address_id=ipv4_address_id,
         status=(status or "active").strip() or "active",
     )

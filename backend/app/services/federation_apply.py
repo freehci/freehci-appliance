@@ -16,6 +16,8 @@ from app.schemas.dcim import (
     DeviceInstanceCreate,
     DeviceInstanceUpdate,
     DeviceModelCreate,
+    DeviceArtifactCreate,
+    DeviceArtifactRecordCreate,
     DeviceRoleCreate,
     DeviceTypeCreate,
     FloorCreate,
@@ -265,6 +267,24 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
             ),
         )
 
+    for art in doc.get("device_artifacts") or []:
+        slug = str(art.get("slug") or "").strip().lower()
+        if not slug or dcim_svc.get_device_artifact_by_slug(db, slug) is not None:
+            continue
+        version = str(art.get("version") or "").strip()
+        if not version:
+            continue
+        dcim_svc.create_device_artifact(
+            db,
+            DeviceArtifactCreate(
+                name=art.get("name") or slug,
+                slug=slug,
+                kind=art.get("kind") or "other",
+                version=version,
+                description=art.get("description"),
+            ),
+        )
+
     for dm in doc.get("device_models") or []:
         mfr = db.execute(select(Manufacturer).where(Manufacturer.name == dm["manufacturer_name"])).scalar_one_or_none()
         dt = None
@@ -315,6 +335,27 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
             )
         elif role is not None and found.device_role_id != role.id:
             dcim_svc.update_device(db, found, DeviceInstanceUpdate(device_role_id=role.id))
+
+    for rec in doc.get("device_artifact_records") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        art = dcim_svc.get_device_artifact_by_slug(db, str(rec.get("artifact_slug") or "").strip().lower())
+        if device is None or art is None:
+            continue
+        existing = [
+            r
+            for r in dcim_svc.list_device_artifact_records(db, device.id)
+            if r.artifact_id == art.id
+        ]
+        if existing:
+            continue
+        intent = str(rec.get("intent") or "recorded").strip().lower() or "recorded"
+        if intent not in ("recorded", "intended"):
+            intent = "recorded"
+        dcim_svc.record_device_artifact(
+            db,
+            device,
+            DeviceArtifactRecordCreate(artifact_id=art.id, intent=intent),
+        )
 
     for p in doc.get("placements") or []:
         site = _site_by_slug(db, p["site_slug"])
@@ -735,6 +776,11 @@ def _apply_catalog(db: Session, doc: dict[str, Any]) -> None:
         iface = plat_svc.get_vif_by_slug(db, inst["virtual_interface_slug"]) if inst.get("virtual_interface_slug") else None
         disk = plat_svc.get_disk_by_slug(db, inst["virtual_disk_slug"]) if inst.get("virtual_disk_slug") else None
         cloud = plat_svc.get_cloud_by_slug(db, inst["cloud_subscription_slug"]) if inst.get("cloud_subscription_slug") else None
+        artifact = (
+            dcim_svc.get_device_artifact_by_slug(db, str(inst.get("artifact_slug") or "").strip().lower())
+            if inst.get("artifact_slug")
+            else None
+        )
         addr = None
         if inst.get("ipv4_address") and inst.get("site_slug"):
             site = _site_by_slug(db, inst["site_slug"])
@@ -753,5 +799,6 @@ def _apply_catalog(db: Session, doc: dict[str, Any]) -> None:
             virtual_interface_id=iface.id if iface is not None else None,
             virtual_disk_id=disk.id if disk is not None else None,
             cloud_subscription_id=cloud.id if cloud is not None else None,
+            artifact_id=artifact.id if artifact is not None else None,
             ipv4_address_id=addr.id if addr is not None else None,
         )

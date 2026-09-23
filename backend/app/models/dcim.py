@@ -272,6 +272,38 @@ class DeviceRole(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class DeviceArtifact(Base):
+    """Registrert firmware-, BIOS- eller OS-image-versjon. Påføres ikke."""
+
+    __tablename__ = "dcim_device_artifacts"
+    __table_args__ = (UniqueConstraint("slug", name="uq_dcim_device_artifact_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="other")
+    version: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class DeviceArtifactRecord(Base):
+    """Kobling mellom enhet og artefakt. recorded eller intended — ikke applied."""
+
+    __tablename__ = "dcim_device_artifact_records"
+    __table_args__ = (UniqueConstraint("device_id", "artifact_id", name="uq_dcim_device_artifact_record"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    artifact_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_artifacts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    intent: Mapped[str] = mapped_column(String(32), nullable=False, default="recorded")
+
+
 class DeviceModel(Base):
     __tablename__ = "dcim_device_models"
 

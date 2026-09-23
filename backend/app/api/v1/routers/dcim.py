@@ -84,6 +84,11 @@ from app.schemas.dcim import (
     DeviceModelComponentUpdate,
     DeviceModelRead,
     DeviceModelUpdate,
+    DeviceArtifactCreate,
+    DeviceArtifactRead,
+    DeviceArtifactRecordCreate,
+    DeviceArtifactRecordRead,
+    DeviceArtifactUpdate,
     DeviceRoleCreate,
     DeviceRoleRead,
     DeviceRoleUpdate,
@@ -755,6 +760,71 @@ def delete_device_role(rid: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="device_role ikke funnet")
     dcim_svc.delete_device_role(db, row)
+
+
+# --- Artifacts (firmware/BIOS/OS-image, recorded only) ---
+
+
+@router.get("/device-artifacts", response_model=list[DeviceArtifactRead])
+def list_device_artifacts(db: Session = Depends(get_db)) -> list[DeviceArtifactRead]:
+    return [dcim_svc.artifact_to_read(x) for x in dcim_svc.list_device_artifacts(db)]
+
+
+@router.post("/device-artifacts", response_model=DeviceArtifactRead)
+def create_device_artifact(data: DeviceArtifactCreate, db: Session = Depends(get_db)) -> DeviceArtifactRead:
+    return dcim_svc.artifact_to_read(dcim_svc.create_device_artifact(db, data))
+
+
+@router.get("/device-artifacts/{aid}", response_model=DeviceArtifactRead)
+def get_device_artifact(aid: int, db: Session = Depends(get_db)) -> DeviceArtifactRead:
+    row = dcim_svc.get_device_artifact(db, aid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="artefakt ikke funnet")
+    return dcim_svc.artifact_to_read(row)
+
+
+@router.patch("/device-artifacts/{aid}", response_model=DeviceArtifactRead)
+def patch_device_artifact(aid: int, data: DeviceArtifactUpdate, db: Session = Depends(get_db)) -> DeviceArtifactRead:
+    row = dcim_svc.get_device_artifact(db, aid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="artefakt ikke funnet")
+    return dcim_svc.artifact_to_read(dcim_svc.update_device_artifact(db, row, data))
+
+
+@router.delete("/device-artifacts/{aid}", status_code=204)
+def delete_device_artifact(aid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_artifact(db, aid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="artefakt ikke funnet")
+    dcim_svc.delete_device_artifact(db, row)
+
+
+@router.get("/devices/{did}/artifacts", response_model=list[DeviceArtifactRecordRead])
+def list_device_artifact_records(did: int, db: Session = Depends(get_db)) -> list[DeviceArtifactRecordRead]:
+    device = dcim_svc.get_device(db, did)
+    if device is None:
+        raise HTTPException(status_code=404, detail="enhet ikke funnet")
+    return [dcim_svc.record_to_read(db, r) for r in dcim_svc.list_device_artifact_records(db, did)]
+
+
+@router.post("/devices/{did}/artifacts", response_model=DeviceArtifactRecordRead)
+def record_device_artifact(
+    did: int,
+    data: DeviceArtifactRecordCreate,
+    db: Session = Depends(get_db),
+) -> DeviceArtifactRecordRead:
+    device = dcim_svc.get_device(db, did)
+    if device is None:
+        raise HTTPException(status_code=404, detail="enhet ikke funnet")
+    return dcim_svc.record_to_read(db, dcim_svc.record_device_artifact(db, device, data))
+
+
+@router.delete("/devices/{did}/artifacts/{rid}", status_code=204)
+def delete_device_artifact_record(did: int, rid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_device_artifact_record(db, rid)
+    if row is None or row.device_id != did:
+        raise HTTPException(status_code=404, detail="artefakt-registrering ikke funnet")
+    dcim_svc.delete_device_artifact_record(db, row)
 
 
 # --- Component classes / library ---

@@ -88,6 +88,10 @@ class ServiceDeployment(Base):
         ForeignKey("platform_cloud_subscriptions.id", ondelete="SET NULL"),
         nullable=True,
     )
+    artifact_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_artifacts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     steps: Mapped[list["ServiceDeploymentStep"]] = relationship(
         back_populates="deployment",
@@ -157,6 +161,10 @@ class ServiceInstance(Base):
     )
     cloud_subscription_id: Mapped[int | None] = mapped_column(
         ForeignKey("platform_cloud_subscriptions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    artifact_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_artifacts.id", ondelete="SET NULL"),
         nullable=True,
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")

@@ -82,6 +82,8 @@ export function DcimDeviceDetailPage() {
   const [ipPrefixDraft, setIpPrefixDraft] = useState<Record<number, string>>({});
   const [typeEdit, setTypeEdit] = useState("");
   const [roleEdit, setRoleEdit] = useState("");
+  const [artPick, setArtPick] = useState("");
+  const [artIntent, setArtIntent] = useState<"recorded" | "intended">("recorded");
   const [serialDraft, setSerialDraft] = useState("");
   const [assetDraft, setAssetDraft] = useState("");
   const [iconUrlDraft, setIconUrlDraft] = useState("");
@@ -120,6 +122,15 @@ export function DcimDeviceDetailPage() {
   const rolesQ = useQuery({
     queryKey: ["dcim", "device-roles"],
     queryFn: api.listDeviceRoles,
+  });
+  const artifactsQ = useQuery({
+    queryKey: ["dcim", "device-artifacts"],
+    queryFn: api.listDeviceArtifacts,
+  });
+  const artifactRecQ = useQuery({
+    queryKey: ["dcim", "devices", id, "artifacts"],
+    queryFn: () => api.listDeviceArtifactRecords(id),
+    enabled: Number.isFinite(id),
   });
 
   const modelsQ = useQuery({
@@ -336,6 +347,24 @@ export function DcimDeviceDetailPage() {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id] });
       void qc.invalidateQueries({ queryKey: ["dcim", "devices"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const recordArt = useMutation({
+    mutationFn: () =>
+      api.recordDeviceArtifact(id, { artifact_id: Number(artPick), intent: artIntent }),
+    onSuccess: () => {
+      setErr(null);
+      setArtPick("");
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "artifacts"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delArtRec = useMutation({
+    mutationFn: (rid: number) => api.deleteDeviceArtifactRecord(id, rid),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "artifacts"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -819,6 +848,63 @@ export function DcimDeviceDetailPage() {
                   {patchDeviceRole.isPending ? "…" : t("dcim.equip.dev.roleSave")}
                 </button>
               </div>
+            </section>
+            <section className={styles.mfrDetailSection}>
+              <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.artifact.title")}</h3>
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.artifact.hint")}
+              </p>
+              <div className={styles.formRow}>
+                <label>
+                  {t("dcim.equip.artifact.title")}
+                  <select value={artPick} onChange={(e) => setArtPick(e.target.value)}>
+                    <option value="">{t("dcim.equip.artifact.pick")}</option>
+                    {(artifactsQ.data ?? []).map((x) => (
+                      <option key={x.id} value={String(x.id)}>
+                        {x.name} {x.version}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("dcim.equip.artifact.intent")}
+                  <select value={artIntent} onChange={(e) => setArtIntent(e.target.value as "recorded" | "intended")}>
+                    <option value="recorded">{t("dcim.equip.artifact.intentRecorded")}</option>
+                    <option value="intended">{t("dcim.equip.artifact.intentIntended")}</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={!artPick || recordArt.isPending}
+                  onClick={() => {
+                    setErr(null);
+                    recordArt.mutate();
+                  }}
+                >
+                  {recordArt.isPending ? "…" : t("dcim.common.add")}
+                </button>
+              </div>
+              {(artifactRecQ.data ?? []).length > 0 ? (
+                <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem" }}>
+                  {(artifactRecQ.data ?? []).map((r) => (
+                    <li key={r.id}>
+                      {r.artifact ? `${r.artifact.name} ${r.artifact.version}` : `#${r.artifact_id}`}{" "}
+                      ({r.intent}){" "}
+                      <button
+                        type="button"
+                        className={styles.tableIconBtn}
+                        onClick={() => delArtRec.mutate(r.id)}
+                        disabled={delArtRec.isPending}
+                      >
+                        {t("dcim.common.remove")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.muted}>{t("dcim.equip.artifact.deviceEmpty")}</p>
+              )}
             </section>
             {hasAttrs ? (
               <section className={styles.mfrDetailSection}>

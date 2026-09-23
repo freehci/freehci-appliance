@@ -454,6 +454,8 @@ class DeviceTypeRead(BaseModel):
 
 
 DEVICE_ROLE_KINDS = frozenset({"core", "edge", "hypervisor", "other"})
+DEVICE_ARTIFACT_KINDS = frozenset({"firmware", "bios", "os-image", "other"})
+DEVICE_ARTIFACT_INTENTS = frozenset({"recorded", "intended"})
 
 
 class DeviceRoleCreate(BaseModel):
@@ -503,6 +505,89 @@ class DeviceRoleRead(BaseModel):
     slug: str
     kind: str
     description: str | None
+
+
+class DeviceArtifactCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    kind: str = "other"
+    version: str = Field(..., min_length=1, max_length=128)
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "other"
+        if s not in DEVICE_ARTIFACT_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(DEVICE_ARTIFACT_KINDS))}")
+        return s
+
+    @field_validator("version")
+    @classmethod
+    def version_ok(cls, v: str) -> str:
+        s = (v or "").strip()
+        if not s:
+            raise ValueError("version må fylles ut")
+        return s[:128]
+
+
+class DeviceArtifactUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    kind: str | None = None
+    version: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower() or "other"
+        if s not in DEVICE_ARTIFACT_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(DEVICE_ARTIFACT_KINDS))}")
+        return s
+
+
+class DeviceArtifactRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    kind: str
+    version: str
+    description: str | None
+
+
+class DeviceArtifactRecordCreate(BaseModel):
+    artifact_id: int = Field(..., ge=1)
+    intent: str = "recorded"
+
+    @field_validator("intent")
+    @classmethod
+    def intent_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "recorded"
+        if s not in DEVICE_ARTIFACT_INTENTS:
+            raise ValueError(f"intent må være en av: {', '.join(sorted(DEVICE_ARTIFACT_INTENTS))}")
+        return s
+
+
+class DeviceArtifactRecordRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    artifact_id: int
+    intent: str
+    artifact: DeviceArtifactRead | None = None
 
 
 class DeviceModelBrief(BaseModel):

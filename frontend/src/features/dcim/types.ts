@@ -129,6 +129,26 @@ export type DeviceRole = {
   description: string | null;
 };
 
+export type DeviceArtifactKind = "firmware" | "bios" | "os-image" | "other";
+export type DeviceArtifactIntent = "recorded" | "intended";
+
+export type DeviceArtifact = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: DeviceArtifactKind;
+  version: string;
+  description: string | null;
+};
+
+export type DeviceArtifactRecord = {
+  id: number;
+  device_id: number;
+  artifact_id: number;
+  intent: DeviceArtifactIntent;
+  artifact: DeviceArtifact | null;
+};
+
 export type DeviceModelBrief = {
   id: number;
   name: string;

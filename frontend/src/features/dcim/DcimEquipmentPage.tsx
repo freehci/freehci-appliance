@@ -12,17 +12,39 @@ import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { deviceTypeResolvedFaIconClass } from "./dcimTypeIcons";
 import { deviceInstanceListThumbSrc, deviceModelListThumbSrc } from "./modelImages";
-import type { DeviceInstance, DeviceModel, DeviceRole, DeviceType, NetBoxDtlItem, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
+import type { DeviceArtifact, DeviceInstance, DeviceModel, DeviceRole, DeviceType, NetBoxDtlItem, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
 
-type EquipTab = "mfr" | "dt" | "role" | "dm" | "dev" | "pl" | "cmp";
+type EquipTab = "mfr" | "dt" | "role" | "artifact" | "dm" | "dev" | "pl" | "cmp";
 type EquipVariant = "devices" | "library";
 type NetBoxTreeGroup = "manufacturer" | "device_type";
-const LIBRARY_TABS = new Set<EquipTab>(["mfr", "dt", "role", "dm", "cmp"]);
+const LIBRARY_TABS = new Set<EquipTab>(["mfr", "dt", "role", "artifact", "dm", "cmp"]);
 
 function parseEquipTab(raw: string | null, fallback: EquipTab): EquipTab {
-  if (raw === "mfr" || raw === "dt" || raw === "role" || raw === "dm" || raw === "dev" || raw === "pl" || raw === "cmp")
+  if (
+    raw === "mfr" ||
+    raw === "dt" ||
+    raw === "role" ||
+    raw === "artifact" ||
+    raw === "dm" ||
+    raw === "dev" ||
+    raw === "pl" ||
+    raw === "cmp"
+  )
     return raw;
   return fallback;
+}
+
+function artifactKindKey(
+  kind: DeviceArtifact["kind"],
+):
+  | "dcim.equip.artifact.kindFirmware"
+  | "dcim.equip.artifact.kindBios"
+  | "dcim.equip.artifact.kindOs"
+  | "dcim.equip.artifact.kindOther" {
+  if (kind === "firmware") return "dcim.equip.artifact.kindFirmware";
+  if (kind === "bios") return "dcim.equip.artifact.kindBios";
+  if (kind === "os-image") return "dcim.equip.artifact.kindOs";
+  return "dcim.equip.artifact.kindOther";
 }
 
 function roleKindKey(
@@ -87,6 +109,11 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
   const [roleSlug, setRoleSlug] = useState("");
   const [roleKind, setRoleKind] = useState<DeviceRole["kind"]>("other");
   const [roleDesc, setRoleDesc] = useState("");
+  const [artName, setArtName] = useState("");
+  const [artSlug, setArtSlug] = useState("");
+  const [artKind, setArtKind] = useState<DeviceArtifact["kind"]>("other");
+  const [artVersion, setArtVersion] = useState("");
+  const [artDesc, setArtDesc] = useState("");
   const [plRack, setPlRack] = useState<string>("");
   const [plDev, setPlDev] = useState<string>("");
   const [plU, setPlU] = useState("1");
@@ -109,6 +136,7 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
   const [mfrPendingDelete, setMfrPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [dtPendingDelete, setDtPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [rolePendingDelete, setRolePendingDelete] = useState<{ id: number; name: string } | null>(null);
+  const [artPendingDelete, setArtPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [plPendingRemove, setPlPendingRemove] = useState<RackPlacement | null>(null);
 
   const manufacturersQ = useQuery({
@@ -122,6 +150,10 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
   const deviceRolesQ = useQuery({
     queryKey: ["dcim", "device-roles"],
     queryFn: api.listDeviceRoles,
+  });
+  const artifactsQ = useQuery({
+    queryKey: ["dcim", "device-artifacts"],
+    queryFn: api.listDeviceArtifacts,
   });
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
   const netboxImportsQ = useQuery({ queryKey: ["dcim", "netbox-dtl-imports"], queryFn: api.listNetBoxDtlImports });
@@ -357,6 +389,34 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
+  const createArt = useMutation({
+    mutationFn: () =>
+      api.createDeviceArtifact({
+        name: artName.trim(),
+        slug: artSlug.trim().toLowerCase(),
+        kind: artKind,
+        version: artVersion.trim(),
+        description: artDesc.trim() === "" ? null : artDesc.trim(),
+      }),
+    onSuccess: () => {
+      setArtName("");
+      setArtSlug("");
+      setArtKind("other");
+      setArtVersion("");
+      setArtDesc("");
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-artifacts"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delArt = useMutation({
+    mutationFn: (id: number) => api.deleteDeviceArtifact(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-artifacts"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
   const importNetboxGithubM = useMutation({
     mutationFn: () => api.importNetBoxDtlGithub({ branch: netboxBranch.trim() || "master" }),
     onSuccess: (res) => {
@@ -461,6 +521,7 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
           { id: "mfr", label: t("dcim.equip.mfr.title"), icon: "manufacturers" },
           { id: "dt", label: t("dcim.equip.dt.title"), icon: "deviceTypes" },
           { id: "role", label: t("dcim.equip.role.title"), icon: "deviceRoles" },
+          { id: "artifact", label: t("dcim.equip.artifact.title"), icon: "deviceArtifacts" },
           { id: "dm", label: t("dcim.equip.dm.title"), icon: "deviceModels" },
           { id: "dev", label: t("dcim.equip.dev.title"), icon: "devices" },
           { id: "pl", label: t("dcim.equip.pl.title"), icon: "placements" },
@@ -745,6 +806,103 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
           </table>
         ) : (
           !deviceRolesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.role.empty")}</p>
+        )}
+        </>
+      ) : null}
+      {equipTab === "artifact" ? (
+        <>
+        <p className={styles.muted} style={{ marginTop: 0 }}>
+          {t("dcim.equip.artifact.hint")}
+        </p>
+        <form
+          className={styles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            createArt.mutate();
+          }}
+        >
+          <label>
+            {t("dcim.common.name")}
+            <input value={artName} onChange={(e) => setArtName(e.target.value)} required />
+          </label>
+          <label>
+            {t("dcim.equip.dt.slug")}
+            <input
+              value={artSlug}
+              onChange={(e) => setArtSlug(e.target.value)}
+              placeholder="idrac-281"
+              required
+              pattern="[a-z0-9]+(-[a-z0-9]+)*"
+              title={t("dcim.sites.slugPatternTitle")}
+            />
+          </label>
+          <label>
+            {t("dcim.equip.artifact.kind")}
+            <select value={artKind} onChange={(e) => setArtKind(e.target.value as DeviceArtifact["kind"])}>
+              <option value="firmware">{t("dcim.equip.artifact.kindFirmware")}</option>
+              <option value="bios">{t("dcim.equip.artifact.kindBios")}</option>
+              <option value="os-image">{t("dcim.equip.artifact.kindOs")}</option>
+              <option value="other">{t("dcim.equip.artifact.kindOther")}</option>
+            </select>
+          </label>
+          <label>
+            {t("dcim.equip.artifact.version")}
+            <input value={artVersion} onChange={(e) => setArtVersion(e.target.value)} required />
+          </label>
+          <label>
+            {t("dcim.equip.mfr.description")}
+            <input value={artDesc} onChange={(e) => setArtDesc(e.target.value)} />
+          </label>
+          <button type="submit" className={styles.btn} disabled={createArt.isPending}>
+            {createArt.isPending ? "…" : t("dcim.common.add")}
+          </button>
+        </form>
+        {artifactsQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+        {artifactsQ.data && artifactsQ.data.length > 0 ? (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>{t("dcim.common.name")}</th>
+                <th>{t("dcim.equip.dt.slug")}</th>
+                <th>{t("dcim.equip.artifact.kind")}</th>
+                <th>{t("dcim.equip.artifact.version")}</th>
+                <th scope="col">
+                  <span className="sr-only">{t("dcim.equip.actionsCol")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {artifactsQ.data.map((x) => (
+                <tr key={x.id}>
+                  <td>{x.name}</td>
+                  <td>
+                    <code>{x.slug}</code>
+                  </td>
+                  <td>{t(artifactKindKey(x.kind))}</td>
+                  <td>
+                    <code>{x.version}</code>
+                  </td>
+                  <td>
+                    <div className={styles.tableIconActions}>
+                      <button
+                        type="button"
+                        className={`${styles.tableIconBtn} ${styles.tableIconBtnDanger}`.trim()}
+                        title={t("dcim.common.delete")}
+                        aria-label={t("dcim.equip.artifact.deleteAria", { name: x.name })}
+                        disabled={delArt.isPending}
+                        onClick={() => setArtPendingDelete({ id: x.id, name: x.name })}
+                      >
+                        <i className="fas fa-trash-can" aria-hidden />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          !artifactsQ.isLoading && <p className={styles.muted}>{t("dcim.equip.artifact.empty")}</p>
         )}
         </>
       ) : null}
@@ -1410,6 +1568,22 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
       onConfirm={() => {
         if (!rolePendingDelete) return;
         delRole.mutate(rolePendingDelete.id, { onSettled: () => setRolePendingDelete(null) });
+      }}
+    />
+    <ConfirmModal
+      open={artPendingDelete != null}
+      onClose={() => {
+        if (!delArt.isPending) setArtPendingDelete(null);
+      }}
+      title={artPendingDelete ? t("dcim.equip.artifact.deleteModalTitle", { name: artPendingDelete.name }) : ""}
+      message={t("dcim.equip.artifact.deleteModalHint")}
+      confirmLabel={t("dcim.common.delete")}
+      cancelLabel={t("dcim.common.cancel")}
+      danger
+      pending={delArt.isPending}
+      onConfirm={() => {
+        if (!artPendingDelete) return;
+        delArt.mutate(artPendingDelete.id, { onSettled: () => setArtPendingDelete(null) });
       }}
     />
     <ConfirmModal
