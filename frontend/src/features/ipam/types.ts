@@ -425,6 +425,16 @@ export type IpamVpnService = {
   created_at: string;
 };
 
+export type IpamVpnMember = {
+  id: number;
+  vpn_service_id: number;
+  site_id: number;
+  site_name: string;
+  site_slug: string;
+  role: string | null;
+  created_at: string;
+};
+
 export type IpamTunnel = {
   id: number;
   vpn_service_id: number;

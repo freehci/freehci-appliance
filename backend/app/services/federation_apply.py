@@ -39,6 +39,7 @@ from app.schemas.ipam import (
     IpamCircuitStrandCreate,
     IpamTunnelCreate,
     IpamTunnelTransportCreate,
+    IpamVpnMemberCreate,
     IpamContractCreate,
     IpamProviderCreate,
     IpamVlanCreate,
@@ -716,6 +717,18 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 source_circuit_id=source_id,
             ),
         )
+    for m in ipam.get("vpn_members") or []:
+        vpn_slug = (m.get("vpn_slug") or "").strip()
+        site = _site_by_slug(db, (m.get("site_slug") or "").strip())
+        if not vpn_slug or site is None:
+            continue
+        vpn = db.execute(select(IpamVpnService).where(IpamVpnService.slug == vpn_slug)).scalar_one_or_none()
+        if vpn is None or vpn_svc.get_vpn_member_by_site(db, vpn.id, site.id) is not None:
+            continue
+        try:
+            vpn_svc.create_vpn_member(db, vpn, IpamVpnMemberCreate(site_id=site.id, role=m.get("role")))
+        except Exception:
+            continue
     for t in ipam.get("tunnels") or []:
         vpn_slug = (t.get("vpn_slug") or "").strip()
         slug = (t.get("slug") or "").strip()

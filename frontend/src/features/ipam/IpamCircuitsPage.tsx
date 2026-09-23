@@ -666,6 +666,7 @@ export function IpamCircuitsPage() {
           </div>
           {openVpnId != null ? (
             <section className={dcimStyles.mfrDetailSection} style={{ marginTop: "var(--space-3)" }}>
+              <VpnMembersPanel vpnId={openVpnId} onError={setErr} />
               <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.tunnels")}</h3>
               <ul className={dcimStyles.ipList}>
                 {(tunnelsQ.data ?? []).map((tun) => (
@@ -1542,6 +1543,93 @@ function TunnelTransportsPanel({
         </label>
         <button type="submit" className={dcimStyles.btn} disabled={bindM.isPending || circuitId === ""}>
           {t("ipam.circuits.bindTransport")}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+const VPN_MEMBER_ROLES = ["hub", "spoke", "peer", "client", "other"] as const;
+
+function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: string | null) => void }) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [siteId, setSiteId] = useState("");
+  const [role, setRole] = useState("");
+  const membersQ = useQuery({
+    queryKey: ["ipam", "vpn-members", vpnId],
+    queryFn: () => ipamApi.listVpnMembers(vpnId),
+  });
+  const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
+  const members = membersQ.data ?? [];
+  const addM = useMutation({
+    mutationFn: () => ipamApi.createVpnMember(vpnId, { site_id: Number(siteId), role: role || null }),
+    onSuccess: () => {
+      setSiteId("");
+      setRole("");
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "vpn-members", vpnId] });
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const delM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteVpnMember(id),
+    onSuccess: () => {
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "vpn-members", vpnId] });
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+
+  return (
+    <div style={{ marginBottom: "var(--space-3)" }}>
+      <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.membersVpn")}</h3>
+      <p className={dcimStyles.muted}>{t("ipam.circuits.memberHint")}</p>
+      {members.length === 0 && !membersQ.isLoading ? <p className={dcimStyles.muted}>{t("ipam.circuits.emptyMembers")}</p> : null}
+      {members.length > 0 ? (
+        <ul className={dcimStyles.ipList}>
+          {members.map((m) => (
+            <li key={m.id}>
+              {m.site_name}
+              {m.role ? ` (${m.role})` : ""}{" "}
+              <button type="button" className={dcimStyles.btnLink} onClick={() => delM.mutate(m.id)}>
+                {t("dcim.common.delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className={dcimStyles.formRow}
+        onSubmit={(e) => {
+          e.preventDefault();
+          addM.mutate();
+        }}
+      >
+        <label>
+          {t("ipam.circuits.termSite")}
+          <select value={siteId} onChange={(e) => setSiteId(e.target.value)} required>
+            <option value="">{t("ipam.circuits.noSite")}</option>
+            {(sitesQ.data ?? []).map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("ipam.circuits.memberRole")}
+          <select value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="">{t("ipam.circuits.noGroup")}</option>
+            {VPN_MEMBER_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className={dcimStyles.btn} disabled={addM.isPending || siteId === ""}>
+          {t("ipam.circuits.addMemberSite")}
         </button>
       </form>
     </div>

@@ -21,6 +21,7 @@ import type {
   IpamTunnelPeer,
   IpamTunnelTransport,
   IpamTunnelProfile,
+  IpamVpnMember,
   IpamVpnService,
   IpamVlan,
   IpamVlanGroup,
@@ -693,6 +694,18 @@ export function createVpnService(body: {
 
 export function deleteVpnService(id: number): Promise<void> {
   return apiDelete(`${P}/vpn-services/${id}`);
+}
+
+export function listVpnMembers(vpnId: number): Promise<IpamVpnMember[]> {
+  return apiGet(`${P}/vpn-services/${vpnId}/members`);
+}
+
+export function createVpnMember(vpnId: number, body: { site_id: number; role?: string | null }): Promise<IpamVpnMember> {
+  return apiPost(`${P}/vpn-services/${vpnId}/members`, body);
+}
+
+export function deleteVpnMember(id: number): Promise<void> {
+  return apiDelete(`${P}/vpn-members/${id}`);
 }
 
 export function listVpnTunnels(vpnId: number): Promise<IpamTunnel[]> {

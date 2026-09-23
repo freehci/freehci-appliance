@@ -68,6 +68,8 @@ from app.schemas.ipam import (
     IpamTunnelTransportCreate,
     IpamTunnelTransportRead,
     IpamTunnelUpdate,
+    IpamVpnMemberCreate,
+    IpamVpnMemberRead,
     IpamVpnServiceCreate,
     IpamVpnServiceRead,
     IpamVpnServiceUpdate,
@@ -1323,6 +1325,34 @@ def patch_vpn_service(
         return vpn_svc.vpn_to_read(vpn_svc.update_vpn_service(db, row, data))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/vpn-services/{vpn_id}/members", response_model=list[IpamVpnMemberRead])
+def list_vpn_members(vpn_id: int, db: Session = Depends(get_db)) -> list[IpamVpnMemberRead]:
+    row = vpn_svc.get_vpn_service(db, vpn_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-tjeneste ikke funnet")
+    return [vpn_svc.vpn_member_to_read(db, m) for m in vpn_svc.list_vpn_members(db, vpn_id)]
+
+
+@router.post("/vpn-services/{vpn_id}/members", response_model=IpamVpnMemberRead)
+def create_vpn_member(
+    vpn_id: int,
+    data: IpamVpnMemberCreate,
+    db: Session = Depends(get_db),
+) -> IpamVpnMemberRead:
+    row = vpn_svc.get_vpn_service(db, vpn_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-tjeneste ikke funnet")
+    return vpn_svc.vpn_member_to_read(db, vpn_svc.create_vpn_member(db, row, data))
+
+
+@router.delete("/vpn-members/{member_id}", status_code=204)
+def delete_vpn_member(member_id: int, db: Session = Depends(get_db)) -> None:
+    row = vpn_svc.get_vpn_member(db, member_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VPN-medlem ikke funnet")
+    vpn_svc.delete_vpn_member(db, row)
 
 
 @router.delete("/vpn-services/{vpn_id}", status_code=204)

@@ -655,6 +655,25 @@ class IpamVpnService(Base):
         back_populates="vpn_service",
         cascade="all, delete-orphan",
     )
+    members: Mapped[list["IpamVpnMember"]] = relationship(
+        back_populates="vpn_service",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamVpnMember(Base):
+    """Site-medlem i en VPN-tjeneste. Topologi gjettes ikke fra antall medlemmer."""
+
+    __tablename__ = "ipam_vpn_members"
+    __table_args__ = (UniqueConstraint("vpn_service_id", "site_id", name="uq_ipam_vpn_member_site"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vpn_service_id: Mapped[int] = mapped_column(ForeignKey("ipam_vpn_services.id", ondelete="CASCADE"), nullable=False)
+    site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    vpn_service: Mapped["IpamVpnService"] = relationship(back_populates="members")
 
 
 class IpamTunnelProfile(Base):

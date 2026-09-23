@@ -24,6 +24,7 @@ from app.models.ipam import (
     IpamProvider,
     IpamTunnel,
     IpamTunnelTransport,
+    IpamVpnMember,
     IpamScanHost,
     IpamSubnetScan,
     IpamVpnService,
@@ -261,6 +262,16 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if tunnel_ids
         else []
     )
+    members = (
+        list(db.execute(select(IpamVpnMember).where(IpamVpnMember.vpn_service_id.in_(vpn_ids))).scalars().all())
+        if vpn_ids
+        else []
+    )
+    member_site_ids = {m.site_id for m in members if m.site_id not in site_by_id}
+    if member_site_ids:
+        site_by_id.update(
+            {s.id: s for s in db.execute(select(Site).where(Site.id.in_(member_site_ids))).scalars().all()}
+        )
     as_assignments = bgp_svc.list_as_assignments(db, site_id=site_id)
     bgp_sessions = bgp_svc.list_bgp_sessions(db, site_id=site_id)
     as_ids = {x.autonomous_system_id for x in as_assignments} | {s.local_as_id for s in bgp_sessions} | {
@@ -470,6 +481,14 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 ),
             }
             for v in vpn_rows
+        ],
+        "vpn_members": [
+            {
+                "vpn_slug": vpn_by_id[m.vpn_service_id].slug if m.vpn_service_id in vpn_by_id else None,
+                "site_slug": site_by_id[m.site_id].slug if m.site_id in site_by_id else None,
+                "role": m.role,
+            }
+            for m in members
         ],
         "tunnels": [
             {

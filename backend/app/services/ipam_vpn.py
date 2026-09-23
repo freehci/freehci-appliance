@@ -14,6 +14,7 @@ from app.models.ipam import (
     IpamTunnel,
     IpamTunnelEndpoint,
     IpamTunnelTransport,
+    IpamVpnMember,
     IpamTunnelPeer,
     IpamTunnelProfile,
     IpamVpnService,
@@ -33,6 +34,8 @@ from app.schemas.ipam import (
     IpamTunnelTransportCreate,
     IpamTunnelTransportRead,
     IpamTunnelUpdate,
+    IpamVpnMemberCreate,
+    IpamVpnMemberRead,
     IpamVpnServiceCreate,
     IpamVpnServiceRead,
     IpamVpnServiceUpdate,
@@ -193,8 +196,61 @@ def update_vpn_service(db: Session, row: IpamVpnService, data: IpamVpnServiceUpd
 
 
 def delete_vpn_service(db: Session, row: IpamVpnService) -> None:
+    for m in list(db.execute(select(IpamVpnMember).where(IpamVpnMember.vpn_service_id == row.id)).scalars().all()):
+        db.delete(m)
     db.delete(row)
     db.commit()
+
+
+def list_vpn_members(db: Session, vpn_id: int) -> list[IpamVpnMember]:
+    return list(
+        db.execute(select(IpamVpnMember).where(IpamVpnMember.vpn_service_id == vpn_id).order_by(IpamVpnMember.id)).scalars().all()
+    )
+
+
+def get_vpn_member(db: Session, member_id: int) -> IpamVpnMember | None:
+    return db.get(IpamVpnMember, member_id)
+
+
+def get_vpn_member_by_site(db: Session, vpn_id: int, site_id: int) -> IpamVpnMember | None:
+    return db.execute(
+        select(IpamVpnMember).where(IpamVpnMember.vpn_service_id == vpn_id, IpamVpnMember.site_id == site_id),
+    ).scalar_one_or_none()
+
+
+def create_vpn_member(db: Session, vpn: IpamVpnService, data: IpamVpnMemberCreate) -> IpamVpnMember:
+    site = db.get(Site, data.site_id)
+    if site is None:
+        raise ipam_error(404, "site_not_found", "site ikke funnet")
+    if get_vpn_member_by_site(db, vpn.id, site.id) is not None:
+        raise ipam_error(409, "vpn_member_taken", "siten er allerede medlem av denne VPN-tjenesten")
+    row = IpamVpnMember(vpn_service_id=vpn.id, site_id=site.id, role=data.role)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "vpn_member_taken", "siten er allerede medlem av denne VPN-tjenesten")
+    db.refresh(row)
+    return row
+
+
+def delete_vpn_member(db: Session, row: IpamVpnMember) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def vpn_member_to_read(db: Session, row: IpamVpnMember) -> IpamVpnMemberRead:
+    site = db.get(Site, row.site_id)
+    return IpamVpnMemberRead(
+        id=row.id,
+        vpn_service_id=row.vpn_service_id,
+        site_id=row.site_id,
+        site_name=site.name if site is not None else "",
+        site_slug=site.slug if site is not None else "",
+        role=row.role,
+        created_at=row.created_at,
+    )
 
 
 def vpn_type_from_circuit(circuit: IpamCircuit) -> str:

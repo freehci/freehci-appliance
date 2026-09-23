@@ -19,6 +19,7 @@ _CIRCUIT_TYPES = frozenset({"fiber", "vpn", "wireguard", "radio", "leased_line",
 TRANSPORT_CIRCUIT_TYPES = frozenset({"fiber", "radio", "leased_line"})
 CLASSIFY_CIRCUIT_TYPES = frozenset({"vpn", "wireguard", "other"})
 CIRCUIT_LAYERS = frozenset({"transport", "overlay"})
+VPN_MEMBER_ROLES = frozenset({"hub", "spoke", "peer", "client", "other"})
 VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
 TUNNEL_STATUSES = frozenset({"planned", "active", "deprecated"})
 _OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
@@ -1582,6 +1583,37 @@ class IpamVpnServiceRead(BaseModel):
     vpn_type: str
     source_circuit_id: int | None
     description: str | None
+    created_at: dt.datetime
+
+
+class IpamVpnMemberCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    site_id: int = Field(..., ge=1)
+    role: str | None = None
+
+    @field_validator("role")
+    @classmethod
+    def role_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in VPN_MEMBER_ROLES:
+            raise ValueError(f"role må være en av: {', '.join(sorted(VPN_MEMBER_ROLES))}")
+        return s
+
+
+class IpamVpnMemberRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    vpn_service_id: int
+    site_id: int
+    site_name: str
+    site_slug: str
+    role: str | None
     created_at: dt.datetime
 
 
