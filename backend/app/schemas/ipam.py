@@ -1678,6 +1678,23 @@ class IpamTunnelRead(BaseModel):
     created_at: dt.datetime
 
 
+class IpamTunnelTransportCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    circuit_id: int = Field(..., ge=1)
+
+
+class IpamTunnelTransportRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tunnel_id: int
+    circuit_id: int
+    circuit_number: str
+    circuit_name: str
+    created_at: dt.datetime
+
+
 class IpamTunnelEndpointCreate(BaseModel):
     endpoint: Literal["a", "z"]
     device_id: int | None = Field(None, ge=1)

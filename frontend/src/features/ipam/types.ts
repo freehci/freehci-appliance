@@ -436,6 +436,15 @@ export type IpamTunnel = {
   created_at: string;
 };
 
+export type IpamTunnelTransport = {
+  id: number;
+  tunnel_id: number;
+  circuit_id: number;
+  circuit_number: string;
+  circuit_name: string;
+  created_at: string;
+};
+
 export type IpamTunnelEndpoint = {
   id: number;
   tunnel_id: number;

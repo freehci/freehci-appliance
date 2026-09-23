@@ -739,6 +739,7 @@ export function IpamCircuitsPage() {
                       {t("ipam.circuits.addPeer")}
                     </button>
                   </form>
+                  <TunnelTransportsPanel tunnelId={openTunnelId} onError={setErr} />
                 </>
               ) : null}
             </section>
@@ -1461,6 +1462,86 @@ function CircuitStrandsPanel({
         </label>
         <button type="submit" className={dcimStyles.btn} disabled={bindM.isPending || strandId === ""}>
           {t("ipam.circuits.bindStrand")}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function TunnelTransportsPanel({
+  tunnelId,
+  onError,
+}: {
+  tunnelId: number;
+  onError: (msg: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [circuitId, setCircuitId] = useState("");
+  const bindsQ = useQuery({
+    queryKey: ["ipam", "tunnel-transports", tunnelId],
+    queryFn: () => ipamApi.listTunnelTransports(tunnelId),
+  });
+  const circuitsQ = useQuery({
+    queryKey: ["ipam", "circuits", "all"],
+    queryFn: () => ipamApi.listIpamCircuits(),
+  });
+  const binds = bindsQ.data ?? [];
+  const bindM = useMutation({
+    mutationFn: () => ipamApi.bindTunnelTransport(tunnelId, Number(circuitId)),
+    onSuccess: () => {
+      setCircuitId("");
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "tunnel-transports", tunnelId] });
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const unbindM = useMutation({
+    mutationFn: (id: number) => ipamApi.unbindTunnelTransport(id),
+    onSuccess: () => {
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "tunnel-transports", tunnelId] });
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+
+  return (
+    <div style={{ marginTop: "var(--space-3)" }}>
+      <h4 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.transports")}</h4>
+      <p className={dcimStyles.muted}>{t("ipam.circuits.transportHint")}</p>
+      {binds.length === 0 && !bindsQ.isLoading ? <p className={dcimStyles.muted}>{t("ipam.circuits.emptyTransports")}</p> : null}
+      {binds.length > 0 ? (
+        <ul className={dcimStyles.ipList}>
+          {binds.map((b) => (
+            <li key={b.id}>
+              {b.circuit_number} {b.circuit_name}{" "}
+              <button type="button" className={dcimStyles.btnLink} onClick={() => unbindM.mutate(b.id)}>
+                {t("dcim.common.delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className={dcimStyles.formRow}
+        onSubmit={(e) => {
+          e.preventDefault();
+          bindM.mutate();
+        }}
+      >
+        <label>
+          {t("ipam.circuits.transports")}
+          <select value={circuitId} onChange={(e) => setCircuitId(e.target.value)} required>
+            <option value="">{t("ipam.circuits.chooseCircuit")}</option>
+            {(circuitsQ.data ?? []).map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.circuit_number} {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className={dcimStyles.btn} disabled={bindM.isPending || circuitId === ""}>
+          {t("ipam.circuits.bindTransport")}
         </button>
       </form>
     </div>

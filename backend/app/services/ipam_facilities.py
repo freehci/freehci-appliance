@@ -14,6 +14,7 @@ from app.models.ipam import (
     IpamCircuitGroup,
     IpamCircuitStrand,
     IpamCircuitTermination,
+    IpamTunnelTransport,
     IpamVlan,
     IpamVlanGroup,
     IpamVrf,
@@ -734,6 +735,8 @@ def classify_circuit(db: Session, row: IpamCircuit, data: IpamCircuitClassify):
 
 def delete_circuit(db: Session, row: IpamCircuit) -> None:
     for b in list(db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.circuit_id == row.id)).scalars().all()):
+        db.delete(b)
+    for b in list(db.execute(select(IpamTunnelTransport).where(IpamTunnelTransport.circuit_id == row.id)).scalars().all()):
         db.delete(b)
     db.delete(row)
     db.commit()

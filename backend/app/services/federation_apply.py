@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
 from app.models.dcim import Building, Cable, DeviceInstance, DeviceModel, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
+from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamTunnel, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
     BuildingCreate,
@@ -37,6 +37,8 @@ from app.schemas.ipam import (
     IpamCircuitCreate,
     IpamCircuitGroupCreate,
     IpamCircuitStrandCreate,
+    IpamTunnelCreate,
+    IpamTunnelTransportCreate,
     IpamContractCreate,
     IpamProviderCreate,
     IpamVlanCreate,
@@ -714,6 +716,44 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 source_circuit_id=source_id,
             ),
         )
+    for t in ipam.get("tunnels") or []:
+        vpn_slug = (t.get("vpn_slug") or "").strip()
+        slug = (t.get("slug") or "").strip()
+        if not vpn_slug or not slug:
+            continue
+        vpn = db.execute(select(IpamVpnService).where(IpamVpnService.slug == vpn_slug)).scalar_one_or_none()
+        if vpn is None:
+            continue
+        found = db.execute(select(IpamTunnel).where(IpamTunnel.vpn_service_id == vpn.id, IpamTunnel.slug == slug)).scalar_one_or_none()
+        if found is not None:
+            continue
+        try:
+            vpn_svc.create_tunnel(
+                db,
+                vpn,
+                IpamTunnelCreate(name=t.get("name") or slug, slug=slug, status=t.get("status") or "planned"),
+            )
+        except Exception:
+            continue
+    for b in ipam.get("tunnel_transports") or []:
+        vpn_slug = (b.get("vpn_slug") or "").strip()
+        tunnel_slug = (b.get("tunnel_slug") or "").strip()
+        number = (b.get("circuit_number") or "").strip()
+        if not vpn_slug or not tunnel_slug or not number:
+            continue
+        vpn = db.execute(select(IpamVpnService).where(IpamVpnService.slug == vpn_slug)).scalar_one_or_none()
+        circuit = db.execute(select(IpamCircuit).where(IpamCircuit.circuit_number == number)).scalar_one_or_none()
+        if vpn is None or circuit is None:
+            continue
+        tunnel = db.execute(
+            select(IpamTunnel).where(IpamTunnel.vpn_service_id == vpn.id, IpamTunnel.slug == tunnel_slug),
+        ).scalar_one_or_none()
+        if tunnel is None or vpn_svc.get_tunnel_transport_by_circuit(db, tunnel.id, circuit.id) is not None:
+            continue
+        try:
+            vpn_svc.create_tunnel_transport(db, tunnel, IpamTunnelTransportCreate(circuit_id=circuit.id))
+        except Exception:
+            continue
     for a in ipam.get("autonomous_systems") or []:
         asn = a.get("asn")
         if asn is None:

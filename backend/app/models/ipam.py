@@ -710,6 +710,24 @@ class IpamTunnel(Base):
         back_populates="tunnel",
         cascade="all, delete-orphan",
     )
+    transports: Mapped[list["IpamTunnelTransport"]] = relationship(
+        back_populates="tunnel",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamTunnelTransport(Base):
+    """Tunnel bruker et samband som underlag. Ingen primær/backup eller failover."""
+
+    __tablename__ = "ipam_tunnel_transports"
+    __table_args__ = (UniqueConstraint("tunnel_id", "circuit_id", name="uq_ipam_tunnel_transport_circuit"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tunnel_id: Mapped[int] = mapped_column(ForeignKey("ipam_tunnels.id", ondelete="CASCADE"), nullable=False)
+    circuit_id: Mapped[int] = mapped_column(ForeignKey("ipam_circuits.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    tunnel: Mapped["IpamTunnel"] = relationship(back_populates="transports")
 
 
 class IpamTunnelEndpoint(Base):

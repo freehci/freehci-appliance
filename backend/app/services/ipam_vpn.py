@@ -13,6 +13,7 @@ from app.models.ipam import (
     IpamCircuit,
     IpamTunnel,
     IpamTunnelEndpoint,
+    IpamTunnelTransport,
     IpamTunnelPeer,
     IpamTunnelProfile,
     IpamVpnService,
@@ -29,6 +30,8 @@ from app.schemas.ipam import (
     IpamTunnelProfileRead,
     IpamTunnelProfileUpdate,
     IpamTunnelRead,
+    IpamTunnelTransportCreate,
+    IpamTunnelTransportRead,
     IpamTunnelUpdate,
     IpamVpnServiceCreate,
     IpamVpnServiceRead,
@@ -266,8 +269,63 @@ def update_tunnel(db: Session, row: IpamTunnel, data: IpamTunnelUpdate) -> IpamT
 
 
 def delete_tunnel(db: Session, row: IpamTunnel) -> None:
+    for b in list(db.execute(select(IpamTunnelTransport).where(IpamTunnelTransport.tunnel_id == row.id)).scalars().all()):
+        db.delete(b)
     db.delete(row)
     db.commit()
+
+
+def list_tunnel_transports(db: Session, tunnel_id: int) -> list[IpamTunnelTransport]:
+    return list(
+        db.execute(select(IpamTunnelTransport).where(IpamTunnelTransport.tunnel_id == tunnel_id).order_by(IpamTunnelTransport.id)).scalars().all()
+    )
+
+
+def get_tunnel_transport(db: Session, bind_id: int) -> IpamTunnelTransport | None:
+    return db.get(IpamTunnelTransport, bind_id)
+
+
+def get_tunnel_transport_by_circuit(db: Session, tunnel_id: int, circuit_id: int) -> IpamTunnelTransport | None:
+    return db.execute(
+        select(IpamTunnelTransport).where(
+            IpamTunnelTransport.tunnel_id == tunnel_id,
+            IpamTunnelTransport.circuit_id == circuit_id,
+        ),
+    ).scalar_one_or_none()
+
+
+def create_tunnel_transport(db: Session, tunnel: IpamTunnel, data: IpamTunnelTransportCreate) -> IpamTunnelTransport:
+    circuit = db.get(IpamCircuit, data.circuit_id)
+    if circuit is None:
+        raise ipam_error(404, "circuit_not_found", "samband ikke funnet")
+    if get_tunnel_transport_by_circuit(db, tunnel.id, circuit.id) is not None:
+        raise ipam_error(409, "tunnel_transport_taken", "sambandet er allerede knyttet til denne tunnelen")
+    row = IpamTunnelTransport(tunnel_id=tunnel.id, circuit_id=circuit.id)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "tunnel_transport_taken", "sambandet er allerede knyttet til denne tunnelen")
+    db.refresh(row)
+    return row
+
+
+def delete_tunnel_transport(db: Session, row: IpamTunnelTransport) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def tunnel_transport_to_read(db: Session, row: IpamTunnelTransport) -> IpamTunnelTransportRead:
+    circuit = db.get(IpamCircuit, row.circuit_id)
+    return IpamTunnelTransportRead(
+        id=row.id,
+        tunnel_id=row.tunnel_id,
+        circuit_id=row.circuit_id,
+        circuit_number=circuit.circuit_number if circuit is not None else "",
+        circuit_name=circuit.name if circuit is not None else "",
+        created_at=row.created_at,
+    )
 
 
 def list_endpoints(db: Session, tunnel_id: int) -> list[IpamTunnelEndpoint]:

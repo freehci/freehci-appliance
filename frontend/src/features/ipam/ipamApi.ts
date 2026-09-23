@@ -19,6 +19,7 @@ import type {
   IpamTunnel,
   IpamTunnelEndpoint,
   IpamTunnelPeer,
+  IpamTunnelTransport,
   IpamTunnelProfile,
   IpamVpnService,
   IpamVlan,
@@ -707,6 +708,18 @@ export function createVpnTunnel(
 
 export function deleteVpnTunnel(id: number): Promise<void> {
   return apiDelete(`${P}/tunnels/${id}`);
+}
+
+export function listTunnelTransports(tunnelId: number): Promise<IpamTunnelTransport[]> {
+  return apiGet(`${P}/tunnels/${tunnelId}/transports`);
+}
+
+export function bindTunnelTransport(tunnelId: number, circuitId: number): Promise<IpamTunnelTransport> {
+  return apiPost(`${P}/tunnels/${tunnelId}/transports`, { circuit_id: circuitId });
+}
+
+export function unbindTunnelTransport(bindId: number): Promise<void> {
+  return apiDelete(`${P}/tunnel-transports/${bindId}`);
 }
 
 export function listTunnelEndpoints(tunnelId: number): Promise<IpamTunnelEndpoint[]> {

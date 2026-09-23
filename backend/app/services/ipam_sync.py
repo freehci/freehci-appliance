@@ -22,6 +22,8 @@ from app.models.ipam import (
     IpamCircuitStrand,
     IpamContract,
     IpamProvider,
+    IpamTunnel,
+    IpamTunnelTransport,
     IpamScanHost,
     IpamSubnetScan,
     IpamVpnService,
@@ -245,6 +247,20 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if circuit_ids
         else []
     )
+    vpn_ids = {v.id for v in vpn_rows}
+    vpn_by_id = {v.id: v for v in vpn_rows}
+    tunnels = (
+        list(db.execute(select(IpamTunnel).where(IpamTunnel.vpn_service_id.in_(vpn_ids))).scalars().all())
+        if vpn_ids
+        else []
+    )
+    tunnel_ids = {t.id for t in tunnels}
+    tunnel_by_id = {t.id: t for t in tunnels}
+    transports = (
+        list(db.execute(select(IpamTunnelTransport).where(IpamTunnelTransport.tunnel_id.in_(tunnel_ids))).scalars().all())
+        if tunnel_ids
+        else []
+    )
     as_assignments = bgp_svc.list_as_assignments(db, site_id=site_id)
     bgp_sessions = bgp_svc.list_bgp_sessions(db, site_id=site_id)
     as_ids = {x.autonomous_system_id for x in as_assignments} | {s.local_as_id for s in bgp_sessions} | {
@@ -454,6 +470,27 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 ),
             }
             for v in vpn_rows
+        ],
+        "tunnels": [
+            {
+                "vpn_slug": vpn_by_id[t.vpn_service_id].slug if t.vpn_service_id in vpn_by_id else None,
+                "name": t.name,
+                "slug": t.slug,
+                "status": t.status,
+            }
+            for t in tunnels
+        ],
+        "tunnel_transports": [
+            {
+                "vpn_slug": (
+                    vpn_by_id[tunnel_by_id[b.tunnel_id].vpn_service_id].slug
+                    if b.tunnel_id in tunnel_by_id and tunnel_by_id[b.tunnel_id].vpn_service_id in vpn_by_id
+                    else None
+                ),
+                "tunnel_slug": tunnel_by_id[b.tunnel_id].slug if b.tunnel_id in tunnel_by_id else None,
+                "circuit_number": next((c.circuit_number for c in circuits if c.id == b.circuit_id), None),
+            }
+            for b in transports
         ],
         "autonomous_systems": [
             {"asn": a.asn, "name": a.name, "slug": a.slug, "is_private": a.is_private} for a in as_by_id.values()

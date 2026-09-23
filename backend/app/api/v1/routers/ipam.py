@@ -65,6 +65,8 @@ from app.schemas.ipam import (
     IpamTunnelProfileRead,
     IpamTunnelProfileUpdate,
     IpamTunnelRead,
+    IpamTunnelTransportCreate,
+    IpamTunnelTransportRead,
     IpamTunnelUpdate,
     IpamVpnServiceCreate,
     IpamVpnServiceRead,
@@ -1369,6 +1371,34 @@ def delete_vpn_tunnel(tunnel_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="tunnel ikke funnet")
     vpn_svc.delete_tunnel(db, row)
+
+
+@router.get("/tunnels/{tunnel_id}/transports", response_model=list[IpamTunnelTransportRead])
+def list_tunnel_transports(tunnel_id: int, db: Session = Depends(get_db)) -> list[IpamTunnelTransportRead]:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    return [vpn_svc.tunnel_transport_to_read(db, b) for b in vpn_svc.list_tunnel_transports(db, tunnel_id)]
+
+
+@router.post("/tunnels/{tunnel_id}/transports", response_model=IpamTunnelTransportRead)
+def create_tunnel_transport(
+    tunnel_id: int,
+    data: IpamTunnelTransportCreate,
+    db: Session = Depends(get_db),
+) -> IpamTunnelTransportRead:
+    row = vpn_svc.get_tunnel(db, tunnel_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="tunnel ikke funnet")
+    return vpn_svc.tunnel_transport_to_read(db, vpn_svc.create_tunnel_transport(db, row, data))
+
+
+@router.delete("/tunnel-transports/{bind_id}", status_code=204)
+def delete_tunnel_transport(bind_id: int, db: Session = Depends(get_db)) -> None:
+    row = vpn_svc.get_tunnel_transport(db, bind_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="underlagskobling ikke funnet")
+    vpn_svc.delete_tunnel_transport(db, row)
 
 
 @router.get("/tunnels/{tunnel_id}/endpoints", response_model=list[IpamTunnelEndpointRead])

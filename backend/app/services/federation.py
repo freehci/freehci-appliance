@@ -520,6 +520,25 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for v in raw.get("vpn_services") or []
             if v.get("slug")
         ],
+        "tunnels": [
+            {
+                "vpn_slug": t.get("vpn_slug"),
+                "name": t.get("name"),
+                "slug": t.get("slug"),
+                "status": t.get("status"),
+            }
+            for t in raw.get("tunnels") or []
+            if t.get("vpn_slug") and t.get("slug")
+        ],
+        "tunnel_transports": [
+            {
+                "vpn_slug": t.get("vpn_slug"),
+                "tunnel_slug": t.get("tunnel_slug"),
+                "circuit_number": t.get("circuit_number"),
+            }
+            for t in raw.get("tunnel_transports") or []
+            if t.get("vpn_slug") and t.get("tunnel_slug") and t.get("circuit_number")
+        ],
         "autonomous_systems": [
             {"asn": a.get("asn"), "name": a.get("name"), "slug": a.get("slug"), "is_private": a.get("is_private")}
             for a in raw.get("autonomous_systems") or []
