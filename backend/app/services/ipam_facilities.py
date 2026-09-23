@@ -111,10 +111,14 @@ def get_vrf(db: Session, vrf_id: int) -> IpamVrf | None:
 
 
 def delete_vrf(db: Session, row: IpamVrf) -> None:
-    from app.models.ipam import IpamVrfInstance
+    from app.models.ipam import IpamVrfInstance, IpamVrfRouteTarget
     from app.services.federation_guard import require_site_write
 
     require_site_write(db, row.site_id)
+    for bind in list(
+        db.execute(select(IpamVrfRouteTarget).where(IpamVrfRouteTarget.vrf_id == row.id)).scalars().all()
+    ):
+        db.delete(bind)
     for inst in list(
         db.execute(select(IpamVrfInstance).where(IpamVrfInstance.vrf_id == row.id)).scalars().all()
     ):

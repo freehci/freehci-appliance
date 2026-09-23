@@ -76,12 +76,17 @@ from app.schemas.ipam import (
     IpamBgpSessionCreate,
     IpamBgpSessionRead,
     IpamBgpSessionUpdate,
+    IpamRouteTargetCreate,
+    IpamRouteTargetRead,
+    IpamRouteTargetUpdate,
     IpamVrfCreate,
     IpamVrfEnsure,
     IpamVrfInstanceCreate,
     IpamVrfInstanceRead,
     IpamVrfInstanceUpdate,
     IpamVrfRead,
+    IpamVrfRouteTargetCreate,
+    IpamVrfRouteTargetRead,
     IpamVrfUpdate,
     IpamAuditEventRead,
     IpamBulkEnsure,
@@ -125,6 +130,7 @@ from app.services import ipam_sync as sync_svc
 from app.services import ipam_webhooks as hook_svc
 from app.services import ipam_range as range_svc
 from app.services import ipam_vrf_instance as vrfi_svc
+from app.services import ipam_route_target as rt_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
 
@@ -649,6 +655,76 @@ def delete_vrf_instance(instance_id: int, db: Session = Depends(get_db)) -> None
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "vrf_instance_not_found", "detail": "VRF-instans ikke funnet"})
     vrfi_svc.delete_instance(db, row)
+
+
+@router.get("/route-targets", response_model=list[IpamRouteTargetRead])
+def list_route_targets(db: Session = Depends(get_db)) -> list[IpamRouteTargetRead]:
+    return [rt_svc.rt_to_read(x) for x in rt_svc.list_route_targets(db)]
+
+
+@router.post("/route-targets", response_model=IpamRouteTargetRead)
+def create_route_target(data: IpamRouteTargetCreate, db: Session = Depends(get_db)) -> IpamRouteTargetRead:
+    return rt_svc.create_route_target(db, data)
+
+
+@router.get("/route-targets/{rt_id}", response_model=IpamRouteTargetRead)
+def get_route_target(rt_id: int, db: Session = Depends(get_db)) -> IpamRouteTargetRead:
+    row = rt_svc.get_route_target(db, rt_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "route_target_not_found", "detail": "route target ikke funnet"})
+    return rt_svc.rt_to_read(row)
+
+
+@router.patch("/route-targets/{rt_id}", response_model=IpamRouteTargetRead)
+def patch_route_target(rt_id: int, data: IpamRouteTargetUpdate, db: Session = Depends(get_db)) -> IpamRouteTargetRead:
+    row = rt_svc.get_route_target(db, rt_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "route_target_not_found", "detail": "route target ikke funnet"})
+    return rt_svc.update_route_target(db, row, data)
+
+
+@router.delete("/route-targets/{rt_id}", status_code=204)
+def delete_route_target(rt_id: int, db: Session = Depends(get_db)) -> None:
+    row = rt_svc.get_route_target(db, rt_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "route_target_not_found", "detail": "route target ikke funnet"})
+    rt_svc.delete_route_target(db, row)
+
+
+@router.get("/vrfs/{vrf_id}/route-targets", response_model=list[IpamVrfRouteTargetRead])
+def list_vrf_route_targets(vrf_id: int, db: Session = Depends(get_db)) -> list[IpamVrfRouteTargetRead]:
+    row = fac_svc.get_vrf(db, vrf_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
+    return [rt_svc.binding_to_read(db, x) for x in rt_svc.list_vrf_bindings(db, vrf_id=vrf_id)]
+
+
+@router.post("/vrfs/{vrf_id}/route-targets", response_model=IpamVrfRouteTargetRead)
+def bind_vrf_route_target(
+    vrf_id: int,
+    data: IpamVrfRouteTargetCreate,
+    db: Session = Depends(get_db),
+) -> IpamVrfRouteTargetRead:
+    row = fac_svc.get_vrf(db, vrf_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_not_found", "detail": "VRF ikke funnet"})
+    return rt_svc.bind_vrf_route_target(db, row, data)
+
+
+@router.get("/vrf-route-targets", response_model=list[IpamVrfRouteTargetRead])
+def list_all_vrf_route_targets(
+    site_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamVrfRouteTargetRead]:
+    return [rt_svc.binding_to_read(db, x) for x in rt_svc.list_vrf_bindings(db, site_id=site_id)]
+
+
+@router.delete("/vrf-route-targets/{binding_id}", status_code=204)
+def unbind_vrf_route_target(binding_id: int, db: Session = Depends(get_db)) -> None:
+    row = rt_svc.get_binding(db, binding_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_route_target_not_found", "detail": "VRF-RT-kobling ikke funnet"})
+    rt_svc.unbind_vrf_route_target(db, row)
 
 
 @router.get("/autonomous-systems", response_model=list[IpamAutonomousSystemRead])

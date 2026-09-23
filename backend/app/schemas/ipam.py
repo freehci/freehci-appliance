@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.asn import normalize_asn
-from app.core.route_distinguisher import normalize_route_distinguisher
+from app.core.route_distinguisher import normalize_route_distinguisher, normalize_route_target
 from app.core.secret_ref import normalize_secret_ref
 
 BGP_ADDRESS_FAMILIES = frozenset({"ipv4-unicast", "ipv6-unicast", "evpn"})
@@ -38,6 +38,7 @@ NO_VLAN_ROLES = frozenset({"container", "overlay-pod", "overlay-service", "p2p"}
 NO_HOST_ALLOC_STATUSES = frozenset({"reserved", "deprecated"})
 IPV4_RANGE_KINDS = frozenset({"allocation", "reserved", "dhcp", "other"})
 VRF_INSTANCE_INTENTS = frozenset({"recorded", "intended"})
+ROUTE_TARGET_DIRECTIONS = frozenset({"import", "export"})
 
 
 def _csv_or_list(v: Any) -> list[str]:
@@ -770,6 +771,109 @@ class IpamVrfRead(BaseModel):
     description: str | None
     created: bool | None = None
     created_at: dt.datetime
+
+
+class IpamRouteTargetCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    value: str = Field(..., min_length=1, max_length=64, description="ASN:nn eller IPv4:nn — ikke RD")
+    description: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_strip(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("name kan ikke være tom")
+        return s
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+    @field_validator("value")
+    @classmethod
+    def value_ok(cls, v: str) -> str:
+        out = normalize_route_target(v)
+        if out is None:
+            raise ValueError("RT-verdi kreves")
+        return out
+
+
+class IpamRouteTargetUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=128)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    value: str | None = Field(None, min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_strip_up(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            raise ValueError("name kan ikke være tom")
+        return s
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip_up(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+    @field_validator("value")
+    @classmethod
+    def value_ok_up(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        out = normalize_route_target(v)
+        if out is None:
+            raise ValueError("RT-verdi kreves")
+        return out
+
+
+class IpamRouteTargetRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    value: str
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamVrfRouteTargetCreate(BaseModel):
+    route_target_id: int = Field(..., ge=1)
+    direction: str = Field(..., description="import | export")
+
+    @field_validator("direction")
+    @classmethod
+    def dir_ok(cls, v: str) -> str:
+        return _role_ok(v, ROUTE_TARGET_DIRECTIONS, "direction") or "import"
+
+
+class IpamVrfRouteTargetRead(BaseModel):
+    id: int
+    vrf_id: int
+    vrf_name: str
+    vrf_slug: str
+    route_target_id: int
+    route_target_slug: str
+    route_target_name: str
+    value: str
+    direction: str
 
 
 class IpamVrfInstanceCreate(BaseModel):

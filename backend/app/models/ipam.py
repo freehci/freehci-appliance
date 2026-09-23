@@ -262,6 +262,48 @@ class IpamVrf(Base):
     vlans: Mapped[list["IpamVlan"]] = relationship(back_populates="vrf")
 
 
+class IpamRouteTarget(Base):
+    """RFC 4364 route target. Ikke RD, og ikke påført import/eksport-policy."""
+
+    __tablename__ = "ipam_route_targets"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_ipam_route_target_slug"),
+        UniqueConstraint("value", name="uq_ipam_route_target_value"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    value: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class IpamVrfRouteTarget(Base):
+    """Import- eller eksport-RT på logisk VRF. Påfører ikke ruting."""
+
+    __tablename__ = "ipam_vrf_route_targets"
+    __table_args__ = (
+        UniqueConstraint("vrf_id", "route_target_id", "direction", name="uq_ipam_vrf_rt_dir"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vrf_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    route_target_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_route_targets.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # import | export
+    direction: Mapped[str] = mapped_column(String(16), nullable=False)
+
+
 class IpamVrfInstance(Base):
     """VRF registrert på en enhet. Ikke påført config, RT eller RIB."""
 

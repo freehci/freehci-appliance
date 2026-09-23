@@ -219,6 +219,27 @@ export type IpamVrf = {
   created_at: string;
 };
 
+export type IpamRouteTarget = {
+  id: number;
+  name: string;
+  slug: string;
+  value: string;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamVrfRouteTarget = {
+  id: number;
+  vrf_id: number;
+  vrf_name: string;
+  vrf_slug: string;
+  route_target_id: number;
+  route_target_slug: string;
+  route_target_name: string;
+  value: string;
+  direction: "import" | "export" | string;
+};
+
 export type IpamVrfInstance = {
   id: number;
   vrf_id: number;

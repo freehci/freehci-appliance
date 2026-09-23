@@ -40,7 +40,10 @@ from app.schemas.ipam import (
     IpamVpnServiceCreate,
     IpamVrfCreate,
     IPV4_RANGE_KINDS,
+    ROUTE_TARGET_DIRECTIONS,
     VRF_INSTANCE_INTENTS,
+    IpamRouteTargetCreate,
+    IpamVrfRouteTargetCreate,
     Ipv4AddressEnsure,
     Ipv4PrefixEnsure,
     Ipv4RangeCreate,
@@ -64,6 +67,7 @@ from app.services import platform as plat_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_range as range_svc
 from app.services import ipam_vrf_instance as vrfi_svc
+from app.services import ipam_route_target as rt_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
 from app.services import dcim_power as pwr_svc
@@ -409,6 +413,44 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         found = db.execute(select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == v["slug"])).scalar_one_or_none()
         if found is None:
             fac_svc.create_vrf(db, IpamVrfCreate(site_id=site.id, name=v.get("name") or v["slug"], slug=v["slug"]))
+    for rt in ipam.get("route_targets") or []:
+        slug = str(rt.get("slug") or "").strip().lower()
+        value = str(rt.get("value") or "").strip()
+        if not slug or not value:
+            continue
+        if rt_svc.get_route_target_by_slug(db, slug) is not None:
+            continue
+        try:
+            rt_svc.create_route_target(
+                db,
+                IpamRouteTargetCreate(name=rt.get("name") or slug, slug=slug, value=value, description=rt.get("description")),
+            )
+        except Exception:
+            continue
+    for bind in ipam.get("vrf_route_targets") or []:
+        vrf_slug = str(bind.get("vrf_slug") or "").strip().lower()
+        rt_slug = str(bind.get("route_target_slug") or "").strip().lower()
+        direction = str(bind.get("direction") or "").strip().lower()
+        if not vrf_slug or not rt_slug or direction not in ROUTE_TARGET_DIRECTIONS:
+            continue
+        vrf = db.execute(
+            select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug),
+        ).scalar_one_or_none()
+        rt_row = rt_svc.get_route_target_by_slug(db, rt_slug)
+        if vrf is None or rt_row is None:
+            continue
+        existing = [
+            x
+            for x in rt_svc.list_vrf_bindings(db, vrf_id=vrf.id)
+            if x.route_target_id == rt_row.id and x.direction == direction
+        ]
+        if existing:
+            continue
+        rt_svc.bind_vrf_route_target(
+            db,
+            vrf,
+            IpamVrfRouteTargetCreate(route_target_id=rt_row.id, direction=direction),
+        )
     for inst in ipam.get("vrf_instances") or []:
         vrf_slug = str(inst.get("vrf_slug") or "").strip().lower()
         device_name = str(inst.get("device_name") or "").strip()

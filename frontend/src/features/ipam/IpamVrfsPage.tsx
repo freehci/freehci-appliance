@@ -11,7 +11,7 @@ import * as ipamApi from "./ipamApi";
 import prefixStyles from "./prefixPage.module.css";
 import { PrefixDrawer } from "./prefixPageUi";
 
-const TABS = new Set(["vrfs", "instances", "as", "bgp"]);
+const TABS = new Set(["vrfs", "instances", "targets", "as", "bgp"]);
 
 export function IpamVrfsPage() {
   const { t } = useI18n();
@@ -53,6 +53,12 @@ export function IpamVrfsPage() {
   const [instDevice, setInstDevice] = useState("");
   const [instRd, setInstRd] = useState("");
   const [instIntent, setInstIntent] = useState("recorded");
+  const [rtName, setRtName] = useState("");
+  const [rtValue, setRtValue] = useState("");
+  const [rtSlug, setRtSlug] = useState("");
+  const [bindVrf, setBindVrf] = useState("");
+  const [bindRt, setBindRt] = useState("");
+  const [bindDir, setBindDir] = useState("import");
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -74,6 +80,11 @@ export function IpamVrfsPage() {
   const instQ = useQuery({
     queryKey: ["ipam", "vrf-instances", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listVrfInstances({ siteId: siteIdFilter }),
+  });
+  const rtQ = useQuery({ queryKey: ["ipam", "route-targets"], queryFn: () => ipamApi.listRouteTargets() });
+  const rtBindQ = useQuery({
+    queryKey: ["ipam", "vrf-route-targets", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listVrfRouteTargets({ siteId: siteIdFilter }),
   });
 
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
@@ -205,6 +216,54 @@ export function IpamVrfsPage() {
     },
     onError: fail,
   });
+  const createRtM = useMutation({
+    mutationFn: () =>
+      ipamApi.createRouteTarget({
+        name: rtName.trim(),
+        slug: rtSlug.trim() || null,
+        value: rtValue.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setRtName("");
+      setRtSlug("");
+      setRtValue("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "route-targets"] });
+    },
+    onError: fail,
+  });
+  const delRtM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteRouteTarget(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "route-targets"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-route-targets"] });
+    },
+    onError: fail,
+  });
+  const bindRtM = useMutation({
+    mutationFn: () =>
+      ipamApi.bindVrfRouteTarget(Number(bindVrf), {
+        route_target_id: Number(bindRt),
+        direction: bindDir,
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setBindVrf("");
+      setBindRt("");
+      setBindDir("import");
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-route-targets"] });
+    },
+    onError: fail,
+  });
+  const unbindRtM = useMutation({
+    mutationFn: (id: number) => ipamApi.unbindVrfRouteTarget(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-route-targets"] });
+    },
+    onError: fail,
+  });
   const delInstM = useMutation({
     mutationFn: (id: number) => ipamApi.deleteVrfInstance(id),
     onSuccess: () => {
@@ -239,7 +298,7 @@ export function IpamVrfsPage() {
           <h1 className={prefixStyles.title}>{t("ipam.vrf.title")}</h1>
           <p className={prefixStyles.intro}>{t("ipam.vrf.intro")}</p>
         </div>
-        {tab !== "instances" ? (
+        {tab !== "instances" && tab !== "targets" ? (
           <div className={prefixStyles.headActions}>
             <button
               type="button"
@@ -268,6 +327,7 @@ export function IpamVrfsPage() {
         tabs={[
           { id: "vrfs", label: t("ipam.routing.tabVrfs") },
           { id: "instances", label: t("ipam.routing.tabInstances") },
+          { id: "targets", label: t("ipam.routing.tabTargets") },
           { id: "as", label: t("ipam.routing.tabAs") },
           { id: "bgp", label: t("ipam.routing.tabBgp") },
         ]}
@@ -422,6 +482,151 @@ export function IpamVrfsPage() {
             </label>
             <button type="submit" className={dcimStyles.btn} disabled={createInstM.isPending || !instVrf || !instDevice}>
               {t("ipam.vrf.instanceAdd")}
+            </button>
+          </form>
+        </div>
+      ) : null}
+
+      {tab === "targets" ? (
+        <div className={prefixStyles.tableCard}>
+          <p className={dcimStyles.muted} style={{ padding: "var(--space-3)", paddingBottom: 0 }}>
+            {t("ipam.rt.intro")}
+          </p>
+          {rtQ.data && rtQ.data.length > 0 ? (
+            <div className={prefixStyles.tableScroll}>
+              <table className={dcimStyles.table}>
+                <thead>
+                  <tr>
+                    <th>{t("ipam.rt.name")}</th>
+                    <th>{t("ipam.rt.value")}</th>
+                    <th>{t("ipam.ipv4.actionsCol")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rtQ.data.map((x) => (
+                    <tr key={x.id}>
+                      <td>
+                        {x.name}
+                        <div className={dcimStyles.muted}>{x.slug}</div>
+                      </td>
+                      <td>{x.value}</td>
+                      <td>
+                        <button type="button" className={dcimStyles.btnLink} onClick={() => delRtM.mutate(x.id)}>
+                          {t("dcim.common.delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
+              {t("ipam.rt.empty")}
+            </p>
+          )}
+          <form
+            className={dcimStyles.formRow}
+            style={{ flexWrap: "wrap", padding: "var(--space-3)" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              createRtM.mutate();
+            }}
+          >
+            <label>
+              {t("ipam.rt.name")}
+              <input value={rtName} onChange={(e) => setRtName(e.target.value)} required />
+            </label>
+            <label>
+              {t("ipam.detail.rangeSlug")}
+              <input value={rtSlug} onChange={(e) => setRtSlug(e.target.value)} />
+            </label>
+            <label>
+              {t("ipam.rt.value")}
+              <input value={rtValue} onChange={(e) => setRtValue(e.target.value)} placeholder={t("ipam.vrf.rdPlaceholder")} required />
+            </label>
+            <button type="submit" className={dcimStyles.btn} disabled={createRtM.isPending || !rtName.trim() || !rtValue.trim()}>
+              {t("ipam.rt.add")}
+            </button>
+          </form>
+          <p className={dcimStyles.muted} style={{ padding: "0 var(--space-3)" }}>
+            {t("ipam.rt.valueHelp")}
+          </p>
+          {(rtBindQ.data ?? []).length > 0 ? (
+            <div className={prefixStyles.tableScroll}>
+              <table className={dcimStyles.table}>
+                <thead>
+                  <tr>
+                    <th>{t("ipam.vrf.name")}</th>
+                    <th>{t("ipam.rt.value")}</th>
+                    <th>{t("ipam.rt.direction")}</th>
+                    <th>{t("ipam.ipv4.actionsCol")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(rtBindQ.data ?? []).map((x) => (
+                    <tr key={x.id}>
+                      <td>{x.vrf_name}</td>
+                      <td>
+                        {x.value} ({x.route_target_name})
+                      </td>
+                      <td>{x.direction === "export" ? t("ipam.rt.export") : t("ipam.rt.import")}</td>
+                      <td>
+                        <button type="button" className={dcimStyles.btnLink} onClick={() => unbindRtM.mutate(x.id)}>
+                          {t("dcim.common.delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
+              {t("ipam.rt.bindEmpty")}
+            </p>
+          )}
+          <form
+            className={dcimStyles.formRow}
+            style={{ flexWrap: "wrap", padding: "var(--space-3)" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              bindRtM.mutate();
+            }}
+          >
+            <label>
+              VRF
+              <select value={bindVrf} onChange={(e) => setBindVrf(e.target.value)} required>
+                <option value="">{t("ipam.vrf.chooseVrf")}</option>
+                {(vrfsQ.data ?? []).map((v) => (
+                  <option key={v.id} value={String(v.id)}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              RT
+              <select value={bindRt} onChange={(e) => setBindRt(e.target.value)} required>
+                <option value="">{t("ipam.rt.choose")}</option>
+                {(rtQ.data ?? []).map((r) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.name} ({r.value})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.rt.direction")}
+              <select value={bindDir} onChange={(e) => setBindDir(e.target.value)}>
+                <option value="import">{t("ipam.rt.import")}</option>
+                <option value="export">{t("ipam.rt.export")}</option>
+              </select>
+            </label>
+            <button type="submit" className={dcimStyles.btn} disabled={bindRtM.isPending || !bindVrf || !bindRt}>
+              {t("ipam.rt.bind")}
             </button>
           </form>
         </div>

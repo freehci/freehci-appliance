@@ -23,8 +23,10 @@ import type {
   IpamAsAssignment,
   IpamAutonomousSystem,
   IpamBgpSession,
+  IpamRouteTarget,
   IpamVrf,
   IpamVrfInstance,
+  IpamVrfRouteTarget,
   IpamWebhook,
   IpamWebhookDelivery,
   PrefixAddressGridRead,
@@ -345,6 +347,40 @@ export function createVrfInstance(
 
 export function deleteVrfInstance(id: number): Promise<void> {
   return apiDelete(`${P}/vrf-instances/${id}`);
+}
+
+export function listRouteTargets(): Promise<IpamRouteTarget[]> {
+  return apiGet(`${P}/route-targets`);
+}
+
+export function createRouteTarget(body: {
+  name: string;
+  slug?: string | null;
+  value: string;
+  description?: string | null;
+}): Promise<IpamRouteTarget> {
+  return apiPost(`${P}/route-targets`, body);
+}
+
+export function deleteRouteTarget(id: number): Promise<void> {
+  return apiDelete(`${P}/route-targets/${id}`);
+}
+
+export function listVrfRouteTargets(opts?: { siteId?: number; vrfId?: number }): Promise<IpamVrfRouteTarget[]> {
+  if (opts?.vrfId != null) return apiGet(`${P}/vrfs/${opts.vrfId}/route-targets`);
+  const q = opts?.siteId != null ? `?site_id=${encodeURIComponent(String(opts.siteId))}` : "";
+  return apiGet(`${P}/vrf-route-targets${q}`);
+}
+
+export function bindVrfRouteTarget(
+  vrfId: number,
+  body: { route_target_id: number; direction: string },
+): Promise<IpamVrfRouteTarget> {
+  return apiPost(`${P}/vrfs/${vrfId}/route-targets`, body);
+}
+
+export function unbindVrfRouteTarget(bindingId: number): Promise<void> {
+  return apiDelete(`${P}/vrf-route-targets/${bindingId}`);
 }
 
 export function listAutonomousSystems(tenantId?: number): Promise<IpamAutonomousSystem[]> {

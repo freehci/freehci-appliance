@@ -506,6 +506,20 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for s in raw.get("bgp_sessions") or []
             if s.get("peer_ip") and s.get("local_asn")
         ],
+        "route_targets": [
+            {"name": r.get("name"), "slug": r.get("slug"), "value": r.get("value"), "description": r.get("description")}
+            for r in raw.get("route_targets") or []
+            if r.get("slug") and r.get("value")
+        ],
+        "vrf_route_targets": [
+            {
+                "vrf_slug": r.get("vrf_slug"),
+                "route_target_slug": r.get("route_target_slug"),
+                "direction": r.get("direction"),
+            }
+            for r in raw.get("vrf_route_targets") or []
+            if r.get("vrf_slug") and r.get("route_target_slug") and r.get("direction")
+        ],
         "vrf_instances": [
             {
                 "vrf_slug": r.get("vrf_slug"),

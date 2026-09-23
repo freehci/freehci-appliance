@@ -15,7 +15,9 @@ from app.models.ipam import (
     IpamIpv4Address,
     IpamIpv4Prefix,
     IpamIpv4Range,
+    IpamRouteTarget,
     IpamVrfInstance,
+    IpamVrfRouteTarget,
     IpamProvider,
     IpamScanHost,
     IpamSubnetScan,
@@ -200,6 +202,17 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if as_ids
         else {}
     )
+    vrf_rt_binds = (
+        list(db.execute(select(IpamVrfRouteTarget).where(IpamVrfRouteTarget.vrf_id.in_(list(vrf_by_id)))).scalars().all())
+        if vrf_by_id
+        else []
+    )
+    rt_ids = {x.route_target_id for x in vrf_rt_binds}
+    rt_by_id = (
+        {r.id: r for r in db.execute(select(IpamRouteTarget).where(IpamRouteTarget.id.in_(rt_ids))).scalars().all()}
+        if rt_ids
+        else {}
+    )
     vrf_instances = (
         list(db.execute(select(IpamVrfInstance).where(IpamVrfInstance.vrf_id.in_(list(vrf_by_id)))).scalars().all())
         if vrf_by_id
@@ -356,6 +369,17 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "desired_status": s.desired_status,
             }
             for s in bgp_sessions
+        ],
+        "route_targets": [
+            {"name": r.name, "slug": r.slug, "value": r.value, "description": r.description} for r in rt_by_id.values()
+        ],
+        "vrf_route_targets": [
+            {
+                "vrf_slug": vrf_by_id[x.vrf_id].slug if x.vrf_id in vrf_by_id else None,
+                "route_target_slug": rt_by_id[x.route_target_id].slug if x.route_target_id in rt_by_id else None,
+                "direction": x.direction,
+            }
+            for x in vrf_rt_binds
         ],
         "vrf_instances": [
             {

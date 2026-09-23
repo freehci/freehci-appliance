@@ -52,3 +52,11 @@ def normalize_route_distinguisher(value: str | None) -> str | None:
     elif assigned > _MAX_ASN16:
         raise ValueError("RD type 2 (32-bit ASN) tillater assigned 0–65535")
     return f"{asn}:{assigned}"
+
+
+def normalize_route_target(value: str | None) -> str | None:
+    """Samme RFC 4364-form som RD, men RT er ikke RD."""
+    try:
+        return normalize_route_distinguisher(value)
+    except ValueError as e:
+        raise ValueError(str(e).replace("RD", "RT")) from e
