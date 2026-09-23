@@ -19,6 +19,7 @@ def test_secret_ref_rejects_key_material() -> None:
 def test_provider_not_invented_from_free_text() -> None:
     app = create_app()
     with TestClient(app) as client:
+        before = {p["id"] for p in client.get("/api/v1/ipam/providers").json()}
         c = client.post(
             "/api/v1/ipam/circuits",
             json={"circuit_number": "CIR-FT-1", "name": "Dark fiber", "circuit_type": "fiber", "provider_name": "Telenor"},
@@ -27,7 +28,8 @@ def test_provider_not_invented_from_free_text() -> None:
         assert c.json()["provider_name"] == "Telenor"
         assert c.json()["provider_id"] is None
         listed = client.get("/api/v1/ipam/providers").json()
-        assert listed == []
+        assert not any((p.get("name") or "").strip().lower() == "telenor" for p in listed)
+        assert {p["id"] for p in listed} == before
 
 
 def test_new_fiber_sets_layer_only_when_client_sends_it() -> None:
