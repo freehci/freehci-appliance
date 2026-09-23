@@ -7,10 +7,10 @@ from typing import Any
 from fastapi import HTTPException
 
 
-def ipam_error(status: int, code: str, detail: str, **extra: Any) -> HTTPException:
+def ipam_error(status_code: int, code: str, detail: str, **extra: Any) -> HTTPException:
     payload: dict[str, Any] = {"code": code, "detail": detail}
     payload.update(extra)
-    return HTTPException(status_code=status, detail=payload)
+    return HTTPException(status_code=status_code, detail=payload)
 
 
 def error_code(exc: HTTPException) -> str | None:
