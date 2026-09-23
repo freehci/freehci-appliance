@@ -355,6 +355,18 @@ export type IpamCircuitGroup = {
   created_at: string;
 };
 
+export type IpamCircuitStrand = {
+  id: number;
+  circuit_id: number;
+  strand_id: number;
+  cable_id: number;
+  cable_slug: string;
+  position: number;
+  label: string | null;
+  status: string;
+  created_at: string;
+};
+
 export type IpamCircuitTermination = {
   id: number;
   circuit_id: number;

@@ -613,6 +613,18 @@ class IpamCircuitTermination(Base):
     circuit: Mapped["IpamCircuit"] = relationship(back_populates="terminations")
 
 
+class IpamCircuitStrand(Base):
+    """Samband peker på én registrert fiberstreng. Ingen tap, par eller status-gjetning."""
+
+    __tablename__ = "ipam_circuit_strands"
+    __table_args__ = (UniqueConstraint("strand_id", name="uq_ipam_circuit_strand_strand"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    circuit_id: Mapped[int] = mapped_column(ForeignKey("ipam_circuits.id", ondelete="CASCADE"), nullable=False)
+    strand_id: Mapped[int] = mapped_column(ForeignKey("dcim_fiber_strands.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class IpamVpnService(Base):
     """Overlay-identitet (VPN). Kan peke bakover til et klassifisert samband."""
 

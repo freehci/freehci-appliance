@@ -41,6 +41,8 @@ from app.schemas.ipam import (
     IpamCircuitGroupRead,
     IpamCircuitGroupUpdate,
     IpamCircuitRead,
+    IpamCircuitStrandCreate,
+    IpamCircuitStrandRead,
     IpamCircuitTerminationCreate,
     IpamCircuitTerminationRead,
     IpamCircuitUpdate,
@@ -1063,6 +1065,34 @@ def delete_ipam_circuit_group(group_id: int, db: Session = Depends(get_db)) -> N
     if row is None:
         raise HTTPException(status_code=404, detail="redundansgruppe ikke funnet")
     fac_svc.delete_circuit_group(db, row)
+
+
+@router.get("/circuits/{circuit_id}/strands", response_model=list[IpamCircuitStrandRead])
+def list_ipam_circuit_strands(circuit_id: int, db: Session = Depends(get_db)) -> list[IpamCircuitStrandRead]:
+    row = fac_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="samband ikke funnet")
+    return [fac_svc.circuit_strand_to_read(db, b) for b in fac_svc.list_circuit_strands(db, circuit_id)]
+
+
+@router.post("/circuits/{circuit_id}/strands", response_model=IpamCircuitStrandRead)
+def create_ipam_circuit_strand(
+    circuit_id: int,
+    data: IpamCircuitStrandCreate,
+    db: Session = Depends(get_db),
+) -> IpamCircuitStrandRead:
+    row = fac_svc.get_circuit(db, circuit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="samband ikke funnet")
+    return fac_svc.circuit_strand_to_read(db, fac_svc.create_circuit_strand(db, row, data))
+
+
+@router.delete("/circuit-strands/{bind_id}", status_code=204)
+def delete_ipam_circuit_strand(bind_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_circuit_strand(db, bind_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiberkobling ikke funnet")
+    fac_svc.delete_circuit_strand(db, row)
 
 
 @router.get("/circuits/{circuit_id}/terminations", response_model=list[IpamCircuitTerminationRead])

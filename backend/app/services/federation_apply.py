@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
-from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, Cable, DeviceInstance, DeviceModel, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
@@ -36,6 +36,7 @@ from app.schemas.ipam import (
     IpamBgpSessionCreate,
     IpamCircuitCreate,
     IpamCircuitGroupCreate,
+    IpamCircuitStrandCreate,
     IpamContractCreate,
     IpamProviderCreate,
     IpamVlanCreate,
@@ -400,9 +401,34 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     site_by_slug = {s.slug: s for s in db.execute(select(Site)).scalars().all()}
     pwr_svc.apply_from_document(db, doc, site_by_slug=site_by_slug)
+    _apply_circuit_strands(db, doc)
     _apply_platform(db, doc)
     _bind_vif_ipv4(db, doc)
     _apply_catalog(db, doc)
+
+
+def _apply_circuit_strands(db: Session, doc: dict[str, Any]) -> None:
+    for ipam in doc.get("ipam") or []:
+        for b in ipam.get("circuit_strands") or []:
+            number = (b.get("circuit_number") or "").strip()
+            cable_slug = (b.get("cable_slug") or "").strip()
+            site = _site_by_slug(db, (b.get("site_slug") or "").strip())
+            position = b.get("position")
+            if not number or not cable_slug or site is None or position is None:
+                continue
+            circuit = db.execute(select(IpamCircuit).where(IpamCircuit.circuit_number == number)).scalar_one_or_none()
+            cable = db.execute(select(Cable).where(Cable.site_id == site.id, Cable.slug == cable_slug)).scalar_one_or_none()
+            if circuit is None or cable is None:
+                continue
+            strand = db.execute(
+                select(FiberStrand).where(FiberStrand.cable_id == cable.id, FiberStrand.position == int(position)),
+            ).scalar_one_or_none()
+            if strand is None or fac_svc.get_circuit_strand_by_strand(db, strand.id) is not None:
+                continue
+            try:
+                fac_svc.create_circuit_strand(db, circuit, IpamCircuitStrandCreate(strand_id=strand.id))
+            except Exception:
+                continue
 
 
 def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:

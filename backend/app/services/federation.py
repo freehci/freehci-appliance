@@ -500,6 +500,16 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for c in raw.get("circuits") or []
             if c.get("circuit_number")
         ],
+        "circuit_strands": [
+            {
+                "circuit_number": b.get("circuit_number"),
+                "site_slug": b.get("site_slug") or site.slug,
+                "cable_slug": b.get("cable_slug"),
+                "position": b.get("position"),
+            }
+            for b in raw.get("circuit_strands") or []
+            if b.get("circuit_number") and b.get("cable_slug") and b.get("position") is not None
+        ],
         "vpn_services": [
             {
                 "name": v.get("name"),

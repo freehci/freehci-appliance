@@ -8,8 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.dcim import DeviceInstance, DeviceInterface, Site
-from app.models.ipam import IpamCircuit, IpamCircuitGroup, IpamCircuitTermination, IpamVlan, IpamVlanGroup, IpamVrf
+from app.models.dcim import Cable, DeviceInstance, DeviceInterface, FiberStrand, Site
+from app.models.ipam import (
+    IpamCircuit,
+    IpamCircuitGroup,
+    IpamCircuitStrand,
+    IpamCircuitTermination,
+    IpamVlan,
+    IpamVlanGroup,
+    IpamVrf,
+)
 from app.models.tenant import Tenant
 from app.schemas.ipam import (
     CLASSIFY_CIRCUIT_TYPES,
@@ -19,6 +27,8 @@ from app.schemas.ipam import (
     IpamCircuitGroupRead,
     IpamCircuitGroupUpdate,
     IpamCircuitRead,
+    IpamCircuitStrandCreate,
+    IpamCircuitStrandRead,
     IpamCircuitTerminationCreate,
     IpamCircuitTerminationRead,
     IpamCircuitUpdate,
@@ -723,8 +733,62 @@ def classify_circuit(db: Session, row: IpamCircuit, data: IpamCircuitClassify):
 
 
 def delete_circuit(db: Session, row: IpamCircuit) -> None:
+    for b in list(db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.circuit_id == row.id)).scalars().all()):
+        db.delete(b)
     db.delete(row)
     db.commit()
+
+
+def list_circuit_strands(db: Session, circuit_id: int) -> list[IpamCircuitStrand]:
+    return list(
+        db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.circuit_id == circuit_id).order_by(IpamCircuitStrand.id)).scalars().all()
+    )
+
+
+def get_circuit_strand(db: Session, bind_id: int) -> IpamCircuitStrand | None:
+    return db.get(IpamCircuitStrand, bind_id)
+
+
+def get_circuit_strand_by_strand(db: Session, strand_id: int) -> IpamCircuitStrand | None:
+    return db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.strand_id == strand_id)).scalar_one_or_none()
+
+
+def create_circuit_strand(db: Session, circuit: IpamCircuit, data: IpamCircuitStrandCreate) -> IpamCircuitStrand:
+    strand = db.get(FiberStrand, data.strand_id)
+    if strand is None:
+        raise ipam_error(404, "fiber_strand_not_found", "fiberstreng ikke funnet")
+    if get_circuit_strand_by_strand(db, strand.id) is not None:
+        raise ipam_error(409, "circuit_strand_taken", "fiberstrengen er allerede knyttet til et samband")
+    row = IpamCircuitStrand(circuit_id=circuit.id, strand_id=strand.id)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "circuit_strand_taken", "fiberstrengen er allerede knyttet til et samband")
+    db.refresh(row)
+    return row
+
+
+def delete_circuit_strand(db: Session, row: IpamCircuitStrand) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def circuit_strand_to_read(db: Session, row: IpamCircuitStrand) -> IpamCircuitStrandRead:
+    strand = db.get(FiberStrand, row.strand_id)
+    cable = db.get(Cable, strand.cable_id) if strand is not None else None
+    return IpamCircuitStrandRead(
+        id=row.id,
+        circuit_id=row.circuit_id,
+        strand_id=row.strand_id,
+        cable_id=cable.id if cable is not None else (strand.cable_id if strand is not None else 0),
+        cable_slug=cable.slug if cable is not None else "",
+        position=strand.position if strand is not None else 0,
+        label=strand.label if strand is not None else None,
+        status=strand.status if strand is not None else "unused",
+        created_at=row.created_at,
+    )
 
 
 def list_circuit_terminations(db: Session, circuit_id: int) -> list[IpamCircuitTermination]:

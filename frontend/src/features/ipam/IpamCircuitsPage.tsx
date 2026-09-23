@@ -1068,6 +1068,7 @@ export function IpamCircuitsPage() {
               {termM.isPending ? "…" : t("ipam.circuits.saveTerm")}
             </button>
           </form>
+          <CircuitStrandsPanel circuitId={termCircuitId} onError={setErr} />
         </section>
       ) : null}
 
@@ -1352,5 +1353,116 @@ export function IpamCircuitsPage() {
         </div>
       </PrefixDrawer>
     </Panel>
+  );
+}
+
+const FIBER_CABLE_TYPES = new Set(["sm-os2", "mm-om4"]);
+
+function CircuitStrandsPanel({
+  circuitId,
+  onError,
+}: {
+  circuitId: number;
+  onError: (msg: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [strandId, setStrandId] = useState("");
+  const strandsQ = useQuery({
+    queryKey: ["ipam", "circuit-strands", circuitId],
+    queryFn: () => ipamApi.listCircuitStrands(circuitId),
+  });
+  const cablesQ = useQuery({
+    queryKey: ["dcim", "cables", "circuit-bind"],
+    queryFn: () => dcimApi.listCables(),
+  });
+  const fiberCables = (cablesQ.data ?? []).filter((c) => FIBER_CABLE_TYPES.has(c.cable_type));
+  const firstFiberId = fiberCables[0]?.id;
+  const firstStrandsQ = useQuery({
+    queryKey: ["dcim", "cables", firstFiberId, "strands"],
+    queryFn: () => dcimApi.listFiberStrands(firstFiberId!),
+    enabled: firstFiberId != null,
+  });
+  const extraCables = fiberCables.slice(1);
+  const extraStrandsQ = useQuery({
+    queryKey: ["dcim", "cables", "extra-strands", extraCables.map((c) => c.id).join(",")],
+    queryFn: async () => {
+      const rows = await Promise.all(extraCables.map((c) => dcimApi.listFiberStrands(c.id)));
+      return extraCables.flatMap((c, i) => rows[i].map((s) => ({ cable: c, strand: s })));
+    },
+    enabled: extraCables.length > 0,
+  });
+  const options = [
+    ...(firstFiberId != null
+      ? (firstStrandsQ.data ?? []).map((s) => ({
+          id: s.id,
+          label: `${fiberCables[0].slug} #${s.position}${s.label ? ` ${s.label}` : ""}`,
+        }))
+      : []),
+    ...(extraStrandsQ.data ?? []).map((x) => ({
+      id: x.strand.id,
+      label: `${x.cable.slug} #${x.strand.position}${x.strand.label ? ` ${x.strand.label}` : ""}`,
+    })),
+  ];
+  const bound = strandsQ.data ?? [];
+  const bindM = useMutation({
+    mutationFn: () => ipamApi.bindCircuitStrand(circuitId, Number(strandId)),
+    onSuccess: () => {
+      setStrandId("");
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "circuit-strands", circuitId] });
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const unbindM = useMutation({
+    mutationFn: (id: number) => ipamApi.unbindCircuitStrand(id),
+    onSuccess: () => {
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "circuit-strands", circuitId] });
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+
+  return (
+    <div style={{ marginTop: "var(--space-3)" }}>
+      <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.strands")}</h3>
+      <p className={dcimStyles.muted}>{t("ipam.circuits.strandHint")}</p>
+      {bound.length === 0 && !strandsQ.isLoading ? <p className={dcimStyles.muted}>{t("ipam.circuits.emptyStrands")}</p> : null}
+      {bound.length > 0 ? (
+        <ul className={dcimStyles.ipList}>
+          {bound.map((s) => (
+            <li key={s.id}>
+              {s.cable_slug} #{s.position}
+              {s.label ? ` ${s.label}` : ""} ({s.status}){" "}
+              <button type="button" className={dcimStyles.btnLink} onClick={() => unbindM.mutate(s.id)}>
+                {t("dcim.common.delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className={dcimStyles.formRow}
+        onSubmit={(e) => {
+          e.preventDefault();
+          bindM.mutate();
+        }}
+      >
+        <label>
+          {t("ipam.circuits.strands")}
+          <select value={strandId} onChange={(e) => setStrandId(e.target.value)} required>
+            <option value="">{t("ipam.circuits.chooseStrand")}</option>
+            {options.map((o) => (
+              <option key={o.id} value={String(o.id)}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className={dcimStyles.btn} disabled={bindM.isPending || strandId === ""}>
+          {t("ipam.circuits.bindStrand")}
+        </button>
+      </form>
+    </div>
   );
 }

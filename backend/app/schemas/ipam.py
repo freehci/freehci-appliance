@@ -1362,6 +1362,26 @@ class IpamCircuitClassifyRead(BaseModel):
     vpn_service_id: int | None = None
 
 
+class IpamCircuitStrandCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    strand_id: int = Field(..., ge=1)
+
+
+class IpamCircuitStrandRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    circuit_id: int
+    strand_id: int
+    cable_id: int
+    cable_slug: str
+    position: int
+    label: str | None
+    status: str
+    created_at: dt.datetime
+
+
 class IpamCircuitGroupCreate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

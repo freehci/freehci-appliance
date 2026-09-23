@@ -1779,6 +1779,11 @@ export const en = {
   "ipam.circuits.capacityMbps": "Capacity (Mbps)",
   "ipam.circuits.cirMbps": "CIR (Mbps)",
   "ipam.circuits.rateHint": "Record contracted capacity and CIR. Observed throughput is not stored.",
+  "ipam.circuits.strands": "Fiber strands",
+  "ipam.circuits.emptyStrands": "No fiber strand bound to this circuit.",
+  "ipam.circuits.bindStrand": "Bind strand",
+  "ipam.circuits.chooseStrand": "Choose recorded strand",
+  "ipam.circuits.strandHint": "Bind a recorded fiber strand. Pair count, loss and wavelength are not stored.",
 
   "ipam.ipv4.title": "IPv4 prefixes",
   "ipam.ipv4.crumbIpam": "IPAM",

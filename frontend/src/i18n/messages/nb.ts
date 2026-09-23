@@ -1789,6 +1789,11 @@ export const nb = {
   "ipam.circuits.capacityMbps": "Kapasitet (Mbps)",
   "ipam.circuits.cirMbps": "CIR (Mbps)",
   "ipam.circuits.rateHint": "Registrer avtalt kapasitet og CIR. Observert gjennomstrømming lagres ikke.",
+  "ipam.circuits.strands": "Fiberstrenger",
+  "ipam.circuits.emptyStrands": "Ingen fiberstreng knyttet til dette sambandet.",
+  "ipam.circuits.bindStrand": "Knytt streng",
+  "ipam.circuits.chooseStrand": "Velg registrert streng",
+  "ipam.circuits.strandHint": "Knytt en registrert fiberstreng. Parantall, tap og bølgelengde lagres ikke.",
 
   "ipam.ipv4.title": "IPv4-prefiks",
   "ipam.ipv4.crumbIpam": "IPAM",

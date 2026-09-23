@@ -666,6 +666,10 @@ def update_fiber_strand(db: Session, row: FiberStrand, data: FiberStrandUpdate) 
 
 
 def delete_fiber_strand(db: Session, row: FiberStrand) -> None:
+    from app.models.ipam import IpamCircuitStrand
+
+    for b in list(db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.strand_id == row.id)).scalars().all()):
+        db.delete(b)
     db.delete(row)
     db.commit()
 

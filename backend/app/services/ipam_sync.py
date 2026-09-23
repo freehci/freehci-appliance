@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.dcim import DeviceInstance, Site
+from app.models.dcim import Cable, DeviceInstance, FiberStrand, Site
 from app.models.ipam import (
     IpamAutonomousSystem,
     IpamIpv4Address,
@@ -19,6 +19,7 @@ from app.models.ipam import (
     IpamVrfInstance,
     IpamVrfRouteTarget,
     IpamCircuitGroup,
+    IpamCircuitStrand,
     IpamContract,
     IpamProvider,
     IpamScanHost,
@@ -217,6 +218,28 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             for a in db.execute(select(IpamProviderAccount).where(IpamProviderAccount.id.in_(account_ids))).scalars().all()
         }
     circuit_ids = {c.id for c in circuits}
+    binds = (
+        list(db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.circuit_id.in_(circuit_ids))).scalars().all())
+        if circuit_ids
+        else []
+    )
+    strand_ids = {b.strand_id for b in binds}
+    strands = (
+        {s.id: s for s in db.execute(select(FiberStrand).where(FiberStrand.id.in_(strand_ids))).scalars().all()}
+        if strand_ids
+        else {}
+    )
+    cable_ids = {s.cable_id for s in strands.values()}
+    cables = (
+        {c.id: c for c in db.execute(select(Cable).where(Cable.id.in_(cable_ids))).scalars().all()}
+        if cable_ids
+        else {}
+    )
+    extra_site_ids = {c.site_id for c in cables.values() if c.site_id not in site_by_id}
+    if extra_site_ids:
+        site_by_id.update(
+            {s.id: s for s in db.execute(select(Site).where(Site.id.in_(extra_site_ids))).scalars().all()}
+        )
     vpn_rows = (
         list(db.execute(select(IpamVpnService).where(IpamVpnService.source_circuit_id.in_(circuit_ids))).scalars().all())
         if circuit_ids
@@ -401,6 +424,24 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "cir_mbps": getattr(c, "cir_mbps", None),
             }
             for c in circuits
+        ],
+        "circuit_strands": [
+            {
+                "circuit_number": next((c.circuit_number for c in circuits if c.id == b.circuit_id), None),
+                "site_slug": (
+                    site_by_id[cables[strands[b.strand_id].cable_id].site_id].slug
+                    if b.strand_id in strands
+                    and strands[b.strand_id].cable_id in cables
+                    and cables[strands[b.strand_id].cable_id].site_id in site_by_id
+                    else site.slug
+                ),
+                "cable_slug": cables[strands[b.strand_id].cable_id].slug
+                if b.strand_id in strands and strands[b.strand_id].cable_id in cables
+                else None,
+                "position": strands[b.strand_id].position if b.strand_id in strands else None,
+            }
+            for b in binds
+            if b.strand_id in strands
         ],
         "vpn_services": [
             {

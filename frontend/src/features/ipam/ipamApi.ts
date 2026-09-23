@@ -11,6 +11,7 @@ import type {
   IpamAuditEvent,
   IpamCircuit,
   IpamCircuitGroup,
+  IpamCircuitStrand,
   IpamCircuitTermination,
   IpamContract,
   IpamProvider,
@@ -584,6 +585,18 @@ export function classifyIpamCircuit(
 
 export function listCircuitTerminations(circuitId: number): Promise<IpamCircuitTermination[]> {
   return apiGet(`${P}/circuits/${circuitId}/terminations`);
+}
+
+export function listCircuitStrands(circuitId: number): Promise<IpamCircuitStrand[]> {
+  return apiGet(`${P}/circuits/${circuitId}/strands`);
+}
+
+export function bindCircuitStrand(circuitId: number, strandId: number): Promise<IpamCircuitStrand> {
+  return apiPost(`${P}/circuits/${circuitId}/strands`, { strand_id: strandId });
+}
+
+export function unbindCircuitStrand(bindId: number): Promise<void> {
+  return apiDelete(`${P}/circuit-strands/${bindId}`);
 }
 
 export function upsertCircuitTermination(
