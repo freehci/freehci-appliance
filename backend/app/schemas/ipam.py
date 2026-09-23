@@ -1229,6 +1229,8 @@ class IpamVlanRead(BaseModel):
 
 
 class IpamCircuitCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     tenant_id: int | None = Field(None, ge=1, description="Valgfri; intern WireGuard trenger ikke colo-tenant")
     circuit_number: str = Field(..., min_length=1, max_length=128)
     name: str = Field(..., min_length=1, max_length=255)
@@ -1241,6 +1243,9 @@ class IpamCircuitCreate(BaseModel):
     provider_account_id: int | None = Field(None, ge=1)
     contract_id: int | None = Field(None, ge=1)
     group_id: int | None = Field(None, ge=1)
+    provider_circuit_id: str | None = Field(None, max_length=128)
+    capacity_mbps: int | None = Field(None, ge=1)
+    cir_mbps: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     a_site_id: int | None = Field(None, ge=1)
@@ -1268,6 +1273,8 @@ class IpamCircuitCreate(BaseModel):
 
 
 class IpamCircuitUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     circuit_type: str | None = Field(None, min_length=1, max_length=32)
@@ -1278,6 +1285,9 @@ class IpamCircuitUpdate(BaseModel):
     provider_account_id: int | None = Field(None, ge=1)
     contract_id: int | None = Field(None, ge=1)
     group_id: int | None = Field(None, ge=1)
+    provider_circuit_id: str | None = Field(None, max_length=128)
+    capacity_mbps: int | None = Field(None, ge=1)
+    cir_mbps: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     tenant_id: int | None = Field(None, ge=1)
@@ -1338,6 +1348,9 @@ class IpamCircuitRead(BaseModel):
     provider_account_id: int | None = None
     contract_id: int | None = None
     group_id: int | None = None
+    provider_circuit_id: str | None = None
+    capacity_mbps: int | None = None
+    cir_mbps: int | None = None
     needs_classification: bool = False
     established_on: dt.date | None
     contract_end_on: dt.date | None

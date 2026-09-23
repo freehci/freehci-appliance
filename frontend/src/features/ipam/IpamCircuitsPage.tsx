@@ -60,6 +60,9 @@ export function IpamCircuitsPage() {
   const [providerName, setProviderName] = useState("");
   const [contractId, setContractId] = useState("");
   const [groupId, setGroupId] = useState("");
+  const [providerCircuitId, setProviderCircuitId] = useState("");
+  const [capacityMbps, setCapacityMbps] = useState("");
+  const [cirMbps, setCirMbps] = useState("");
   const [established, setEstablished] = useState("");
   const [contractEnd, setContractEnd] = useState("");
   const [termCircuitId, setTermCircuitId] = useState<number | null>(null);
@@ -170,6 +173,9 @@ export function IpamCircuitsPage() {
         provider_name: providerName.trim() === "" ? null : providerName.trim(),
         contract_id: contractId === "" ? null : Number(contractId),
         group_id: groupId === "" ? null : Number(groupId),
+        provider_circuit_id: providerCircuitId.trim() === "" ? null : providerCircuitId.trim(),
+        capacity_mbps: capacityMbps.trim() === "" ? null : Number(capacityMbps),
+        cir_mbps: cirMbps.trim() === "" ? null : Number(cirMbps),
         established_on: established.trim() === "" ? null : established.trim(),
         contract_end_on: contractEnd.trim() === "" ? null : contractEnd.trim(),
         a_site_id: aSiteId === "" ? null : Number(aSiteId),
@@ -183,6 +189,9 @@ export function IpamCircuitsPage() {
       setProviderId("");
       setContractId("");
       setGroupId("");
+      setProviderCircuitId("");
+      setCapacityMbps("");
+      setCirMbps("");
       setEstablished("");
       setContractEnd("");
       setDrawerOpen(false);
@@ -502,6 +511,8 @@ export function IpamCircuitsPage() {
                     <th>{t("ipam.circuits.provider")}</th>
                     <th>{t("ipam.circuits.contract")}</th>
                     <th>{t("ipam.circuits.group")}</th>
+                    <th>{t("ipam.circuits.providerCircuitId")}</th>
+                    <th>{t("ipam.circuits.cirMbps")}</th>
                     <th>{t("ipam.ipv4.actionsCol")}</th>
                   </tr>
                 </thead>
@@ -518,6 +529,12 @@ export function IpamCircuitsPage() {
                       <td>{providerLabel(c, providersQ.data ?? [])}</td>
                       <td>{contractLabel(c, contractsQ.data ?? [])}</td>
                       <td>{groupLabel(c, groupsQ.data ?? [])}</td>
+                      <td>{c.provider_circuit_id ?? "—"}</td>
+                      <td>
+                        {c.cir_mbps != null || c.capacity_mbps != null
+                          ? `${c.cir_mbps ?? "—"} / ${c.capacity_mbps ?? "—"}`
+                          : "—"}
+                      </td>
                       <td>
                         <button
                           type="button"
@@ -1174,6 +1191,19 @@ export function IpamCircuitsPage() {
                 </option>
               ))}
             </select>
+          </label>
+          <label>
+            {t("ipam.circuits.providerCircuitId")}
+            <input value={providerCircuitId} onChange={(e) => setProviderCircuitId(e.target.value)} />
+          </label>
+          <p className={dcimStyles.muted}>{t("ipam.circuits.rateHint")}</p>
+          <label>
+            {t("ipam.circuits.capacityMbps")}
+            <input type="number" min={1} value={capacityMbps} onChange={(e) => setCapacityMbps(e.target.value)} />
+          </label>
+          <label>
+            {t("ipam.circuits.cirMbps")}
+            <input type="number" min={1} value={cirMbps} onChange={(e) => setCirMbps(e.target.value)} />
           </label>
           <label>
             {t("ipam.circuits.providerFreeText")}

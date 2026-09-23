@@ -1779,6 +1779,10 @@ export const nb = {
   "ipam.circuits.hideMembers": "Lukk",
   "ipam.circuits.members": "Samband i gruppen",
   "ipam.circuits.addMember": "Legg til i gruppen",
+  "ipam.circuits.providerCircuitId": "Leverandørens circuit-ID",
+  "ipam.circuits.capacityMbps": "Kapasitet (Mbps)",
+  "ipam.circuits.cirMbps": "CIR (Mbps)",
+  "ipam.circuits.rateHint": "Registrer avtalt kapasitet og CIR. Observert gjennomstrømming lagres ikke.",
 
   "ipam.ipv4.title": "IPv4-prefiks",
   "ipam.ipv4.crumbIpam": "IPAM",

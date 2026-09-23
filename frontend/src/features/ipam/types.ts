@@ -336,6 +336,9 @@ export type IpamCircuit = {
   provider_account_id: number | null;
   contract_id: number | null;
   group_id: number | null;
+  provider_circuit_id: string | null;
+  capacity_mbps: number | null;
+  cir_mbps: number | null;
   needs_classification: boolean;
   established_on: string | null;
   contract_end_on: string | null;

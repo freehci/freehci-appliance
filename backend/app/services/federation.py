@@ -493,6 +493,9 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "provider_name": c.get("provider_name"),
                 "contract_slug": c.get("contract_slug"),
                 "group_slug": c.get("group_slug"),
+                "provider_circuit_id": c.get("provider_circuit_id"),
+                "capacity_mbps": c.get("capacity_mbps"),
+                "cir_mbps": c.get("cir_mbps"),
             }
             for c in raw.get("circuits") or []
             if c.get("circuit_number")

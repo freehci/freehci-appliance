@@ -518,6 +518,9 @@ export function createIpamCircuit(body: {
   provider_account_id?: number | null;
   contract_id?: number | null;
   group_id?: number | null;
+  provider_circuit_id?: string | null;
+  capacity_mbps?: number | null;
+  cir_mbps?: number | null;
   established_on?: string | null;
   contract_end_on?: string | null;
   a_site_id?: number | null;
@@ -539,6 +542,9 @@ export function patchIpamCircuit(
     provider_account_id: number | null;
     contract_id: number | null;
     group_id: number | null;
+    provider_circuit_id: string | null;
+    capacity_mbps: number | null;
+    cir_mbps: number | null;
     established_on: string | null;
     contract_end_on: string | null;
   }>,

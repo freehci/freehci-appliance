@@ -396,6 +396,9 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                     if getattr(c, "group_id", None) and c.group_id in group_by_id
                     else None
                 ),
+                "provider_circuit_id": getattr(c, "provider_circuit_id", None),
+                "capacity_mbps": getattr(c, "capacity_mbps", None),
+                "cir_mbps": getattr(c, "cir_mbps", None),
             }
             for c in circuits
         ],

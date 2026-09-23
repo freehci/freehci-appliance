@@ -522,7 +522,10 @@ class IpamCircuit(Base):
     """
 
     __tablename__ = "ipam_circuits"
-    __table_args__ = (UniqueConstraint("tenant_scope", "circuit_number", name="uq_ipam_circuit_tenant_scope_number"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_scope", "circuit_number", name="uq_ipam_circuit_tenant_scope_number"),
+        UniqueConstraint("provider_id", "provider_circuit_id", name="uq_ipam_circuit_provider_cid"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tenant_id: Mapped[int | None] = mapped_column(
@@ -561,6 +564,9 @@ class IpamCircuit(Base):
         ForeignKey("ipam_circuit_groups.id", ondelete="SET NULL"),
         nullable=True,
     )
+    provider_circuit_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    capacity_mbps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cir_mbps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     established_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     contract_end_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(

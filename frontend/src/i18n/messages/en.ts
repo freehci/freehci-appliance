@@ -1769,6 +1769,10 @@ export const en = {
   "ipam.circuits.hideMembers": "Close",
   "ipam.circuits.members": "Member circuits",
   "ipam.circuits.addMember": "Add to group",
+  "ipam.circuits.providerCircuitId": "Provider circuit ID",
+  "ipam.circuits.capacityMbps": "Capacity (Mbps)",
+  "ipam.circuits.cirMbps": "CIR (Mbps)",
+  "ipam.circuits.rateHint": "Record contracted capacity and CIR. Observed throughput is not stored.",
 
   "ipam.ipv4.title": "IPv4 prefixes",
   "ipam.ipv4.crumbIpam": "IPAM",

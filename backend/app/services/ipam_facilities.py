@@ -541,6 +541,40 @@ def circuit_group_to_read(row: IpamCircuitGroup) -> IpamCircuitGroupRead:
     return IpamCircuitGroupRead.model_validate(row)
 
 
+def require_circuit_rates(*, capacity_mbps: int | None, cir_mbps: int | None) -> None:
+    if capacity_mbps is not None and cir_mbps is not None and cir_mbps > capacity_mbps:
+        raise ipam_error(
+            400,
+            "circuit_cir_exceeds_capacity",
+            "CIR kan ikke være høyere enn kapasitet",
+            capacity_mbps=capacity_mbps,
+            cir_mbps=cir_mbps,
+        )
+
+
+def require_provider_circuit_id(
+    db: Session,
+    *,
+    provider_id: int | None,
+    provider_circuit_id: str | None,
+    exclude_id: int | None = None,
+) -> str | None:
+    cid = provider_circuit_id.strip() if provider_circuit_id else None
+    if not cid:
+        return None
+    if provider_id is None:
+        return cid
+    q = select(IpamCircuit.id).where(
+        IpamCircuit.provider_id == provider_id,
+        IpamCircuit.provider_circuit_id == cid,
+    )
+    if exclude_id is not None:
+        q = q.where(IpamCircuit.id != exclude_id)
+    if db.execute(q).scalar_one_or_none() is not None:
+        raise ipam_error(409, "provider_circuit_id_conflict", "leverandørens circuit-ID finnes allerede")
+    return cid
+
+
 def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
     from app.services.ipam_providers import require_contract_ref, require_provider_refs
 
@@ -559,6 +593,12 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
     group = require_circuit_group_ref(db, group_id=data.group_id, tenant_id=tenant_id)
     if group is not None and tenant_id is None and group.tenant_id is not None:
         tenant_id = group.tenant_id
+    require_circuit_rates(capacity_mbps=data.capacity_mbps, cir_mbps=data.cir_mbps)
+    provider_circuit_id = require_provider_circuit_id(
+        db,
+        provider_id=provider_id,
+        provider_circuit_id=data.provider_circuit_id,
+    )
     row = IpamCircuit(
         tenant_id=tenant_id,
         tenant_scope=int(tenant_id) if tenant_id is not None else 0,
@@ -575,6 +615,9 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
         provider_account_id=data.provider_account_id,
         contract_id=data.contract_id,
         group_id=data.group_id,
+        provider_circuit_id=provider_circuit_id,
+        capacity_mbps=data.capacity_mbps,
+        cir_mbps=data.cir_mbps,
         established_on=data.established_on,
         contract_end_on=data.contract_end_on,
     )
@@ -631,6 +674,22 @@ def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> Ip
         tenant_for_group = data.tenant_id if data.tenant_id is not None else row.tenant_id
         require_circuit_group_ref(db, group_id=data.group_id, tenant_id=tenant_for_group)
         row.group_id = data.group_id
+    if data.capacity_mbps is not None or data.cir_mbps is not None:
+        require_circuit_rates(
+            capacity_mbps=data.capacity_mbps if data.capacity_mbps is not None else row.capacity_mbps,
+            cir_mbps=data.cir_mbps if data.cir_mbps is not None else row.cir_mbps,
+        )
+    if data.capacity_mbps is not None:
+        row.capacity_mbps = data.capacity_mbps
+    if data.cir_mbps is not None:
+        row.cir_mbps = data.cir_mbps
+    if data.provider_circuit_id is not None:
+        row.provider_circuit_id = require_provider_circuit_id(
+            db,
+            provider_id=provider_id,
+            provider_circuit_id=data.provider_circuit_id,
+            exclude_id=row.id,
+        )
     if data.established_on is not None:
         row.established_on = data.established_on
     if data.contract_end_on is not None:
