@@ -9,12 +9,14 @@ from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
 from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamBgpSession, IpamCircuit, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
+from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
     BuildingCreate,
     DeviceInstanceCreate,
+    DeviceInstanceUpdate,
     DeviceModelCreate,
+    DeviceRoleCreate,
     DeviceTypeCreate,
     FloorCreate,
     ManufacturerCreate,
@@ -40,8 +42,19 @@ from app.schemas.ipam import (
     Ipv6AddressEnsure,
     Ipv6PrefixEnsure,
 )
+from app.schemas.platform import (
+    PlatformCloudSubscriptionCreate,
+    PlatformClusterCreate,
+    PlatformClusterMemberCreate,
+    PlatformStoragePoolCreate,
+    PlatformVirtualDiskCreate,
+    PlatformVirtualInterfaceCreate,
+    PlatformVirtualMachineCreate,
+)
+from app.services import catalog as cat_svc
 from app.services import dcim as dcim_svc
 from app.services import ipam as ipam_svc
+from app.services import platform as plat_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
@@ -238,6 +251,20 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
         if found is None:
             dcim_svc.create_device_type(db, DeviceTypeCreate(name=dt.get("name") or dt["slug"], slug=dt["slug"]))
 
+    for role in doc.get("device_roles") or []:
+        slug = str(role.get("slug") or "").strip().lower()
+        if not slug or dcim_svc.get_device_role_by_slug(db, slug) is not None:
+            continue
+        dcim_svc.create_device_role(
+            db,
+            DeviceRoleCreate(
+                name=role.get("name") or slug,
+                slug=slug,
+                kind=role.get("kind") or "other",
+                description=role.get("description"),
+            ),
+        )
+
     for dm in doc.get("device_models") or []:
         mfr = db.execute(select(Manufacturer).where(Manufacturer.name == dm["manufacturer_name"])).scalar_one_or_none()
         dt = None
@@ -261,6 +288,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     for d in doc.get("devices") or []:
         site = _site_by_slug(db, d["site_slug"]) if d.get("site_slug") else None
+        role = dcim_svc.get_device_role_by_slug(db, str(d.get("device_role_slug") or "").strip().lower()) if d.get("device_role_slug") else None
         found = None
         if site is not None:
             found = db.execute(
@@ -280,10 +308,13 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
                     name=d["name"],
                     site_id=site.id if site else None,
                     device_model_id=model.id if model else None,
+                    device_role_id=role.id if role is not None else None,
                     serial_number=d.get("serial_number"),
                     asset_tag=d.get("asset_tag"),
                 ),
             )
+        elif role is not None and found.device_role_id != role.id:
+            dcim_svc.update_device(db, found, DeviceInstanceUpdate(device_role_id=role.id))
 
     for p in doc.get("placements") or []:
         site = _site_by_slug(db, p["site_slug"])
@@ -315,6 +346,9 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     site_by_slug = {s.slug: s for s in db.execute(select(Site)).scalars().all()}
     pwr_svc.apply_from_document(db, doc, site_by_slug=site_by_slug)
+    _apply_platform(db, doc)
+    _bind_vif_ipv4(db, doc)
+    _apply_catalog(db, doc)
 
 
 def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
@@ -519,4 +553,205 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 address_families=s.get("address_families") or ["ipv4-unicast"],
                 desired_status=s.get("desired_status") or "planned",
             ),
+        )
+
+
+def _device_by_site_name(db: Session, site_slug: str | None, name: str | None) -> DeviceInstance | None:
+    if not name:
+        return None
+    site = _site_by_slug(db, site_slug) if site_slug else None
+    if site is None:
+        return None
+    return db.execute(
+        select(DeviceInstance).where(DeviceInstance.site_id == site.id, DeviceInstance.name == name),
+    ).scalar_one_or_none()
+
+
+def _ipv4_on_site(db: Session, site_id: int, address: str) -> IpamIpv4Address | None:
+    return db.execute(
+        select(IpamIpv4Address)
+        .join(IpamIpv4Prefix, IpamIpv4Address.ipv4_prefix_id == IpamIpv4Prefix.id)
+        .where(IpamIpv4Prefix.site_id == site_id, IpamIpv4Address.address == address),
+    ).scalar_one_or_none()
+
+
+def _apply_platform(db: Session, doc: dict[str, Any]) -> None:
+    for cloud in doc.get("cloud_subscriptions") or []:
+        slug = str(cloud.get("slug") or "").strip()
+        if not slug or plat_svc.get_cloud_by_slug(db, slug) is not None:
+            continue
+        plat_svc.create_cloud_subscription(
+            db,
+            PlatformCloudSubscriptionCreate(
+                name=cloud.get("name") or slug,
+                slug=slug,
+                kind=cloud.get("kind") or "other",
+                status=cloud.get("status") or "planned",
+                description=cloud.get("description"),
+            ),
+        )
+    for c in doc.get("clusters") or []:
+        slug = str(c.get("slug") or "").strip()
+        if not slug:
+            continue
+        site = _site_by_slug(db, c["site_slug"]) if c.get("site_slug") else None
+        cluster = plat_svc.get_cluster_by_slug(db, slug)
+        if cluster is None:
+            cluster = plat_svc.create_cluster(
+                db,
+                PlatformClusterCreate(
+                    name=c.get("name") or slug,
+                    slug=slug,
+                    kind=c.get("kind") or "other",
+                    site_id=site.id if site is not None else None,
+                    description=c.get("description"),
+                ),
+            )
+        for member in c.get("members") or []:
+            device = _device_by_site_name(db, member.get("site_slug"), member.get("device_name"))
+            if device is None or plat_svc.device_is_member(db, cluster.id, device.id):
+                continue
+            plat_svc.add_member(
+                db,
+                cluster,
+                PlatformClusterMemberCreate(device_id=device.id, role=member.get("role") or "node"),
+            )
+        for pool in c.get("storage_pools") or []:
+            pslug = str(pool.get("slug") or "").strip()
+            if not pslug or plat_svc.get_storage_pool_by_slug(db, pslug) is not None:
+                continue
+            plat_svc.create_storage_pool(
+                db,
+                cluster,
+                PlatformStoragePoolCreate(
+                    name=pool.get("name") or pslug,
+                    slug=pslug,
+                    kind=pool.get("kind") or "other",
+                    status=pool.get("status") or "planned",
+                ),
+            )
+        for vm in c.get("vms") or []:
+            vslug = str(vm.get("slug") or "").strip()
+            if not vslug:
+                continue
+            existing_vm = plat_svc.get_vm_by_slug(db, vslug)
+            if existing_vm is None:
+                device = _device_by_site_name(db, vm.get("site_slug"), vm.get("device_name"))
+                existing_vm = plat_svc.create_vm(
+                    db,
+                    cluster,
+                    PlatformVirtualMachineCreate(
+                        name=vm.get("name") or vslug,
+                        slug=vslug,
+                        device_id=device.id if device is not None else None,
+                        status=vm.get("status") or "planned",
+                    ),
+                )
+            for iface in vm.get("interfaces") or []:
+                islug = str(iface.get("slug") or "").strip()
+                if not islug or plat_svc.get_vif_by_slug(db, islug) is not None:
+                    continue
+                plat_svc.create_vif(
+                    db,
+                    cluster,
+                    existing_vm,
+                    PlatformVirtualInterfaceCreate(
+                        name=iface.get("name") or islug,
+                        slug=islug,
+                        status=iface.get("status") or "planned",
+                    ),
+                )
+            for disk in vm.get("disks") or []:
+                dslug = str(disk.get("slug") or "").strip()
+                if not dslug or plat_svc.get_disk_by_slug(db, dslug) is not None:
+                    continue
+                pool = plat_svc.get_storage_pool_by_slug(db, disk["storage_pool_slug"]) if disk.get("storage_pool_slug") else None
+                plat_svc.create_disk(
+                    db,
+                    cluster,
+                    existing_vm,
+                    PlatformVirtualDiskCreate(
+                        name=disk.get("name") or dslug,
+                        slug=dslug,
+                        kind=disk.get("kind") or "other",
+                        status=disk.get("status") or "planned",
+                        storage_pool_id=pool.id if pool is not None else None,
+                    ),
+                )
+
+
+def _bind_vif_ipv4(db: Session, doc: dict[str, Any]) -> None:
+    changed = False
+    for ipam in doc.get("ipam") or []:
+        site_slug = (ipam.get("site") or {}).get("slug")
+        site = _site_by_slug(db, site_slug) if site_slug else None
+        if site is None:
+            continue
+        for a in ipam.get("addresses") or []:
+            vif_slug = str(a.get("virtual_interface_slug") or "").strip()
+            address = str(a.get("address") or "").strip()
+            if not vif_slug or not address:
+                continue
+            vif = plat_svc.get_vif_by_slug(db, vif_slug)
+            row = _ipv4_on_site(db, site.id, address)
+            if vif is None or row is None:
+                continue
+            if row.virtual_interface_id != vif.id:
+                row.virtual_interface_id = vif.id
+                changed = True
+    if changed:
+        db.commit()
+
+
+def _apply_catalog(db: Session, doc: dict[str, Any]) -> None:
+    for tpl in doc.get("catalog_templates") or []:
+        slug = str(tpl.get("slug") or "").strip()
+        if not slug:
+            continue
+        cat_svc.ensure_template(
+            db,
+            slug=slug,
+            name=tpl.get("name") or slug,
+            description=tpl.get("description"),
+            versions=list(tpl.get("versions") or []),
+        )
+    for inst in doc.get("catalog_instances") or []:
+        slug = str(inst.get("slug") or "").strip()
+        if not slug or cat_svc.get_instance_by_slug(db, slug) is not None:
+            continue
+        tpl = cat_svc.get_template_by_slug(db, str(inst.get("template_slug") or "").strip())
+        if tpl is None:
+            continue
+        wanted = str(inst.get("template_version") or "").strip()
+        version = next((v for v in tpl.versions if v.version == wanted), None) if wanted else None
+        if version is None and tpl.versions:
+            version = sorted(tpl.versions, key=lambda v: v.id)[0]
+        if version is None:
+            continue
+        device = _device_by_site_name(db, inst.get("site_slug"), inst.get("device_name"))
+        cluster = plat_svc.get_cluster_by_slug(db, inst["cluster_slug"]) if inst.get("cluster_slug") else None
+        vm = plat_svc.get_vm_by_slug(db, inst["vm_slug"]) if inst.get("vm_slug") else None
+        pool = plat_svc.get_storage_pool_by_slug(db, inst["storage_pool_slug"]) if inst.get("storage_pool_slug") else None
+        iface = plat_svc.get_vif_by_slug(db, inst["virtual_interface_slug"]) if inst.get("virtual_interface_slug") else None
+        disk = plat_svc.get_disk_by_slug(db, inst["virtual_disk_slug"]) if inst.get("virtual_disk_slug") else None
+        cloud = plat_svc.get_cloud_by_slug(db, inst["cloud_subscription_slug"]) if inst.get("cloud_subscription_slug") else None
+        addr = None
+        if inst.get("ipv4_address") and inst.get("site_slug"):
+            site = _site_by_slug(db, inst["site_slug"])
+            if site is not None:
+                addr = _ipv4_on_site(db, site.id, str(inst["ipv4_address"]))
+        cat_svc.import_instance(
+            db,
+            slug=slug,
+            name=inst.get("name") or slug,
+            status=inst.get("status") or "active",
+            template_version=version,
+            device_id=device.id if device is not None else None,
+            cluster_id=cluster.id if cluster is not None else None,
+            vm_id=vm.id if vm is not None else None,
+            storage_pool_id=pool.id if pool is not None else None,
+            virtual_interface_id=iface.id if iface is not None else None,
+            virtual_disk_id=disk.id if disk is not None else None,
+            cloud_subscription_id=cloud.id if cloud is not None else None,
+            ipv4_address_id=addr.id if addr is not None else None,
         )

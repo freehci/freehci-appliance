@@ -1502,3 +1502,110 @@ def run_deployment(db: Session, row: ServiceDeployment) -> ServiceDeployment:
 
 def list_instances(db: Session) -> list[ServiceInstance]:
     return list(db.execute(select(ServiceInstance).order_by(ServiceInstance.id.desc())).scalars().all())
+
+
+def get_template_by_slug(db: Session, slug: str) -> ServiceTemplate | None:
+    return db.execute(
+        select(ServiceTemplate)
+        .options(selectinload(ServiceTemplate.versions))
+        .where(ServiceTemplate.slug == slug)
+    ).scalar_one_or_none()
+
+
+def get_instance_by_slug(db: Session, slug: str) -> ServiceInstance | None:
+    return db.execute(select(ServiceInstance).where(ServiceInstance.slug == slug)).scalar_one_or_none()
+
+
+def ensure_template(
+    db: Session,
+    *,
+    slug: str,
+    name: str,
+    description: str | None,
+    versions: list[dict],
+) -> ServiceTemplate:
+    """Idempotent katalogmal etter slug. Oppretter manglende versjoner, uten å kjøre deploy."""
+    slug_n = _slugify(slug or name)
+    row = get_template_by_slug(db, slug_n)
+    if row is None:
+        row = ServiceTemplate(
+            name=(name or slug_n).strip()[:255],
+            slug=slug_n,
+            description=(description or "").strip() or None,
+        )
+        db.add(row)
+        db.flush()
+    for item in versions:
+        ver = str(item.get("version") or "").strip()
+        if not ver:
+            continue
+        exists = db.execute(
+            select(ServiceTemplateVersion.id).where(
+                ServiceTemplateVersion.template_id == row.id,
+                ServiceTemplateVersion.version == ver,
+            )
+        ).scalar_one_or_none()
+        if exists:
+            continue
+        spec = ServiceTemplateSpec.model_validate(item.get("spec") or {})
+        db.add(ServiceTemplateVersion(template_id=row.id, version=ver, spec=_spec_dict(spec)))
+    db.commit()
+    loaded = _load_template(db, row.id)
+    assert loaded is not None
+    return loaded
+
+
+def import_instance(
+    db: Session,
+    *,
+    slug: str,
+    name: str,
+    status: str,
+    template_version: ServiceTemplateVersion,
+    device_id: int | None = None,
+    cluster_id: int | None = None,
+    vm_id: int | None = None,
+    storage_pool_id: int | None = None,
+    virtual_interface_id: int | None = None,
+    virtual_disk_id: int | None = None,
+    cloud_subscription_id: int | None = None,
+    ipv4_address_id: int | None = None,
+) -> ServiceInstance:
+    """Registrer en tjenesteinstans uten å kjøre deployment-steg."""
+    slug_n = _slugify(slug or name)
+    existing = get_instance_by_slug(db, slug_n)
+    if existing is not None:
+        return existing
+    dep = ServiceDeployment(
+        template_version_id=template_version.id,
+        device_id=device_id,
+        cluster_id=cluster_id,
+        vm_id=vm_id,
+        storage_pool_id=storage_pool_id,
+        virtual_interface_id=virtual_interface_id,
+        virtual_disk_id=virtual_disk_id,
+        cloud_subscription_id=cloud_subscription_id,
+        status="imported",
+        plan_json={"source": "federation"},
+    )
+    db.add(dep)
+    db.flush()
+    inst = ServiceInstance(
+        name=(name or slug_n).strip()[:255],
+        slug=slug_n,
+        template_version_id=template_version.id,
+        deployment_id=dep.id,
+        device_id=device_id,
+        cluster_id=cluster_id,
+        vm_id=vm_id,
+        storage_pool_id=storage_pool_id,
+        virtual_interface_id=virtual_interface_id,
+        virtual_disk_id=virtual_disk_id,
+        cloud_subscription_id=cloud_subscription_id,
+        ipv4_address_id=ipv4_address_id,
+        status=(status or "active").strip() or "active",
+    )
+    db.add(inst)
+    db.commit()
+    db.refresh(inst)
+    return inst

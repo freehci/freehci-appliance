@@ -1943,7 +1943,7 @@ export const en = {
     "The dell.idrac plugin is always loaded. On a server-type DCIM device, set attributes: idrac_host (or use primary IPv4), idrac_username, idrac_password. Optional: env IDRAC_REDFISH_TLS_VERIFY=true for strict TLS.",
   "integrations.replicasTitle": "Replicas",
   "integrations.replicasIntro":
-    "One writer per tenant. Pair two appliances, then pull inventory to a replica. Promote only after a checksum match.",
+    "One writer per tenant. Pair two appliances, then pull inventory to a replica. The snapshot includes DCIM, IPAM, platform and catalog by slug — not pairing secrets or deployment runs.",
   "integrations.thisInstance": "This instance",
   "integrations.addReplica": "Add replica",
   "integrations.addReplicaHint":

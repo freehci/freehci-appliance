@@ -199,6 +199,17 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         else {}
     )
     tenant_slug = site.tenant.slug if getattr(site, "tenant", None) is not None else None
+    vif_ids = {a.virtual_interface_id for a in addrs if getattr(a, "virtual_interface_id", None)}
+    vif_by_id: dict[int, Any] = {}
+    if vif_ids:
+        from app.models.platform import PlatformVirtualInterface
+
+        vif_by_id = {
+            v.id: v
+            for v in db.execute(
+                select(PlatformVirtualInterface).where(PlatformVirtualInterface.id.in_(vif_ids))
+            ).scalars().all()
+        }
     return {
         "apiVersion": "freehci.ipam/v1",
         "kind": "SiteIpam",
@@ -248,6 +259,11 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "ipv4_prefix_id": a.ipv4_prefix_id,
                 "prefix_cidr": prefix_by_id[a.ipv4_prefix_id].cidr if a.ipv4_prefix_id in prefix_by_id else None,
                 "site_slug": site.slug,
+                "virtual_interface_slug": (
+                    vif_by_id[a.virtual_interface_id].slug
+                    if getattr(a, "virtual_interface_id", None) and a.virtual_interface_id in vif_by_id
+                    else None
+                ),
             }
             for a in addrs
             if a.status in _HELD

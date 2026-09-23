@@ -1953,7 +1953,7 @@ export const nb = {
     "Pluginen dell.idrac er alltid lastet. For DCIM-enhet av type server: sett attributes idrac_host (eller bruk primær IPv4), idrac_username, idrac_password. Valgfritt: miljøvariabel IDRAC_REDFISH_TLS_VERIFY=true for streng TLS.",
   "integrations.replicasTitle": "Replikaer",
   "integrations.replicasIntro":
-    "Én skriver per tenant. Par to appliances, og hent inventar til replika. Promote bare når sjekksum matcher.",
+    "Én skriver per tenant. Par to appliances, og hent inventar til replika. Snapshot tar med DCIM, IPAM, plattform og katalog etter slug — ikke paringsnøkler eller kjøringer.",
   "integrations.thisInstance": "Denne instansen",
   "integrations.addReplica": "Legg til replika",
   "integrations.addReplicaHint":

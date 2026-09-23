@@ -1372,6 +1372,10 @@ def get_device_role(db: Session, rid: int) -> DeviceRole | None:
     return db.get(DeviceRole, rid)
 
 
+def get_device_role_by_slug(db: Session, slug: str) -> DeviceRole | None:
+    return db.execute(select(DeviceRole).where(DeviceRole.slug == slug)).scalar_one_or_none()
+
+
 def create_device_role(db: Session, data: DeviceRoleCreate) -> DeviceRole:
     existing = db.execute(select(DeviceRole).where(DeviceRole.slug == data.slug)).scalar_one_or_none()
     if existing is not None:

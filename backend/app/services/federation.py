@@ -17,7 +17,10 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
-from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.catalog import ServiceInstance, ServiceTemplate
+from app.models.dcim import Building, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.ipam import IpamIpv4Address
+from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
 from app.models.tenant import Tenant
 from app.schemas.federation import (
@@ -33,8 +36,10 @@ from app.schemas.federation import (
     FederationStatusRead,
     FederationTenantRoleRead,
 )
+from app.services import catalog as cat_svc
 from app.services import dcim_power as pwr_svc
 from app.services import ipam_sync
+from app.services import platform as plat_svc
 from app.services.auth_admin import create_api_token, ensure_default_admin
 from app.services.federation_apply import apply_tenant_document
 from app.services.federation_guard import apply_mode
@@ -55,6 +60,18 @@ _STRIP_KEYS = frozenset(
         "dual_stack_group_id",
         "a_site_id",
         "z_site_id",
+        "cluster_id",
+        "vm_id",
+        "device_id",
+        "device_role_id",
+        "storage_pool_id",
+        "virtual_interface_id",
+        "virtual_disk_id",
+        "cloud_subscription_id",
+        "template_version_id",
+        "template_id",
+        "deployment_id",
+        "ipv4_address_id",
     },
 )
 
@@ -391,6 +408,7 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "note": a.get("note"),
                 "prefix_cidr": a.get("prefix_cidr"),
                 "site_slug": site.slug,
+                "virtual_interface_slug": a.get("virtual_interface_slug"),
             },
         )
     v6_addrs = []
@@ -535,6 +553,9 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
     room_by_id = {r.id: r for r in rooms}
     rack_by_id = {k.id: k for k in racks}
     device_by_id = {d.id: d for d in devices}
+    role_ids = {d.device_role_id for d in devices if getattr(d, "device_role_id", None)}
+    roles = list(db.execute(select(DeviceRole).where(DeviceRole.id.in_(role_ids))).scalars().all()) if role_ids else []
+    role_by_id = {r.id: r for r in roles}
 
     return {
         "apiVersion": "freehci.inventory/v1",
@@ -632,6 +653,11 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
                     and model_by_id[d.device_model_id].manufacturer_id in mfr_by_id
                     else None
                 ),
+                "device_role_slug": (
+                    role_by_id[d.device_role_id].slug
+                    if getattr(d, "device_role_id", None) and d.device_role_id in role_by_id
+                    else None
+                ),
             }
             for d in devices
         ],
@@ -648,7 +674,199 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
             if p.rack_id in rack_by_id and p.device_id in device_by_id
         ],
         "ipam": [_ipam_for_site(db, s) for s in sites],
+        "device_roles": [
+            {"slug": r.slug, "name": r.name, "kind": r.kind, "description": r.description} for r in roles
+        ],
+        **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **pwr_svc.export_for_sites(db, sites),
+    }
+
+
+def _export_platform_catalog(
+    db: Session,
+    *,
+    sites: list[Site],
+    devices: list[DeviceInstance],
+    site_by_id: dict[int, Site],
+    device_by_id: dict[int, DeviceInstance],
+) -> dict[str, Any]:
+    site_ids = {s.id for s in sites}
+    device_ids = {d.id for d in devices}
+    clusters: list[PlatformCluster] = []
+    for cluster in plat_svc.list_clusters(db):
+        if cluster.site_id and int(cluster.site_id) in site_ids:
+            clusters.append(cluster)
+            continue
+        if any(m.device_id in device_ids for m in cluster.members):
+            clusters.append(cluster)
+    cluster_ids = {c.id for c in clusters}
+    cluster_by_id = {c.id: c for c in clusters}
+
+    vm_by_id: dict[int, PlatformVirtualMachine] = {}
+    pool_by_id: dict[int, Any] = {}
+    vif_by_id: dict[int, Any] = {}
+    disk_by_id: dict[int, PlatformVirtualDisk] = {}
+    for cluster in clusters:
+        for pool in cluster.storage_pools:
+            pool_by_id[pool.id] = pool
+        for vm in cluster.vms:
+            vm_by_id[vm.id] = vm
+            for iface in vm.interfaces:
+                vif_by_id[iface.id] = iface
+            for disk in vm.disks:
+                disk_by_id[disk.id] = disk
+
+    instances: list[ServiceInstance] = []
+    for inst in cat_svc.list_instances(db):
+        if inst.device_id and inst.device_id in device_ids:
+            instances.append(inst)
+            continue
+        if inst.cluster_id and inst.cluster_id in cluster_ids:
+            instances.append(inst)
+            continue
+        if inst.vm_id and inst.vm_id in vm_by_id:
+            instances.append(inst)
+            continue
+        if inst.virtual_interface_id and inst.virtual_interface_id in vif_by_id:
+            instances.append(inst)
+            continue
+        if inst.virtual_disk_id and inst.virtual_disk_id in disk_by_id:
+            instances.append(inst)
+            continue
+        if inst.storage_pool_id and inst.storage_pool_id in pool_by_id:
+            instances.append(inst)
+
+    version_ids = {i.template_version_id for i in instances}
+    templates: list[ServiceTemplate] = []
+    seen_tpl: set[int] = set()
+    for tpl in cat_svc.list_templates(db):
+        if any(v.id in version_ids for v in tpl.versions) and tpl.id not in seen_tpl:
+            templates.append(tpl)
+            seen_tpl.add(tpl.id)
+
+    cloud_ids = {i.cloud_subscription_id for i in instances if i.cloud_subscription_id}
+    clouds = (
+        list(db.execute(select(PlatformCloudSubscription).where(PlatformCloudSubscription.id.in_(cloud_ids))).scalars().all())
+        if cloud_ids
+        else []
+    )
+    cloud_by_id = {c.id: c for c in clouds}
+    addr_ids = {i.ipv4_address_id for i in instances if i.ipv4_address_id}
+    addr_by_id = (
+        {a.id: a for a in db.execute(select(IpamIpv4Address).where(IpamIpv4Address.id.in_(addr_ids))).scalars().all()}
+        if addr_ids
+        else {}
+    )
+
+    def _device_ref(device_id: int | None) -> tuple[str | None, str | None]:
+        if not device_id or device_id not in device_by_id:
+            return None, None
+        device = device_by_id[device_id]
+        site_slug = site_by_id[device.site_id].slug if device.site_id and device.site_id in site_by_id else None
+        return device.name, site_slug
+
+    cluster_docs = []
+    for cluster in clusters:
+        members = []
+        for member in cluster.members:
+            name, site_slug = _device_ref(member.device_id)
+            if not name:
+                continue
+            members.append({"device_name": name, "site_slug": site_slug, "role": member.role})
+        vms = []
+        for vm in cluster.vms:
+            dname, dsite = _device_ref(vm.device_id)
+            vms.append(
+                {
+                    "slug": vm.slug,
+                    "name": vm.name,
+                    "status": vm.status,
+                    "device_name": dname,
+                    "site_slug": dsite,
+                    "interfaces": [{"slug": i.slug, "name": i.name, "status": i.status} for i in vm.interfaces],
+                    "disks": [
+                        {
+                            "slug": d.slug,
+                            "name": d.name,
+                            "kind": d.kind,
+                            "status": d.status,
+                            "storage_pool_slug": pool_by_id[d.storage_pool_id].slug if d.storage_pool_id in pool_by_id else None,
+                        }
+                        for d in vm.disks
+                    ],
+                }
+            )
+        cluster_docs.append(
+            {
+                "slug": cluster.slug,
+                "name": cluster.name,
+                "kind": cluster.kind,
+                "description": cluster.description,
+                "site_slug": site_by_id[cluster.site_id].slug if cluster.site_id and cluster.site_id in site_by_id else None,
+                "members": members,
+                "storage_pools": [
+                    {"slug": p.slug, "name": p.name, "kind": p.kind, "status": p.status} for p in cluster.storage_pools
+                ],
+                "vms": vms,
+            }
+        )
+
+    instance_docs = []
+    tpl_by_version: dict[int, tuple[ServiceTemplate, Any]] = {}
+    for tpl in templates:
+        for ver in tpl.versions:
+            tpl_by_version[ver.id] = (tpl, ver)
+    for inst in instances:
+        pair = tpl_by_version.get(inst.template_version_id)
+        dname, dsite = _device_ref(inst.device_id)
+        cluster = cluster_by_id.get(inst.cluster_id) if inst.cluster_id else None
+        vm = vm_by_id.get(inst.vm_id) if inst.vm_id else None
+        iface = vif_by_id.get(inst.virtual_interface_id) if inst.virtual_interface_id else None
+        disk = disk_by_id.get(inst.virtual_disk_id) if inst.virtual_disk_id else None
+        pool = pool_by_id.get(inst.storage_pool_id) if inst.storage_pool_id else None
+        cloud = cloud_by_id.get(inst.cloud_subscription_id) if inst.cloud_subscription_id else None
+        addr = addr_by_id.get(inst.ipv4_address_id) if inst.ipv4_address_id else None
+        instance_docs.append(
+            {
+                "slug": inst.slug,
+                "name": inst.name,
+                "status": inst.status,
+                "template_slug": pair[0].slug if pair else None,
+                "template_version": pair[1].version if pair else None,
+                "device_name": dname,
+                "site_slug": dsite,
+                "cluster_slug": cluster.slug if cluster else None,
+                "vm_slug": vm.slug if vm else None,
+                "storage_pool_slug": pool.slug if pool else None,
+                "virtual_interface_slug": iface.slug if iface else None,
+                "virtual_disk_slug": disk.slug if disk else None,
+                "cloud_subscription_slug": cloud.slug if cloud else None,
+                "ipv4_address": addr.address if addr else None,
+            }
+        )
+
+    return {
+        "clusters": cluster_docs,
+        "cloud_subscriptions": [
+            {
+                "slug": c.slug,
+                "name": c.name,
+                "kind": c.kind,
+                "status": c.status,
+                "description": c.description,
+            }
+            for c in clouds
+        ],
+        "catalog_templates": [
+            {
+                "slug": t.slug,
+                "name": t.name,
+                "description": t.description,
+                "versions": [{"version": v.version, "spec": v.spec if isinstance(v.spec, dict) else {}} for v in t.versions],
+            }
+            for t in templates
+        ],
+        "catalog_instances": instance_docs,
     }
 
 
