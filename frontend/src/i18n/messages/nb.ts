@@ -2040,7 +2040,7 @@ export const nb = {
 
   "catalog.title": "Servicekatalog",
   "catalog.intro":
-    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans, clustermedlemskap, VM, lagringspool, virtuelt grensesnitt, disk eller skyabonnement. De installerer ikke OS, oppretter ikke en gjest, provisionerer ikke LUN, finner ikke opp MAC og finner ikke opp skykostnad.",
+    "Én vertikal flyt: velg servere, versjonert mal, plan, deretter kjør. Kind registrerer enhetsinstans, clustermedlemskap, VM, lagringspool, virtuelt grensesnitt, disk eller skyabonnement. De installerer ikke OS, oppretter ikke en gjest, provisionerer ikke LUN, finner ikke opp MAC og finner ikke opp skykostnad. Et virtuelt grensesnitt kan reservere IPv4 uten å finne opp MAC.",
   "catalog.tabs": "Katalogseksjoner",
   "catalog.tabTemplates": "Maler",
   "catalog.tabDeploy": "Deploy",
@@ -2099,6 +2099,9 @@ export const nb = {
   "platform.vm": "Virtuell maskin",
   "platform.noVifs": "ingen grensesnitt",
   "platform.vifName": "Grensesnittnavn",
+  "platform.assignVifIpv4": "Reserver IPv4 på grensesnitt",
+  "platform.vifIpv4Hint":
+    "Reserverer en adresse på et eksisterende virtuelt grensesnitt. Finner ikke opp MAC og oppretter ikke NIC.",
   "platform.addVif": "Registrer grensesnitt",
   "platform.noDisks": "ingen disker",
   "platform.diskName": "Disknavn",

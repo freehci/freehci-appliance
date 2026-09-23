@@ -72,6 +72,15 @@ class PlatformVirtualMachineCreate(BaseModel):
         return s
 
 
+class PlatformVifIpv4Read(BaseModel):
+    id: int
+    address: str
+
+
+class PlatformVifIpv4Assign(BaseModel):
+    ipv4_prefix_id: int = Field(..., ge=1)
+
+
 class PlatformVirtualInterfaceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -81,6 +90,7 @@ class PlatformVirtualInterfaceRead(BaseModel):
     vm_id: int
     status: str
     created_at: dt.datetime
+    ipv4_addresses: list[PlatformVifIpv4Read] = Field(default_factory=list)
 
 
 class PlatformVirtualInterfaceCreate(BaseModel):

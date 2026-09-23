@@ -12,6 +12,11 @@ export type PlatformClusterMember = {
   created_at: string;
 };
 
+export type PlatformVifIpv4 = {
+  id: number;
+  address: string;
+};
+
 export type PlatformVirtualInterface = {
   id: number;
   name: string;
@@ -19,6 +24,7 @@ export type PlatformVirtualInterface = {
   vm_id: number;
   status: string;
   created_at: string;
+  ipv4_addresses?: PlatformVifIpv4[];
 };
 
 export type PlatformVirtualMachine = {
@@ -111,6 +117,15 @@ export function createVif(
   body: { name: string; slug?: string | null; status?: string },
 ): Promise<PlatformVirtualInterface> {
   return apiPost(`${P}/${clusterId}/vms/${vmId}/interfaces`, body);
+}
+
+export function assignVifIpv4(
+  clusterId: number,
+  vmId: number,
+  ifaceId: number,
+  body: { ipv4_prefix_id: number },
+): Promise<{ id: number; address: string; virtual_interface_id: number | null; mac_address: string | null }> {
+  return apiPost(`${P}/${clusterId}/vms/${vmId}/interfaces/${ifaceId}/ipv4`, body);
 }
 
 export function createDisk(

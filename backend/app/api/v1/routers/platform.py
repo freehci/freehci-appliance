@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.schemas.ipam import Ipv4AddressRead
 from app.schemas.platform import (
     PlatformCloudSubscriptionCreate,
     PlatformCloudSubscriptionRead,
@@ -15,6 +16,7 @@ from app.schemas.platform import (
     PlatformStoragePoolRead,
     PlatformVirtualDiskCreate,
     PlatformVirtualDiskRead,
+    PlatformVifIpv4Assign,
     PlatformVirtualInterfaceCreate,
     PlatformVirtualInterfaceRead,
     PlatformVirtualMachineCreate,
@@ -27,12 +29,12 @@ router = APIRouter(prefix="/clusters", tags=["platform"])
 
 @router.get("", response_model=list[PlatformClusterRead])
 def list_clusters(db: Session = Depends(get_db)) -> list[PlatformClusterRead]:
-    return [plat_svc.cluster_to_read(r) for r in plat_svc.list_clusters(db)]
+    return [plat_svc.cluster_to_read(db, r) for r in plat_svc.list_clusters(db)]
 
 
 @router.post("", response_model=PlatformClusterRead)
 def create_cluster(data: PlatformClusterCreate, db: Session = Depends(get_db)) -> PlatformClusterRead:
-    return plat_svc.cluster_to_read(plat_svc.create_cluster(db, data))
+    return plat_svc.cluster_to_read(db, plat_svc.create_cluster(db, data))
 
 
 @router.get("/{cluster_id}", response_model=PlatformClusterRead)
@@ -40,7 +42,7 @@ def get_cluster(cluster_id: int, db: Session = Depends(get_db)) -> PlatformClust
     row = plat_svc.get_cluster(db, cluster_id)
     if row is None:
         raise HTTPException(status_code=404, detail="cluster ikke funnet")
-    return plat_svc.cluster_to_read(row)
+    return plat_svc.cluster_to_read(db, row)
 
 
 @router.delete("/{cluster_id}", status_code=204)
@@ -125,6 +127,26 @@ def create_vif(
     if vm is None:
         raise HTTPException(status_code=404, detail="vm ikke funnet")
     return plat_svc.vif_to_read(plat_svc.create_vif(db, cluster, vm, data))
+
+
+@router.post("/{cluster_id}/vms/{vm_id}/interfaces/{iface_id}/ipv4", response_model=Ipv4AddressRead)
+def assign_vif_ipv4(
+    cluster_id: int,
+    vm_id: int,
+    iface_id: int,
+    data: PlatformVifIpv4Assign,
+    db: Session = Depends(get_db),
+) -> Ipv4AddressRead:
+    cluster = plat_svc.get_cluster(db, cluster_id)
+    if cluster is None:
+        raise HTTPException(status_code=404, detail="cluster ikke funnet")
+    vm = plat_svc.get_vm(db, vm_id)
+    if vm is None:
+        raise HTTPException(status_code=404, detail="vm ikke funnet")
+    iface = plat_svc.get_vif(db, iface_id)
+    if iface is None:
+        raise HTTPException(status_code=404, detail="virtuelt grensesnitt ikke funnet")
+    return plat_svc.assign_vif_ipv4(db, cluster, vm, iface, data)
 
 
 @router.delete("/{cluster_id}/vms/{vm_id}/interfaces/{iface_id}", status_code=204)

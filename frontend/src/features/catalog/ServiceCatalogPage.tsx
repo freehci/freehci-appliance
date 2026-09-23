@@ -80,7 +80,7 @@ export function ServiceCatalogPage() {
     mutationFn: () =>
       api.createTemplate({
         name: name.trim(),
-        spec: { kind, reserve_ipv4: kind === "device_instance" ? reserve : false },
+        spec: { kind, reserve_ipv4: kind === "device_instance" || kind === "virtual_interface" ? reserve : false },
       }),
     onSuccess: () => {
       setErr(null);
@@ -111,6 +111,7 @@ export function ServiceCatalogPage() {
             template_version_id: Number(versionId),
             vm_id: Number(targetVmId),
             name: clusterName.trim(),
+            ipv4_prefix_id: prefixId ? Number(prefixId) : null,
           })
         : isStorage
         ? api.createDeployment({
@@ -201,7 +202,7 @@ export function ServiceCatalogPage() {
                   <option value="cloud_subscription">{t("catalog.kindCloud")}</option>
                 </select>
               </label>
-              {kind === "device_instance" ? (
+              {kind === "device_instance" || kind === "virtual_interface" ? (
                 <label>
                   {t("catalog.reserveIpv4")}
                   <input type="checkbox" checked={reserve} onChange={(e) => setReserve(e.target.checked)} />
@@ -357,6 +358,17 @@ export function ServiceCatalogPage() {
                   <label>
                     {t("platform.vifName")}
                     <input value={clusterName} onChange={(e) => setClusterName(e.target.value)} />
+                  </label>
+                  <label>
+                    {t("catalog.prefixOptional")}
+                    <select value={prefixId} onChange={(e) => setPrefixId(e.target.value)}>
+                      <option value="">{t("dcim.common.none")}</option>
+                      {(pfxQ.data ?? []).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.cidr} {p.name}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </>
               ) : isStorage ? (

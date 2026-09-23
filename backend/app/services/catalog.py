@@ -461,8 +461,11 @@ def build_vif_plan(
     version: ServiceTemplateVersion,
     vm_id: int | None,
     name: str | None,
+    prefix_id: int | None = None,
 ) -> dict:
     template = db.get(ServiceTemplate, version.template_id)
+    spec = version.spec if isinstance(version.spec, dict) else {}
+    reserve = bool(spec.get("reserve_ipv4"))
     blockers: list[str] = []
     iface_name = (name or "").strip()
     if not iface_name:
@@ -474,6 +477,34 @@ def build_vif_plan(
     slug = _slugify(iface_name) if iface_name else None
     if slug and plat_svc.get_vif_by_slug(db, slug) is not None:
         blockers.append("vif_slug_taken")
+    prefix_info: dict | None = None
+    if reserve:
+        if prefix_id is None:
+            blockers.append("prefix_required")
+        else:
+            pfx = db.get(IpamIpv4Prefix, prefix_id)
+            if pfx is None:
+                blockers.append("prefix_not_found")
+            else:
+                read = ipam_svc.ipv4_prefix_read(db, pfx)
+                prefix_info = {
+                    "id": pfx.id,
+                    "cidr": pfx.cidr,
+                    "name": pfx.name,
+                    "site_id": pfx.site_id,
+                    "used_count": read.used_count,
+                    "usable_hosts": read.usable_hosts,
+                }
+                if cluster is not None and cluster.site_id is not None and int(cluster.site_id) != int(pfx.site_id):
+                    blockers.append("prefix_site_mismatch")
+                if read.usable_hosts <= read.used_count:
+                    blockers.append("prefix_exhausted")
+    notes = [
+        "Registrerer et virtuelt grensesnitt på en eksisterende VM.",
+        "Oppretter ikke NIC i hypervisoren og finner ikke opp MAC.",
+    ]
+    if reserve:
+        notes.append("Reserverer IPv4 på grensesnittet uten å finne opp MAC.")
     return {
         "kind": "virtual_interface",
         "template": {
@@ -495,14 +526,11 @@ def build_vif_plan(
         "requested_name": iface_name or None,
         "vm_id": vm.id if vm is not None else vm_id,
         "cluster_id": cluster.id if cluster is not None else None,
-        "reserve_ipv4": False,
-        "prefix": None,
+        "reserve_ipv4": reserve,
+        "prefix": prefix_info,
         "blockers": list(dict.fromkeys(blockers)),
         "can_run": len(blockers) == 0,
-        "notes": [
-            "Registrerer et virtuelt grensesnitt på en eksisterende VM.",
-            "Oppretter ikke NIC i hypervisoren og finner ikke opp MAC.",
-        ],
+        "notes": notes,
     }
 
 
@@ -683,13 +711,13 @@ def create_deployment(db: Session, data: ServiceDeploymentCreate) -> ServiceDepl
         assert loaded is not None
         return loaded
     if spec.get("kind") == "virtual_interface":
-        plan = build_vif_plan(db, version, data.vm_id, data.name)
+        plan = build_vif_plan(db, version, data.vm_id, data.name, data.ipv4_prefix_id)
         row = ServiceDeployment(
             template_version_id=version.id,
             device_id=None,
             cluster_id=plan.get("cluster_id"),
             vm_id=data.vm_id,
-            ipv4_prefix_id=None,
+            ipv4_prefix_id=data.ipv4_prefix_id,
             status="planned",
             plan_json=plan,
         )
@@ -1073,6 +1101,7 @@ def _run_vif(db: Session, row: ServiceDeployment, version: ServiceTemplateVersio
         version,
         row.vm_id or prev.get("vm_id"),
         prev.get("requested_name"),
+        row.ipv4_prefix_id,
     )
     row.plan_json = plan
     if not plan["can_run"]:
@@ -1114,6 +1143,51 @@ def _run_vif(db: Session, row: ServiceDeployment, version: ServiceTemplateVersio
         assert loaded is not None
         return loaded
 
+    address_id: int | None = None
+    spec = version.spec if isinstance(version.spec, dict) else {}
+    if spec.get("reserve_ipv4"):
+        if row.ipv4_prefix_id is None:
+            row.status = "failed"
+            row.finished_at = dt.datetime.now(dt.timezone.utc)
+            _add_step(db, row, "reserve_ipv4", "failed", "prefix_required")
+            db.commit()
+            loaded = get_deployment(db, row.id)
+            assert loaded is not None
+            return loaded
+        iface = plat_svc.get_vif(db, row.virtual_interface_id) if row.virtual_interface_id else None
+        if iface is None:
+            row.status = "failed"
+            row.finished_at = dt.datetime.now(dt.timezone.utc)
+            _add_step(db, row, "reserve_ipv4", "failed", "virtuelt grensesnitt ikke funnet")
+            db.commit()
+            loaded = get_deployment(db, row.id)
+            assert loaded is not None
+            return loaded
+        try:
+            from app.schemas.platform import PlatformVifIpv4Assign
+
+            addr = plat_svc.assign_vif_ipv4(
+                db,
+                cluster,
+                vm,
+                iface,
+                PlatformVifIpv4Assign(ipv4_prefix_id=row.ipv4_prefix_id),
+            )
+            address_id = addr.id
+            _add_step(db, row, "reserve_ipv4", "ok", addr.address)
+            db.commit()
+        except HTTPException as exc:
+            row.status = "failed"
+            row.finished_at = dt.datetime.now(dt.timezone.utc)
+            _add_step(db, row, "reserve_ipv4", "failed", _exc_detail(exc))
+            db.commit()
+            loaded = get_deployment(db, row.id)
+            assert loaded is not None
+            return loaded
+    else:
+        _add_step(db, row, "reserve_ipv4", "skipped", "malen ber ikke om IPv4-reservasjon")
+        db.commit()
+
     template = db.get(ServiceTemplate, version.template_id)
     name = plan["vif"]["name"]
     slug = _slugify(f"{template.slug if template else 'svc'}-vif-{row.id}")
@@ -1126,7 +1200,7 @@ def _run_vif(db: Session, row: ServiceDeployment, version: ServiceTemplateVersio
         cluster_id=row.cluster_id,
         vm_id=row.vm_id,
         virtual_interface_id=row.virtual_interface_id,
-        ipv4_address_id=None,
+        ipv4_address_id=address_id,
         status="active",
     )
     db.add(inst)

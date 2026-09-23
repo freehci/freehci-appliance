@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix
 from app.models.platform import (
     PlatformCluster,
     PlatformClusterMember,
@@ -18,6 +19,7 @@ from app.models.platform import (
     PlatformVirtualInterface,
     PlatformVirtualMachine,
 )
+from app.schemas.ipam import Ipv4AddressRead, Ipv4AddressRequest
 from app.schemas.platform import (
     PlatformClusterCreate,
     PlatformClusterMemberCreate,
@@ -27,6 +29,8 @@ from app.schemas.platform import (
     PlatformClusterRead,
     PlatformStoragePoolCreate,
     PlatformStoragePoolRead,
+    PlatformVifIpv4Assign,
+    PlatformVifIpv4Read,
     PlatformVirtualDiskCreate,
     PlatformVirtualDiskRead,
     PlatformVirtualInterfaceCreate,
@@ -42,7 +46,44 @@ def _slugify(value: str) -> str:
     return (s or "cluster")[:128]
 
 
-def cluster_to_read(row: PlatformCluster) -> PlatformClusterRead:
+def _vif_ipv4_map(db: Session, iface_ids: list[int]) -> dict[int, list[PlatformVifIpv4Read]]:
+    out: dict[int, list[PlatformVifIpv4Read]] = {i: [] for i in iface_ids}
+    if not iface_ids:
+        return out
+    rows = list(
+        db.execute(select(IpamIpv4Address).where(IpamIpv4Address.virtual_interface_id.in_(iface_ids)))
+        .scalars()
+        .all()
+    )
+    for r in rows:
+        if r.virtual_interface_id is None:
+            continue
+        out.setdefault(r.virtual_interface_id, []).append(PlatformVifIpv4Read(id=r.id, address=r.address))
+    return out
+
+
+def vif_to_read(
+    row: PlatformVirtualInterface,
+    ipv4_addresses: list[PlatformVifIpv4Read] | None = None,
+) -> PlatformVirtualInterfaceRead:
+    return PlatformVirtualInterfaceRead(
+        id=row.id,
+        name=row.name,
+        slug=row.slug,
+        vm_id=row.vm_id,
+        status=row.status,
+        created_at=row.created_at,
+        ipv4_addresses=ipv4_addresses or [],
+    )
+
+
+def cluster_to_read(db: Session, row: PlatformCluster) -> PlatformClusterRead:
+    iface_ids = [i.id for v in row.vms for i in (v.interfaces or [])]
+    ipv4_map = _vif_ipv4_map(db, iface_ids)
+    vms: list[PlatformVirtualMachineRead] = []
+    for v in row.vms:
+        ifaces = [vif_to_read(i, ipv4_map.get(i.id, [])) for i in (v.interfaces or [])]
+        vms.append(PlatformVirtualMachineRead.model_validate(v).model_copy(update={"interfaces": ifaces}))
     return PlatformClusterRead(
         id=row.id,
         name=row.name,
@@ -52,7 +93,7 @@ def cluster_to_read(row: PlatformCluster) -> PlatformClusterRead:
         description=row.description,
         created_at=row.created_at,
         members=[PlatformClusterMemberRead.model_validate(m) for m in row.members],
-        vms=[PlatformVirtualMachineRead.model_validate(v) for v in row.vms],
+        vms=vms,
         storage_pools=[PlatformStoragePoolRead.model_validate(p) for p in row.storage_pools],
     )
 
@@ -240,8 +281,8 @@ def get_vif_by_slug(db: Session, slug: str) -> PlatformVirtualInterface | None:
     return db.execute(select(PlatformVirtualInterface).where(PlatformVirtualInterface.slug == slug)).scalar_one_or_none()
 
 
-def vif_to_read(row: PlatformVirtualInterface) -> PlatformVirtualInterfaceRead:
-    return PlatformVirtualInterfaceRead.model_validate(row)
+def get_vif(db: Session, iface_id: int) -> PlatformVirtualInterface | None:
+    return db.get(PlatformVirtualInterface, iface_id)
 
 
 def create_vif(
@@ -280,6 +321,41 @@ def delete_vif(db: Session, cluster: PlatformCluster, vm_id: int, iface_id: int)
         raise HTTPException(status_code=404, detail="virtuelt grensesnitt ikke funnet")
     db.delete(row)
     db.commit()
+
+
+def assign_vif_ipv4(
+    db: Session,
+    cluster: PlatformCluster,
+    vm: PlatformVirtualMachine,
+    iface: PlatformVirtualInterface,
+    data: PlatformVifIpv4Assign,
+) -> Ipv4AddressRead:
+    if vm.cluster_id != cluster.id or iface.vm_id != vm.id:
+        raise HTTPException(status_code=404, detail="virtuelt grensesnitt ikke funnet")
+    pfx = db.get(IpamIpv4Prefix, data.ipv4_prefix_id)
+    if pfx is None:
+        raise HTTPException(status_code=404, detail="prefiks ikke funnet")
+    if cluster.site_id is not None and int(cluster.site_id) != int(pfx.site_id):
+        raise HTTPException(status_code=400, detail="prefiksets site stemmer ikke med clusterets site")
+    from app.services.ipam_address import request_ipv4_address
+
+    addr = request_ipv4_address(
+        db,
+        Ipv4AddressRequest(
+            ipv4_prefix_id=pfx.id,
+            mode="reserve",
+            note=f"virtual interface {iface.id}",
+        ),
+    )
+    row = db.get(IpamIpv4Address, addr.id)
+    if row is None:
+        raise HTTPException(status_code=500, detail="adresse ikke funnet etter reservasjon")
+    row.virtual_interface_id = iface.id
+    db.commit()
+    db.refresh(row)
+    from app.services.ipam_address import _ipv4_address_read
+
+    return _ipv4_address_read(db, row)
 
 
 def get_disk_by_slug(db: Session, slug: str) -> PlatformVirtualDisk | None:

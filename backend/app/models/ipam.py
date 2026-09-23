@@ -183,6 +183,10 @@ class IpamIpv4Address(Base):
         nullable=True,
         unique=True,
     )
+    virtual_interface_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_virtual_interfaces.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[dt.datetime] = mapped_column(

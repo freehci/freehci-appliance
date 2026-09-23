@@ -2030,7 +2030,7 @@ export const en = {
 
   "catalog.title": "Service catalog",
   "catalog.intro":
-    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership, VM, storage pool, virtual interface, disk or cloud subscription. They do not install an OS, create a guest, provision a LUN, invent a MAC or invent cloud cost.",
+    "One vertical flow: choose servers, a versioned template, plan, then run. Kinds record a device instance, cluster membership, VM, storage pool, virtual interface, disk or cloud subscription. They do not install an OS, create a guest, provision a LUN, invent a MAC or invent cloud cost. A virtual interface may reserve IPv4 without inventing a MAC.",
   "catalog.tabs": "Catalog sections",
   "catalog.tabTemplates": "Templates",
   "catalog.tabDeploy": "Deploy",
@@ -2089,6 +2089,9 @@ export const en = {
   "platform.vm": "Virtual machine",
   "platform.noVifs": "no interfaces",
   "platform.vifName": "Interface name",
+  "platform.assignVifIpv4": "Reserve IPv4 on interface",
+  "platform.vifIpv4Hint":
+    "Reserves an address on an existing virtual interface. Does not invent a MAC or create a NIC.",
   "platform.addVif": "Register interface",
   "platform.noDisks": "no disks",
   "platform.diskName": "Disk name",

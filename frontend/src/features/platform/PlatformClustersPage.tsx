@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { listDevices } from "@/features/dcim/dcimApi";
+import { listIpv4Prefixes } from "@/features/ipam/ipamApi";
 import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
@@ -25,6 +26,8 @@ export function PlatformClustersPage() {
   const [vifCluster, setVifCluster] = useState("");
   const [vifVm, setVifVm] = useState("");
   const [vifName, setVifName] = useState("");
+  const [vifIface, setVifIface] = useState("");
+  const [vifPrefix, setVifPrefix] = useState("");
   const [dskCluster, setDskCluster] = useState("");
   const [dskVm, setDskVm] = useState("");
   const [dskName, setDskName] = useState("");
@@ -36,6 +39,7 @@ export function PlatformClustersPage() {
   const clQ = useQuery({ queryKey: ["platform-clusters"], queryFn: api.listClusters });
   const cloudQ = useQuery({ queryKey: ["platform-cloud"], queryFn: api.listCloudSubscriptions });
   const devQ = useQuery({ queryKey: ["dcim-devices"], queryFn: listDevices });
+  const pfxQ = useQuery({ queryKey: ["ipam-ipv4-prefixes"], queryFn: () => listIpv4Prefixes() });
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
   const devices = new Map((devQ.data ?? []).map((d) => [d.id, d.name]));
 
@@ -88,6 +92,18 @@ export function PlatformClustersPage() {
     onSuccess: () => {
       setErr(null);
       setVifName("");
+      void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
+    },
+    onError: fail,
+  });
+  const vifIpM = useMutation({
+    mutationFn: () =>
+      api.assignVifIpv4(Number(vifCluster), Number(vifVm), Number(vifIface), {
+        ipv4_prefix_id: Number(vifPrefix),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setVifPrefix("");
       void qc.invalidateQueries({ queryKey: ["platform-clusters"] });
     },
     onError: fail,
@@ -177,7 +193,12 @@ export function PlatformClustersPage() {
                     {v.name} — {v.status}
                     {v.device_id != null ? ` → ${devices.get(v.device_id) ?? `#${v.device_id}`}` : ""}
                     {(v.interfaces ?? []).length > 0
-                      ? ` — ${(v.interfaces ?? []).map((i) => i.name).join(", ")}`
+                      ? ` — ${(v.interfaces ?? [])
+                          .map((i) => {
+                            const ips = (i.ipv4_addresses ?? []).map((a) => a.address);
+                            return ips.length > 0 ? `${i.name} (${ips.join(", ")})` : i.name;
+                          })
+                          .join(", ")}`
                       : ` — ${t("platform.noVifs")}`}
                     {(v.disks ?? []).length > 0
                       ? ` — ${(v.disks ?? []).map((d) => d.name).join(", ")}`
@@ -362,6 +383,94 @@ export function PlatformClustersPage() {
               disabled={vifM.isPending || !vifCluster || !vifVm || !vifName.trim()}
             >
               {t("platform.addVif")}
+            </button>
+          </form>
+        ) : null}
+        {(clQ.data ?? []).some((c) => (c.vms ?? []).some((v) => (v.interfaces ?? []).length > 0)) ? (
+          <form
+            className={dcimStyles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (vifCluster && vifVm && vifIface && vifPrefix) vifIpM.mutate();
+            }}
+          >
+            <p className={dcimStyles.muted} style={{ flex: "1 1 100%", margin: 0 }}>
+              {t("platform.vifIpv4Hint")}
+            </p>
+            <label>
+              {t("platform.cluster")}
+              <select
+                value={vifCluster}
+                onChange={(e) => {
+                  setVifCluster(e.target.value);
+                  setVifVm("");
+                  setVifIface("");
+                }}
+              >
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => (c.vms ?? []).some((v) => (v.interfaces ?? []).length > 0))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("platform.vm")}
+              <select
+                value={vifVm}
+                onChange={(e) => {
+                  setVifVm(e.target.value);
+                  setVifIface("");
+                }}
+              >
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => String(c.id) === vifCluster)
+                  .flatMap((c) => c.vms ?? [])
+                  .filter((v) => (v.interfaces ?? []).length > 0)
+                  .map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("platform.vifName")}
+              <select value={vifIface} onChange={(e) => setVifIface(e.target.value)}>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(clQ.data ?? [])
+                  .filter((c) => String(c.id) === vifCluster)
+                  .flatMap((c) => c.vms ?? [])
+                  .filter((v) => String(v.id) === vifVm)
+                  .flatMap((v) => v.interfaces ?? [])
+                  .map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("catalog.prefixOptional")}
+              <select value={vifPrefix} onChange={(e) => setVifPrefix(e.target.value)}>
+                <option value="">{t("dcim.common.choose")}</option>
+                {(pfxQ.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.cidr} {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className={dcimStyles.btn}
+              disabled={vifIpM.isPending || !vifCluster || !vifVm || !vifIface || !vifPrefix}
+            >
+              {t("platform.assignVifIpv4")}
             </button>
           </form>
         ) : null}

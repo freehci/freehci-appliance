@@ -425,6 +425,7 @@ class Ipv4AddressRead(BaseModel):
     # Navn fra DCIM (dcim_device_interfaces.name), f.eks. me0.0 — ikke DB-kolonne.
     interface_name: str | None = None
     interface_ip_assignment_id: int | None
+    virtual_interface_id: int | None = None
     created_at: dt.datetime
     updated_at: dt.datetime
     etag: str | None = Field(None, description="Optimistic concurrency; send som If-Match på PATCH/DELETE/release")
