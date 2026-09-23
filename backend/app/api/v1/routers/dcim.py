@@ -131,6 +131,8 @@ from app.schemas.dcim import (
     SiteRoleUpdate,
     SiteRead,
     SiteUpdate,
+    PowerSourceCreate,
+    PowerSourceRead,
     PowerPanelCreate,
     PowerPanelRead,
     PowerCircuitCreate,
@@ -1752,6 +1754,35 @@ def delete_placement(pid: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="plassering ikke funnet")
     dcim_svc.delete_placement(db, row)
+
+
+@router.get("/power-sources", response_model=list[PowerSourceRead])
+def list_power_sources(
+    site_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[PowerSourceRead]:
+    return [power_svc.source_to_read(r) for r in power_svc.list_sources(db, site_id=site_id)]
+
+
+@router.post("/power-sources", response_model=PowerSourceRead)
+def create_power_source(data: PowerSourceCreate, db: Session = Depends(get_db)) -> PowerSourceRead:
+    return power_svc.source_to_read(power_svc.create_source(db, data))
+
+
+@router.get("/power-sources/{source_id}", response_model=PowerSourceRead)
+def get_power_source(source_id: int, db: Session = Depends(get_db)) -> PowerSourceRead:
+    row = power_svc.get_source(db, source_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="strømkilde ikke funnet")
+    return power_svc.source_to_read(row)
+
+
+@router.delete("/power-sources/{source_id}", status_code=204)
+def delete_power_source(source_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_source(db, source_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="strømkilde ikke funnet")
+    power_svc.delete_source(db, row)
 
 
 @router.get("/power-panels", response_model=list[PowerPanelRead])

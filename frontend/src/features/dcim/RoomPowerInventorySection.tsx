@@ -5,11 +5,23 @@ import { ApiError } from "@/lib/api";
 import * as api from "./dcimApi";
 import styles from "./dcim.module.css";
 
+const SOURCE_KINDS = ["grid", "generator", "ups-device", "other"] as const;
+const SOURCE_KIND_KEYS = {
+  grid: "dcim.power.kindGrid",
+  generator: "dcim.power.kindGenerator",
+  "ups-device": "dcim.power.kindUpsDevice",
+  other: "dcim.power.kindOther",
+} as const;
+
 export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; siteId: number }) {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
+  const [sourceName, setSourceName] = useState("");
+  const [sourceKind, setSourceKind] = useState<(typeof SOURCE_KINDS)[number]>("grid");
+  const [sourceDevice, setSourceDevice] = useState("");
   const [panelName, setPanelName] = useState("");
+  const [panelSource, setPanelSource] = useState("");
   const [circuitPanel, setCircuitPanel] = useState("");
   const [circuitName, setCircuitName] = useState("");
   const [circuitAmps, setCircuitAmps] = useState("");
@@ -17,6 +29,15 @@ export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; 
   const [feedName, setFeedName] = useState("");
   const [feedRack, setFeedRack] = useState("");
 
+  const sourcesQ = useQuery({
+    queryKey: ["dcim", "power-sources", siteId],
+    queryFn: () => api.listPowerSources(siteId),
+  });
+  const devicesQ = useQuery({
+    queryKey: ["dcim", "devices"],
+    queryFn: api.listDevices,
+    enabled: sourceKind === "ups-device",
+  });
   const panelsQ = useQuery({
     queryKey: ["dcim", "power-panels", siteId],
     queryFn: () => api.listPowerPanels(siteId),
@@ -36,13 +57,36 @@ export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; 
 
   const fail = (e: Error) => setErr(e instanceof ApiError ? e.message : e.message);
   const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["dcim", "power-sources"] });
     void qc.invalidateQueries({ queryKey: ["dcim", "power-panels"] });
     void qc.invalidateQueries({ queryKey: ["dcim", "power-circuits"] });
     void qc.invalidateQueries({ queryKey: ["dcim", "power-feeds"] });
   };
 
+  const createSource = useMutation({
+    mutationFn: () =>
+      api.createPowerSource({
+        site_id: siteId,
+        name: sourceName.trim(),
+        kind: sourceKind,
+        device_id: sourceKind === "ups-device" && sourceDevice !== "" ? Number(sourceDevice) : null,
+      }),
+    onSuccess: () => {
+      setSourceName("");
+      setSourceDevice("");
+      setErr(null);
+      invalidate();
+    },
+    onError: fail,
+  });
   const createPanel = useMutation({
-    mutationFn: () => api.createPowerPanel({ site_id: siteId, room_id: roomId, name: panelName.trim() }),
+    mutationFn: () =>
+      api.createPowerPanel({
+        site_id: siteId,
+        room_id: roomId,
+        name: panelName.trim(),
+        source_id: panelSource === "" ? null : Number(panelSource),
+      }),
     onSuccess: () => {
       setPanelName("");
       setErr(null);
@@ -82,6 +126,8 @@ export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; 
   });
 
   const rackIds = new Set((racksQ.data ?? []).map((r) => r.id));
+  const sources = sourcesQ.data ?? [];
+  const siteDevices = (devicesQ.data ?? []).filter((d) => (d.effective_site_id ?? d.site_id) === siteId);
   const panels = (panelsQ.data ?? []).filter((p) => p.room_id == null || p.room_id === roomId);
   const panelIds = new Set(panels.map((p) => p.id));
   const circuits = (circuitsQ.data ?? []).filter((c) => panelIds.has(c.panel_id));
@@ -94,7 +140,77 @@ export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; 
       <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.rooms.powerTabTitle")}</h3>
       <p className={styles.muted}>{t("dcim.rooms.powerTabIntro")}</p>
       <p className={styles.muted}>{t("dcim.power.noMeasurements")}</p>
+      <p className={styles.muted}>{t("dcim.power.sourceHint")}</p>
       {err ? <p className={styles.err}>{err}</p> : null}
+
+      <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.power.sources")}</h4>
+      {sources.length === 0 && !sourcesQ.isLoading ? <p className={styles.muted}>{t("dcim.power.emptySources")}</p> : null}
+      {sources.length > 0 ? (
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>{t("dcim.common.name")}</th>
+              <th>{t("dcim.power.kind")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((s) => (
+              <tr key={s.id}>
+                <td>{s.name}</td>
+                <td>
+                  {s.kind in SOURCE_KIND_KEYS
+                    ? t(SOURCE_KIND_KEYS[s.kind as keyof typeof SOURCE_KIND_KEYS])
+                    : s.kind}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      <form
+        className={styles.formRow}
+        onSubmit={(e) => {
+          e.preventDefault();
+          createSource.mutate();
+        }}
+      >
+        <label>
+          {t("dcim.common.name")}
+          <input value={sourceName} onChange={(e) => setSourceName(e.target.value)} required />
+        </label>
+        <label>
+          {t("dcim.power.kind")}
+          <select
+            value={sourceKind}
+            onChange={(e) => {
+              setSourceKind(e.target.value as (typeof SOURCE_KINDS)[number]);
+              setSourceDevice("");
+            }}
+          >
+            {SOURCE_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {t(SOURCE_KIND_KEYS[k])}
+              </option>
+            ))}
+          </select>
+        </label>
+        {sourceKind === "ups-device" ? (
+          <label>
+            {t("dcim.power.chooseDevice")}
+            <select value={sourceDevice} onChange={(e) => setSourceDevice(e.target.value)} required>
+              <option value="">{t("dcim.power.chooseDevice")}</option>
+              {siteDevices.map((d) => (
+                <option key={d.id} value={String(d.id)}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <button type="submit" className={styles.btn} disabled={createSource.isPending}>
+          {t("dcim.power.addSource")}
+        </button>
+      </form>
 
       <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.power.panels")}</h4>
       {panels.length === 0 && !panelsQ.isLoading ? <p className={styles.muted}>{t("dcim.power.emptyPanels")}</p> : null}
@@ -103,6 +219,7 @@ export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; 
           <thead>
             <tr>
               <th>{t("dcim.common.name")}</th>
+              <th>{t("dcim.power.sources")}</th>
               <th>Slug</th>
             </tr>
           </thead>
@@ -110,6 +227,7 @@ export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; 
             {panels.map((p) => (
               <tr key={p.id}>
                 <td>{p.name}</td>
+                <td>{sources.find((s) => s.id === p.source_id)?.name ?? "—"}</td>
                 <td>{p.slug}</td>
               </tr>
             ))}
@@ -126,6 +244,17 @@ export function RoomPowerInventorySection({ roomId, siteId }: { roomId: number; 
         <label>
           {t("dcim.common.name")}
           <input value={panelName} onChange={(e) => setPanelName(e.target.value)} required />
+        </label>
+        <label>
+          {t("dcim.power.sources")}
+          <select value={panelSource} onChange={(e) => setPanelSource(e.target.value)}>
+            <option value="">{t("dcim.power.chooseSource")}</option>
+            {sources.map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </label>
         <button type="submit" className={styles.btn} disabled={createPanel.isPending}>
           {t("dcim.power.addPanel")}

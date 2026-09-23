@@ -903,6 +903,25 @@ class RackPlacement(Base):
     device: Mapped["DeviceInstance"] = relationship(back_populates="placement")
 
 
+class PowerSource(Base):
+    """Navngitt opprinnelse for strøm. Ingen målt last. UPS er Device når kind=ups-device."""
+
+    __tablename__ = "dcim_power_sources"
+    __table_args__ = (UniqueConstraint("site_id", "slug", name="uq_dcim_power_source_site_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class PowerPanel(Base):
     """Elektrisk tavle. UPS/PDU er Device, ikke eget objekt."""
 
@@ -912,6 +931,10 @@ class PowerPanel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
     room_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_rooms.id", ondelete="SET NULL"), nullable=True)
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_power_sources.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

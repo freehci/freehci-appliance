@@ -20,6 +20,7 @@ from app.models.dcim import (
     PowerCircuit,
     PowerFeed,
     PowerPanel,
+    PowerSource,
     Rack,
     Room,
     Site,
@@ -39,7 +40,10 @@ from app.schemas.dcim import (
     PowerFeedRead,
     PowerPanelCreate,
     PowerPanelRead,
+    PowerSourceCreate,
+    PowerSourceRead,
 )
+from app.services import dcim as dcim_svc
 
 _KIND_FROM_TEMPLATE = {
     "power-ports": "power-port",
@@ -102,8 +106,76 @@ def _require_rack(db: Session, rack_id: int) -> Rack:
     return row
 
 
+def source_to_read(row: PowerSource) -> PowerSourceRead:
+    return PowerSourceRead.model_validate(row)
+
+
 def panel_to_read(row: PowerPanel) -> PowerPanelRead:
     return PowerPanelRead.model_validate(row)
+
+
+def _require_source(db: Session, source_id: int, *, site_id: int) -> PowerSource:
+    row = db.get(PowerSource, source_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="strømkilde ikke funnet")
+    if row.site_id != site_id:
+        raise HTTPException(status_code=400, detail="strømkilden tilhører en annen site")
+    return row
+
+
+def list_sources(db: Session, *, site_id: int | None = None) -> list[PowerSource]:
+    q = select(PowerSource).order_by(PowerSource.name)
+    if site_id is not None:
+        q = q.where(PowerSource.site_id == site_id)
+    return list(db.execute(q).scalars().all())
+
+
+def create_source(db: Session, data: PowerSourceCreate) -> PowerSource:
+    _require_site(db, data.site_id)
+    device_id = data.device_id
+    if data.kind == "ups-device":
+        if device_id is None:
+            raise HTTPException(status_code=400, detail="ups-device krever device_id")
+        device = dcim_svc.get_device(db, device_id)
+        if device is None:
+            raise HTTPException(status_code=404, detail="enhet ikke funnet")
+        site = dcim_svc.device_effective_site_id(db, device.id)
+        if site is None:
+            device.site_id = data.site_id
+            site = data.site_id
+        elif int(site) != data.site_id:
+            raise HTTPException(status_code=400, detail="enhetens site stemmer ikke med kildens site")
+    elif device_id is not None:
+        raise HTTPException(status_code=400, detail="device_id er bare lov når kind er ups-device")
+    row = PowerSource(
+        site_id=data.site_id,
+        name=data.name.strip(),
+        slug=_unique_slug(
+            db, PowerSource, PowerSource.site_id, data.site_id, data.slug or data.name, explicit=data.slug is not None
+        ),
+        kind=data.kind,
+        device_id=device_id,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="kilde-slug finnes allerede på siten")
+    db.refresh(row)
+    return row
+
+
+def get_source(db: Session, source_id: int) -> PowerSource | None:
+    return db.get(PowerSource, source_id)
+
+
+def delete_source(db: Session, row: PowerSource) -> None:
+    for panel in db.execute(select(PowerPanel).where(PowerPanel.source_id == row.id)).scalars().all():
+        panel.source_id = None
+    db.delete(row)
+    db.commit()
 
 
 def circuit_to_read(row: PowerCircuit) -> PowerCircuitRead:
@@ -186,9 +258,12 @@ def create_panel(db: Session, data: PowerPanelCreate) -> PowerPanel:
     _require_site(db, data.site_id)
     if data.room_id is not None:
         _require_room(db, data.room_id, site_id=data.site_id)
+    if data.source_id is not None:
+        _require_source(db, data.source_id, site_id=data.site_id)
     row = PowerPanel(
         site_id=data.site_id,
         room_id=data.room_id,
+        source_id=data.source_id,
         name=data.name.strip(),
         slug=_unique_slug(
             db, PowerPanel, PowerPanel.site_id, data.site_id, data.slug or data.name, explicit=data.slug is not None
@@ -634,7 +709,16 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
     site_ids = [s.id for s in sites]
     site_by_id = {s.id: s for s in sites}
     if not site_ids:
-        return {"power_panels": [], "power_circuits": [], "power_feeds": [], "device_ports": [], "cables": []}
+        return {
+            "power_sources": [],
+            "power_panels": [],
+            "power_circuits": [],
+            "power_feeds": [],
+            "device_ports": [],
+            "cables": [],
+        }
+    sources = list(db.execute(select(PowerSource).where(PowerSource.site_id.in_(site_ids))).scalars().all())
+    source_by_id = {s.id: s for s in sources}
     panels = list(db.execute(select(PowerPanel).where(PowerPanel.site_id.in_(site_ids))).scalars().all())
     panel_by_id = {p.id: p for p in panels}
     circuits = (
@@ -693,10 +777,21 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
         return out
 
     return {
+        "power_sources": [
+            {
+                "site_slug": site_by_id[s.site_id].slug,
+                "name": s.name,
+                "slug": s.slug,
+                "kind": s.kind,
+                "device_name": device_by_id[s.device_id].name if s.device_id and s.device_id in device_by_id else None,
+            }
+            for s in sources
+        ],
         "power_panels": [
             {
                 "site_slug": site_by_id[p.site_id].slug,
                 "room_name": room_by_id[p.room_id].name if p.room_id and p.room_id in room_by_id else None,
+                "source_slug": source_by_id[p.source_id].slug if p.source_id and p.source_id in source_by_id else None,
                 "name": p.name,
                 "slug": p.slug,
             }
@@ -760,6 +855,37 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
 def apply_from_document(db: Session, doc: dict[str, Any], *, site_by_slug: dict[str, Site]) -> None:
     from app.models.dcim import Room as RoomModel
 
+    for s in doc.get("power_sources") or []:
+        slug = (s.get("slug") or "").strip()
+        site = site_by_slug.get((s.get("site_slug") or "").strip())
+        kind = (s.get("kind") or "").strip()
+        if not slug or site is None or not kind:
+            continue
+        found = db.execute(
+            select(PowerSource).where(PowerSource.site_id == site.id, PowerSource.slug == slug),
+        ).scalar_one_or_none()
+        if found is not None:
+            continue
+        device_id = None
+        device_name = (s.get("device_name") or "").strip()
+        if kind == "ups-device" and device_name:
+            device = db.execute(
+                select(DeviceInstance).where(DeviceInstance.site_id == site.id, DeviceInstance.name == device_name),
+            ).scalar_one_or_none()
+            device_id = device.id if device is not None else None
+        if kind == "ups-device" and device_id is None:
+            continue
+        create_source(
+            db,
+            PowerSourceCreate(
+                site_id=site.id,
+                name=s.get("name") or slug,
+                slug=slug,
+                kind=kind,
+                device_id=device_id,
+            ),
+        )
+
     for p in doc.get("power_panels") or []:
         slug = (p.get("slug") or "").strip()
         site = site_by_slug.get((p.get("site_slug") or "").strip())
@@ -777,7 +903,23 @@ def apply_from_document(db: Session, doc: dict[str, Any], *, site_by_slug: dict[
                 select(RoomModel).where(RoomModel.site_id == site.id, RoomModel.name == room_name),
             ).scalar_one_or_none()
             room_id = room.id if room is not None else None
-        create_panel(db, PowerPanelCreate(site_id=site.id, room_id=room_id, name=p.get("name") or slug, slug=slug))
+        source_id = None
+        source_slug = (p.get("source_slug") or "").strip()
+        if source_slug:
+            src = db.execute(
+                select(PowerSource).where(PowerSource.site_id == site.id, PowerSource.slug == source_slug),
+            ).scalar_one_or_none()
+            source_id = src.id if src is not None else None
+        create_panel(
+            db,
+            PowerPanelCreate(
+                site_id=site.id,
+                room_id=room_id,
+                source_id=source_id,
+                name=p.get("name") or slug,
+                slug=slug,
+            ),
+        )
 
     for c in doc.get("power_circuits") or []:
         site = site_by_slug.get((c.get("site_slug") or "").strip())

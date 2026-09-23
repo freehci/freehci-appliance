@@ -42,6 +42,7 @@ import type {
   DeviceModelTemplate,
   DeviceModelTemplateQuality,
   DevicePort,
+  PowerSource,
   PowerPanel,
   PowerCircuit,
   PowerFeed,
@@ -1292,6 +1293,28 @@ export function deletePlacement(id: number): Promise<void> {
   return apiDelete(`${P}/placements/${id}`);
 }
 
+export function listPowerSources(siteId?: number): Promise<PowerSource[]> {
+  const params = new URLSearchParams();
+  if (siteId != null) params.set("site_id", String(siteId));
+  const s = params.toString();
+  return apiGet(`${P}/power-sources${s ? `?${s}` : ""}`);
+}
+
+export function createPowerSource(body: {
+  site_id: number;
+  name: string;
+  slug?: string | null;
+  kind: string;
+  device_id?: number | null;
+  description?: string | null;
+}): Promise<PowerSource> {
+  return apiPost(`${P}/power-sources`, body);
+}
+
+export function deletePowerSource(id: number): Promise<void> {
+  return apiDelete(`${P}/power-sources/${id}`);
+}
+
 export function listPowerPanels(siteId?: number, roomId?: number): Promise<PowerPanel[]> {
   const params = new URLSearchParams();
   if (siteId != null) params.set("site_id", String(siteId));
@@ -1303,6 +1326,7 @@ export function listPowerPanels(siteId?: number, roomId?: number): Promise<Power
 export function createPowerPanel(body: {
   site_id: number;
   room_id?: number | null;
+  source_id?: number | null;
   name: string;
   slug?: string | null;
 }): Promise<PowerPanel> {

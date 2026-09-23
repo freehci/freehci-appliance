@@ -615,10 +615,22 @@ export type RackPlacement = {
   mounting: string;
 };
 
+export type PowerSource = {
+  id: number;
+  site_id: number;
+  name: string;
+  slug: string;
+  kind: string;
+  device_id: number | null;
+  description: string | null;
+  created_at: string;
+};
+
 export type PowerPanel = {
   id: number;
   site_id: number;
   room_id: number | null;
+  source_id: number | null;
   name: string;
   slug: string;
   description: string | null;

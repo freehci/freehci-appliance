@@ -1550,15 +1550,47 @@ class RackPlacementUpdate(BaseModel):
 POWER_FEED_STATUSES = frozenset({"planned", "active", "offline"})
 POWER_SUPPLIES = frozenset({"ac", "dc"})
 POWER_PHASES = frozenset({"single", "three"})
+POWER_SOURCE_KINDS = frozenset({"grid", "generator", "ups-device", "other"})
 DEVICE_PORT_KINDS = frozenset({"power-port", "power-outlet", "front-port", "rear-port"})
 CABLE_TYPES = frozenset({"power", "cat5e", "cat6", "cat6a", "sm-os2", "mm-om4", "dac", "coax", "other"})
 CABLE_STATUSES = frozenset({"planned", "connected", "disabled"})
 CABLE_OBJECT_TYPES = frozenset({"power-feed", "device-port", "interface"})
 
 
+class PowerSourceCreate(BaseModel):
+    site_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    kind: str = Field(..., description="grid | generator | ups-device | other")
+    device_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in POWER_SOURCE_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(POWER_SOURCE_KINDS))}")
+        return s
+
+
+class PowerSourceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    name: str
+    slug: str
+    kind: str
+    device_id: int | None
+    description: str | None
+    created_at: dt.datetime
+
+
 class PowerPanelCreate(BaseModel):
     site_id: int = Field(..., ge=1)
     room_id: int | None = Field(None, ge=1)
+    source_id: int | None = Field(None, ge=1)
     name: str = Field(..., min_length=1, max_length=255)
     slug: str | None = Field(None, max_length=128)
     description: str | None = None
@@ -1570,6 +1602,7 @@ class PowerPanelRead(BaseModel):
     id: int
     site_id: int
     room_id: int | None
+    source_id: int | None
     name: str
     slug: str
     description: str | None
