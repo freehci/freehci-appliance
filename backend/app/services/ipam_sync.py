@@ -18,6 +18,7 @@ from app.models.ipam import (
     IpamRouteTarget,
     IpamVrfInstance,
     IpamVrfRouteTarget,
+    IpamContract,
     IpamProvider,
     IpamScanHost,
     IpamSubnetScan,
@@ -180,12 +181,34 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
     v6_by_id = {p.id: p for p in v6}
     site_ids = {c.a_site_id for c in circuits if c.a_site_id} | {c.z_site_id for c in circuits if c.z_site_id}
     site_by_id = {s.id: s for s in db.execute(select(Site).where(Site.id.in_(site_ids))).scalars().all()} if site_ids else {}
-    provider_ids = {c.provider_id for c in circuits if c.provider_id}
+    contract_ids = {c.contract_id for c in circuits if getattr(c, "contract_id", None)}
+    contract_by_id = (
+        {x.id: x for x in db.execute(select(IpamContract).where(IpamContract.id.in_(contract_ids))).scalars().all()}
+        if contract_ids
+        else {}
+    )
+    provider_ids = {c.provider_id for c in circuits if c.provider_id} | {
+        x.provider_id for x in contract_by_id.values()
+    }
     provider_by_id = (
         {p.id: p for p in db.execute(select(IpamProvider).where(IpamProvider.id.in_(provider_ids))).scalars().all()}
         if provider_ids
         else {}
     )
+    contracts = (
+        list(db.execute(select(IpamContract).where(IpamContract.provider_id.in_(list(provider_by_id)))).scalars().all())
+        if provider_by_id
+        else []
+    )
+    account_ids = {x.provider_account_id for x in contracts if x.provider_account_id}
+    account_by_id: dict[int, Any] = {}
+    if account_ids:
+        from app.models.ipam import IpamProviderAccount
+
+        account_by_id = {
+            a.id: a
+            for a in db.execute(select(IpamProviderAccount).where(IpamProviderAccount.id.in_(account_ids))).scalars().all()
+        }
     circuit_ids = {c.id for c in circuits}
     vpn_rows = (
         list(db.execute(select(IpamVpnService).where(IpamVpnService.source_circuit_id.in_(circuit_ids))).scalars().all())
@@ -316,6 +339,23 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             if a.status in _HELD
         ],
         "providers": [{"name": p.name, "slug": p.slug} for p in provider_by_id.values()],
+        "contracts": [
+            {
+                "name": c.name,
+                "slug": c.slug,
+                "provider_slug": provider_by_id[c.provider_id].slug if c.provider_id in provider_by_id else None,
+                "account_slug": (
+                    account_by_id[c.provider_account_id].slug
+                    if c.provider_account_id and c.provider_account_id in account_by_id
+                    else None
+                ),
+                "reference": c.reference,
+                "starts_on": c.starts_on.isoformat() if c.starts_on else None,
+                "ends_on": c.ends_on.isoformat() if c.ends_on else None,
+                "description": c.description,
+            }
+            for c in contracts
+        ],
         "circuits": [
             {
                 "circuit_number": c.circuit_number,
@@ -330,6 +370,11 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "provider_id": c.provider_id,
                 "provider_slug": provider_by_id[c.provider_id].slug if c.provider_id in provider_by_id else None,
                 "provider_name": c.provider_name,
+                "contract_slug": (
+                    contract_by_id[c.contract_id].slug
+                    if getattr(c, "contract_id", None) and c.contract_id in contract_by_id
+                    else None
+                ),
             }
             for c in circuits
         ],

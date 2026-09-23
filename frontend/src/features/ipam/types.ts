@@ -334,6 +334,7 @@ export type IpamCircuit = {
   provider_name: string | null;
   provider_id: number | null;
   provider_account_id: number | null;
+  contract_id: number | null;
   needs_classification: boolean;
   established_on: string | null;
   contract_end_on: string | null;
@@ -369,6 +370,20 @@ export type IpamProviderAccount = {
   name: string;
   slug: string;
   account_number: string | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type IpamContract = {
+  id: number;
+  provider_id: number;
+  provider_account_id: number | null;
+  tenant_id: number | null;
+  name: string;
+  slug: string;
+  reference: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
   description: string | null;
   created_at: string;
 };

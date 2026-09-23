@@ -423,6 +423,10 @@ class IpamProvider(Base):
         back_populates="provider",
         cascade="all, delete-orphan",
     )
+    contracts: Mapped[list["IpamContract"]] = relationship(
+        back_populates="provider",
+        cascade="all, delete-orphan",
+    )
 
 
 class IpamProviderAccount(Base):
@@ -451,6 +455,40 @@ class IpamProviderAccount(Base):
     )
 
     provider: Mapped["IpamProvider"] = relationship(back_populates="accounts")
+
+
+class IpamContract(Base):
+    """Leverandørkontrakt. Ingen SLA, oppetid eller tilgjengelighet — bare referanse og datoer."""
+
+    __tablename__ = "ipam_contracts"
+    __table_args__ = (UniqueConstraint("provider_id", "slug", name="uq_ipam_contract_provider_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_providers.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    provider_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_provider_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    starts_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    ends_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    provider: Mapped["IpamProvider"] = relationship(back_populates="contracts")
 
 
 class IpamCircuit(Base):
@@ -490,6 +528,10 @@ class IpamCircuit(Base):
     )
     provider_account_id: Mapped[int | None] = mapped_column(
         ForeignKey("ipam_provider_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    contract_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_contracts.id", ondelete="SET NULL"),
         nullable=True,
     )
     established_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)

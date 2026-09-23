@@ -1239,6 +1239,7 @@ class IpamCircuitCreate(BaseModel):
     provider_name: str | None = Field(None, max_length=255)
     provider_id: int | None = Field(None, ge=1)
     provider_account_id: int | None = Field(None, ge=1)
+    contract_id: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     a_site_id: int | None = Field(None, ge=1)
@@ -1274,6 +1275,7 @@ class IpamCircuitUpdate(BaseModel):
     provider_name: str | None = Field(None, max_length=255)
     provider_id: int | None = Field(None, ge=1)
     provider_account_id: int | None = Field(None, ge=1)
+    contract_id: int | None = Field(None, ge=1)
     established_on: dt.date | None = None
     contract_end_on: dt.date | None = None
     tenant_id: int | None = Field(None, ge=1)
@@ -1332,6 +1334,7 @@ class IpamCircuitRead(BaseModel):
     provider_name: str | None
     provider_id: int | None = None
     provider_account_id: int | None = None
+    contract_id: int | None = None
     needs_classification: bool = False
     established_on: dt.date | None
     contract_end_on: dt.date | None
@@ -1418,6 +1421,49 @@ class IpamProviderAccountRead(BaseModel):
     name: str
     slug: str
     account_number: str | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamContractCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    provider_id: int = Field(..., ge=1)
+    provider_account_id: int | None = Field(None, ge=1)
+    tenant_id: int | None = Field(None, ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    reference: str | None = Field(None, max_length=128)
+    starts_on: dt.date | None = None
+    ends_on: dt.date | None = None
+    description: str | None = None
+
+
+class IpamContractUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    provider_account_id: int | None = Field(None, ge=1)
+    tenant_id: int | None = Field(None, ge=1)
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    reference: str | None = Field(None, max_length=128)
+    starts_on: dt.date | None = None
+    ends_on: dt.date | None = None
+    description: str | None = None
+
+
+class IpamContractRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    provider_id: int
+    provider_account_id: int | None
+    tenant_id: int | None
+    name: str
+    slug: str
+    reference: str | None
+    starts_on: dt.date | None
+    ends_on: dt.date | None
     description: str | None
     created_at: dt.datetime
 

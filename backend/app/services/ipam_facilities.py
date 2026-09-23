@@ -431,7 +431,7 @@ def list_circuits(
 
 
 def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
-    from app.services.ipam_providers import require_provider_refs
+    from app.services.ipam_providers import require_contract_ref, require_provider_refs
 
     if data.tenant_id is not None:
         _require_tenant(db, data.tenant_id)
@@ -439,7 +439,11 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
         _require_site(db, data.a_site_id)
     if data.z_site_id is not None:
         _require_site(db, data.z_site_id)
-    require_provider_refs(db, provider_id=data.provider_id, provider_account_id=data.provider_account_id)
+    provider_id = data.provider_id
+    contract = require_contract_ref(db, contract_id=data.contract_id, provider_id=provider_id)
+    if contract is not None and provider_id is None:
+        provider_id = contract.provider_id
+    require_provider_refs(db, provider_id=provider_id, provider_account_id=data.provider_account_id)
     row = IpamCircuit(
         tenant_id=data.tenant_id,
         tenant_scope=int(data.tenant_id) if data.tenant_id is not None else 0,
@@ -452,8 +456,9 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
         layer=data.layer,
         is_leased=data.is_leased,
         provider_name=data.provider_name.strip() if data.provider_name else None,
-        provider_id=data.provider_id,
+        provider_id=provider_id,
         provider_account_id=data.provider_account_id,
+        contract_id=data.contract_id,
         established_on=data.established_on,
         contract_end_on=data.contract_end_on,
     )
@@ -472,7 +477,7 @@ def get_circuit(db: Session, circuit_id: int) -> IpamCircuit | None:
 
 
 def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> IpamCircuit:
-    from app.services.ipam_providers import require_provider_refs
+    from app.services.ipam_providers import require_contract_ref, require_provider_refs
 
     if data.name is not None:
         row.name = data.name.strip()
@@ -486,18 +491,26 @@ def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> Ip
         row.is_leased = data.is_leased
     if data.provider_name is not None:
         row.provider_name = data.provider_name.strip() if data.provider_name else None
-    if data.provider_id is not None or data.provider_account_id is not None:
+    provider_id = data.provider_id if data.provider_id is not None else row.provider_id
+    contract_id = data.contract_id if data.contract_id is not None else row.contract_id
+    if data.contract_id is not None or data.provider_id is not None:
+        contract = require_contract_ref(db, contract_id=contract_id, provider_id=provider_id)
+        if contract is not None and provider_id is None:
+            provider_id = contract.provider_id
+    if data.provider_id is not None or data.provider_account_id is not None or data.contract_id is not None:
         require_provider_refs(
             db,
-            provider_id=data.provider_id if data.provider_id is not None else row.provider_id,
+            provider_id=provider_id,
             provider_account_id=data.provider_account_id
             if data.provider_account_id is not None
             else row.provider_account_id,
         )
-    if data.provider_id is not None:
-        row.provider_id = data.provider_id
+    if data.provider_id is not None or (data.contract_id is not None and row.provider_id is None):
+        row.provider_id = provider_id
     if data.provider_account_id is not None:
         row.provider_account_id = data.provider_account_id
+    if data.contract_id is not None:
+        row.contract_id = data.contract_id
     if data.established_on is not None:
         row.established_on = data.established_on
     if data.contract_end_on is not None:

@@ -11,6 +11,7 @@ import type {
   IpamAuditEvent,
   IpamCircuit,
   IpamCircuitTermination,
+  IpamContract,
   IpamProvider,
   IpamProviderAccount,
   IpamTunnel,
@@ -514,6 +515,7 @@ export function createIpamCircuit(body: {
   provider_name?: string | null;
   provider_id?: number | null;
   provider_account_id?: number | null;
+  contract_id?: number | null;
   established_on?: string | null;
   contract_end_on?: string | null;
   a_site_id?: number | null;
@@ -605,6 +607,29 @@ export function createProviderAccount(
 
 export function deleteProviderAccount(id: number): Promise<void> {
   return apiDelete(`${P}/provider-accounts/${id}`);
+}
+
+export function listIpamContracts(providerId?: number): Promise<IpamContract[]> {
+  const q = providerId != null ? `?provider_id=${encodeURIComponent(String(providerId))}` : "";
+  return apiGet(`${P}/contracts${q}`);
+}
+
+export function createIpamContract(body: {
+  provider_id: number;
+  provider_account_id?: number | null;
+  tenant_id?: number | null;
+  name: string;
+  slug?: string | null;
+  reference?: string | null;
+  starts_on?: string | null;
+  ends_on?: string | null;
+  description?: string | null;
+}): Promise<IpamContract> {
+  return apiPost(`${P}/contracts`, body);
+}
+
+export function deleteIpamContract(id: number): Promise<void> {
+  return apiDelete(`${P}/contracts/${id}`);
 }
 
 export function listVpnServices(tenantId?: number): Promise<IpamVpnService[]> {

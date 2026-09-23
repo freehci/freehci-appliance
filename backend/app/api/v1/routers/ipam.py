@@ -41,6 +41,9 @@ from app.schemas.ipam import (
     IpamCircuitTerminationCreate,
     IpamCircuitTerminationRead,
     IpamCircuitUpdate,
+    IpamContractCreate,
+    IpamContractRead,
+    IpamContractUpdate,
     IpamProviderAccountCreate,
     IpamProviderAccountRead,
     IpamProviderAccountUpdate,
@@ -1140,6 +1143,59 @@ def delete_provider_account(account_id: int, db: Session = Depends(get_db)) -> N
     if row is None:
         raise HTTPException(status_code=404, detail="leverandørkonto ikke funnet")
     prov_svc.delete_account(db, row)
+
+
+@router.get("/contracts", response_model=list[IpamContractRead])
+def list_ipam_contracts(
+    provider_id: int | None = Query(None),
+    tenant_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamContractRead]:
+    return [
+        prov_svc.contract_to_read(r)
+        for r in prov_svc.list_contracts(db, provider_id=provider_id, tenant_id=tenant_id)
+    ]
+
+
+@router.post("/contracts", response_model=IpamContractRead)
+def create_ipam_contract(data: IpamContractCreate, db: Session = Depends(get_db)) -> IpamContractRead:
+    try:
+        return prov_svc.contract_to_read(prov_svc.create_contract(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(status_code=409, detail="kontraktslug finnes allerede") from e
+
+
+@router.get("/contracts/{contract_id}", response_model=IpamContractRead)
+def get_ipam_contract(contract_id: int, db: Session = Depends(get_db)) -> IpamContractRead:
+    row = prov_svc.get_contract(db, contract_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kontrakt ikke funnet")
+    return prov_svc.contract_to_read(row)
+
+
+@router.patch("/contracts/{contract_id}", response_model=IpamContractRead)
+def patch_ipam_contract(
+    contract_id: int,
+    data: IpamContractUpdate,
+    db: Session = Depends(get_db),
+) -> IpamContractRead:
+    row = prov_svc.get_contract(db, contract_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kontrakt ikke funnet")
+    try:
+        return prov_svc.contract_to_read(prov_svc.update_contract(db, row, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/contracts/{contract_id}", status_code=204)
+def delete_ipam_contract(contract_id: int, db: Session = Depends(get_db)) -> None:
+    row = prov_svc.get_contract(db, contract_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kontrakt ikke funnet")
+    prov_svc.delete_contract(db, row)
 
 
 @router.get("/vpn-services", response_model=list[IpamVpnServiceRead])

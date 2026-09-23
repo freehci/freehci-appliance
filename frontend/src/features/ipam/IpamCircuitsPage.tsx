@@ -28,6 +28,10 @@ function providerLabel(
   return named ?? c.provider_name ?? "—";
 }
 
+function contractLabel(c: IpamCircuit, contracts: { id: number; name: string }[]): string {
+  return contracts.find((x) => x.id === c.contract_id)?.name ?? "—";
+}
+
 export function IpamCircuitsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -50,6 +54,7 @@ export function IpamCircuitsPage() {
   const [isLeased, setIsLeased] = useState(false);
   const [providerId, setProviderId] = useState("");
   const [providerName, setProviderName] = useState("");
+  const [contractId, setContractId] = useState("");
   const [established, setEstablished] = useState("");
   const [contractEnd, setContractEnd] = useState("");
   const [termCircuitId, setTermCircuitId] = useState<number | null>(null);
@@ -78,6 +83,11 @@ export function IpamCircuitsPage() {
   const [openProvId, setOpenProvId] = useState<number | null>(null);
   const [accName, setAccName] = useState("");
   const [accNumber, setAccNumber] = useState("");
+  const [ctrName, setCtrName] = useState("");
+  const [ctrSlug, setCtrSlug] = useState("");
+  const [ctrRef, setCtrRef] = useState("");
+  const [ctrStart, setCtrStart] = useState("");
+  const [ctrEnd, setCtrEnd] = useState("");
 
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
   const tenantsQ = useQuery({ queryKey: ["tenants"], queryFn: dcimApi.listTenants });
@@ -105,6 +115,12 @@ export function IpamCircuitsPage() {
   const accountsQ = useQuery({
     queryKey: ["ipam", "provider-accounts", openProvId],
     queryFn: () => ipamApi.listProviderAccounts(openProvId!),
+    enabled: openProvId != null,
+  });
+  const contractsQ = useQuery({ queryKey: ["ipam", "contracts"], queryFn: () => ipamApi.listIpamContracts() });
+  const openContractsQ = useQuery({
+    queryKey: ["ipam", "contracts", openProvId],
+    queryFn: () => ipamApi.listIpamContracts(openProvId!),
     enabled: openProvId != null,
   });
   const tunnelsQ = useQuery({
@@ -140,6 +156,7 @@ export function IpamCircuitsPage() {
         is_leased: isLeased,
         provider_id: providerId === "" ? null : Number(providerId),
         provider_name: providerName.trim() === "" ? null : providerName.trim(),
+        contract_id: contractId === "" ? null : Number(contractId),
         established_on: established.trim() === "" ? null : established.trim(),
         contract_end_on: contractEnd.trim() === "" ? null : contractEnd.trim(),
         a_site_id: aSiteId === "" ? null : Number(aSiteId),
@@ -151,6 +168,7 @@ export function IpamCircuitsPage() {
       setName("");
       setProviderName("");
       setProviderId("");
+      setContractId("");
       setEstablished("");
       setContractEnd("");
       setDrawerOpen(false);
@@ -285,6 +303,38 @@ export function IpamCircuitsPage() {
     onError: fail,
   });
 
+  const createCtrM = useMutation({
+    mutationFn: () =>
+      ipamApi.createIpamContract({
+        provider_id: openProvId!,
+        name: ctrName.trim(),
+        slug: ctrSlug.trim() || null,
+        reference: ctrRef.trim() || null,
+        starts_on: ctrStart.trim() === "" ? null : ctrStart.trim(),
+        ends_on: ctrEnd.trim() === "" ? null : ctrEnd.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setCtrName("");
+      setCtrSlug("");
+      setCtrRef("");
+      setCtrStart("");
+      setCtrEnd("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "contracts"] });
+    },
+    onError: fail,
+  });
+
+  const delCtrM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteIpamContract(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "contracts"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "circuits"] });
+    },
+    onError: fail,
+  });
+
   const siteName = (id: number | null | undefined) =>
     (sitesQ.data ?? []).find((s) => s.id === id)?.name ?? "—";
   const devices = devicesQ.data ?? [];
@@ -388,6 +438,7 @@ export function IpamCircuitsPage() {
                     <th>{t("ipam.circuits.zSite")}</th>
                     <th>{t("ipam.circuits.leased")}</th>
                     <th>{t("ipam.circuits.provider")}</th>
+                    <th>{t("ipam.circuits.contract")}</th>
                     <th>{t("ipam.ipv4.actionsCol")}</th>
                   </tr>
                 </thead>
@@ -402,6 +453,7 @@ export function IpamCircuitsPage() {
                       <td>{siteName(c.z_site_id)}</td>
                       <td>{c.is_leased ? t("ipam.circuits.yes") : t("ipam.circuits.no")}</td>
                       <td>{providerLabel(c, providersQ.data ?? [])}</td>
+                      <td>{contractLabel(c, contractsQ.data ?? [])}</td>
                       <td>
                         <button
                           type="button"
@@ -696,6 +748,63 @@ export function IpamCircuitsPage() {
                   {t("ipam.circuits.addAccount")}
                 </button>
               </form>
+              <h3 className={dcimStyles.mfrDetailSectionTitle} style={{ marginTop: "var(--space-3)" }}>
+                {t("ipam.circuits.contracts")}
+              </h3>
+              <p className={dcimStyles.muted}>{t("ipam.circuits.contractHint")}</p>
+              {(openContractsQ.data ?? []).length === 0 && !openContractsQ.isLoading ? (
+                <p className={dcimStyles.muted}>{t("ipam.circuits.emptyContracts")}</p>
+              ) : null}
+              <ul className={dcimStyles.ipList}>
+                {(openContractsQ.data ?? []).map((ctr) => (
+                  <li key={ctr.id}>
+                    {ctr.name}
+                    {ctr.reference ? ` (${ctr.reference})` : ""}
+                    {ctr.ends_on ? ` · ${ctr.ends_on}` : ""}{" "}
+                    <button
+                      type="button"
+                      className={dcimStyles.btnLink}
+                      disabled={delCtrM.isPending}
+                      onClick={() => delCtrM.mutate(ctr.id)}
+                    >
+                      {t("dcim.common.delete")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <form
+                className={dcimStyles.formRow}
+                style={{ flexWrap: "wrap" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setErr(null);
+                  createCtrM.mutate();
+                }}
+              >
+                <label>
+                  {t("ipam.ipv4.name")}
+                  <input value={ctrName} onChange={(e) => setCtrName(e.target.value)} required />
+                </label>
+                <label>
+                  Slug
+                  <input value={ctrSlug} onChange={(e) => setCtrSlug(e.target.value)} />
+                </label>
+                <label>
+                  {t("ipam.circuits.contractRef")}
+                  <input value={ctrRef} onChange={(e) => setCtrRef(e.target.value)} />
+                </label>
+                <label>
+                  {t("ipam.circuits.contractStarts")}
+                  <input type="date" value={ctrStart} onChange={(e) => setCtrStart(e.target.value)} />
+                </label>
+                <label>
+                  {t("ipam.circuits.contractEnds")}
+                  <input type="date" value={ctrEnd} onChange={(e) => setCtrEnd(e.target.value)} />
+                </label>
+                <button type="submit" className={dcimStyles.btn} disabled={createCtrM.isPending}>
+                  {t("ipam.circuits.addContract")}
+                </button>
+              </form>
             </section>
           ) : null}
         </div>
@@ -865,13 +974,32 @@ export function IpamCircuitsPage() {
           </label>
           <label>
             {t("ipam.circuits.provider")}
-            <select value={providerId} onChange={(e) => setProviderId(e.target.value)}>
+            <select
+              value={providerId}
+              onChange={(e) => {
+                setProviderId(e.target.value);
+                setContractId("");
+              }}
+            >
               <option value="">{t("ipam.circuits.noProvider")}</option>
               {(providersQ.data ?? []).map((p) => (
                 <option key={p.id} value={String(p.id)}>
                   {p.name}
                 </option>
               ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.circuits.contract")}
+            <select value={contractId} onChange={(e) => setContractId(e.target.value)} disabled={providerId === ""}>
+              <option value="">{t("ipam.circuits.noContract")}</option>
+              {(contractsQ.data ?? [])
+                .filter((ctr) => providerId !== "" && ctr.provider_id === Number(providerId))
+                .map((ctr) => (
+                  <option key={ctr.id} value={String(ctr.id)}>
+                    {ctr.name}
+                  </option>
+                ))}
             </select>
           </label>
           <label>

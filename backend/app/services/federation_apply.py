@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from sqlalchemy import select
@@ -34,6 +35,7 @@ from app.schemas.ipam import (
     IpamAutonomousSystemCreate,
     IpamBgpSessionCreate,
     IpamCircuitCreate,
+    IpamContractCreate,
     IpamProviderCreate,
     IpamVlanCreate,
     IpamVlanGroupCreate,
@@ -590,6 +592,32 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         found = prov_svc.get_provider_by_slug(db, p["slug"])
         if found is None:
             prov_svc.create_provider(db, IpamProviderCreate(name=p.get("name") or p["slug"], slug=p["slug"]))
+    for c in ipam.get("contracts") or []:
+        slug = (c.get("slug") or "").strip()
+        provider = prov_svc.get_provider_by_slug(db, c["provider_slug"]) if c.get("provider_slug") else None
+        if not slug or provider is None:
+            continue
+        found = prov_svc.get_contract_by_slug(db, provider.id, slug)
+        if found is not None:
+            continue
+        starts = None
+        ends = None
+        if c.get("starts_on"):
+            starts = dt.date.fromisoformat(str(c["starts_on"])[:10])
+        if c.get("ends_on"):
+            ends = dt.date.fromisoformat(str(c["ends_on"])[:10])
+        prov_svc.create_contract(
+            db,
+            IpamContractCreate(
+                provider_id=provider.id,
+                name=c.get("name") or slug,
+                slug=slug,
+                reference=c.get("reference"),
+                starts_on=starts,
+                ends_on=ends,
+                description=c.get("description"),
+            ),
+        )
     for c in ipam.get("circuits") or []:
         number = (c.get("circuit_number") or "").strip()
         if not number:
@@ -600,6 +628,9 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         provider = prov_svc.get_provider_by_slug(db, c["provider_slug"]) if c.get("provider_slug") else None
         a_site = _site_by_slug(db, c["a_site_slug"]) if c.get("a_site_slug") else None
         z_site = _site_by_slug(db, c["z_site_slug"]) if c.get("z_site_slug") else None
+        contract = None
+        if provider is not None and c.get("contract_slug"):
+            contract = prov_svc.get_contract_by_slug(db, provider.id, c["contract_slug"])
         fac_svc.create_circuit(
             db,
             IpamCircuitCreate(
@@ -609,6 +640,7 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 layer=c.get("layer"),
                 provider_id=provider.id if provider is not None else None,
                 provider_name=c.get("provider_name"),
+                contract_id=contract.id if contract is not None else None,
                 a_site_id=a_site.id if a_site is not None else None,
                 z_site_id=z_site.id if z_site is not None else None,
             ),
