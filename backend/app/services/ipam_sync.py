@@ -14,6 +14,7 @@ from app.models.ipam import (
     IpamAutonomousSystem,
     IpamIpv4Address,
     IpamIpv4Prefix,
+    IpamIpv4Range,
     IpamProvider,
     IpamScanHost,
     IpamSubnetScan,
@@ -198,6 +199,13 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if as_ids
         else {}
     )
+    range_rows = (
+        list(
+            db.execute(select(IpamIpv4Range).where(IpamIpv4Range.ipv4_prefix_id.in_(list(prefix_by_id)))).scalars().all()
+        )
+        if prefix_by_id
+        else []
+    )
     tenant_slug = site.tenant.slug if getattr(site, "tenant", None) is not None else None
     vif_ids = {a.virtual_interface_id for a in addrs if getattr(a, "virtual_interface_id", None)}
     vif_by_id: dict[int, Any] = {}
@@ -336,6 +344,19 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "desired_status": s.desired_status,
             }
             for s in bgp_sessions
+        ],
+        "ipv4_ranges": [
+            {
+                "prefix_cidr": prefix_by_id[r.ipv4_prefix_id].cidr if r.ipv4_prefix_id in prefix_by_id else None,
+                "site_slug": site.slug,
+                "slug": r.slug,
+                "name": r.name,
+                "kind": r.kind,
+                "start_address": r.start_address,
+                "end_address": r.end_address,
+                "description": r.description,
+            }
+            for r in range_rows
         ],
     }
 

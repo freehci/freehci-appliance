@@ -5,6 +5,7 @@ import type {
   Ipv4AvailableRanges,
   Ipv4Prefix,
   Ipv4PrefixExplore,
+  Ipv4Range,
   Ipv4PrefixSplitEqualResponse,
   Ipv4PrefixSplitResponse,
   IpamAuditEvent,
@@ -85,6 +86,28 @@ export function allocateChildPrefix(
 
 export function getAvailableRanges(prefixId: number): Promise<Ipv4AvailableRanges> {
   return apiGet(`${P}/ipv4-prefixes/${prefixId}/available-ranges`);
+}
+
+export function listIpv4Ranges(prefixId: number): Promise<Ipv4Range[]> {
+  return apiGet(`${P}/ipv4-prefixes/${prefixId}/ranges`);
+}
+
+export function createIpv4Range(
+  prefixId: number,
+  body: {
+    name: string;
+    slug?: string | null;
+    kind?: string;
+    start_address: string;
+    end_address: string;
+    description?: string | null;
+  },
+): Promise<Ipv4Range> {
+  return apiPost(`${P}/ipv4-prefixes/${prefixId}/ranges`, body);
+}
+
+export function deleteIpv4Range(rangeId: number): Promise<void> {
+  return apiDelete(`${P}/ipv4-ranges/${rangeId}`);
 }
 
 export function ensureIpv4Address(body: {

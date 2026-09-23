@@ -39,8 +39,10 @@ from app.schemas.ipam import (
     IpamVlanGroupCreate,
     IpamVpnServiceCreate,
     IpamVrfCreate,
+    IPV4_RANGE_KINDS,
     Ipv4AddressEnsure,
     Ipv4PrefixEnsure,
+    Ipv4RangeCreate,
     Ipv6AddressEnsure,
     Ipv6PrefixEnsure,
 )
@@ -58,6 +60,7 @@ from app.services import dcim as dcim_svc
 from app.services import ipam as ipam_svc
 from app.services import platform as plat_svc
 from app.services import ipam_address as addr_svc
+from app.services import ipam_range as range_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
 from app.services import dcim_power as pwr_svc
@@ -447,6 +450,35 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 overlap_policy=p.get("overlap_policy"),
             ),
             update=True,
+        )
+    for r in ipam.get("ipv4_ranges") or []:
+        slug = str(r.get("slug") or "").strip().lower()
+        start = str(r.get("start_address") or "").strip()
+        end = str(r.get("end_address") or "").strip()
+        cidr = str(r.get("prefix_cidr") or "").strip()
+        if not slug or not start or not end or not cidr:
+            continue
+        pfx = db.execute(
+            select(IpamIpv4Prefix).where(IpamIpv4Prefix.site_id == site.id, IpamIpv4Prefix.cidr == cidr),
+        ).scalar_one_or_none()
+        if pfx is None:
+            continue
+        if range_svc.get_ipv4_range_by_slug(db, pfx.id, slug) is not None:
+            continue
+        kind = str(r.get("kind") or "other").strip().lower() or "other"
+        if kind not in IPV4_RANGE_KINDS:
+            kind = "other"
+        range_svc.create_ipv4_range(
+            db,
+            pfx,
+            Ipv4RangeCreate(
+                name=r.get("name") or slug,
+                slug=slug,
+                kind=kind,
+                start_address=start,
+                end_address=end,
+                description=r.get("description"),
+            ),
         )
     for a in ipam.get("addresses") or []:
         addr_svc.ensure_ipv4_address(

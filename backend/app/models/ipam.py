@@ -74,6 +74,41 @@ class IpamIpv4Prefix(Base):
     )
 
 
+class IpamIpv4Range(Base):
+    """Førsteklasses IPv4-vindu inne i et prefiks. Ikke DHCP-tjeneste eller lease."""
+
+    __tablename__ = "ipam_ipv4_ranges"
+    __table_args__ = (
+        UniqueConstraint("ipv4_prefix_id", "slug", name="uq_ipam_ipv4_range_prefix_slug"),
+        UniqueConstraint("ipv4_prefix_id", "start_address", "end_address", name="uq_ipam_ipv4_range_prefix_span"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ipv4_prefix_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_ipv4_prefixes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    # allocation | reserved | dhcp | other — dhcp er inventory-vindu, ikke scope/lease.
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="allocation")
+    start_address: Mapped[str] = mapped_column(String(45), nullable=False)
+    end_address: Mapped[str] = mapped_column(String(45), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: dt.datetime.now(dt.UTC),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class IpamSubnetScan(Base):
     """Én kjøring av subnett-skann (ping først; SNMP/port kan komme senere)."""
 

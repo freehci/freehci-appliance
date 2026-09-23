@@ -19,7 +19,7 @@ from app.models.dcim import (
     RackPlacement,
     Room,
 )
-from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix
+from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamIpv4Range
 from app.schemas.ipam import (
     NO_HOST_ALLOC_ROLES,
     NO_HOST_ALLOC_STATUSES,
@@ -985,6 +985,11 @@ def _delete_ipv4_prefix_tree(db: Session, row: IpamIpv4Prefix, *, cascade: bool)
             child_count=len(children),
             address_count=addr_count,
         )
+    ranges = list(
+        db.execute(select(IpamIpv4Range).where(IpamIpv4Range.ipv4_prefix_id == row.id)).scalars().all(),
+    )
+    for rng in ranges:
+        db.delete(rng)
     if cascade:
         for child in children:
             _delete_ipv4_prefix_tree(db, child, cascade=True)

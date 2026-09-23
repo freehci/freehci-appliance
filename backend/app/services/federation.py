@@ -506,6 +506,20 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for s in raw.get("bgp_sessions") or []
             if s.get("peer_ip") and s.get("local_asn")
         ],
+        "ipv4_ranges": [
+            {
+                "prefix_cidr": r.get("prefix_cidr"),
+                "site_slug": site.slug,
+                "slug": r.get("slug"),
+                "name": r.get("name"),
+                "kind": r.get("kind"),
+                "start_address": r.get("start_address"),
+                "end_address": r.get("end_address"),
+                "description": r.get("description"),
+            }
+            for r in raw.get("ipv4_ranges") or []
+            if r.get("slug") and r.get("start_address") and r.get("end_address")
+        ],
     }
 
 

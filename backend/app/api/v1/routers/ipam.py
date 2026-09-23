@@ -25,6 +25,9 @@ from app.schemas.ipam import (
     Ipv4PrefixSplitRequest,
     Ipv4PrefixSplitResponse,
     Ipv4PrefixUpdate,
+    Ipv4RangeCreate,
+    Ipv4RangeRead,
+    Ipv4RangeUpdate,
     PrefixAddressGridRead,
     SubnetScanCreate,
     SubnetScanDetailRead,
@@ -117,6 +120,7 @@ from app.services import ipam_audit as audit_svc
 from app.services import ipam_etag as etag_svc
 from app.services import ipam_sync as sync_svc
 from app.services import ipam_webhooks as hook_svc
+from app.services import ipam_range as range_svc
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
 
@@ -221,6 +225,46 @@ def get_available_ranges(prefix_id: int, db: Session = Depends(get_db)) -> Ipv4A
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
     return alloc_svc.available_ranges(db, row)
+
+
+@router.get("/ipv4-prefixes/{prefix_id}/ranges", response_model=list[Ipv4RangeRead])
+def list_ipv4_ranges(prefix_id: int, db: Session = Depends(get_db)) -> list[Ipv4RangeRead]:
+    row = ipam_svc.get_ipv4_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return [range_svc.range_to_read(x) for x in range_svc.list_ipv4_ranges(db, prefix_id)]
+
+
+@router.post("/ipv4-prefixes/{prefix_id}/ranges", response_model=Ipv4RangeRead)
+def create_ipv4_range(prefix_id: int, data: Ipv4RangeCreate, db: Session = Depends(get_db)) -> Ipv4RangeRead:
+    row = ipam_svc.get_ipv4_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return range_svc.create_ipv4_range(db, row, data)
+
+
+@router.get("/ipv4-ranges/{range_id}", response_model=Ipv4RangeRead)
+def get_ipv4_range(range_id: int, db: Session = Depends(get_db)) -> Ipv4RangeRead:
+    row = range_svc.get_ipv4_range(db, range_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "range_not_found", "detail": "område ikke funnet"})
+    return range_svc.range_to_read(row)
+
+
+@router.patch("/ipv4-ranges/{range_id}", response_model=Ipv4RangeRead)
+def patch_ipv4_range(range_id: int, data: Ipv4RangeUpdate, db: Session = Depends(get_db)) -> Ipv4RangeRead:
+    row = range_svc.get_ipv4_range(db, range_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "range_not_found", "detail": "område ikke funnet"})
+    return range_svc.update_ipv4_range(db, row, data)
+
+
+@router.delete("/ipv4-ranges/{range_id}", status_code=204)
+def delete_ipv4_range(range_id: int, db: Session = Depends(get_db)) -> None:
+    row = range_svc.get_ipv4_range(db, range_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "range_not_found", "detail": "område ikke funnet"})
+    range_svc.delete_ipv4_range(db, row)
 
 
 @router.get("/ipv4-prefixes/{prefix_id}/drift", response_model=PrefixDriftRead)

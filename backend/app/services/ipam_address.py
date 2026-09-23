@@ -26,6 +26,7 @@ from app.schemas.ipam import (
 from app.services import dcim as dcim_svc
 from app.services import ipam as ipam_svc
 from app.services import ipam_etag as etag_svc
+from app.services import ipam_range as range_svc
 from app.services.ipam_errors import ipam_error
 
 _HELD_STATUSES = frozenset({"reserved", "assigned"})
@@ -384,39 +385,33 @@ def _network_broadcast_ips(pfx: IpamIpv4Prefix) -> set[str]:
     return {str(net.network_address), str(net.broadcast_address)}
 
 
-def _dhcp_range_ips(pfx: IpamIpv4Prefix) -> set[str]:
+def _json_dhcp_range_ips(pfx: IpamIpv4Prefix) -> set[str]:
     services = getattr(pfx, "subnet_services", None) or {}
     if not isinstance(services, dict):
         return set()
     rng = services.get("dhcp_range")
     if not isinstance(rng, dict):
         return set()
-    try:
-        start = ipaddress.ip_address(str(rng.get("start", "")).strip())
-        end = ipaddress.ip_address(str(rng.get("end", "")).strip())
-        net = ipaddress.ip_network(pfx.cidr, strict=False)
-    except ValueError:
-        return set()
-    if not isinstance(start, ipaddress.IPv4Address) or not isinstance(end, ipaddress.IPv4Address):
-        return set()
-    if int(start) > int(end):
-        start, end = end, start
-    last = min(int(end), int(start) + 65536)
-    out: set[str] = set()
-    for n in range(int(start), last + 1):
-        ip = ipaddress.IPv4Address(n)
-        if ip in net:
-            out.add(str(ip))
-    return out
+    return range_svc.inclusive_range_ips(pfx.cidr, str(rng.get("start", "")), str(rng.get("end", "")))
+
+
+def _dhcp_range_ips(pfx: IpamIpv4Prefix) -> set[str]:
+    """JSON dhcp_range union førstklassige kind=dhcp-vinduer. Ikke leases."""
+    return _json_dhcp_range_ips(pfx) | range_svc.first_class_range_ips(pfx, {"dhcp"})
 
 
 def infra_reserved_ips(pfx: IpamIpv4Prefix) -> set[str]:
-    """Nettverk, broadcast, gateway og DHCP-intervall — hoppes over ved statisk host-alloc."""
-    return _network_broadcast_ips(pfx) | _gateway_ips(pfx) | _dhcp_range_ips(pfx)
+    """Nettverk, broadcast, gateway, DHCP-vindu og reserved-vindu — hoppes over ved auto-alloc."""
+    return (
+        _network_broadcast_ips(pfx)
+        | _gateway_ips(pfx)
+        | _dhcp_range_ips(pfx)
+        | range_svc.first_class_range_ips(pfx, {"reserved"})
+    )
 
 
 def _ordered_ip_candidates_for_batch(pfx: IpamIpv4Prefix, preferred_raw: list[str]) -> list[str]:
-    """Foretrukne (gyldige i nettet, unike) først; deretter øvrige vertsadresser (hosts)."""
+    """Foretrukne først; deretter allocation-vindu hvis det finnes, ellers øvrige hosts."""
     try:
         net = ipaddress.ip_network(pfx.cidr, strict=False)
     except ValueError as e:
@@ -424,6 +419,7 @@ def _ordered_ip_candidates_for_batch(pfx: IpamIpv4Prefix, preferred_raw: list[st
     if net.version != 4:
         raise HTTPException(status_code=400, detail="kun IPv4 støttes")
     blocked = infra_reserved_ips(pfx)
+    pool = range_svc.allocation_pool_ips(pfx)
     host_ips = list(net.hosts()) if net.prefixlen <= 30 else list(net)
     pref_order: list[str] = []
     seen: set[str] = set()
@@ -440,9 +436,15 @@ def _ordered_ip_candidates_for_batch(pfx: IpamIpv4Prefix, preferred_raw: list[st
         t = str(ip)
         if t in seen or t in blocked:
             continue
+        if pool is not None and t not in pool:
+            continue
         pref_order.append(t)
         seen.add(t)
-    rest = [str(ip) for ip in host_ips if str(ip) not in seen and str(ip) not in blocked]
+    rest = [
+        str(ip)
+        for ip in host_ips
+        if str(ip) not in seen and str(ip) not in blocked and (pool is None or str(ip) in pool)
+    ]
     return pref_order + rest
 
 

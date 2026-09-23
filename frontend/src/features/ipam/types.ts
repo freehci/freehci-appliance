@@ -1,3 +1,19 @@
+export const IPV4_RANGE_KINDS = ["allocation", "reserved", "dhcp", "other"] as const;
+export type Ipv4RangeKind = (typeof IPV4_RANGE_KINDS)[number];
+
+export type Ipv4Range = {
+  id: number;
+  ipv4_prefix_id: number;
+  name: string;
+  slug: string;
+  kind: Ipv4RangeKind | string;
+  start_address: string;
+  end_address: string;
+  description: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 export type Ipv4Prefix = {
   id: number;
   site_id: number;
