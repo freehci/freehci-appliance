@@ -48,6 +48,7 @@ import type {
   PowerFeed,
   Cable,
   CablePathHop,
+  FiberStrand,
   NetBoxDtlApply,
   NetBoxDtlImport,
   NetBoxDtlItem,
@@ -1442,4 +1443,19 @@ export function createCable(body: {
 
 export function deleteCable(id: number): Promise<void> {
   return apiDelete(`${P}/cables/${id}`);
+}
+
+export function listFiberStrands(cableId: number): Promise<FiberStrand[]> {
+  return apiGet(`${P}/cables/${cableId}/strands`);
+}
+
+export function createFiberStrand(
+  cableId: number,
+  body: { position: number; label?: string | null; status?: string },
+): Promise<FiberStrand> {
+  return apiPost(`${P}/cables/${cableId}/strands`, body);
+}
+
+export function deleteFiberStrand(id: number): Promise<void> {
+  return apiDelete(`${P}/fiber-strands/${id}`);
 }

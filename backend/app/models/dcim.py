@@ -1019,6 +1019,10 @@ class Cable(Base):
         back_populates="cable",
         cascade="all, delete-orphan",
     )
+    strands: Mapped[list["FiberStrand"]] = relationship(
+        back_populates="cable",
+        cascade="all, delete-orphan",
+    )
 
 
 class CableTermination(Base):
@@ -1035,3 +1039,19 @@ class CableTermination(Base):
     object_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
     cable: Mapped["Cable"] = relationship(back_populates="terminations")
+
+
+class FiberStrand(Base):
+    """Én fiber i en optisk kabel. Ingen tap, bølgelengde eller gjettet antall."""
+
+    __tablename__ = "dcim_fiber_strands"
+    __table_args__ = (UniqueConstraint("cable_id", "position", name="uq_dcim_fiber_strand_cable_position"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cable_id: Mapped[int] = mapped_column(ForeignKey("dcim_cables.id", ondelete="CASCADE"), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="unused")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    cable: Mapped["Cable"] = relationship(back_populates="strands")

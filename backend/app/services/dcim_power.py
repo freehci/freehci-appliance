@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.models.dcim import (
     Cable,
     CableTermination,
+    FiberStrand,
     DeviceInstance,
     DeviceInterface,
     DeviceModelTemplate,
@@ -27,6 +28,10 @@ from app.models.dcim import (
 )
 from app.schemas.dcim import (
     CableCreate,
+    FIBER_CABLE_TYPES,
+    FiberStrandCreate,
+    FiberStrandRead,
+    FiberStrandUpdate,
     CablePathHop,
     CablePathRead,
     CableRead,
@@ -607,8 +612,66 @@ def get_cable(db: Session, cable_id: int) -> Cable | None:
 
 
 def delete_cable(db: Session, row: Cable) -> None:
+    for s in list(db.execute(select(FiberStrand).where(FiberStrand.cable_id == row.id)).scalars().all()):
+        db.delete(s)
     db.delete(row)
     db.commit()
+
+
+def list_fiber_strands(db: Session, cable_id: int) -> list[FiberStrand]:
+    return list(
+        db.execute(select(FiberStrand).where(FiberStrand.cable_id == cable_id).order_by(FiberStrand.position)).scalars().all()
+    )
+
+
+def get_fiber_strand(db: Session, strand_id: int) -> FiberStrand | None:
+    return db.get(FiberStrand, strand_id)
+
+
+def get_fiber_strand_by_position(db: Session, cable_id: int, position: int) -> FiberStrand | None:
+    return db.execute(
+        select(FiberStrand).where(FiberStrand.cable_id == cable_id, FiberStrand.position == position),
+    ).scalar_one_or_none()
+
+
+def create_fiber_strand(db: Session, cable: Cable, data: FiberStrandCreate) -> FiberStrand:
+    if cable.cable_type not in FIBER_CABLE_TYPES:
+        raise HTTPException(status_code=400, detail="kabelen er ikke fiber")
+    if get_fiber_strand_by_position(db, cable.id, data.position) is not None:
+        raise HTTPException(status_code=409, detail="fiberposisjon finnes allerede")
+    row = FiberStrand(
+        cable_id=cable.id,
+        position=data.position,
+        label=data.label.strip() if data.label else None,
+        status=data.status,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="fiberposisjon finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def update_fiber_strand(db: Session, row: FiberStrand, data: FiberStrandUpdate) -> FiberStrand:
+    if data.label is not None:
+        row.label = data.label.strip() if data.label else None
+    if data.status is not None:
+        row.status = data.status
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_fiber_strand(db: Session, row: FiberStrand) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def fiber_strand_to_read(row: FiberStrand) -> FiberStrandRead:
+    return FiberStrandRead.model_validate(row)
 
 
 def _delete_cables_for(db: Session, object_type: str, object_id: int) -> None:
@@ -716,6 +779,7 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
             "power_feeds": [],
             "device_ports": [],
             "cables": [],
+            "fiber_strands": [],
         }
     sources = list(db.execute(select(PowerSource).where(PowerSource.site_id.in_(site_ids))).scalars().all())
     source_by_id = {s.id: s for s in sources}
@@ -745,6 +809,12 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
     )
     port_by_id = {p.id: p for p in ports}
     cables = list(db.execute(select(Cable).where(Cable.site_id.in_(site_ids))).scalars().all())
+    cable_by_id = {c.id: c for c in cables}
+    strands = (
+        list(db.execute(select(FiberStrand).where(FiberStrand.cable_id.in_(cable_by_id))).scalars().all())
+        if cable_by_id
+        else []
+    )
     terms = (
         list(db.execute(select(CableTermination).where(CableTermination.cable_id.in_({c.id for c in cables}))).scalars().all())
         if cables
@@ -848,6 +918,17 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
                 "terminations": [_term_export(t) for t in terms_by_cable.get(c.id, [])],
             }
             for c in cables
+        ],
+        "fiber_strands": [
+            {
+                "site_slug": site_by_id[cable_by_id[s.cable_id].site_id].slug,
+                "cable_slug": cable_by_id[s.cable_id].slug,
+                "position": s.position,
+                "label": s.label,
+                "status": s.status,
+            }
+            for s in strands
+            if s.cable_id in cable_by_id
         ],
     }
 
@@ -1068,6 +1149,28 @@ def apply_from_document(db: Session, doc: dict[str, Any], *, site_by_slug: dict[
                 z=z,
             ),
         )
+
+    for s in doc.get("fiber_strands") or []:
+        slug = (s.get("cable_slug") or "").strip()
+        site = site_by_slug.get((s.get("site_slug") or "").strip())
+        position = s.get("position")
+        if not slug or site is None or position is None:
+            continue
+        cable = db.execute(select(Cable).where(Cable.site_id == site.id, Cable.slug == slug)).scalar_one_or_none()
+        if cable is None or get_fiber_strand_by_position(db, cable.id, int(position)) is not None:
+            continue
+        try:
+            create_fiber_strand(
+                db,
+                cable,
+                FiberStrandCreate(
+                    position=int(position),
+                    label=s.get("label"),
+                    status=s.get("status") or "unused",
+                ),
+            )
+        except (HTTPException, ValueError, TypeError):
+            continue
 
 
 def _term_from_export(db: Session, raw: dict[str, Any]) -> CableTerminationIn | None:

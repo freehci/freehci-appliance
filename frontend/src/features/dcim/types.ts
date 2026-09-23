@@ -699,6 +699,15 @@ export type Cable = {
   created_at: string;
 };
 
+export type FiberStrand = {
+  id: number;
+  cable_id: number;
+  position: number;
+  label: string | null;
+  status: string;
+  created_at: string;
+};
+
 export type CablePathHop = {
   object_type: string;
   object_id: number;

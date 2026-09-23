@@ -8,6 +8,7 @@ import type { CablePathHop } from "./types";
 
 const PORT_KINDS = ["power-port", "power-outlet", "front-port", "rear-port"] as const;
 const CABLE_TYPES = ["power", "cat6", "cat6a", "sm-os2", "mm-om4", "dac", "other"] as const;
+const FIBER_CABLE_TYPES = new Set(["sm-os2", "mm-om4"]);
 
 export function DevicePortsCablesPanel({
   deviceId,
@@ -202,6 +203,9 @@ export function DevicePortsCablesPanel({
               <button type="button" className={styles.btnLink} onClick={() => delCable.mutate(c.id)}>
                 {t("dcim.common.delete")}
               </button>
+              {FIBER_CABLE_TYPES.has(c.cable_type) ? (
+                <FiberStrandsInline cableId={c.id} onError={onError} />
+              ) : null}
             </li>
           ))}
         </ul>
@@ -254,5 +258,85 @@ export function DevicePortsCablesPanel({
         </button>
       </form>
     </section>
+  );
+}
+
+function FiberStrandsInline({
+  cableId,
+  onError,
+}: {
+  cableId: number;
+  onError: (msg: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [position, setPosition] = useState("1");
+  const [label, setLabel] = useState("");
+  const strandsQ = useQuery({
+    queryKey: ["dcim", "cables", cableId, "strands"],
+    queryFn: () => api.listFiberStrands(cableId),
+  });
+  const fail = (e: Error) => onError(e instanceof ApiError ? e.message : e.message);
+  const createStrand = useMutation({
+    mutationFn: () =>
+      api.createFiberStrand(cableId, {
+        position: Number(position),
+        label: label.trim() || null,
+      }),
+    onSuccess: () => {
+      setLabel("");
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "cables", cableId, "strands"] });
+    },
+    onError: fail,
+  });
+  const delStrand = useMutation({
+    mutationFn: (id: number) => api.deleteFiberStrand(id),
+    onSuccess: () => {
+      onError(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "cables", cableId, "strands"] });
+    },
+    onError: fail,
+  });
+  const strands = strandsQ.data ?? [];
+
+  return (
+    <div>
+      <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.strands.title")}</h4>
+      <p className={styles.muted}>{t("dcim.strands.hint")}</p>
+      {strands.length === 0 && !strandsQ.isLoading ? <p className={styles.muted}>{t("dcim.strands.empty")}</p> : null}
+      {strands.length > 0 ? (
+        <ul className={styles.ipList}>
+          {strands.map((s) => (
+            <li key={s.id}>
+              #{s.position}
+              {s.label ? ` ${s.label}` : ""} ({s.status}){" "}
+              <button type="button" className={styles.btnLink} onClick={() => delStrand.mutate(s.id)}>
+                {t("dcim.common.delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className={styles.formRow}
+        onSubmit={(e) => {
+          e.preventDefault();
+          createStrand.mutate();
+        }}
+      >
+        <label>
+          {t("dcim.strands.position")}
+          <input type="number" min={1} value={position} onChange={(e) => setPosition(e.target.value)} required />
+        </label>
+        <label>
+          {t("dcim.strands.label")}
+          <input value={label} onChange={(e) => setLabel(e.target.value)} />
+        </label>
+        <button type="submit" className={styles.btn} disabled={createStrand.isPending}>
+          {t("dcim.strands.add")}
+        </button>
+      </form>
+    </div>
   );
 }

@@ -144,6 +144,9 @@ from app.schemas.dcim import (
     CableCreate,
     CableRead,
     CablePathRead,
+    FiberStrandCreate,
+    FiberStrandRead,
+    FiberStrandUpdate,
 )
 from app.services import dcim as dcim_svc
 from app.services import dcim_power as power_svc
@@ -1928,3 +1931,51 @@ def delete_cable(cable_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="kabel ikke funnet")
     power_svc.delete_cable(db, row)
+
+
+@router.get("/cables/{cable_id}/strands", response_model=list[FiberStrandRead])
+def list_fiber_strands(cable_id: int, db: Session = Depends(get_db)) -> list[FiberStrandRead]:
+    row = power_svc.get_cable(db, cable_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kabel ikke funnet")
+    return [power_svc.fiber_strand_to_read(s) for s in power_svc.list_fiber_strands(db, cable_id)]
+
+
+@router.post("/cables/{cable_id}/strands", response_model=FiberStrandRead)
+def create_fiber_strand(
+    cable_id: int,
+    data: FiberStrandCreate,
+    db: Session = Depends(get_db),
+) -> FiberStrandRead:
+    row = power_svc.get_cable(db, cable_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kabel ikke funnet")
+    return power_svc.fiber_strand_to_read(power_svc.create_fiber_strand(db, row, data))
+
+
+@router.get("/fiber-strands/{strand_id}", response_model=FiberStrandRead)
+def get_fiber_strand(strand_id: int, db: Session = Depends(get_db)) -> FiberStrandRead:
+    row = power_svc.get_fiber_strand(db, strand_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiber ikke funnet")
+    return power_svc.fiber_strand_to_read(row)
+
+
+@router.patch("/fiber-strands/{strand_id}", response_model=FiberStrandRead)
+def patch_fiber_strand(
+    strand_id: int,
+    data: FiberStrandUpdate,
+    db: Session = Depends(get_db),
+) -> FiberStrandRead:
+    row = power_svc.get_fiber_strand(db, strand_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiber ikke funnet")
+    return power_svc.fiber_strand_to_read(power_svc.update_fiber_strand(db, row, data))
+
+
+@router.delete("/fiber-strands/{strand_id}", status_code=204)
+def delete_fiber_strand(strand_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_fiber_strand(db, strand_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiber ikke funnet")
+    power_svc.delete_fiber_strand(db, row)

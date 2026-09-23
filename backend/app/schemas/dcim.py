@@ -1553,6 +1553,8 @@ POWER_PHASES = frozenset({"single", "three"})
 POWER_SOURCE_KINDS = frozenset({"grid", "generator", "ups-device", "other"})
 DEVICE_PORT_KINDS = frozenset({"power-port", "power-outlet", "front-port", "rear-port"})
 CABLE_TYPES = frozenset({"power", "cat5e", "cat6", "cat6a", "sm-os2", "mm-om4", "dac", "coax", "other"})
+FIBER_CABLE_TYPES = frozenset({"sm-os2", "mm-om4"})
+FIBER_STRAND_STATUSES = frozenset({"unused", "reserved", "used", "damaged"})
 CABLE_STATUSES = frozenset({"planned", "connected", "disabled"})
 CABLE_OBJECT_TYPES = frozenset({"power-feed", "device-port", "interface"})
 
@@ -1797,3 +1799,47 @@ class CablePathHop(BaseModel):
 
 class CablePathRead(BaseModel):
     hops: list[CablePathHop]
+
+
+class FiberStrandCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    position: int = Field(..., ge=1, le=2000)
+    label: str | None = Field(None, max_length=128)
+    status: str = "unused"
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in FIBER_STRAND_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(FIBER_STRAND_STATUSES))}")
+        return s
+
+
+class FiberStrandUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    label: str | None = Field(None, max_length=128)
+    status: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def status_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if s not in FIBER_STRAND_STATUSES:
+            raise ValueError(f"status må være en av: {', '.join(sorted(FIBER_STRAND_STATUSES))}")
+        return s
+
+
+class FiberStrandRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    cable_id: int
+    position: int
+    label: str | None
+    status: str
+    created_at: dt.datetime
