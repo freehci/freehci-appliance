@@ -340,6 +340,22 @@ export type IpamVlan = {
 
 export type OverlaySegmentKind = "vxlan" | "evpn" | "other";
 
+export type IpamVlanStretch = {
+  id: number;
+  vlan_a_id: number;
+  vlan_b_id: number;
+  vlan_a_vid: number | null;
+  vlan_b_vid: number | null;
+  vlan_a_name: string | null;
+  vlan_b_name: string | null;
+  site_a_id: number | null;
+  site_b_id: number | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+};
+
 export type IpamOverlaySegment = {
   id: number;
   site_id: number;

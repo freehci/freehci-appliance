@@ -1726,6 +1726,14 @@ export const nb = {
   "ipam.overlay.kindOther": "Annet",
   "ipam.overlay.vlanOptional": "VLAN (valgfritt)",
   "ipam.overlay.noVlan": "— ingen —",
+  "ipam.stretch.title": "Strekte VLAN",
+  "ipam.stretch.hint":
+    "Registrer at to VLAN på ulike sites er samme L2-domene. Samme VID eller navn gjettes aldri som strekning, og ingenting påføres svitsjer.",
+  "ipam.stretch.add": "Legg til strekning",
+  "ipam.stretch.empty": "Ingen VLAN-strekning registrert ennå.",
+  "ipam.stretch.vlanA": "VLAN A",
+  "ipam.stretch.vlanB": "VLAN B",
+  "ipam.stretch.chooseVlan": "Velg VLAN",
 
   "ipam.circuits.title": "Samband",
   "ipam.circuits.intro":

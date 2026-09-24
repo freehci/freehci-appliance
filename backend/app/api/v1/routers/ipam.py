@@ -75,6 +75,8 @@ from app.schemas.ipam import (
     IpamVpnServiceUpdate,
     IpamOverlaySegmentCreate,
     IpamOverlaySegmentRead,
+    IpamVlanStretchCreate,
+    IpamVlanStretchRead,
     IpamVlanCreate,
     IpamVlanEnsure,
     IpamVlanGroupCreate,
@@ -1039,6 +1041,35 @@ def delete_overlay_segment(segment_id: int, db: Session = Depends(get_db)) -> No
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "overlay_not_found", "detail": "overlay-segment ikke funnet"})
     fac_svc.delete_overlay_segment(db, row)
+
+
+@router.get("/vlan-stretches", response_model=list[IpamVlanStretchRead])
+def list_vlan_stretches(
+    site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamVlanStretchRead]:
+    return [fac_svc.vlan_stretch_to_read(db, r) for r in fac_svc.list_vlan_stretches(db, site_id=site_id)]
+
+
+@router.post("/vlan-stretches", response_model=IpamVlanStretchRead)
+def create_vlan_stretch(data: IpamVlanStretchCreate, db: Session = Depends(get_db)) -> IpamVlanStretchRead:
+    return fac_svc.vlan_stretch_to_read(db, fac_svc.create_vlan_stretch(db, data))
+
+
+@router.get("/vlan-stretches/{stretch_id}", response_model=IpamVlanStretchRead)
+def get_vlan_stretch(stretch_id: int, db: Session = Depends(get_db)) -> IpamVlanStretchRead:
+    row = fac_svc.get_vlan_stretch(db, stretch_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vlan_stretch_not_found", "detail": "VLAN-strekning ikke funnet"})
+    return fac_svc.vlan_stretch_to_read(db, row)
+
+
+@router.delete("/vlan-stretches/{stretch_id}", status_code=204)
+def delete_vlan_stretch(stretch_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_vlan_stretch(db, stretch_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vlan_stretch_not_found", "detail": "VLAN-strekning ikke funnet"})
+    fac_svc.delete_vlan_stretch(db, row)
 
 
 @router.get("/circuits", response_model=list[IpamCircuitRead])

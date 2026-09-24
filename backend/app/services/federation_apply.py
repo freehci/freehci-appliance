@@ -49,6 +49,7 @@ from app.schemas.ipam import (
     IpamProviderCreate,
     IpamOverlaySegmentCreate,
     IpamVlanCreate,
+    IpamVlanStretchCreate,
     IpamVlanGroupCreate,
     IpamVpnServiceCreate,
     IpamVrfCreate,
@@ -461,6 +462,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     for ipam in doc.get("ipam") or []:
         _apply_site_ipam(db, ipam)
+    _apply_vlan_stretches(db, doc)
 
     site_by_slug = {s.slug: s for s in db.execute(select(Site)).scalars().all()}
     pwr_svc.apply_from_document(db, doc, site_by_slug=site_by_slug)
@@ -468,6 +470,49 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
     _apply_platform(db, doc)
     _bind_vif_ipv4(db, doc)
     _apply_catalog(db, doc)
+
+
+def _apply_vlan_stretches(db: Session, doc: dict[str, Any]) -> None:
+    rows: list[dict[str, Any]] = list(doc.get("vlan_stretches") or [])
+    for ipam in doc.get("ipam") or []:
+        rows.extend(ipam.get("vlan_stretches") or [])
+    seen: set[str] = set()
+    for raw in rows:
+        slug = (raw.get("slug") or "").strip().lower()
+        a_site = (raw.get("a_site_slug") or "").strip()
+        z_site = (raw.get("z_site_slug") or "").strip()
+        a_vlan = (raw.get("a_vlan_slug") or "").strip().lower()
+        z_vlan = (raw.get("z_vlan_slug") or "").strip().lower()
+        if not slug or not a_site or not z_site or not a_vlan or not z_vlan or slug in seen:
+            continue
+        seen.add(slug)
+        if fac_svc.get_vlan_stretch_by_slug(db, slug) is not None:
+            continue
+        site_a = _site_by_slug(db, a_site)
+        site_z = _site_by_slug(db, z_site)
+        if site_a is None or site_z is None:
+            continue
+        vlan_a = db.execute(
+            select(IpamVlan).where(IpamVlan.site_id == site_a.id, IpamVlan.slug == a_vlan),
+        ).scalar_one_or_none()
+        vlan_z = db.execute(
+            select(IpamVlan).where(IpamVlan.site_id == site_z.id, IpamVlan.slug == z_vlan),
+        ).scalar_one_or_none()
+        if vlan_a is None or vlan_z is None:
+            continue
+        try:
+            fac_svc.create_vlan_stretch(
+                db,
+                IpamVlanStretchCreate(
+                    vlan_a_id=vlan_a.id,
+                    vlan_b_id=vlan_z.id,
+                    name=raw.get("name") or slug,
+                    slug=slug,
+                    description=raw.get("description"),
+                ),
+            )
+        except Exception:
+            continue
 
 
 def _apply_circuit_strands(db: Session, doc: dict[str, Any]) -> None:

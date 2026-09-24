@@ -32,6 +32,9 @@ export function IpamVlansPage() {
   const [ovKind, setOvKind] = useState("vxlan");
   const [ovVlan, setOvVlan] = useState("");
   const [ovVrf, setOvVrf] = useState("");
+  const [stName, setStName] = useState("");
+  const [stVlanA, setStVlanA] = useState("");
+  const [stVlanB, setStVlanB] = useState("");
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -67,6 +70,14 @@ export function IpamVlansPage() {
   const overlaysQ = useQuery({
     queryKey: ["ipam", "overlay-segments", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listOverlaySegments(siteIdFilter),
+  });
+  const stretchesQ = useQuery({
+    queryKey: ["ipam", "vlan-stretches", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listVlanStretches(siteIdFilter),
+  });
+  const allVlansQ = useQuery({
+    queryKey: ["ipam", "vlans", "all-for-stretch"],
+    queryFn: () => ipamApi.listIpamVlans(),
   });
   const ovVrfsQ = useQuery({
     queryKey: ["ipam", "vrfs", ovSite === "" ? "none" : Number(ovSite)],
@@ -220,6 +231,30 @@ export function IpamVlansPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["ipam", "overlay-segments"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const createStM = useMutation({
+    mutationFn: () =>
+      ipamApi.createVlanStretch({
+        vlan_a_id: Number(stVlanA),
+        vlan_b_id: Number(stVlanB),
+        name: stName.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setStName("");
+      setStVlanA("");
+      setStVlanB("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "vlan-stretches"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delStM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteVlanStretch(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "vlan-stretches"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -498,6 +533,73 @@ export function IpamVlansPage() {
           </ul>
         ) : (
           !overlaysQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.overlay.empty")}</p>
+        )}
+      </section>
+      <section className={dcimStyles.mfrDetailSection}>
+        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.stretch.title")}</h3>
+        <p className={dcimStyles.muted}>{t("ipam.stretch.hint")}</p>
+        <form
+          className={dcimStyles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            createStM.mutate();
+          }}
+        >
+          <label>
+            {t("ipam.ipv4.name")}
+            <input value={stName} onChange={(e) => setStName(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.stretch.vlanA")}
+            <select value={stVlanA} onChange={(e) => setStVlanA(e.target.value)} required>
+              <option value="">{t("ipam.stretch.chooseVlan")}</option>
+              {(allVlansQ.data ?? []).map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  {siteNameById.get(v.site_id) ?? v.site_id} · VLAN {v.vid} — {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.stretch.vlanB")}
+            <select value={stVlanB} onChange={(e) => setStVlanB(e.target.value)} required>
+              <option value="">{t("ipam.stretch.chooseVlan")}</option>
+              {(allVlansQ.data ?? []).map((v) => (
+                <option key={`b-${v.id}`} value={String(v.id)}>
+                  {siteNameById.get(v.site_id) ?? v.site_id} · VLAN {v.vid} — {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className={dcimStyles.btn}
+            disabled={createStM.isPending || stName.trim() === "" || stVlanA === "" || stVlanB === "" || stVlanA === stVlanB}
+          >
+            {t("ipam.stretch.add")}
+          </button>
+        </form>
+        {(stretchesQ.data ?? []).length > 0 ? (
+          <ul className={dcimStyles.ipList}>
+            {(stretchesQ.data ?? []).map((s) => (
+              <li key={s.id}>
+                {s.name} <code>{s.slug}</code>
+                {` · ${siteNameById.get(s.site_a_id ?? 0) ?? s.site_a_id} VLAN ${s.vlan_a_vid ?? "—"}`}
+                {` ↔ ${siteNameById.get(s.site_b_id ?? 0) ?? s.site_b_id} VLAN ${s.vlan_b_vid ?? "—"}`}{" "}
+                <button
+                  type="button"
+                  className={dcimStyles.btnLink}
+                  disabled={delStM.isPending}
+                  onClick={() => delStM.mutate(s.id)}
+                >
+                  {t("dcim.common.delete")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          !stretchesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.stretch.empty")}</p>
         )}
       </section>
       <PrefixDrawer

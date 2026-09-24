@@ -435,6 +435,34 @@ class IpamOverlaySegment(Base):
     )
 
 
+class IpamVlanStretch(Base):
+    """Registrert L2-strekning mellom VLAN på ulike sites. Aldri gjettet fra VID eller navn."""
+
+    __tablename__ = "ipam_vlan_stretches"
+    __table_args__ = (
+        UniqueConstraint("vlan_low_id", "vlan_high_id", name="uq_ipam_vlan_stretch_pair"),
+        UniqueConstraint("slug", name="uq_ipam_vlan_stretch_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vlan_low_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vlans.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vlan_high_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vlans.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class IpamProvider(Base):
     """Global leverandør/operatør. Opprettes eksplisitt — aldri gjettet fra fritekst."""
 

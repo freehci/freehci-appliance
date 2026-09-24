@@ -1716,6 +1716,14 @@ export const en = {
   "ipam.overlay.kindOther": "Other",
   "ipam.overlay.vlanOptional": "VLAN (optional)",
   "ipam.overlay.noVlan": "— none —",
+  "ipam.stretch.title": "Stretched VLANs",
+  "ipam.stretch.hint":
+    "Record that two VLANs on different sites are the same L2 domain. Same VID or name is never treated as a stretch, and nothing is applied to switches.",
+  "ipam.stretch.add": "Add stretch",
+  "ipam.stretch.empty": "No VLAN stretch recorded yet.",
+  "ipam.stretch.vlanA": "VLAN A",
+  "ipam.stretch.vlanB": "VLAN B",
+  "ipam.stretch.chooseVlan": "Choose VLAN",
 
   "ipam.circuits.title": "Circuits",
   "ipam.circuits.intro":

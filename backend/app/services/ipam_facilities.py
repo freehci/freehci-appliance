@@ -17,6 +17,7 @@ from app.models.ipam import (
     IpamOverlaySegment,
     IpamTunnelTransport,
     IpamVlan,
+    IpamVlanStretch,
     IpamVlanGroup,
     IpamVrf,
 )
@@ -37,6 +38,8 @@ from app.schemas.ipam import (
     IpamOverlaySegmentCreate,
     IpamOverlaySegmentRead,
     IpamVlanCreate,
+    IpamVlanStretchCreate,
+    IpamVlanStretchRead,
     IpamVlanEnsure,
     IpamVlanGroupCreate,
     IpamVlanGroupRead,
@@ -456,10 +459,121 @@ def overlay_segment_to_read(db: Session, row: IpamOverlaySegment) -> IpamOverlay
     )
 
 
+def list_vlan_stretches(db: Session, *, site_id: int | None = None) -> list[IpamVlanStretch]:
+    q = select(IpamVlanStretch).order_by(IpamVlanStretch.slug)
+    rows = list(db.execute(q).scalars().all())
+    if site_id is None:
+        return rows
+    out: list[IpamVlanStretch] = []
+    for row in rows:
+        a = get_vlan(db, row.vlan_low_id)
+        b = get_vlan(db, row.vlan_high_id)
+        if (a is not None and a.site_id == site_id) or (b is not None and b.site_id == site_id):
+            out.append(row)
+    return out
+
+
+def get_vlan_stretch(db: Session, stretch_id: int) -> IpamVlanStretch | None:
+    return db.get(IpamVlanStretch, stretch_id)
+
+
+def get_vlan_stretch_by_slug(db: Session, slug: str) -> IpamVlanStretch | None:
+    return db.execute(
+        select(IpamVlanStretch).where(IpamVlanStretch.slug == slug.strip().lower()),
+    ).scalar_one_or_none()
+
+
+def _unique_stretch_slug(db: Session, desired: str) -> str:
+    base = _slugify(desired)
+    candidate = base
+    n = 2
+    while True:
+        if get_vlan_stretch_by_slug(db, candidate) is None:
+            return candidate
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+        if n > 1000:
+            raise ipam_error(400, "slug_exhausted", "kunne ikke lage unik slug")
+
+
+def create_vlan_stretch(db: Session, data: IpamVlanStretchCreate) -> IpamVlanStretch:
+    if data.vlan_a_id == data.vlan_b_id:
+        raise ipam_error(400, "vlan_stretch_same_vlan", "strekning krever to ulike VLAN")
+    vlan_a = get_vlan(db, data.vlan_a_id)
+    vlan_b = get_vlan(db, data.vlan_b_id)
+    if vlan_a is None or vlan_b is None:
+        raise ipam_error(400, "vlan_stretch_vlan", "VLAN ikke funnet")
+    if vlan_a.site_id == vlan_b.site_id:
+        raise ipam_error(400, "vlan_stretch_same_site", "strekning krever VLAN på ulike sites")
+    low_id, high_id = sorted((vlan_a.id, vlan_b.id))
+    taken = db.execute(
+        select(IpamVlanStretch.id).where(
+            IpamVlanStretch.vlan_low_id == low_id,
+            IpamVlanStretch.vlan_high_id == high_id,
+        ),
+    ).scalar_one_or_none()
+    if taken is not None:
+        raise ipam_error(409, "vlan_stretch_exists", "strekning mellom disse VLAN er allerede registrert")
+    if data.slug:
+        slug = _slugify(data.slug)
+        if get_vlan_stretch_by_slug(db, slug) is not None:
+            raise ipam_error(409, "vlan_stretch_slug", "strekning-slug finnes allerede")
+    else:
+        slug = _unique_stretch_slug(db, data.name)
+    row = IpamVlanStretch(
+        vlan_low_id=low_id,
+        vlan_high_id=high_id,
+        name=data.name.strip(),
+        slug=slug,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "vlan_stretch_exists", "strekning mellom disse VLAN er allerede registrert")
+    db.refresh(row)
+    return row
+
+
+def delete_vlan_stretch(db: Session, row: IpamVlanStretch) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def vlan_stretch_to_read(db: Session, row: IpamVlanStretch) -> IpamVlanStretchRead:
+    low = get_vlan(db, row.vlan_low_id)
+    high = get_vlan(db, row.vlan_high_id)
+    return IpamVlanStretchRead(
+        id=row.id,
+        vlan_a_id=row.vlan_low_id,
+        vlan_b_id=row.vlan_high_id,
+        vlan_a_vid=low.vid if low is not None else None,
+        vlan_b_vid=high.vid if high is not None else None,
+        vlan_a_name=low.name if low is not None else None,
+        vlan_b_name=high.name if high is not None else None,
+        site_a_id=low.site_id if low is not None else None,
+        site_b_id=high.site_id if high is not None else None,
+        name=row.name,
+        slug=row.slug,
+        description=row.description,
+        created_at=row.created_at,
+    )
+
+
 def delete_vlan(db: Session, row: IpamVlan) -> None:
     from app.services.federation_guard import require_site_write
 
     require_site_write(db, row.site_id)
+    for stretch in list(
+        db.execute(
+            select(IpamVlanStretch).where(
+                (IpamVlanStretch.vlan_low_id == row.id) | (IpamVlanStretch.vlan_high_id == row.id),
+            ),
+        ).scalars().all()
+    ):
+        db.delete(stretch)
     db.delete(row)
     db.commit()
 

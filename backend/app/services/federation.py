@@ -38,6 +38,7 @@ from app.schemas.federation import (
 )
 from app.services import catalog as cat_svc
 from app.services import dcim_power as pwr_svc
+from app.services import ipam_facilities as fac_svc
 from app.services import ipam_sync
 from app.services import platform as plat_svc
 from app.services.auth_admin import create_api_token, ensure_default_admin
@@ -397,6 +398,18 @@ def set_frozen(db: Session, tenant: Tenant, frozen: bool) -> FederationTenantRol
     return role
 
 
+def _vlan_stretches_for_sites(db: Session, sites: list[Site]) -> list[dict[str, Any]]:
+    seen: set[int] = set()
+    rows = []
+    for site in sites:
+        for row in fac_svc.list_vlan_stretches(db, site_id=site.id):
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            rows.append(row)
+    return ipam_sync._vlan_stretches_export(db, rows)
+
+
 def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
     raw = ipam_sync.export_site(db, site.id)
     addresses = []
@@ -449,6 +462,19 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             }
             for o in raw.get("overlay_segments") or []
             if o.get("slug") and o.get("vni") is not None
+        ],
+        "vlan_stretches": [
+            {
+                "slug": s.get("slug"),
+                "name": s.get("name"),
+                "a_site_slug": s.get("a_site_slug"),
+                "a_vlan_slug": s.get("a_vlan_slug"),
+                "z_site_slug": s.get("z_site_slug"),
+                "z_vlan_slug": s.get("z_vlan_slug"),
+                "description": s.get("description"),
+            }
+            for s in raw.get("vlan_stretches") or []
+            if s.get("slug") and s.get("a_vlan_slug") and s.get("z_vlan_slug")
         ],
         "prefixes": [
             {
@@ -832,6 +858,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
             if p.rack_id in rack_by_id and p.device_id in device_by_id
         ],
         "ipam": [_ipam_for_site(db, s) for s in sites],
+        "vlan_stretches": _vlan_stretches_for_sites(db, sites),
         "device_roles": [
             {"slug": r.slug, "name": r.name, "kind": r.kind, "description": r.description} for r in roles
         ],
