@@ -73,6 +73,8 @@ from app.schemas.ipam import (
     IpamVpnServiceCreate,
     IpamVpnServiceRead,
     IpamVpnServiceUpdate,
+    IpamOverlaySegmentCreate,
+    IpamOverlaySegmentRead,
     IpamVlanCreate,
     IpamVlanEnsure,
     IpamVlanGroupCreate,
@@ -1005,6 +1007,38 @@ def delete_ipam_vlan(vlan_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "vlan_not_found", "detail": "VLAN ikke funnet"})
     fac_svc.delete_vlan(db, row)
+
+
+@router.get("/overlay-segments", response_model=list[IpamOverlaySegmentRead])
+def list_overlay_segments(
+    site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamOverlaySegmentRead]:
+    return [fac_svc.overlay_segment_to_read(db, r) for r in fac_svc.list_overlay_segments(db, site_id=site_id)]
+
+
+@router.post("/overlay-segments", response_model=IpamOverlaySegmentRead)
+def create_overlay_segment(data: IpamOverlaySegmentCreate, db: Session = Depends(get_db)) -> IpamOverlaySegmentRead:
+    try:
+        return fac_svc.overlay_segment_to_read(db, fac_svc.create_overlay_segment(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"code": "overlay_ref_missing", "detail": str(e)}) from e
+
+
+@router.get("/overlay-segments/{segment_id}", response_model=IpamOverlaySegmentRead)
+def get_overlay_segment(segment_id: int, db: Session = Depends(get_db)) -> IpamOverlaySegmentRead:
+    row = fac_svc.get_overlay_segment(db, segment_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "overlay_not_found", "detail": "overlay-segment ikke funnet"})
+    return fac_svc.overlay_segment_to_read(db, row)
+
+
+@router.delete("/overlay-segments/{segment_id}", status_code=204)
+def delete_overlay_segment(segment_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_overlay_segment(db, segment_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "overlay_not_found", "detail": "overlay-segment ikke funnet"})
+    fac_svc.delete_overlay_segment(db, row)
 
 
 @router.get("/circuits", response_model=list[IpamCircuitRead])

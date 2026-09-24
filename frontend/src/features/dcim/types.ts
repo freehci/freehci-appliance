@@ -170,6 +170,17 @@ export type DeviceArtifactBaseline = {
   created_at: string;
 };
 
+export type DeviceArtifactBaselineAssignment = {
+  id: number;
+  device_id: number;
+  baseline_id: number;
+  intent: DeviceArtifactIntent;
+  baseline_slug: string | null;
+  baseline_name: string | null;
+  baseline_kind: string | null;
+  created_at: string;
+};
+
 export type DeviceModelBrief = {
   id: number;
   name: string;

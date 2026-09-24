@@ -86,6 +86,8 @@ from app.schemas.dcim import (
     DeviceModelUpdate,
     DeviceArtifactCreate,
     DeviceArtifactRead,
+    DeviceArtifactBaselineAssignmentCreate,
+    DeviceArtifactBaselineAssignmentRead,
     DeviceArtifactBaselineCreate,
     DeviceArtifactBaselineMemberCreate,
     DeviceArtifactBaselineRead,
@@ -886,6 +888,47 @@ def delete_artifact_baseline_member(mid: int, db: Session = Depends(get_db)) -> 
     if row is None:
         raise HTTPException(status_code=404, detail="baseline-medlem ikke funnet")
     dcim_svc.delete_artifact_baseline_member(db, row)
+
+
+@router.get("/devices/{did}/artifact-baselines", response_model=list[DeviceArtifactBaselineAssignmentRead])
+def list_device_artifact_baseline_assignments(
+    did: int,
+    db: Session = Depends(get_db),
+) -> list[DeviceArtifactBaselineAssignmentRead]:
+    device = dcim_svc.get_device(db, did)
+    if device is None:
+        raise HTTPException(status_code=404, detail="enhet ikke funnet")
+    return [
+        dcim_svc.artifact_baseline_assignment_to_read(db, r)
+        for r in dcim_svc.list_artifact_baseline_assignments(db, device_id=did)
+    ]
+
+
+@router.post("/devices/{did}/artifact-baselines", response_model=DeviceArtifactBaselineAssignmentRead)
+def assign_device_artifact_baseline(
+    did: int,
+    data: DeviceArtifactBaselineAssignmentCreate,
+    db: Session = Depends(get_db),
+) -> DeviceArtifactBaselineAssignmentRead:
+    device = dcim_svc.get_device(db, did)
+    if device is None:
+        raise HTTPException(status_code=404, detail="enhet ikke funnet")
+    return dcim_svc.artifact_baseline_assignment_to_read(
+        db,
+        dcim_svc.assign_artifact_baseline(db, device, data),
+    )
+
+
+@router.delete("/devices/{did}/artifact-baselines/{aid}", status_code=204)
+def delete_device_artifact_baseline_assignment(
+    did: int,
+    aid: int,
+    db: Session = Depends(get_db),
+) -> None:
+    row = dcim_svc.get_artifact_baseline_assignment(db, aid)
+    if row is None or row.device_id != did:
+        raise HTTPException(status_code=404, detail="baseline-tilordning ikke funnet")
+    dcim_svc.delete_artifact_baseline_assignment(db, row)
 
 
 # --- Component classes / library ---

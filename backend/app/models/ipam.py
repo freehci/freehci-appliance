@@ -401,6 +401,40 @@ class IpamVlan(Base):
     vrf: Mapped["IpamVrf | None"] = relationship(back_populates="vlans")
 
 
+class IpamOverlaySegment(Base):
+    """Registrert VXLAN/EVPN-segment. VNI gjettes aldri fra VLAN-ID, og ingenting påføres."""
+
+    __tablename__ = "ipam_overlay_segments"
+    __table_args__ = (
+        UniqueConstraint("site_id", "vni", name="uq_ipam_overlay_segment_site_vni"),
+        UniqueConstraint("site_id", "slug", name="uq_ipam_overlay_segment_site_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vni: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="vxlan")
+    vlan_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vlans.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    vrf_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class IpamProvider(Base):
     """Global leverandør/operatør. Opprettes eksplisitt — aldri gjettet fra fritekst."""
 

@@ -643,6 +643,34 @@ class DeviceArtifactBaselineMemberCreate(BaseModel):
     artifact_id: int = Field(..., ge=1)
 
 
+class DeviceArtifactBaselineAssignmentCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    baseline_id: int = Field(..., ge=1)
+    intent: str = "recorded"
+
+    @field_validator("intent")
+    @classmethod
+    def intent_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "recorded"
+        if s not in DEVICE_ARTIFACT_INTENTS:
+            raise ValueError(f"intent må være en av: {', '.join(sorted(DEVICE_ARTIFACT_INTENTS))}")
+        return s
+
+
+class DeviceArtifactBaselineAssignmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    baseline_id: int
+    intent: str
+    baseline_slug: str | None = None
+    baseline_name: str | None = None
+    baseline_kind: str | None = None
+    created_at: dt.datetime
+
+
 class DeviceModelBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

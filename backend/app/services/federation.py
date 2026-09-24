@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
-from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamIpv4Address
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -435,6 +435,20 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "vlan_group_slug": v.get("vlan_group_slug"),
             }
             for v in raw.get("vlans") or []
+        ],
+        "overlay_segments": [
+            {
+                "slug": o.get("slug"),
+                "name": o.get("name"),
+                "vni": o.get("vni"),
+                "kind": o.get("kind"),
+                "vlan_vid": o.get("vlan_vid"),
+                "vlan_slug": o.get("vlan_slug"),
+                "vrf_slug": o.get("vrf_slug"),
+                "description": o.get("description"),
+            }
+            for o in raw.get("overlay_segments") or []
+            if o.get("slug") and o.get("vni") is not None
         ],
         "prefixes": [
             {
@@ -856,6 +870,18 @@ def _export_device_artifacts(
     )
     baselines = list(db.execute(select(DeviceArtifactBaseline).order_by(DeviceArtifactBaseline.slug)).scalars().all())
     baseline_ids = {b.id for b in baselines}
+    baseline_by_id = {b.id: b for b in baselines}
+    assignments = (
+        list(
+            db.execute(
+                select(DeviceArtifactBaselineAssignment).where(
+                    DeviceArtifactBaselineAssignment.device_id.in_(device_ids)
+                )
+            ).scalars().all()
+        )
+        if device_ids
+        else []
+    )
     baseline_members = (
         list(
             db.execute(select(DeviceArtifactBaselineMember).where(DeviceArtifactBaselineMember.baseline_id.in_(baseline_ids))).scalars().all()
@@ -911,6 +937,22 @@ def _export_device_artifacts(
             }
             for r in records
             if r.device_id in device_by_id and r.artifact_id in art_by_id
+        ],
+        "device_artifact_baseline_assignments": [
+            {
+                "device_name": device_by_id[a.device_id].name if a.device_id in device_by_id else None,
+                "site_slug": (
+                    site_by_id[device_by_id[a.device_id].site_id].slug
+                    if a.device_id in device_by_id
+                    and device_by_id[a.device_id].site_id
+                    and device_by_id[a.device_id].site_id in site_by_id
+                    else None
+                ),
+                "baseline_slug": baseline_by_id[a.baseline_id].slug if a.baseline_id in baseline_by_id else None,
+                "intent": a.intent,
+            }
+            for a in assignments
+            if a.device_id in device_by_id and a.baseline_id in baseline_by_id
         ],
     }
 

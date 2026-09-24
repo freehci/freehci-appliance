@@ -344,6 +344,27 @@ class DeviceArtifactBaselineMember(Base):
     baseline: Mapped["DeviceArtifactBaseline"] = relationship(back_populates="members")
 
 
+class DeviceArtifactBaselineAssignment(Base):
+    """Baseline knyttet til en enhet. Medlemmer kopieres ikke, og ingenting flashes."""
+
+    __tablename__ = "dcim_device_artifact_baseline_assignments"
+    __table_args__ = (
+        UniqueConstraint("device_id", "baseline_id", name="uq_dcim_device_artifact_baseline_assignment"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    baseline_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_artifact_baselines.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    intent: Mapped[str] = mapped_column(String(32), nullable=False, default="recorded")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class DeviceModel(Base):
     __tablename__ = "dcim_device_models"
 

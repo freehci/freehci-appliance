@@ -23,6 +23,7 @@ CIRCUIT_SERVICE_TYPES = frozenset({"internet", "ethernet", "dark-fiber", "other"
 CIRCUIT_MEDIA = frozenset({"fiber", "copper", "radio", "other"})
 CIRCUIT_OPERATIONAL_STATUSES = frozenset({"planned", "active", "offline", "decommissioned"})
 CIRCUIT_OWNERSHIPS = frozenset({"owned", "leased"})
+OVERLAY_SEGMENT_KINDS = frozenset({"vxlan", "evpn", "other"})
 CIRCUIT_TERM_KINDS = frozenset({"local", "unknown", "provider-network"})
 VPN_MEMBER_ROLES = frozenset({"hub", "spoke", "peer", "client", "other"})
 VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
@@ -1301,6 +1302,44 @@ class IpamVlanRead(BaseModel):
     vrf_id: int | None
     description: str | None
     created: bool | None = None
+    created_at: dt.datetime
+
+
+class IpamOverlaySegmentCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    site_id: int = Field(..., ge=1)
+    vni: int = Field(..., ge=1, le=16_777_215)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    kind: str = "vxlan"
+    vlan_id: int | None = Field(None, ge=1)
+    vrf_id: int | None = Field(None, ge=1)
+    description: str | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "vxlan"
+        if s not in OVERLAY_SEGMENT_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(OVERLAY_SEGMENT_KINDS))}")
+        return s
+
+
+class IpamOverlaySegmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    vni: int
+    name: str
+    slug: str
+    kind: str
+    vlan_id: int | None
+    vlan_vid: int | None = None
+    vrf_id: int | None
+    vrf_name: str | None = None
+    description: str | None
     created_at: dt.datetime
 
 

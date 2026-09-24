@@ -1378,6 +1378,11 @@ export const en = {
   "dcim.equip.baseline.deleteModalTitle": "Delete baseline «{name}»?",
   "dcim.equip.baseline.deleteModalHint":
     "The named group is removed. Artifacts stay recorded. Nothing is flashed or rolled back.",
+  "dcim.equip.baseline.assignTitle": "Baseline on this device",
+  "dcim.equip.baseline.assignHint":
+    "Record that this device should follow a firmware baseline or BIOS profile. Members are not copied onto the device, nothing is flashed, and compliance is not scored.",
+  "dcim.equip.baseline.assignAdd": "Assign baseline",
+  "dcim.equip.baseline.assignEmpty": "No baseline assigned to this device.",
   "dcim.equip.dm.title": "Device models",
   "dcim.equip.dm.mfr": "Manufacturer",
   "dcim.equip.dm.mfrCol": "Mfr.",
@@ -1699,6 +1704,18 @@ export const en = {
   "ipam.vlan.noVrf": "— none —",
   "ipam.vlan.create": "Create VLAN",
   "ipam.vlan.empty": "No VLANs yet.",
+  "ipam.overlay.title": "Overlay segments (VNI)",
+  "ipam.overlay.hint":
+    "Record a VXLAN/EVPN VNI on this site. VNI is never copied from a VLAN ID, kind is never inferred from a VRF, and nothing is applied to switches.",
+  "ipam.overlay.add": "Add overlay",
+  "ipam.overlay.empty": "No overlay segment recorded yet.",
+  "ipam.overlay.vni": "VNI",
+  "ipam.overlay.kind": "Kind",
+  "ipam.overlay.kindVxlan": "VXLAN",
+  "ipam.overlay.kindEvpn": "EVPN",
+  "ipam.overlay.kindOther": "Other",
+  "ipam.overlay.vlanOptional": "VLAN (optional)",
+  "ipam.overlay.noVlan": "— none —",
 
   "ipam.circuits.title": "Circuits",
   "ipam.circuits.intro":

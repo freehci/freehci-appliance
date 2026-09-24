@@ -1387,6 +1387,11 @@ export const nb = {
   "dcim.equip.baseline.deleteModalTitle": "Slette baseline «{name}»?",
   "dcim.equip.baseline.deleteModalHint":
     "Den navngitte gruppen fjernes. Artefaktene blir stående. Ingenting blir flashet eller rulles tilbake.",
+  "dcim.equip.baseline.assignTitle": "Baseline på denne enheten",
+  "dcim.equip.baseline.assignHint":
+    "Registrer at enheten skal følge en firmware-baseline eller BIOS-profil. Medlemmer kopieres ikke til enheten, ingenting flashes, og samsvar beregnes ikke.",
+  "dcim.equip.baseline.assignAdd": "Tilordne baseline",
+  "dcim.equip.baseline.assignEmpty": "Ingen baseline tilordnet denne enheten.",
   "dcim.equip.dm.title": "Enhetsmodeller",
   "dcim.equip.dm.mfr": "Produsent",
   "dcim.equip.dm.mfrCol": "Prod.",
@@ -1709,6 +1714,18 @@ export const nb = {
   "ipam.vlan.noVrf": "— ingen —",
   "ipam.vlan.create": "Opprett VLAN",
   "ipam.vlan.empty": "Ingen VLAN ennå.",
+  "ipam.overlay.title": "Overlay-segmenter (VNI)",
+  "ipam.overlay.hint":
+    "Registrer en VXLAN/EVPN-VNI på denne siten. VNI kopieres aldri fra VLAN-ID, type gjettes aldri fra VRF, og ingenting påføres svitsjer.",
+  "ipam.overlay.add": "Legg til overlay",
+  "ipam.overlay.empty": "Ingen overlay-segment registrert ennå.",
+  "ipam.overlay.vni": "VNI",
+  "ipam.overlay.kind": "Type",
+  "ipam.overlay.kindVxlan": "VXLAN",
+  "ipam.overlay.kindEvpn": "EVPN",
+  "ipam.overlay.kindOther": "Annet",
+  "ipam.overlay.vlanOptional": "VLAN (valgfritt)",
+  "ipam.overlay.noVlan": "— ingen —",
 
   "ipam.circuits.title": "Samband",
   "ipam.circuits.intro":

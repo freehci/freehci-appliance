@@ -41,6 +41,7 @@ from app.models.dcim import (
     DeviceModelIdentity,
     DeviceArtifact,
     DeviceArtifactBaseline,
+    DeviceArtifactBaselineAssignment,
     DeviceArtifactBaselineMember,
     DeviceArtifactRecord,
     DeviceRole,
@@ -121,6 +122,8 @@ from app.schemas.dcim import (
     DeviceModelIdentityUpdate,
     DeviceModelRead,
     DeviceArtifactCreate,
+    DeviceArtifactBaselineAssignmentCreate,
+    DeviceArtifactBaselineAssignmentRead,
     DeviceArtifactBaselineCreate,
     DeviceArtifactBaselineMemberCreate,
     DeviceArtifactBaselineMemberRead,
@@ -1625,12 +1628,89 @@ def add_artifact_baseline_member(
 
 
 def delete_artifact_baseline(db: Session, row: DeviceArtifactBaseline) -> None:
+    for a in list(
+        db.execute(
+            select(DeviceArtifactBaselineAssignment).where(DeviceArtifactBaselineAssignment.baseline_id == row.id)
+        ).scalars().all()
+    ):
+        db.delete(a)
     for m in list(
         db.execute(select(DeviceArtifactBaselineMember).where(DeviceArtifactBaselineMember.baseline_id == row.id)).scalars().all()
     ):
         db.delete(m)
     db.delete(row)
     db.commit()
+
+
+def list_artifact_baseline_assignments(
+    db: Session,
+    *,
+    device_id: int | None = None,
+    baseline_id: int | None = None,
+) -> list[DeviceArtifactBaselineAssignment]:
+    q = select(DeviceArtifactBaselineAssignment).order_by(DeviceArtifactBaselineAssignment.id)
+    if device_id is not None:
+        q = q.where(DeviceArtifactBaselineAssignment.device_id == device_id)
+    if baseline_id is not None:
+        q = q.where(DeviceArtifactBaselineAssignment.baseline_id == baseline_id)
+    return list(db.execute(q).scalars().all())
+
+
+def get_artifact_baseline_assignment(db: Session, assignment_id: int) -> DeviceArtifactBaselineAssignment | None:
+    return db.get(DeviceArtifactBaselineAssignment, assignment_id)
+
+
+def assign_artifact_baseline(
+    db: Session,
+    device: DeviceInstance,
+    data: DeviceArtifactBaselineAssignmentCreate,
+) -> DeviceArtifactBaselineAssignment:
+    baseline = get_artifact_baseline(db, data.baseline_id)
+    if baseline is None:
+        raise HTTPException(status_code=404, detail="baseline ikke funnet")
+    exists = db.execute(
+        select(DeviceArtifactBaselineAssignment.id).where(
+            DeviceArtifactBaselineAssignment.device_id == device.id,
+            DeviceArtifactBaselineAssignment.baseline_id == baseline.id,
+        )
+    ).scalar_one_or_none()
+    if exists:
+        raise HTTPException(status_code=409, detail="artifact_baseline_assignment_taken")
+    row = DeviceArtifactBaselineAssignment(
+        device_id=device.id,
+        baseline_id=baseline.id,
+        intent=data.intent,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="artifact_baseline_assignment_taken")
+    db.refresh(row)
+    return row
+
+
+def delete_artifact_baseline_assignment(db: Session, row: DeviceArtifactBaselineAssignment) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def artifact_baseline_assignment_to_read(
+    db: Session,
+    row: DeviceArtifactBaselineAssignment,
+) -> DeviceArtifactBaselineAssignmentRead:
+    baseline = get_artifact_baseline(db, row.baseline_id)
+    return DeviceArtifactBaselineAssignmentRead(
+        id=row.id,
+        device_id=row.device_id,
+        baseline_id=row.baseline_id,
+        intent=row.intent,
+        baseline_slug=baseline.slug if baseline is not None else None,
+        baseline_name=baseline.name if baseline is not None else None,
+        baseline_kind=baseline.kind if baseline is not None else None,
+        created_at=row.created_at,
+    )
 
 
 def delete_artifact_baseline_member(db: Session, row: DeviceArtifactBaselineMember) -> None:

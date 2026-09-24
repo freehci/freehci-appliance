@@ -177,6 +177,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
     v6, _ = ipv6_svc.list_ipv6_prefixes(db, site_id=site_id)
     v6a, _ = ipv6_svc.list_ipv6_addresses(db, site_id=site_id, limit=5000)
     vlans = fac_svc.list_vlans(db, site_id=site_id)
+    overlays = fac_svc.list_overlay_segments(db, site_id=site_id)
     vlan_groups = fac_svc.list_vlan_groups(db, site_id=site_id)
     vrfs = fac_svc.list_vrfs(db, site_id=site_id)
     circuits = fac_svc.list_circuits(db, site_id=site_id)
@@ -363,6 +364,19 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "vlan_group_slug": group_by_id[v.vlan_group_id].slug if v.vlan_group_id in group_by_id else None,
             }
             for v in vlans
+        ],
+        "overlay_segments": [
+            {
+                "slug": o.slug,
+                "name": o.name,
+                "vni": o.vni,
+                "kind": o.kind,
+                "vlan_vid": vlan_by_id[o.vlan_id].vid if o.vlan_id and o.vlan_id in vlan_by_id else None,
+                "vlan_slug": vlan_by_id[o.vlan_id].slug if o.vlan_id and o.vlan_id in vlan_by_id else None,
+                "vrf_slug": vrf_by_id[o.vrf_id].slug if o.vrf_id and o.vrf_id in vrf_by_id else None,
+                "description": o.description,
+            }
+            for o in overlays
         ],
         "prefixes": [
             {

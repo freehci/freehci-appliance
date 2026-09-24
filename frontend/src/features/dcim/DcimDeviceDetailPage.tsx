@@ -84,6 +84,8 @@ export function DcimDeviceDetailPage() {
   const [roleEdit, setRoleEdit] = useState("");
   const [artPick, setArtPick] = useState("");
   const [artIntent, setArtIntent] = useState<"recorded" | "intended">("recorded");
+  const [blPick, setBlPick] = useState("");
+  const [blIntent, setBlIntent] = useState<"recorded" | "intended">("recorded");
   const [vrfPick, setVrfPick] = useState("");
   const [vrfIntent, setVrfIntent] = useState<"recorded" | "intended">("recorded");
   const [serialDraft, setSerialDraft] = useState("");
@@ -132,6 +134,15 @@ export function DcimDeviceDetailPage() {
   const artifactRecQ = useQuery({
     queryKey: ["dcim", "devices", id, "artifacts"],
     queryFn: () => api.listDeviceArtifactRecords(id),
+    enabled: Number.isFinite(id),
+  });
+  const baselinesQ = useQuery({
+    queryKey: ["dcim", "device-artifact-baselines"],
+    queryFn: api.listDeviceArtifactBaselines,
+  });
+  const blAssignQ = useQuery({
+    queryKey: ["dcim", "devices", id, "artifact-baselines"],
+    queryFn: () => api.listDeviceArtifactBaselineAssignments(id),
     enabled: Number.isFinite(id),
   });
 
@@ -377,6 +388,25 @@ export function DcimDeviceDetailPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "artifacts"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const assignBl = useMutation({
+    mutationFn: () =>
+      api.assignDeviceArtifactBaseline(id, { baseline_id: Number(blPick), intent: blIntent }),
+    onSuccess: () => {
+      setErr(null);
+      setBlPick("");
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "artifact-baselines"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "artifacts"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delBlAssign = useMutation({
+    mutationFn: (aid: number) => api.deleteDeviceArtifactBaselineAssignment(id, aid),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "artifact-baselines"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -934,6 +964,63 @@ export function DcimDeviceDetailPage() {
                 </ul>
               ) : (
                 <p className={styles.muted}>{t("dcim.equip.artifact.deviceEmpty")}</p>
+              )}
+            </section>
+            <section className={styles.mfrDetailSection}>
+              <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.baseline.assignTitle")}</h3>
+              <p className={styles.muted} style={{ marginTop: 0 }}>
+                {t("dcim.equip.baseline.assignHint")}
+              </p>
+              <div className={styles.formRow}>
+                <label>
+                  {t("dcim.equip.baseline.pick")}
+                  <select value={blPick} onChange={(e) => setBlPick(e.target.value)}>
+                    <option value="">{t("dcim.equip.baseline.choose")}</option>
+                    {(baselinesQ.data ?? []).map((b) => (
+                      <option key={b.id} value={String(b.id)}>
+                        {b.name} ({b.kind})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("dcim.equip.artifact.intent")}
+                  <select value={blIntent} onChange={(e) => setBlIntent(e.target.value as "recorded" | "intended")}>
+                    <option value="recorded">{t("dcim.equip.artifact.intentRecorded")}</option>
+                    <option value="intended">{t("dcim.equip.artifact.intentIntended")}</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={!blPick || assignBl.isPending}
+                  onClick={() => {
+                    setErr(null);
+                    assignBl.mutate();
+                  }}
+                >
+                  {assignBl.isPending ? "…" : t("dcim.equip.baseline.assignAdd")}
+                </button>
+              </div>
+              {(blAssignQ.data ?? []).length > 0 ? (
+                <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem" }}>
+                  {(blAssignQ.data ?? []).map((r) => (
+                    <li key={r.id}>
+                      {r.baseline_name ?? r.baseline_slug ?? `#${r.baseline_id}`}
+                      {r.baseline_kind ? ` (${r.baseline_kind})` : ""} ({r.intent}){" "}
+                      <button
+                        type="button"
+                        className={styles.tableIconBtn}
+                        onClick={() => delBlAssign.mutate(r.id)}
+                        disabled={delBlAssign.isPending}
+                      >
+                        {t("dcim.common.remove")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.muted}>{t("dcim.equip.baseline.assignEmpty")}</p>
               )}
             </section>
             <section className={styles.mfrDetailSection}>

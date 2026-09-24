@@ -29,6 +29,7 @@ import type {
   DeviceModelComponent,
   DeviceArtifact,
   DeviceArtifactBaseline,
+  DeviceArtifactBaselineAssignment,
   DeviceArtifactRecord,
   DeviceRole,
   DeviceType,
@@ -584,6 +585,26 @@ export function deleteDeviceArtifactBaseline(id: number): Promise<void> {
 
 export function deleteDeviceArtifactBaselineMember(id: number): Promise<void> {
   return apiDelete(`${P}/device-artifact-baseline-members/${id}`);
+}
+
+export function listDeviceArtifactBaselineAssignments(
+  deviceId: number,
+): Promise<DeviceArtifactBaselineAssignment[]> {
+  return apiGet(`${P}/devices/${deviceId}/artifact-baselines`);
+}
+
+export function assignDeviceArtifactBaseline(
+  deviceId: number,
+  body: { baseline_id: number; intent?: string },
+): Promise<DeviceArtifactBaselineAssignment> {
+  return apiPost(`${P}/devices/${deviceId}/artifact-baselines`, body);
+}
+
+export function deleteDeviceArtifactBaselineAssignment(
+  deviceId: number,
+  assignmentId: number,
+): Promise<void> {
+  return apiDelete(`${P}/devices/${deviceId}/artifact-baselines/${assignmentId}`);
 }
 
 export function listComponentClasses(): Promise<ComponentClass[]> {

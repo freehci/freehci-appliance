@@ -14,6 +14,7 @@ from app.models.ipam import (
     IpamCircuitGroup,
     IpamCircuitStrand,
     IpamCircuitTermination,
+    IpamOverlaySegment,
     IpamTunnelTransport,
     IpamVlan,
     IpamVlanGroup,
@@ -33,6 +34,8 @@ from app.schemas.ipam import (
     IpamCircuitTerminationCreate,
     IpamCircuitTerminationRead,
     IpamCircuitUpdate,
+    IpamOverlaySegmentCreate,
+    IpamOverlaySegmentRead,
     IpamVlanCreate,
     IpamVlanEnsure,
     IpamVlanGroupCreate,
@@ -350,6 +353,107 @@ def create_vlan(db: Session, data: IpamVlanCreate) -> IpamVlan:
 
 def get_vlan(db: Session, vlan_id: int) -> IpamVlan | None:
     return db.get(IpamVlan, vlan_id)
+
+
+def list_overlay_segments(db: Session, *, site_id: int | None = None) -> list[IpamOverlaySegment]:
+    q = select(IpamOverlaySegment).order_by(IpamOverlaySegment.site_id, IpamOverlaySegment.vni)
+    if site_id is not None:
+        q = q.where(IpamOverlaySegment.site_id == site_id)
+    return list(db.execute(q).scalars().all())
+
+
+def get_overlay_segment(db: Session, segment_id: int) -> IpamOverlaySegment | None:
+    return db.get(IpamOverlaySegment, segment_id)
+
+
+def get_overlay_segment_by_slug(db: Session, site_id: int, slug: str) -> IpamOverlaySegment | None:
+    return db.execute(
+        select(IpamOverlaySegment).where(
+            IpamOverlaySegment.site_id == site_id,
+            IpamOverlaySegment.slug == slug.strip().lower(),
+        ),
+    ).scalar_one_or_none()
+
+
+def _unique_overlay_slug(db: Session, site_id: int, desired: str) -> str:
+    base = _slugify(desired)
+    candidate = base
+    n = 2
+    while True:
+        if get_overlay_segment_by_slug(db, site_id, candidate) is None:
+            return candidate
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+        if n > 1000:
+            raise ipam_error(400, "slug_exhausted", "kunne ikke lage unik slug")
+
+
+def create_overlay_segment(db: Session, data: IpamOverlaySegmentCreate) -> IpamOverlaySegment:
+    _require_site(db, data.site_id)
+    if data.vlan_id is not None:
+        vlan = get_vlan(db, data.vlan_id)
+        if vlan is None or vlan.site_id != data.site_id:
+            raise ipam_error(400, "overlay_vlan_site", "VLAN tilhører en annen site")
+    if data.vrf_id is not None:
+        vrf = get_vrf(db, data.vrf_id)
+        if vrf is None or vrf.site_id != data.site_id:
+            raise ipam_error(400, "overlay_vrf_site", "VRF tilhører en annen site")
+    existing = db.execute(
+        select(IpamOverlaySegment.id).where(
+            IpamOverlaySegment.site_id == data.site_id,
+            IpamOverlaySegment.vni == data.vni,
+        ),
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise ipam_error(409, "overlay_vni_exists", "VNI er allerede registrert på denne siten")
+    if data.slug:
+        slug = _slugify(data.slug)
+        if get_overlay_segment_by_slug(db, data.site_id, slug) is not None:
+            raise ipam_error(409, "overlay_slug", "segment-slug finnes allerede")
+    else:
+        slug = _unique_overlay_slug(db, data.site_id, data.name or f"vni-{data.vni}")
+    row = IpamOverlaySegment(
+        site_id=data.site_id,
+        vni=data.vni,
+        name=data.name.strip(),
+        slug=slug,
+        kind=data.kind,
+        vlan_id=data.vlan_id,
+        vrf_id=data.vrf_id,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "overlay_vni_exists", "VNI er allerede registrert på denne siten")
+    db.refresh(row)
+    return row
+
+
+def delete_overlay_segment(db: Session, row: IpamOverlaySegment) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def overlay_segment_to_read(db: Session, row: IpamOverlaySegment) -> IpamOverlaySegmentRead:
+    vlan = get_vlan(db, row.vlan_id) if row.vlan_id is not None else None
+    vrf = get_vrf(db, row.vrf_id) if row.vrf_id is not None else None
+    return IpamOverlaySegmentRead(
+        id=row.id,
+        site_id=row.site_id,
+        vni=row.vni,
+        name=row.name,
+        slug=row.slug,
+        kind=row.kind,
+        vlan_id=row.vlan_id,
+        vlan_vid=vlan.vid if vlan is not None else None,
+        vrf_id=row.vrf_id,
+        vrf_name=vrf.name if vrf is not None else None,
+        description=row.description,
+        created_at=row.created_at,
+    )
 
 
 def delete_vlan(db: Session, row: IpamVlan) -> None:

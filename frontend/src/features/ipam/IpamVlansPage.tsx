@@ -26,6 +26,12 @@ export function IpamVlansPage() {
   const [newGroupName, setNewGroupName] = useState("");
   const [vlanTenantId, setVlanTenantId] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [ovSite, setOvSite] = useState("");
+  const [ovName, setOvName] = useState("");
+  const [ovVni, setOvVni] = useState("");
+  const [ovKind, setOvKind] = useState("vxlan");
+  const [ovVlan, setOvVlan] = useState("");
+  const [ovVrf, setOvVrf] = useState("");
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -57,6 +63,20 @@ export function IpamVlansPage() {
     queryKey: ["ipam", "vrfs", siteId === "" ? "all" : Number(siteId)],
     queryFn: () => ipamApi.listIpamVrfs(siteId === "" ? undefined : Number(siteId)),
     enabled: siteId !== "",
+  });
+  const overlaysQ = useQuery({
+    queryKey: ["ipam", "overlay-segments", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listOverlaySegments(siteIdFilter),
+  });
+  const ovVrfsQ = useQuery({
+    queryKey: ["ipam", "vrfs", ovSite === "" ? "none" : Number(ovSite)],
+    queryFn: () => ipamApi.listIpamVrfs(Number(ovSite)),
+    enabled: ovSite !== "",
+  });
+  const ovVlansQ = useQuery({
+    queryKey: ["ipam", "vlans", "overlay-form", ovSite === "" ? "none" : Number(ovSite)],
+    queryFn: () => ipamApi.listIpamVlans(Number(ovSite)),
+    enabled: ovSite !== "",
   });
   const siteNameById = useMemo(() => {
     const m = new Map<number, string>();
@@ -169,6 +189,37 @@ export function IpamVlansPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["ipam", "vlans"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const createOvM = useMutation({
+    mutationFn: () =>
+      ipamApi.createOverlaySegment({
+        site_id: Number(ovSite),
+        vni: Number(ovVni),
+        name: ovName.trim(),
+        kind: ovKind,
+        vlan_id: ovVlan === "" ? null : Number(ovVlan),
+        vrf_id: ovVrf === "" ? null : Number(ovVrf),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setOvName("");
+      setOvVni("");
+      setOvKind("vxlan");
+      setOvVlan("");
+      setOvVrf("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "overlay-segments"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delOvM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteOverlaySegment(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "overlay-segments"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -342,6 +393,113 @@ export function IpamVlansPage() {
         </div>
       ) : null}
       </div>
+      <section className={dcimStyles.mfrDetailSection}>
+        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.overlay.title")}</h3>
+        <p className={dcimStyles.muted}>{t("ipam.overlay.hint")}</p>
+        <form
+          className={dcimStyles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            createOvM.mutate();
+          }}
+        >
+          <label>
+            {t("ipam.ipv4.site")}
+            <select
+              value={ovSite}
+              onChange={(e) => {
+                setOvSite(e.target.value);
+                setOvVlan("");
+                setOvVrf("");
+              }}
+              required
+            >
+              <option value="">{t("ipam.vrf.chooseSite")}</option>
+              {(sitesQ.data ?? []).map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.ipv4.name")}
+            <input value={ovName} onChange={(e) => setOvName(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.overlay.vni")}
+            <input
+              type="number"
+              min={1}
+              max={16777215}
+              value={ovVni}
+              onChange={(e) => setOvVni(e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            {t("ipam.overlay.kind")}
+            <select value={ovKind} onChange={(e) => setOvKind(e.target.value)}>
+              <option value="vxlan">{t("ipam.overlay.kindVxlan")}</option>
+              <option value="evpn">{t("ipam.overlay.kindEvpn")}</option>
+              <option value="other">{t("ipam.overlay.kindOther")}</option>
+            </select>
+          </label>
+          <label>
+            {t("ipam.overlay.vlanOptional")}
+            <select value={ovVlan} onChange={(e) => setOvVlan(e.target.value)} disabled={ovSite === ""}>
+              <option value="">{t("ipam.overlay.noVlan")}</option>
+              {(ovVlansQ.data ?? []).map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  VLAN {v.vid} — {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.vlan.vrfOptional")}
+            <select value={ovVrf} onChange={(e) => setOvVrf(e.target.value)} disabled={ovSite === ""}>
+              <option value="">{t("ipam.vlan.noVrf")}</option>
+              {(ovVrfsQ.data ?? []).map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className={dcimStyles.btn}
+            disabled={createOvM.isPending || ovSite === "" || ovName.trim() === "" || ovVni === ""}
+          >
+            {t("ipam.overlay.add")}
+          </button>
+        </form>
+        {(overlaysQ.data ?? []).length > 0 ? (
+          <ul className={dcimStyles.ipList}>
+            {(overlaysQ.data ?? []).map((o) => (
+              <li key={o.id}>
+                {o.name} <code>{o.slug}</code>
+                {` · VNI ${o.vni}`}
+                {` · ${o.kind}`}
+                {o.vlan_vid != null ? ` · VLAN ${o.vlan_vid}` : ""}
+                {o.vrf_name ? ` · ${o.vrf_name}` : ""}{" "}
+                <button
+                  type="button"
+                  className={dcimStyles.btnLink}
+                  disabled={delOvM.isPending}
+                  onClick={() => delOvM.mutate(o.id)}
+                >
+                  {t("dcim.common.delete")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          !overlaysQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.overlay.empty")}</p>
+        )}
+      </section>
       <PrefixDrawer
         title={t("ipam.vlan.addTitle")}
         open={drawerOpen}

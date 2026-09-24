@@ -20,6 +20,7 @@ from app.schemas.dcim import (
     DeviceArtifactCreate,
     DeviceArtifactBaselineCreate,
     DeviceArtifactBaselineMemberCreate,
+    DeviceArtifactBaselineAssignmentCreate,
     DeviceArtifactRecordCreate,
     DeviceRoleCreate,
     DeviceTypeCreate,
@@ -46,6 +47,7 @@ from app.schemas.ipam import (
     IpamVpnMemberCreate,
     IpamContractCreate,
     IpamProviderCreate,
+    IpamOverlaySegmentCreate,
     IpamVlanCreate,
     IpamVlanGroupCreate,
     IpamVpnServiceCreate,
@@ -408,6 +410,30 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
             DeviceArtifactRecordCreate(artifact_id=art.id, intent=intent),
         )
 
+    for rec in doc.get("device_artifact_baseline_assignments") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        baseline = dcim_svc.get_artifact_baseline_by_slug(db, str(rec.get("baseline_slug") or "").strip().lower())
+        if device is None or baseline is None:
+            continue
+        existing = [
+            r
+            for r in dcim_svc.list_artifact_baseline_assignments(db, device_id=device.id)
+            if r.baseline_id == baseline.id
+        ]
+        if existing:
+            continue
+        intent = str(rec.get("intent") or "recorded").strip().lower() or "recorded"
+        if intent not in ("recorded", "intended"):
+            intent = "recorded"
+        try:
+            dcim_svc.assign_artifact_baseline(
+                db,
+                device,
+                DeviceArtifactBaselineAssignmentCreate(baseline_id=baseline.id, intent=intent),
+            )
+        except Exception:
+            continue
+
     for p in doc.get("placements") or []:
         site = _site_by_slug(db, p["site_slug"])
         if site is None:
@@ -580,6 +606,44 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                     vlan_group_id=group_id,
                 ),
             )
+    for o in ipam.get("overlay_segments") or []:
+        slug = (o.get("slug") or "").strip().lower()
+        vni = o.get("vni")
+        if not slug or vni is None:
+            continue
+        if fac_svc.get_overlay_segment_by_slug(db, site.id, slug) is not None:
+            continue
+        vlan_id = None
+        vlan_slug = (o.get("vlan_slug") or "").strip().lower()
+        if vlan_slug:
+            vlan = db.execute(
+                select(IpamVlan).where(IpamVlan.site_id == site.id, IpamVlan.slug == vlan_slug),
+            ).scalar_one_or_none()
+            vlan_id = vlan.id if vlan is not None else None
+        vrf_id = None
+        vrf_slug = (o.get("vrf_slug") or "").strip()
+        if vrf_slug:
+            vrf = db.execute(
+                select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug),
+            ).scalar_one_or_none()
+            vrf_id = vrf.id if vrf is not None else None
+        kind = (o.get("kind") or "vxlan").strip().lower() or "vxlan"
+        try:
+            fac_svc.create_overlay_segment(
+                db,
+                IpamOverlaySegmentCreate(
+                    site_id=site.id,
+                    vni=int(vni),
+                    name=o.get("name") or slug,
+                    slug=slug,
+                    kind=kind,
+                    vlan_id=vlan_id,
+                    vrf_id=vrf_id,
+                    description=o.get("description"),
+                ),
+            )
+        except Exception:
+            continue
     for p in ipam.get("prefixes") or []:
         ipam_svc.ensure_ipv4_prefix(
             db,

@@ -23,6 +23,7 @@ import type {
   IpamTunnelProfile,
   IpamVpnMember,
   IpamVpnService,
+  IpamOverlaySegment,
   IpamVlan,
   IpamVlanGroup,
   IpamAsAssignment,
@@ -525,6 +526,28 @@ export function patchIpamVlan(
 
 export function deleteIpamVlan(id: number): Promise<void> {
   return apiDelete(`${P}/vlans/${id}`);
+}
+
+export function listOverlaySegments(siteId?: number): Promise<IpamOverlaySegment[]> {
+  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
+  return apiGet(`${P}/overlay-segments${q}`);
+}
+
+export function createOverlaySegment(body: {
+  site_id: number;
+  vni: number;
+  name: string;
+  slug?: string | null;
+  kind?: string;
+  vlan_id?: number | null;
+  vrf_id?: number | null;
+  description?: string | null;
+}): Promise<IpamOverlaySegment> {
+  return apiPost(`${P}/overlay-segments`, body);
+}
+
+export function deleteOverlaySegment(id: number): Promise<void> {
+  return apiDelete(`${P}/overlay-segments/${id}`);
 }
 
 export function listIpamCircuits(tenantId?: number): Promise<IpamCircuit[]> {
