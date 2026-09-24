@@ -27,6 +27,8 @@ from app.schemas.dcim import (
     DeviceInterfaceLagMemberCreate,
     DeviceInterfaceUpdate,
     DeviceInterfaceVlanMemberCreate,
+    DeviceIpAssignmentCreate,
+    IpAssignmentCreate,
     DeviceRoleCreate,
     DeviceTypeCreate,
     FloorCreate,
@@ -474,6 +476,8 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     for ipam in doc.get("ipam") or []:
         _apply_site_ipam(db, ipam)
+    _apply_device_interface_ips(db, doc)
+    _apply_device_ips(db, doc)
     _apply_vlan_stretches(db, doc)
     _apply_overlay_stretches(db, doc)
     _apply_vrf_stretches(db, doc)
@@ -554,6 +558,66 @@ def _apply_device_interfaces(db: Session, doc: dict[str, Any]) -> None:
                 iface.device_id,
                 iface,
                 DeviceInterfaceUpdate(parent_interface_id=parent.id),
+            )
+        except Exception:
+            continue
+
+
+def _prefix_by_site_slug(db: Session, site: Site | None, prefix_slug: str | None) -> IpamIpv4Prefix | None:
+    slug = str(prefix_slug or "").strip()
+    if site is None or not slug:
+        return None
+    return db.execute(
+        select(IpamIpv4Prefix).where(IpamIpv4Prefix.site_id == site.id, IpamIpv4Prefix.slug == slug),
+    ).scalar_one_or_none()
+
+
+def _apply_device_interface_ips(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("device_interface_ips") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        iface_name = str(rec.get("interface_name") or "").strip()
+        address = str(rec.get("address") or "").strip()
+        if device is None or not iface_name or not address:
+            continue
+        iface = db.execute(
+            select(DeviceInterface).where(DeviceInterface.device_id == device.id, DeviceInterface.name == iface_name),
+        ).scalar_one_or_none()
+        if iface is None:
+            continue
+        site = _site_by_slug(db, rec.get("site_slug")) if rec.get("site_slug") else None
+        prefix = _prefix_by_site_slug(db, site, rec.get("prefix_slug"))
+        try:
+            dcim_svc.create_iface_ip_assignment(
+                db,
+                device.id,
+                iface.id,
+                IpAssignmentCreate(
+                    address=address,
+                    is_primary=rec.get("is_primary") is True,
+                    ipv4_prefix_id=prefix.id if prefix is not None else None,
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_device_ips(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("device_ips") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        address = str(rec.get("address") or "").strip()
+        if device is None or not address:
+            continue
+        site = _site_by_slug(db, rec.get("site_slug")) if rec.get("site_slug") else None
+        prefix = _prefix_by_site_slug(db, site, rec.get("prefix_slug"))
+        try:
+            dcim_svc.create_device_ip_assignment(
+                db,
+                device.id,
+                DeviceIpAssignmentCreate(
+                    address=address,
+                    is_primary=rec.get("is_primary") is True,
+                    ipv4_prefix_id=prefix.id if prefix is not None else None,
+                ),
             )
         except Exception:
             continue
