@@ -77,6 +77,8 @@ from app.schemas.ipam import (
     IpamOverlaySegmentRead,
     IpamOverlayStretchCreate,
     IpamOverlayStretchRead,
+    IpamVrfStretchCreate,
+    IpamVrfStretchRead,
     IpamVlanStretchCreate,
     IpamVlanStretchRead,
     IpamVlanCreate,
@@ -1072,6 +1074,35 @@ def delete_overlay_stretch(stretch_id: int, db: Session = Depends(get_db)) -> No
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "overlay_stretch_not_found", "detail": "overlay-strekning ikke funnet"})
     fac_svc.delete_overlay_stretch(db, row)
+
+
+@router.get("/vrf-stretches", response_model=list[IpamVrfStretchRead])
+def list_vrf_stretches(
+    site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamVrfStretchRead]:
+    return [fac_svc.vrf_stretch_to_read(db, r) for r in fac_svc.list_vrf_stretches(db, site_id=site_id)]
+
+
+@router.post("/vrf-stretches", response_model=IpamVrfStretchRead)
+def create_vrf_stretch(data: IpamVrfStretchCreate, db: Session = Depends(get_db)) -> IpamVrfStretchRead:
+    return fac_svc.vrf_stretch_to_read(db, fac_svc.create_vrf_stretch(db, data))
+
+
+@router.get("/vrf-stretches/{stretch_id}", response_model=IpamVrfStretchRead)
+def get_vrf_stretch(stretch_id: int, db: Session = Depends(get_db)) -> IpamVrfStretchRead:
+    row = fac_svc.get_vrf_stretch(db, stretch_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_stretch_not_found", "detail": "VRF-strekning ikke funnet"})
+    return fac_svc.vrf_stretch_to_read(db, row)
+
+
+@router.delete("/vrf-stretches/{stretch_id}", status_code=204)
+def delete_vrf_stretch(stretch_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_vrf_stretch(db, stretch_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "vrf_stretch_not_found", "detail": "VRF-strekning ikke funnet"})
+    fac_svc.delete_vrf_stretch(db, row)
 
 
 @router.get("/vlan-stretches", response_model=list[IpamVlanStretchRead])

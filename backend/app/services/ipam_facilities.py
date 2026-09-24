@@ -19,6 +19,7 @@ from app.models.ipam import (
     IpamTunnelTransport,
     IpamVlan,
     IpamVlanStretch,
+    IpamVrfStretch,
     IpamVlanGroup,
     IpamVrf,
 )
@@ -43,6 +44,8 @@ from app.schemas.ipam import (
     IpamVlanCreate,
     IpamVlanStretchCreate,
     IpamVlanStretchRead,
+    IpamVrfStretchCreate,
+    IpamVrfStretchRead,
     IpamVlanEnsure,
     IpamVlanGroupCreate,
     IpamVlanGroupRead,
@@ -154,6 +157,14 @@ def delete_vrf(db: Session, row: IpamVrf) -> None:
         db.execute(select(IpamVrfInstance).where(IpamVrfInstance.vrf_id == row.id)).scalars().all()
     ):
         db.delete(inst)
+    for stretch in list(
+        db.execute(
+            select(IpamVrfStretch).where(
+                (IpamVrfStretch.vrf_low_id == row.id) | (IpamVrfStretch.vrf_high_id == row.id),
+            ),
+        ).scalars().all()
+    ):
+        db.delete(stretch)
     db.delete(row)
     db.commit()
 
@@ -465,6 +476,107 @@ def overlay_segment_to_read(db: Session, row: IpamOverlaySegment) -> IpamOverlay
         vlan_vid=vlan.vid if vlan is not None else None,
         vrf_id=row.vrf_id,
         vrf_name=vrf.name if vrf is not None else None,
+        description=row.description,
+        created_at=row.created_at,
+    )
+
+
+def list_vrf_stretches(db: Session, *, site_id: int | None = None) -> list[IpamVrfStretch]:
+    q = select(IpamVrfStretch).order_by(IpamVrfStretch.slug)
+    rows = list(db.execute(q).scalars().all())
+    if site_id is None:
+        return rows
+    out: list[IpamVrfStretch] = []
+    for row in rows:
+        a = get_vrf(db, row.vrf_low_id)
+        b = get_vrf(db, row.vrf_high_id)
+        if (a is not None and a.site_id == site_id) or (b is not None and b.site_id == site_id):
+            out.append(row)
+    return out
+
+
+def get_vrf_stretch(db: Session, stretch_id: int) -> IpamVrfStretch | None:
+    return db.get(IpamVrfStretch, stretch_id)
+
+
+def get_vrf_stretch_by_slug(db: Session, slug: str) -> IpamVrfStretch | None:
+    return db.execute(
+        select(IpamVrfStretch).where(IpamVrfStretch.slug == slug.strip().lower()),
+    ).scalar_one_or_none()
+
+
+def _unique_vrf_stretch_slug(db: Session, desired: str) -> str:
+    base = _slugify(desired)
+    candidate = base
+    n = 2
+    while True:
+        if get_vrf_stretch_by_slug(db, candidate) is None:
+            return candidate
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+        if n > 1000:
+            raise ipam_error(400, "slug_exhausted", "kunne ikke lage unik slug")
+
+
+def create_vrf_stretch(db: Session, data: IpamVrfStretchCreate) -> IpamVrfStretch:
+    if data.vrf_a_id == data.vrf_b_id:
+        raise ipam_error(400, "vrf_stretch_same_vrf", "strekning krever to ulike VRF")
+    vrf_a = get_vrf(db, data.vrf_a_id)
+    vrf_b = get_vrf(db, data.vrf_b_id)
+    if vrf_a is None or vrf_b is None:
+        raise ipam_error(400, "vrf_stretch_vrf", "VRF ikke funnet")
+    if vrf_a.site_id == vrf_b.site_id:
+        raise ipam_error(400, "vrf_stretch_same_site", "strekning krever VRF på ulike sites")
+    low_id, high_id = sorted((vrf_a.id, vrf_b.id))
+    taken = db.execute(
+        select(IpamVrfStretch.id).where(
+            IpamVrfStretch.vrf_low_id == low_id,
+            IpamVrfStretch.vrf_high_id == high_id,
+        ),
+    ).scalar_one_or_none()
+    if taken is not None:
+        raise ipam_error(409, "vrf_stretch_exists", "strekning mellom disse VRF er allerede registrert")
+    if data.slug:
+        slug = _slugify(data.slug)
+        if get_vrf_stretch_by_slug(db, slug) is not None:
+            raise ipam_error(409, "vrf_stretch_slug", "strekning-slug finnes allerede")
+    else:
+        slug = _unique_vrf_stretch_slug(db, data.name)
+    row = IpamVrfStretch(
+        vrf_low_id=low_id,
+        vrf_high_id=high_id,
+        name=data.name.strip(),
+        slug=slug,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "vrf_stretch_exists", "strekning mellom disse VRF er allerede registrert")
+    db.refresh(row)
+    return row
+
+
+def delete_vrf_stretch(db: Session, row: IpamVrfStretch) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def vrf_stretch_to_read(db: Session, row: IpamVrfStretch) -> IpamVrfStretchRead:
+    low = get_vrf(db, row.vrf_low_id)
+    high = get_vrf(db, row.vrf_high_id)
+    return IpamVrfStretchRead(
+        id=row.id,
+        vrf_a_id=row.vrf_low_id,
+        vrf_b_id=row.vrf_high_id,
+        vrf_a_name=low.name if low is not None else None,
+        vrf_b_name=high.name if high is not None else None,
+        site_a_id=low.site_id if low is not None else None,
+        site_b_id=high.site_id if high is not None else None,
+        name=row.name,
+        slug=row.slug,
         description=row.description,
         created_at=row.created_at,
     )

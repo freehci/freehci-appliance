@@ -398,6 +398,18 @@ def set_frozen(db: Session, tenant: Tenant, frozen: bool) -> FederationTenantRol
     return role
 
 
+def _vrf_stretches_for_sites(db: Session, sites: list[Site]) -> list[dict[str, Any]]:
+    seen: set[int] = set()
+    rows = []
+    for site in sites:
+        for row in fac_svc.list_vrf_stretches(db, site_id=site.id):
+            if row.id in seen:
+                continue
+            seen.add(row.id)
+            rows.append(row)
+    return ipam_sync._vrf_stretches_export(db, rows)
+
+
 def _overlay_stretches_for_sites(db: Session, sites: list[Site]) -> list[dict[str, Any]]:
     seen: set[int] = set()
     rows = []
@@ -487,6 +499,19 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             }
             for s in raw.get("overlay_stretches") or []
             if s.get("slug") and s.get("a_overlay_slug") and s.get("z_overlay_slug")
+        ],
+        "vrf_stretches": [
+            {
+                "slug": s.get("slug"),
+                "name": s.get("name"),
+                "a_site_slug": s.get("a_site_slug"),
+                "a_vrf_slug": s.get("a_vrf_slug"),
+                "z_site_slug": s.get("z_site_slug"),
+                "z_vrf_slug": s.get("z_vrf_slug"),
+                "description": s.get("description"),
+            }
+            for s in raw.get("vrf_stretches") or []
+            if s.get("slug") and s.get("a_vrf_slug") and s.get("z_vrf_slug")
         ],
         "vlan_stretches": [
             {
@@ -884,6 +909,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         ],
         "ipam": [_ipam_for_site(db, s) for s in sites],
         "overlay_stretches": _overlay_stretches_for_sites(db, sites),
+        "vrf_stretches": _vrf_stretches_for_sites(db, sites),
         "vlan_stretches": _vlan_stretches_for_sites(db, sites),
         "device_roles": [
             {"slug": r.slug, "name": r.name, "kind": r.kind, "description": r.description} for r in roles

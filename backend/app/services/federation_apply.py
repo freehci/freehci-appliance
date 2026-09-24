@@ -49,6 +49,7 @@ from app.schemas.ipam import (
     IpamProviderCreate,
     IpamOverlaySegmentCreate,
     IpamOverlayStretchCreate,
+    IpamVrfStretchCreate,
     IpamVlanCreate,
     IpamVlanStretchCreate,
     IpamVlanGroupCreate,
@@ -465,6 +466,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
         _apply_site_ipam(db, ipam)
     _apply_vlan_stretches(db, doc)
     _apply_overlay_stretches(db, doc)
+    _apply_vrf_stretches(db, doc)
 
     site_by_slug = {s.slug: s for s in db.execute(select(Site)).scalars().all()}
     pwr_svc.apply_from_document(db, doc, site_by_slug=site_by_slug)
@@ -551,6 +553,49 @@ def _apply_overlay_stretches(db: Session, doc: dict[str, Any]) -> None:
                 IpamOverlayStretchCreate(
                     overlay_a_id=ov_a.id,
                     overlay_b_id=ov_z.id,
+                    name=raw.get("name") or slug,
+                    slug=slug,
+                    description=raw.get("description"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_vrf_stretches(db: Session, doc: dict[str, Any]) -> None:
+    rows: list[dict[str, Any]] = list(doc.get("vrf_stretches") or [])
+    for ipam in doc.get("ipam") or []:
+        rows.extend(ipam.get("vrf_stretches") or [])
+    seen: set[str] = set()
+    for raw in rows:
+        slug = (raw.get("slug") or "").strip().lower()
+        a_site = (raw.get("a_site_slug") or "").strip()
+        z_site = (raw.get("z_site_slug") or "").strip()
+        a_vrf = (raw.get("a_vrf_slug") or "").strip().lower()
+        z_vrf = (raw.get("z_vrf_slug") or "").strip().lower()
+        if not slug or not a_site or not z_site or not a_vrf or not z_vrf or slug in seen:
+            continue
+        seen.add(slug)
+        if fac_svc.get_vrf_stretch_by_slug(db, slug) is not None:
+            continue
+        site_a = _site_by_slug(db, a_site)
+        site_z = _site_by_slug(db, z_site)
+        if site_a is None or site_z is None:
+            continue
+        vrf_a = db.execute(
+            select(IpamVrf).where(IpamVrf.site_id == site_a.id, IpamVrf.slug == a_vrf),
+        ).scalar_one_or_none()
+        vrf_z = db.execute(
+            select(IpamVrf).where(IpamVrf.site_id == site_z.id, IpamVrf.slug == z_vrf),
+        ).scalar_one_or_none()
+        if vrf_a is None or vrf_z is None:
+            continue
+        try:
+            fac_svc.create_vrf_stretch(
+                db,
+                IpamVrfStretchCreate(
+                    vrf_a_id=vrf_a.id,
+                    vrf_b_id=vrf_z.id,
                     name=raw.get("name") or slug,
                     slug=slug,
                     description=raw.get("description"),

@@ -491,6 +491,34 @@ class IpamVlanStretch(Base):
     )
 
 
+class IpamVrfStretch(Base):
+    """Registrert L3-strekning mellom VRF på ulike sites. Aldri gjettet fra navn eller RD."""
+
+    __tablename__ = "ipam_vrf_stretches"
+    __table_args__ = (
+        UniqueConstraint("vrf_low_id", "vrf_high_id", name="uq_ipam_vrf_stretch_pair"),
+        UniqueConstraint("slug", name="uq_ipam_vrf_stretch_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vrf_low_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vrf_high_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class IpamProvider(Base):
     """Global leverandør/operatør. Opprettes eksplisitt — aldri gjettet fra fritekst."""
 

@@ -34,6 +34,7 @@ import type {
   IpamBgpSession,
   IpamRouteTarget,
   IpamVrf,
+  IpamVrfStretch,
   IpamVrfInstance,
   IpamVrfRouteTarget,
   IpamWebhook,
@@ -330,6 +331,25 @@ export function patchIpamVrf(
 
 export function deleteIpamVrf(id: number): Promise<void> {
   return apiDelete(`${P}/vrfs/${id}`);
+}
+
+export function listVrfStretches(siteId?: number): Promise<IpamVrfStretch[]> {
+  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
+  return apiGet(`${P}/vrf-stretches${q}`);
+}
+
+export function createVrfStretch(body: {
+  vrf_a_id: number;
+  vrf_b_id: number;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+}): Promise<IpamVrfStretch> {
+  return apiPost(`${P}/vrf-stretches`, body);
+}
+
+export function deleteVrfStretch(id: number): Promise<void> {
+  return apiDelete(`${P}/vrf-stretches/${id}`);
 }
 
 export function listVrfInstances(opts?: { vrfId?: number; deviceId?: number; siteId?: number }): Promise<IpamVrfInstance[]> {

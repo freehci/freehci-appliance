@@ -1742,6 +1742,14 @@ export const nb = {
   "ipam.overlayStretch.segA": "Overlay A",
   "ipam.overlayStretch.segB": "Overlay B",
   "ipam.overlayStretch.choose": "Velg overlay",
+  "ipam.vrfStretch.title": "Strekte VRF",
+  "ipam.vrfStretch.hint":
+    "Registrer at to VRF på ulike sites er samme rutingsdomene. Samme navn eller RD gjettes aldri som strekning, og ingenting påføres rutere.",
+  "ipam.vrfStretch.add": "Legg til VRF-strekning",
+  "ipam.vrfStretch.empty": "Ingen VRF-strekning registrert ennå.",
+  "ipam.vrfStretch.vrfA": "VRF A",
+  "ipam.vrfStretch.vrfB": "VRF B",
+  "ipam.vrfStretch.choose": "Velg VRF",
 
   "ipam.circuits.title": "Samband",
   "ipam.circuits.intro":

@@ -1343,6 +1343,32 @@ class IpamOverlaySegmentRead(BaseModel):
     created_at: dt.datetime
 
 
+class IpamVrfStretchCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    vrf_a_id: int = Field(..., ge=1)
+    vrf_b_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+
+
+class IpamVrfStretchRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    vrf_a_id: int
+    vrf_b_id: int
+    vrf_a_name: str | None = None
+    vrf_b_name: str | None = None
+    site_a_id: int | None = None
+    site_b_id: int | None = None
+    name: str
+    slug: str
+    description: str | None
+    created_at: dt.datetime
+
+
 class IpamOverlayStretchCreate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

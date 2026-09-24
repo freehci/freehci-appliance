@@ -1732,6 +1732,14 @@ export const en = {
   "ipam.overlayStretch.segA": "Overlay A",
   "ipam.overlayStretch.segB": "Overlay B",
   "ipam.overlayStretch.choose": "Choose overlay",
+  "ipam.vrfStretch.title": "Stretched VRFs",
+  "ipam.vrfStretch.hint":
+    "Record that two VRFs on different sites are the same routing domain. Same name or RD is never treated as a stretch, and nothing is applied to routers.",
+  "ipam.vrfStretch.add": "Add VRF stretch",
+  "ipam.vrfStretch.empty": "No VRF stretch recorded yet.",
+  "ipam.vrfStretch.vrfA": "VRF A",
+  "ipam.vrfStretch.vrfB": "VRF B",
+  "ipam.vrfStretch.choose": "Choose VRF",
 
   "ipam.circuits.title": "Circuits",
   "ipam.circuits.intro":

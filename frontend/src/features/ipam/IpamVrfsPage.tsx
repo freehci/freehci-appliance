@@ -66,6 +66,9 @@ export function IpamVrfsPage() {
   const [bindVrf, setBindVrf] = useState("");
   const [bindRt, setBindRt] = useState("");
   const [bindDir, setBindDir] = useState("import");
+  const [stName, setStName] = useState("");
+  const [stVrfA, setStVrfA] = useState("");
+  const [stVrfB, setStVrfB] = useState("");
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -73,6 +76,14 @@ export function IpamVrfsPage() {
   const vrfsQ = useQuery({
     queryKey: ["ipam", "vrfs", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listIpamVrfs(siteIdFilter),
+  });
+  const allVrfsQ = useQuery({
+    queryKey: ["ipam", "vrfs", "all-for-stretch"],
+    queryFn: () => ipamApi.listIpamVrfs(),
+  });
+  const stretchesQ = useQuery({
+    queryKey: ["ipam", "vrf-stretches", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listVrfStretches(siteIdFilter),
   });
   const asQ = useQuery({ queryKey: ["ipam", "autonomous-systems"], queryFn: () => ipamApi.listAutonomousSystems() });
   const assignQ = useQuery({
@@ -134,6 +145,31 @@ export function IpamVrfsPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["ipam", "vrfs"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-stretches"] });
+    },
+    onError: fail,
+  });
+  const createStM = useMutation({
+    mutationFn: () =>
+      ipamApi.createVrfStretch({
+        vrf_a_id: Number(stVrfA),
+        vrf_b_id: Number(stVrfB),
+        name: stName.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setStName("");
+      setStVrfA("");
+      setStVrfB("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-stretches"] });
+    },
+    onError: fail,
+  });
+  const delStM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteVrfStretch(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "vrf-stretches"] });
     },
     onError: fail,
   });
@@ -390,6 +426,7 @@ export function IpamVrfsPage() {
       </div>
 
       {tab === "vrfs" ? (
+        <>
         <div className={prefixStyles.tableCard}>
           {vrfsQ.isLoading ? (
             <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
@@ -430,6 +467,74 @@ export function IpamVrfsPage() {
             </div>
           ) : null}
         </div>
+        <section className={dcimStyles.mfrDetailSection}>
+          <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.vrfStretch.title")}</h3>
+          <p className={dcimStyles.muted}>{t("ipam.vrfStretch.hint")}</p>
+          <form
+            className={dcimStyles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              createStM.mutate();
+            }}
+          >
+            <label>
+              {t("ipam.ipv4.name")}
+              <input value={stName} onChange={(e) => setStName(e.target.value)} required />
+            </label>
+            <label>
+              {t("ipam.vrfStretch.vrfA")}
+              <select value={stVrfA} onChange={(e) => setStVrfA(e.target.value)} required>
+                <option value="">{t("ipam.vrfStretch.choose")}</option>
+                {(allVrfsQ.data ?? []).map((v) => (
+                  <option key={v.id} value={String(v.id)}>
+                    {siteNameById.get(v.site_id) ?? v.site_id} · {v.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.vrfStretch.vrfB")}
+              <select value={stVrfB} onChange={(e) => setStVrfB(e.target.value)} required>
+                <option value="">{t("ipam.vrfStretch.choose")}</option>
+                {(allVrfsQ.data ?? []).map((v) => (
+                  <option key={`b-${v.id}`} value={String(v.id)}>
+                    {siteNameById.get(v.site_id) ?? v.site_id} · {v.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className={dcimStyles.btn}
+              disabled={createStM.isPending || stName.trim() === "" || stVrfA === "" || stVrfB === "" || stVrfA === stVrfB}
+            >
+              {t("ipam.vrfStretch.add")}
+            </button>
+          </form>
+          {(stretchesQ.data ?? []).length > 0 ? (
+            <ul className={dcimStyles.ipList}>
+              {(stretchesQ.data ?? []).map((s) => (
+                <li key={s.id}>
+                  {s.name} <code>{s.slug}</code>
+                  {` · ${siteNameById.get(s.site_a_id ?? 0) ?? s.site_a_id} ${s.vrf_a_name ?? "—"}`}
+                  {` ↔ ${siteNameById.get(s.site_b_id ?? 0) ?? s.site_b_id} ${s.vrf_b_name ?? "—"}`}{" "}
+                  <button
+                    type="button"
+                    className={dcimStyles.btnLink}
+                    disabled={delStM.isPending}
+                    onClick={() => delStM.mutate(s.id)}
+                  >
+                    {t("dcim.common.delete")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            !stretchesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.vrfStretch.empty")}</p>
+          )}
+        </section>
+        </>
       ) : null}
 
       {tab === "instances" ? (
