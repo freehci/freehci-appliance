@@ -636,6 +636,8 @@ export type DeviceInterface = {
   vlan_id: number | null;
   /** Eksplisitt IPAM-VLAN. Samme VID er aldri medlemskap før denne settes. */
   ipam_vlan_id: number | null;
+  /** Eksplisitt IPAM-VRF. Samme navn, enhets-VRF eller prefiks-VRF er aldri kobling. */
+  ipam_vrf_id: number | null;
   enabled: boolean;
   sort_order: number;
   ip_assignments: IpAssignment[];

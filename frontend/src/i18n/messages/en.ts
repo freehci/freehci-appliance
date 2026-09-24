@@ -1541,6 +1541,11 @@ export const en = {
   "dcim.equip.if.ipamVlanHint":
     "Explicit IPAM VLAN on this site. Matching VID or name is not a link. Trunk/tagged/native is not invented.",
   "dcim.equip.if.ipamVlanNeedsSite": "Place the device on a site before linking an IPAM VLAN.",
+  "dcim.equip.if.ipamVrf": "IPAM VRF",
+  "dcim.equip.if.ipamVrfNone": "— not linked —",
+  "dcim.equip.if.ipamVrfHint":
+    "Explicit IPAM VRF on this site. Matching name, a device VRF instance or a prefix VRF is not a link.",
+  "dcim.equip.if.ipamVrfNeedsSite": "Place the device on a site before linking an IPAM VRF.",
   "dcim.equip.if.parent": "Parent (subinterface)",
   "dcim.equip.if.parentRoot": "— top level (no parent) —",
   "dcim.equip.if.parentCol": "Parent",

@@ -76,6 +76,7 @@ export function DcimDeviceDetailPage() {
   const [ifSort, setIfSort] = useState("0");
   const [ifVlan, setIfVlan] = useState("");
   const [ifIpamVlan, setIfIpamVlan] = useState("");
+  const [ifIpamVrf, setIfIpamVrf] = useState("");
   const [ifParent, setIfParent] = useState("");
   const [vlanDraft, setVlanDraft] = useState<Record<number, string>>({});
   const [parentDraft, setParentDraft] = useState<Record<number, string>>({});
@@ -545,6 +546,7 @@ export function DcimDeviceDetailPage() {
         mtu,
         vlan_id,
         ipam_vlan_id: ifIpamVlan === "" ? null : Number(ifIpamVlan),
+        ipam_vrf_id: ifIpamVrf === "" ? null : Number(ifIpamVrf),
         description: ifDesc.trim() === "" ? null : ifDesc.trim(),
         sort_order: Number(ifSort) || 0,
         parent_interface_id: ifParent === "" ? null : Number(ifParent),
@@ -559,6 +561,7 @@ export function DcimDeviceDetailPage() {
       setIfSort("0");
       setIfVlan("");
       setIfIpamVlan("");
+      setIfIpamVrf("");
       setIfParent("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
@@ -584,6 +587,16 @@ export function DcimDeviceDetailPage() {
   const patchIpamVlan = useMutation({
     mutationFn: ({ iid, ipam_vlan_id }: { iid: number; ipam_vlan_id: number | null }) =>
       api.updateDeviceInterface(id, iid, { ipam_vlan_id }),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchIpamVrf = useMutation({
+    mutationFn: ({ iid, ipam_vrf_id }: { iid: number; ipam_vrf_id: number | null }) =>
+      api.updateDeviceInterface(id, iid, { ipam_vrf_id }),
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
@@ -1507,6 +1520,21 @@ export function DcimDeviceDetailPage() {
               </select>
             )}
           </label>
+          <label title={t("dcim.equip.if.ipamVrfHint")}>
+            {t("dcim.equip.if.ipamVrf")}
+            {deviceSiteId == null ? (
+              <span className={styles.muted}>{t("dcim.equip.if.ipamVrfNeedsSite")}</span>
+            ) : (
+              <select value={ifIpamVrf} onChange={(e) => setIfIpamVrf(e.target.value)}>
+                <option value="">{t("dcim.equip.if.ipamVrfNone")}</option>
+                {(vrfsQ.data ?? []).map((v) => (
+                  <option key={v.id} value={String(v.id)}>
+                    {v.name} ({v.slug})
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
           <label>
             {t("dcim.equip.mfr.description")}
             <input value={ifDesc} onChange={(e) => setIfDesc(e.target.value)} />
@@ -1598,6 +1626,7 @@ export function DcimDeviceDetailPage() {
                 <th>{t("dcim.equip.if.speed")}</th>
                 <th>{t("dcim.equip.if.mtu")}</th>
                 <th>{t("dcim.equip.if.vlan")}</th>
+                <th>{t("dcim.equip.if.ipamVrf")}</th>
                 <th>{t("dcim.equip.if.enabled")}</th>
                 <th>{t("dcim.equip.mfr.description")}</th>
                 <th>{t("dcim.equip.ip.column")}</th>
@@ -1728,6 +1757,35 @@ export function DcimDeviceDetailPage() {
                         </select>
                       )}
                     </div>
+                  </td>
+                  <td>
+                    {deviceSiteId == null ? (
+                      <span className={styles.muted} title={t("dcim.equip.if.ipamVrfNeedsSite")}>
+                        {t("dcim.equip.if.ipamVrfNone")}
+                      </span>
+                    ) : (
+                      <select
+                        value={x.ipam_vrf_id != null ? String(x.ipam_vrf_id) : ""}
+                        title={t("dcim.equip.if.ipamVrfHint")}
+                        aria-label={t("dcim.equip.if.ipamVrf")}
+                        disabled={patchIpamVrf.isPending}
+                        onChange={(e) => {
+                          setErr(null);
+                          const raw = e.target.value;
+                          patchIpamVrf.mutate({
+                            iid: x.id,
+                            ipam_vrf_id: raw === "" ? null : Number(raw),
+                          });
+                        }}
+                      >
+                        <option value="">{t("dcim.equip.if.ipamVrfNone")}</option>
+                        {(vrfsQ.data ?? []).map((v) => (
+                          <option key={v.id} value={String(v.id)}>
+                            {v.name} ({v.slug})
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                   <td>
                     <button

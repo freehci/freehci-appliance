@@ -478,6 +478,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
         _apply_site_ipam(db, ipam)
     _apply_device_interface_ips(db, doc)
     _apply_device_ips(db, doc)
+    _apply_device_interface_vrfs(db, doc)
     _apply_vlan_stretches(db, doc)
     _apply_overlay_stretches(db, doc)
     _apply_vrf_stretches(db, doc)
@@ -618,6 +619,35 @@ def _apply_device_ips(db: Session, doc: dict[str, Any]) -> None:
                     is_primary=rec.get("is_primary") is True,
                     ipv4_prefix_id=prefix.id if prefix is not None else None,
                 ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_device_interface_vrfs(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("device_interface_vrfs") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        iface_name = str(rec.get("interface_name") or "").strip()
+        vrf_slug = str(rec.get("vrf_slug") or "").strip()
+        site = _site_by_slug(db, rec.get("site_slug")) if rec.get("site_slug") else None
+        if device is None or not iface_name or not vrf_slug or site is None:
+            continue
+        iface = db.execute(
+            select(DeviceInterface).where(DeviceInterface.device_id == device.id, DeviceInterface.name == iface_name),
+        ).scalar_one_or_none()
+        vrf = db.execute(
+            select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug),
+        ).scalar_one_or_none()
+        if iface is None or vrf is None:
+            continue
+        if iface.ipam_vrf_id == vrf.id:
+            continue
+        try:
+            dcim_svc.update_device_interface(
+                db,
+                device.id,
+                iface,
+                DeviceInterfaceUpdate(ipam_vrf_id=vrf.id),
             )
         except Exception:
             continue

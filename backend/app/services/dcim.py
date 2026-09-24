@@ -63,7 +63,7 @@ from app.models.dcim import (
     Wing,
 )
 from app.models.iam import User
-from app.models.ipam import IpamIpv4Prefix, IpamVlan
+from app.models.ipam import IpamIpv4Prefix, IpamVlan, IpamVrf
 
 from app.services import tenant as tenant_svc
 
@@ -4648,6 +4648,7 @@ def device_interface_read(row: DeviceInterface) -> DeviceInterfaceRead:
         mtu=row.mtu,
         vlan_id=row.vlan_id,
         ipam_vlan_id=row.ipam_vlan_id,
+        ipam_vrf_id=row.ipam_vrf_id,
         enabled=row.enabled,
         sort_order=row.sort_order,
         ip_assignments=[IpAssignmentRead.model_validate(x) for x in ips],
@@ -4700,6 +4701,21 @@ def _validate_iface_ipam_vlan(
     return vlan.id
 
 
+def _validate_iface_ipam_vrf(db: Session, device_id: int, *, ipam_vrf_id: int | None) -> int | None:
+    if ipam_vrf_id is None:
+        return None
+    vrf = db.get(IpamVrf, ipam_vrf_id)
+    if vrf is None:
+        raise HTTPException(status_code=404, detail="VRF ikke funnet")
+    site_id = device_effective_site_id(db, device_id)
+    if site_id is None or int(vrf.site_id) != int(site_id):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_vrf_site", "detail": "VRF tilhører en annen site enn enheten"},
+        )
+    return vrf.id
+
+
 def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCreate) -> DeviceInterfaceRead:
     _require_device(db, device_id)
     _validate_iface_parent(db, device_id, data.parent_interface_id, exclude_interface_id=None)
@@ -4711,6 +4727,7 @@ def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCr
         vlan_id=data.vlan_id,
         ipam_vlan_id=data.ipam_vlan_id,
     )
+    ipam_vrf_id = _validate_iface_ipam_vrf(db, device_id, ipam_vrf_id=data.ipam_vrf_id)
     row = DeviceInterface(
         device_id=device_id,
         parent_interface_id=data.parent_interface_id,
@@ -4721,6 +4738,7 @@ def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCr
         mtu=data.mtu,
         vlan_id=data.vlan_id,
         ipam_vlan_id=ipam_vlan_id,
+        ipam_vrf_id=ipam_vrf_id,
         enabled=data.enabled,
         sort_order=data.sort_order,
     )
@@ -4770,6 +4788,8 @@ def update_device_interface(
             vlan_id=patch["vlan_id"],
             ipam_vlan_id=row.ipam_vlan_id,
         )
+    if "ipam_vrf_id" in data.model_fields_set:
+        row.ipam_vrf_id = _validate_iface_ipam_vrf(db, device_id, ipam_vrf_id=data.ipam_vrf_id)
     if "enabled" in patch and patch["enabled"] is not None:
         row.enabled = bool(patch["enabled"])
     if "sort_order" in patch and patch["sort_order"] is not None:

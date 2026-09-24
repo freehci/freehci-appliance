@@ -885,6 +885,11 @@ class DeviceInterface(Base):
         ForeignKey("ipam_vlans.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # Eksplisitt IPAM-VRF. Samme navn, enhets-VRF eller prefiks-VRF er aldri kobling.
+    ipam_vrf_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Logisk underegrensesnitt (f.eks. Juniper me0.0 under fysisk me0); MAC ofte på forelder, VLAN/IP på barn.

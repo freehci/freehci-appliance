@@ -1512,6 +1512,7 @@ class DeviceInterfaceCreate(BaseModel):
     mtu: int | None = Field(None, ge=68, le=65535)
     vlan_id: int | None = Field(None, ge=1, le=4094)
     ipam_vlan_id: int | None = Field(None, ge=1)
+    ipam_vrf_id: int | None = Field(None, ge=1)
     enabled: bool = True
     sort_order: int = 0
     parent_interface_id: int | None = Field(None, ge=1)
@@ -1527,6 +1528,7 @@ class DeviceInterfaceUpdate(BaseModel):
     mtu: int | None = Field(None, ge=68, le=65535)
     vlan_id: int | None = Field(None, ge=1, le=4094)
     ipam_vlan_id: int | None = Field(None, ge=1)
+    ipam_vrf_id: int | None = Field(None, ge=1)
     enabled: bool | None = None
     sort_order: int | None = None
     parent_interface_id: int | None = Field(None, ge=1)
@@ -1556,6 +1558,7 @@ class DeviceInterfaceRead(BaseModel):
     mtu: int | None
     vlan_id: int | None
     ipam_vlan_id: int | None = None
+    ipam_vrf_id: int | None = None
     enabled: bool
     sort_order: int
     ip_assignments: list[IpAssignmentRead] = Field(default_factory=list)

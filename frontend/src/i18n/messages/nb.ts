@@ -1551,6 +1551,11 @@ export const nb = {
   "dcim.equip.if.ipamVlanHint":
     "Eksplisitt IPAM-VLAN på denne siten. Samme VID eller navn er ikke en kobling. Trunk/tagged/native gjettes ikke.",
   "dcim.equip.if.ipamVlanNeedsSite": "Plasser enheten på en site før du knytter et IPAM-VLAN.",
+  "dcim.equip.if.ipamVrf": "IPAM-VRF",
+  "dcim.equip.if.ipamVrfNone": "— ikke knyttet —",
+  "dcim.equip.if.ipamVrfHint":
+    "Eksplisitt IPAM-VRF på denne siten. Samme navn, enhets-VRF eller prefiks-VRF er ikke en kobling.",
+  "dcim.equip.if.ipamVrfNeedsSite": "Plasser enheten på en site før du knytter en IPAM-VRF.",
   "dcim.equip.if.parent": "Forelder (underegrensesnitt)",
   "dcim.equip.if.parentRoot": "— toppnivå (ingen forelder) —",
   "dcim.equip.if.parentCol": "Forelder",
