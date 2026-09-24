@@ -204,7 +204,10 @@ export function DevicePortsCablesPanel({
                 {t("dcim.common.delete")}
               </button>
               {FIBER_CABLE_TYPES.has(c.cable_type) ? (
-                <FiberStrandsInline cableId={c.id} onError={onError} />
+                <>
+                  <FiberStrandsInline cableId={c.id} onError={onError} />
+                  <FiberBundlesInline cableId={c.id} onError={onError} />
+                </>
               ) : null}
             </li>
           ))}
@@ -337,6 +340,157 @@ function FiberStrandsInline({
           {t("dcim.strands.add")}
         </button>
       </form>
+    </div>
+  );
+}
+
+function FiberBundlesInline({
+  cableId,
+  onError,
+}: {
+  cableId: number;
+  onError: (msg: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [bundleId, setBundleId] = useState("");
+  const [strandId, setStrandId] = useState("");
+  const strandsQ = useQuery({
+    queryKey: ["dcim", "cables", cableId, "strands"],
+    queryFn: () => api.listFiberStrands(cableId),
+  });
+  const bundlesQ = useQuery({
+    queryKey: ["dcim", "cables", cableId, "bundles"],
+    queryFn: () => api.listFiberBundles(cableId),
+  });
+  const fail = (e: Error) => onError(e instanceof ApiError ? e.message : e.message);
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["dcim", "cables", cableId, "bundles"] });
+  };
+  const createBundle = useMutation({
+    mutationFn: () => api.createFiberBundle(cableId, { name: name.trim() }),
+    onSuccess: () => {
+      setName("");
+      onError(null);
+      invalidate();
+    },
+    onError: fail,
+  });
+  const addMember = useMutation({
+    mutationFn: () => api.addFiberBundleMember(Number(bundleId), Number(strandId)),
+    onSuccess: () => {
+      setStrandId("");
+      onError(null);
+      invalidate();
+    },
+    onError: fail,
+  });
+  const delBundle = useMutation({
+    mutationFn: (id: number) => api.deleteFiberBundle(id),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+    },
+    onError: fail,
+  });
+  const delMember = useMutation({
+    mutationFn: (id: number) => api.deleteFiberBundleMember(id),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+    },
+    onError: fail,
+  });
+  const bundles = bundlesQ.data ?? [];
+  const taken = new Set(bundles.flatMap((b) => b.members.map((m) => m.strand_id)));
+  const freeStrands = (strandsQ.data ?? []).filter((s) => !taken.has(s.id));
+
+  return (
+    <div>
+      <h4 className={styles.mfrDetailSectionTitle}>{t("dcim.bundles.title")}</h4>
+      <p className={styles.muted}>{t("dcim.bundles.hint")}</p>
+      {bundles.length === 0 && !bundlesQ.isLoading ? <p className={styles.muted}>{t("dcim.bundles.empty")}</p> : null}
+      {bundles.length > 0 ? (
+        <ul className={styles.ipList}>
+          {bundles.map((b) => (
+            <li key={b.id}>
+              {b.name}
+              {b.members.length > 0
+                ? ` (${b.members.map((m) => `#${m.position}${m.label ? ` ${m.label}` : ""}`).join(", ")})`
+                : ""}{" "}
+              <button type="button" className={styles.btnLink} onClick={() => delBundle.mutate(b.id)}>
+                {t("dcim.common.delete")}
+              </button>
+              {b.members.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={styles.btnLink}
+                  onClick={() => delMember.mutate(m.id)}
+                >
+                  {t("dcim.bundles.removeMember")} #{m.position}
+                </button>
+              ))}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className={styles.formRow}
+        onSubmit={(e) => {
+          e.preventDefault();
+          createBundle.mutate();
+        }}
+      >
+        <label>
+          {t("dcim.bundles.name")}
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <button type="submit" className={styles.btn} disabled={createBundle.isPending || name.trim() === ""}>
+          {t("dcim.bundles.add")}
+        </button>
+      </form>
+      {bundles.length > 0 ? (
+        <form
+          className={styles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            addMember.mutate();
+          }}
+        >
+          <label>
+            {t("dcim.bundles.bundle")}
+            <select value={bundleId} onChange={(e) => setBundleId(e.target.value)}>
+              <option value="">{t("dcim.bundles.chooseBundle")}</option>
+              {bundles.map((b) => (
+                <option key={b.id} value={String(b.id)}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("dcim.bundles.strand")}
+            <select value={strandId} onChange={(e) => setStrandId(e.target.value)}>
+              <option value="">{t("dcim.bundles.chooseStrand")}</option>
+              {freeStrands.map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  #{s.position}
+                  {s.label ? ` ${s.label}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className={styles.btn}
+            disabled={addMember.isPending || bundleId === "" || strandId === ""}
+          >
+            {t("dcim.bundles.bind")}
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

@@ -1023,6 +1023,10 @@ class Cable(Base):
         back_populates="cable",
         cascade="all, delete-orphan",
     )
+    bundles: Mapped[list["FiberBundle"]] = relationship(
+        back_populates="cable",
+        cascade="all, delete-orphan",
+    )
 
 
 class CableTermination(Base):
@@ -1055,3 +1059,44 @@ class FiberStrand(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     cable: Mapped["Cable"] = relationship(back_populates="strands")
+    bundle_memberships: Mapped[list["FiberBundleMember"]] = relationship(
+        back_populates="strand",
+        cascade="all, delete-orphan",
+    )
+
+
+class FiberBundle(Base):
+    """Navngitt gruppe av registrerte fiberstrenger. Ingen gjettet antall eller par."""
+
+    __tablename__ = "dcim_fiber_bundles"
+    __table_args__ = (UniqueConstraint("cable_id", "slug", name="uq_dcim_fiber_bundle_cable_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cable_id: Mapped[int] = mapped_column(ForeignKey("dcim_cables.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    cable: Mapped["Cable"] = relationship(back_populates="bundles")
+    members: Mapped[list["FiberBundleMember"]] = relationship(
+        back_populates="bundle",
+        cascade="all, delete-orphan",
+    )
+
+
+class FiberBundleMember(Base):
+    """Én registrert streng i en bunt. En streng kan bare ligge i én bunt."""
+
+    __tablename__ = "dcim_fiber_bundle_members"
+    __table_args__ = (
+        UniqueConstraint("strand_id", name="uq_dcim_fiber_bundle_member_strand"),
+        UniqueConstraint("bundle_id", "strand_id", name="uq_dcim_fiber_bundle_member_bundle_strand"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bundle_id: Mapped[int] = mapped_column(ForeignKey("dcim_fiber_bundles.id", ondelete="CASCADE"), nullable=False)
+    strand_id: Mapped[int] = mapped_column(ForeignKey("dcim_fiber_strands.id", ondelete="CASCADE"), nullable=False)
+
+    bundle: Mapped["FiberBundle"] = relationship(back_populates="members")
+    strand: Mapped["FiberStrand"] = relationship(back_populates="bundle_memberships")

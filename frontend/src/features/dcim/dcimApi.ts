@@ -49,6 +49,7 @@ import type {
   Cable,
   CablePathHop,
   FiberStrand,
+  FiberBundle,
   NetBoxDtlApply,
   NetBoxDtlImport,
   NetBoxDtlItem,
@@ -1458,4 +1459,27 @@ export function createFiberStrand(
 
 export function deleteFiberStrand(id: number): Promise<void> {
   return apiDelete(`${P}/fiber-strands/${id}`);
+}
+
+export function listFiberBundles(cableId: number): Promise<FiberBundle[]> {
+  return apiGet(`${P}/cables/${cableId}/bundles`);
+}
+
+export function createFiberBundle(
+  cableId: number,
+  body: { name: string; slug?: string | null; description?: string | null },
+): Promise<FiberBundle> {
+  return apiPost(`${P}/cables/${cableId}/bundles`, body);
+}
+
+export function addFiberBundleMember(bundleId: number, strandId: number): Promise<FiberBundle> {
+  return apiPost(`${P}/fiber-bundles/${bundleId}/members`, { strand_id: strandId });
+}
+
+export function deleteFiberBundle(id: number): Promise<void> {
+  return apiDelete(`${P}/fiber-bundles/${id}`);
+}
+
+export function deleteFiberBundleMember(id: number): Promise<void> {
+  return apiDelete(`${P}/fiber-bundle-members/${id}`);
 }

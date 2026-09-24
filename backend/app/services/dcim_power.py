@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.models.dcim import (
     Cable,
     CableTermination,
+    FiberBundle,
+    FiberBundleMember,
     FiberStrand,
     DeviceInstance,
     DeviceInterface,
@@ -29,6 +31,10 @@ from app.models.dcim import (
 from app.schemas.dcim import (
     CableCreate,
     FIBER_CABLE_TYPES,
+    FiberBundleCreate,
+    FiberBundleMemberCreate,
+    FiberBundleMemberRead,
+    FiberBundleRead,
     FiberStrandCreate,
     FiberStrandRead,
     FiberStrandUpdate,
@@ -612,6 +618,10 @@ def get_cable(db: Session, cable_id: int) -> Cable | None:
 
 
 def delete_cable(db: Session, row: Cable) -> None:
+    for b in list(db.execute(select(FiberBundle).where(FiberBundle.cable_id == row.id)).scalars().all()):
+        for m in list(db.execute(select(FiberBundleMember).where(FiberBundleMember.bundle_id == b.id)).scalars().all()):
+            db.delete(m)
+        db.delete(b)
     for s in list(db.execute(select(FiberStrand).where(FiberStrand.cable_id == row.id)).scalars().all()):
         db.delete(s)
     db.delete(row)
@@ -668,6 +678,8 @@ def update_fiber_strand(db: Session, row: FiberStrand, data: FiberStrandUpdate) 
 def delete_fiber_strand(db: Session, row: FiberStrand) -> None:
     from app.models.ipam import IpamCircuitStrand
 
+    for m in list(db.execute(select(FiberBundleMember).where(FiberBundleMember.strand_id == row.id)).scalars().all()):
+        db.delete(m)
     for b in list(db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.strand_id == row.id)).scalars().all()):
         db.delete(b)
     db.delete(row)
@@ -676,6 +688,121 @@ def delete_fiber_strand(db: Session, row: FiberStrand) -> None:
 
 def fiber_strand_to_read(row: FiberStrand) -> FiberStrandRead:
     return FiberStrandRead.model_validate(row)
+
+
+def list_fiber_bundles(db: Session, cable_id: int) -> list[FiberBundle]:
+    return list(
+        db.execute(select(FiberBundle).where(FiberBundle.cable_id == cable_id).order_by(FiberBundle.slug)).scalars().all()
+    )
+
+
+def get_fiber_bundle(db: Session, bundle_id: int) -> FiberBundle | None:
+    return db.get(FiberBundle, bundle_id)
+
+
+def get_fiber_bundle_by_slug(db: Session, cable_id: int, slug: str) -> FiberBundle | None:
+    return db.execute(
+        select(FiberBundle).where(FiberBundle.cable_id == cable_id, FiberBundle.slug == slug),
+    ).scalar_one_or_none()
+
+
+def get_fiber_bundle_member(db: Session, member_id: int) -> FiberBundleMember | None:
+    return db.get(FiberBundleMember, member_id)
+
+
+def get_bundle_member_for_strand(db: Session, strand_id: int) -> FiberBundleMember | None:
+    return db.execute(
+        select(FiberBundleMember).where(FiberBundleMember.strand_id == strand_id),
+    ).scalar_one_or_none()
+
+
+def create_fiber_bundle(db: Session, cable: Cable, data: FiberBundleCreate) -> FiberBundle:
+    if cable.cable_type not in FIBER_CABLE_TYPES:
+        raise HTTPException(status_code=400, detail="kabelen er ikke fiber")
+    slug = _unique_slug(
+        db,
+        FiberBundle,
+        FiberBundle.cable_id,
+        cable.id,
+        data.slug or data.name,
+        explicit=data.slug is not None,
+    )
+    row = FiberBundle(
+        cable_id=cable.id,
+        name=data.name.strip(),
+        slug=slug,
+        description=data.description.strip() if data.description else None,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="fiberbunt finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def add_fiber_bundle_member(db: Session, bundle: FiberBundle, data: FiberBundleMemberCreate) -> FiberBundleMember:
+    strand = get_fiber_strand(db, data.strand_id)
+    if strand is None:
+        raise HTTPException(status_code=404, detail="fiber ikke funnet")
+    if strand.cable_id != bundle.cable_id:
+        raise HTTPException(status_code=400, detail="strengen tilhører en annen kabel")
+    if get_bundle_member_for_strand(db, strand.id) is not None:
+        raise HTTPException(status_code=409, detail="fiber_bundle_member_taken")
+    row = FiberBundleMember(bundle_id=bundle.id, strand_id=strand.id)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="fiber_bundle_member_taken")
+    db.refresh(row)
+    return row
+
+
+def delete_fiber_bundle(db: Session, row: FiberBundle) -> None:
+    for m in list(db.execute(select(FiberBundleMember).where(FiberBundleMember.bundle_id == row.id)).scalars().all()):
+        db.delete(m)
+    db.delete(row)
+    db.commit()
+
+
+def delete_fiber_bundle_member(db: Session, row: FiberBundleMember) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def fiber_bundle_to_read(db: Session, row: FiberBundle) -> FiberBundleRead:
+    members = list(
+        db.execute(
+            select(FiberBundleMember).where(FiberBundleMember.bundle_id == row.id),
+        ).scalars().all()
+    )
+    items: list[FiberBundleMemberRead] = []
+    for m in members:
+        strand = db.get(FiberStrand, m.strand_id)
+        if strand is None:
+            continue
+        items.append(
+            FiberBundleMemberRead(
+                id=m.id,
+                strand_id=m.strand_id,
+                position=strand.position,
+                label=strand.label,
+            )
+        )
+    items.sort(key=lambda x: x.position)
+    return FiberBundleRead(
+        id=row.id,
+        cable_id=row.cable_id,
+        name=row.name,
+        slug=row.slug,
+        description=row.description,
+        members=items,
+        created_at=row.created_at,
+    )
 
 
 def _delete_cables_for(db: Session, object_type: str, object_id: int) -> None:
@@ -784,6 +911,7 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
             "device_ports": [],
             "cables": [],
             "fiber_strands": [],
+            "fiber_bundles": [],
         }
     sources = list(db.execute(select(PowerSource).where(PowerSource.site_id.in_(site_ids))).scalars().all())
     source_by_id = {s.id: s for s in sources}
@@ -819,6 +947,21 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
         if cable_by_id
         else []
     )
+    strand_by_id = {s.id: s for s in strands}
+    bundles = (
+        list(db.execute(select(FiberBundle).where(FiberBundle.cable_id.in_(cable_by_id))).scalars().all())
+        if cable_by_id
+        else []
+    )
+    bundle_by_id = {b.id: b for b in bundles}
+    bundle_members = (
+        list(db.execute(select(FiberBundleMember).where(FiberBundleMember.bundle_id.in_(bundle_by_id))).scalars().all())
+        if bundle_by_id
+        else []
+    )
+    members_by_bundle: dict[int, list[FiberBundleMember]] = {}
+    for m in bundle_members:
+        members_by_bundle.setdefault(m.bundle_id, []).append(m)
     terms = (
         list(db.execute(select(CableTermination).where(CableTermination.cable_id.in_({c.id for c in cables}))).scalars().all())
         if cables
@@ -933,6 +1076,22 @@ def export_for_sites(db: Session, sites: list[Site]) -> dict[str, Any]:
             }
             for s in strands
             if s.cable_id in cable_by_id
+        ],
+        "fiber_bundles": [
+            {
+                "site_slug": site_by_id[cable_by_id[b.cable_id].site_id].slug,
+                "cable_slug": cable_by_id[b.cable_id].slug,
+                "slug": b.slug,
+                "name": b.name,
+                "description": b.description,
+                "strand_positions": sorted(
+                    strand_by_id[m.strand_id].position
+                    for m in members_by_bundle.get(b.id, [])
+                    if m.strand_id in strand_by_id
+                ),
+            }
+            for b in bundles
+            if b.cable_id in cable_by_id
         ],
     }
 
@@ -1175,6 +1334,36 @@ def apply_from_document(db: Session, doc: dict[str, Any], *, site_by_slug: dict[
             )
         except (HTTPException, ValueError, TypeError):
             continue
+
+    for b in doc.get("fiber_bundles") or []:
+        slug = (b.get("slug") or "").strip()
+        cable_slug = (b.get("cable_slug") or "").strip()
+        site = site_by_slug.get((b.get("site_slug") or "").strip())
+        if not slug or not cable_slug or site is None:
+            continue
+        cable = db.execute(select(Cable).where(Cable.site_id == site.id, Cable.slug == cable_slug)).scalar_one_or_none()
+        if cable is None or get_fiber_bundle_by_slug(db, cable.id, slug) is not None:
+            continue
+        try:
+            bundle = create_fiber_bundle(
+                db,
+                cable,
+                FiberBundleCreate(name=b.get("name") or slug, slug=slug, description=b.get("description")),
+            )
+        except (HTTPException, ValueError, TypeError):
+            continue
+        for pos in b.get("strand_positions") or []:
+            try:
+                position = int(pos)
+            except (TypeError, ValueError):
+                continue
+            strand = get_fiber_strand_by_position(db, cable.id, position)
+            if strand is None:
+                continue
+            try:
+                add_fiber_bundle_member(db, bundle, FiberBundleMemberCreate(strand_id=strand.id))
+            except (HTTPException, ValueError, TypeError):
+                continue
 
 
 def _term_from_export(db: Session, raw: dict[str, Any]) -> CableTerminationIn | None:

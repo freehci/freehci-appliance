@@ -708,6 +708,23 @@ export type FiberStrand = {
   created_at: string;
 };
 
+export type FiberBundleMember = {
+  id: number;
+  strand_id: number;
+  position: number;
+  label: string | null;
+};
+
+export type FiberBundle = {
+  id: number;
+  cable_id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  members: FiberBundleMember[];
+  created_at: string;
+};
+
 export type CablePathHop = {
   object_type: string;
   object_id: number;

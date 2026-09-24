@@ -1843,3 +1843,36 @@ class FiberStrandRead(BaseModel):
     label: str | None
     status: str
     created_at: dt.datetime
+
+
+class FiberBundleCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    description: str | None = None
+
+
+class FiberBundleMemberRead(BaseModel):
+    id: int
+    strand_id: int
+    position: int
+    label: str | None
+
+
+class FiberBundleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    cable_id: int
+    name: str
+    slug: str
+    description: str | None
+    members: list[FiberBundleMemberRead] = Field(default_factory=list)
+    created_at: dt.datetime
+
+
+class FiberBundleMemberCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    strand_id: int = Field(..., ge=1)

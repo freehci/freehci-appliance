@@ -144,6 +144,9 @@ from app.schemas.dcim import (
     CableCreate,
     CableRead,
     CablePathRead,
+    FiberBundleCreate,
+    FiberBundleMemberCreate,
+    FiberBundleRead,
     FiberStrandCreate,
     FiberStrandRead,
     FiberStrandUpdate,
@@ -1979,3 +1982,60 @@ def delete_fiber_strand(strand_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="fiber ikke funnet")
     power_svc.delete_fiber_strand(db, row)
+
+
+@router.get("/cables/{cable_id}/bundles", response_model=list[FiberBundleRead])
+def list_fiber_bundles(cable_id: int, db: Session = Depends(get_db)) -> list[FiberBundleRead]:
+    row = power_svc.get_cable(db, cable_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kabel ikke funnet")
+    return [power_svc.fiber_bundle_to_read(db, b) for b in power_svc.list_fiber_bundles(db, cable_id)]
+
+
+@router.post("/cables/{cable_id}/bundles", response_model=FiberBundleRead)
+def create_fiber_bundle(
+    cable_id: int,
+    data: FiberBundleCreate,
+    db: Session = Depends(get_db),
+) -> FiberBundleRead:
+    row = power_svc.get_cable(db, cable_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="kabel ikke funnet")
+    return power_svc.fiber_bundle_to_read(db, power_svc.create_fiber_bundle(db, row, data))
+
+
+@router.get("/fiber-bundles/{bundle_id}", response_model=FiberBundleRead)
+def get_fiber_bundle(bundle_id: int, db: Session = Depends(get_db)) -> FiberBundleRead:
+    row = power_svc.get_fiber_bundle(db, bundle_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiberbunt ikke funnet")
+    return power_svc.fiber_bundle_to_read(db, row)
+
+
+@router.post("/fiber-bundles/{bundle_id}/members", response_model=FiberBundleRead)
+def add_fiber_bundle_member(
+    bundle_id: int,
+    data: FiberBundleMemberCreate,
+    db: Session = Depends(get_db),
+) -> FiberBundleRead:
+    row = power_svc.get_fiber_bundle(db, bundle_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiberbunt ikke funnet")
+    power_svc.add_fiber_bundle_member(db, row, data)
+    return power_svc.fiber_bundle_to_read(db, row)
+
+
+@router.delete("/fiber-bundles/{bundle_id}", status_code=204)
+def delete_fiber_bundle(bundle_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_fiber_bundle(db, bundle_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiberbunt ikke funnet")
+    power_svc.delete_fiber_bundle(db, row)
+
+
+@router.delete("/fiber-bundle-members/{member_id}", status_code=204)
+def delete_fiber_bundle_member(member_id: int, db: Session = Depends(get_db)) -> None:
+    row = power_svc.get_fiber_bundle_member(db, member_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="fiberbunt-medlem ikke funnet")
+    power_svc.delete_fiber_bundle_member(db, row)
