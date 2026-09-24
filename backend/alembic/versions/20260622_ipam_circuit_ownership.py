@@ -18,7 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     with op.batch_alter_table("ipam_circuits") as batch_op:
         batch_op.add_column(sa.Column("ownership", sa.String(length=16), nullable=True))
-    op.execute("UPDATE ipam_circuits SET ownership = 'leased' WHERE is_leased = 1")
+    op.execute("UPDATE ipam_circuits SET ownership = 'leased' WHERE is_leased IS TRUE")
 
 
 def downgrade() -> None:
