@@ -915,6 +915,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
             {"slug": r.slug, "name": r.name, "kind": r.kind, "description": r.description} for r in roles
         ],
         **_export_device_artifacts(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
+        **_export_device_interfaces(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_lags(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_vlans(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_vlan_members(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1035,6 +1036,57 @@ def _export_device_artifacts(
             }
             for a in assignments
             if a.device_id in device_by_id and a.baseline_id in baseline_by_id
+        ],
+    }
+
+
+def _export_device_interfaces(
+    db: Session,
+    *,
+    devices: list[DeviceInstance],
+    site_by_id: dict[int, Site],
+    device_by_id: dict[int, DeviceInstance],
+) -> dict[str, Any]:
+    device_ids = {d.id for d in devices}
+    ifaces = (
+        list(
+            db.execute(
+                select(DeviceInterface)
+                .where(DeviceInterface.device_id.in_(device_ids))
+                .order_by(DeviceInterface.device_id, DeviceInterface.sort_order, DeviceInterface.name)
+            ).scalars().all()
+        )
+        if device_ids
+        else []
+    )
+    iface_by_id = {i.id: i for i in ifaces}
+    return {
+        "device_interfaces": [
+            {
+                "device_name": device_by_id[i.device_id].name if i.device_id in device_by_id else None,
+                "site_slug": (
+                    site_by_id[device_by_id[i.device_id].site_id].slug
+                    if i.device_id in device_by_id
+                    and device_by_id[i.device_id].site_id
+                    and device_by_id[i.device_id].site_id in site_by_id
+                    else None
+                ),
+                "name": i.name,
+                "description": i.description,
+                "parent_name": (
+                    iface_by_id[i.parent_interface_id].name
+                    if i.parent_interface_id is not None and i.parent_interface_id in iface_by_id
+                    else None
+                ),
+                "mac_address": i.mac_address,
+                "speed_mbps": i.speed_mbps,
+                "mtu": i.mtu,
+                "vlan_id": i.vlan_id,
+                "enabled": i.enabled,
+                "sort_order": i.sort_order,
+            }
+            for i in ifaces
+            if i.device_id in device_by_id
         ],
     }
 

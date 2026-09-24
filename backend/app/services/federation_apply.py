@@ -22,6 +22,7 @@ from app.schemas.dcim import (
     DeviceArtifactBaselineMemberCreate,
     DeviceArtifactBaselineAssignmentCreate,
     DeviceArtifactRecordCreate,
+    DeviceInterfaceCreate,
     DeviceInterfaceLagCreate,
     DeviceInterfaceLagMemberCreate,
     DeviceInterfaceUpdate,
@@ -441,6 +442,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
         except Exception:
             continue
 
+    _apply_device_interfaces(db, doc)
     _apply_device_interface_lags(db, doc)
     _apply_device_interface_vlans(db, doc)
     _apply_device_interface_vlan_members(db, doc)
@@ -482,6 +484,79 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
     _apply_platform(db, doc)
     _bind_vif_ipv4(db, doc)
     _apply_catalog(db, doc)
+
+
+def _opt_recorded_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _apply_device_interfaces(db: Session, doc: dict[str, Any]) -> None:
+    records = list(doc.get("device_interfaces") or [])
+    created: list[tuple[Any, Any]] = []
+    for rec in records:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        name = str(rec.get("name") or "").strip()
+        if device is None or not name:
+            continue
+        existing = db.execute(
+            select(DeviceInterface).where(DeviceInterface.device_id == device.id, DeviceInterface.name == name),
+        ).scalar_one_or_none()
+        if existing is not None:
+            created.append((rec, existing))
+            continue
+        mac = rec.get("mac_address")
+        mac = None if mac is None or str(mac).strip() == "" else str(mac).strip()
+        try:
+            iface = dcim_svc.create_device_interface(
+                db,
+                device.id,
+                DeviceInterfaceCreate(
+                    name=name,
+                    description=rec.get("description"),
+                    mac_address=mac,
+                    speed_mbps=_opt_recorded_int(rec.get("speed_mbps")),
+                    mtu=_opt_recorded_int(rec.get("mtu")),
+                    vlan_id=_opt_recorded_int(rec.get("vlan_id")),
+                    enabled=bool(rec["enabled"]) if "enabled" in rec and rec.get("enabled") is not None else True,
+                    sort_order=_opt_recorded_int(rec.get("sort_order")) or 0,
+                ),
+            )
+        except Exception:
+            continue
+        row = db.get(DeviceInterface, iface.id)
+        if row is not None:
+            created.append((rec, row))
+
+    for rec, iface in created:
+        parent_name = str(rec.get("parent_name") or "").strip()
+        if not parent_name:
+            continue
+        if iface.parent_interface_id is not None:
+            continue
+        parent = db.execute(
+            select(DeviceInterface).where(
+                DeviceInterface.device_id == iface.device_id,
+                DeviceInterface.name == parent_name,
+            ),
+        ).scalar_one_or_none()
+        if parent is None:
+            continue
+        try:
+            dcim_svc.update_device_interface(
+                db,
+                iface.device_id,
+                iface,
+                DeviceInterfaceUpdate(parent_interface_id=parent.id),
+            )
+        except Exception:
+            continue
 
 
 def _apply_device_interface_lags(db: Session, doc: dict[str, Any]) -> None:
