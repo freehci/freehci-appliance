@@ -706,7 +706,10 @@ export function listVpnMembers(vpnId: number): Promise<IpamVpnMember[]> {
   return apiGet(`${P}/vpn-services/${vpnId}/members`);
 }
 
-export function createVpnMember(vpnId: number, body: { site_id: number; role?: string | null }): Promise<IpamVpnMember> {
+export function createVpnMember(
+  vpnId: number,
+  body: { site_id?: number | null; name?: string | null; slug?: string | null; role?: string | null },
+): Promise<IpamVpnMember> {
   return apiPost(`${P}/vpn-services/${vpnId}/members`, body);
 }
 

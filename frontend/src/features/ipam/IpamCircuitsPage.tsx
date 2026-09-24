@@ -1601,6 +1601,7 @@ function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: str
   const { t } = useI18n();
   const qc = useQueryClient();
   const [siteId, setSiteId] = useState("");
+  const [clientName, setClientName] = useState("");
   const [role, setRole] = useState("");
   const membersQ = useQuery({
     queryKey: ["ipam", "vpn-members", vpnId],
@@ -1609,9 +1610,16 @@ function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: str
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const members = membersQ.data ?? [];
   const addM = useMutation({
-    mutationFn: () => ipamApi.createVpnMember(vpnId, { site_id: Number(siteId), role: role || null }),
+    mutationFn: () =>
+      ipamApi.createVpnMember(
+        vpnId,
+        siteId !== ""
+          ? { site_id: Number(siteId), role: role || null }
+          : { name: clientName.trim(), role: role || null },
+      ),
     onSuccess: () => {
       setSiteId("");
+      setClientName("");
       setRole("");
       onError(null);
       void qc.invalidateQueries({ queryKey: ["ipam", "vpn-members", vpnId] });
@@ -1636,7 +1644,8 @@ function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: str
         <ul className={dcimStyles.ipList}>
           {members.map((m) => (
             <li key={m.id}>
-              {m.site_name}
+              {m.site_name ?? m.name ?? m.slug ?? "—"}
+              {m.site_id == null ? ` (${t("ipam.circuits.memberClient")})` : ""}
               {m.role ? ` (${m.role})` : ""}{" "}
               <button type="button" className={dcimStyles.btnLink} onClick={() => delM.mutate(m.id)}>
                 {t("dcim.common.delete")}
@@ -1654,7 +1663,13 @@ function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: str
       >
         <label>
           {t("ipam.circuits.termSite")}
-          <select value={siteId} onChange={(e) => setSiteId(e.target.value)} required>
+          <select
+            value={siteId}
+            onChange={(e) => {
+              setSiteId(e.target.value);
+              if (e.target.value !== "") setClientName("");
+            }}
+          >
             <option value="">{t("ipam.circuits.noSite")}</option>
             {(sitesQ.data ?? []).map((s) => (
               <option key={s.id} value={String(s.id)}>
@@ -1662,6 +1677,17 @@ function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: str
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          {t("ipam.circuits.memberClientName")}
+          <input
+            value={clientName}
+            onChange={(e) => {
+              setClientName(e.target.value);
+              if (e.target.value.trim() !== "") setSiteId("");
+            }}
+            disabled={siteId !== ""}
+          />
         </label>
         <label>
           {t("ipam.circuits.memberRole")}
@@ -1674,8 +1700,12 @@ function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: str
             ))}
           </select>
         </label>
-        <button type="submit" className={dcimStyles.btn} disabled={addM.isPending || siteId === ""}>
-          {t("ipam.circuits.addMemberSite")}
+        <button
+          type="submit"
+          className={dcimStyles.btn}
+          disabled={addM.isPending || (siteId === "") === (clientName.trim() === "")}
+        >
+          {t("ipam.circuits.addMemberRecord")}
         </button>
       </form>
     </div>

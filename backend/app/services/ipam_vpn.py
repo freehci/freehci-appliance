@@ -218,19 +218,48 @@ def get_vpn_member_by_site(db: Session, vpn_id: int, site_id: int) -> IpamVpnMem
     ).scalar_one_or_none()
 
 
+def get_vpn_member_by_slug(db: Session, vpn_id: int, slug: str) -> IpamVpnMember | None:
+    return db.execute(
+        select(IpamVpnMember).where(IpamVpnMember.vpn_service_id == vpn_id, IpamVpnMember.slug == slug),
+    ).scalar_one_or_none()
+
+
+def _unique_member_slug(db: Session, vpn_id: int, desired: str, *, explicit: bool = False) -> str:
+    base = _slugify(desired)
+    if explicit:
+        if get_vpn_member_by_slug(db, vpn_id, base) is not None:
+            raise ipam_error(409, "vpn_member_taken", "klienten er allerede medlem av denne VPN-tjenesten")
+        return base
+    candidate = base
+    n = 2
+    while get_vpn_member_by_slug(db, vpn_id, candidate) is not None:
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+    return candidate
+
+
 def create_vpn_member(db: Session, vpn: IpamVpnService, data: IpamVpnMemberCreate) -> IpamVpnMember:
-    site = db.get(Site, data.site_id)
-    if site is None:
-        raise ipam_error(404, "site_not_found", "site ikke funnet")
-    if get_vpn_member_by_site(db, vpn.id, site.id) is not None:
-        raise ipam_error(409, "vpn_member_taken", "siten er allerede medlem av denne VPN-tjenesten")
-    row = IpamVpnMember(vpn_service_id=vpn.id, site_id=site.id, role=data.role)
+    has_site = data.site_id is not None
+    has_client = bool((data.name or "").strip() or (data.slug or "").strip())
+    if has_site == has_client:
+        raise ipam_error(400, "vpn_member_target", "oppgi site eller klient, ikke begge")
+    if has_site:
+        site = db.get(Site, data.site_id)
+        if site is None:
+            raise ipam_error(404, "site_not_found", "site ikke funnet")
+        if get_vpn_member_by_site(db, vpn.id, site.id) is not None:
+            raise ipam_error(409, "vpn_member_taken", "siten er allerede medlem av denne VPN-tjenesten")
+        row = IpamVpnMember(vpn_service_id=vpn.id, site_id=site.id, name=None, slug=None, role=data.role)
+    else:
+        name = (data.name or data.slug or "").strip()
+        slug = _unique_member_slug(db, vpn.id, data.slug or name, explicit=True)
+        row = IpamVpnMember(vpn_service_id=vpn.id, site_id=None, name=name, slug=slug, role=data.role)
     db.add(row)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise ipam_error(409, "vpn_member_taken", "siten er allerede medlem av denne VPN-tjenesten")
+        raise ipam_error(409, "vpn_member_taken", "medlemmet finnes allerede i denne VPN-tjenesten")
     db.refresh(row)
     return row
 
@@ -241,13 +270,15 @@ def delete_vpn_member(db: Session, row: IpamVpnMember) -> None:
 
 
 def vpn_member_to_read(db: Session, row: IpamVpnMember) -> IpamVpnMemberRead:
-    site = db.get(Site, row.site_id)
+    site = db.get(Site, row.site_id) if row.site_id is not None else None
     return IpamVpnMemberRead(
         id=row.id,
         vpn_service_id=row.vpn_service_id,
         site_id=row.site_id,
-        site_name=site.name if site is not None else "",
-        site_slug=site.slug if site is not None else "",
+        site_name=site.name if site is not None else None,
+        site_slug=site.slug if site is not None else None,
+        name=row.name,
+        slug=row.slug,
         role=row.role,
         created_at=row.created_at,
     )

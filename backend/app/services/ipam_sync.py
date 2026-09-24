@@ -267,7 +267,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if vpn_ids
         else []
     )
-    member_site_ids = {m.site_id for m in members if m.site_id not in site_by_id}
+    member_site_ids = {m.site_id for m in members if m.site_id and m.site_id not in site_by_id}
     if member_site_ids:
         site_by_id.update(
             {s.id: s for s in db.execute(select(Site).where(Site.id.in_(member_site_ids))).scalars().all()}
@@ -488,7 +488,9 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         "vpn_members": [
             {
                 "vpn_slug": vpn_by_id[m.vpn_service_id].slug if m.vpn_service_id in vpn_by_id else None,
-                "site_slug": site_by_id[m.site_id].slug if m.site_id in site_by_id else None,
+                "site_slug": site_by_id[m.site_id].slug if m.site_id and m.site_id in site_by_id else None,
+                "name": m.name,
+                "slug": m.slug,
                 "role": m.role,
             }
             for m in members

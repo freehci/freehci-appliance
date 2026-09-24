@@ -431,9 +431,11 @@ export type IpamVpnService = {
 export type IpamVpnMember = {
   id: number;
   vpn_service_id: number;
-  site_id: number;
-  site_name: string;
-  site_slug: string;
+  site_id: number | null;
+  site_name: string | null;
+  site_slug: string | null;
+  name: string | null;
+  slug: string | null;
   role: string | null;
   created_at: string;
 };

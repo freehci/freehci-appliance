@@ -527,10 +527,12 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             {
                 "vpn_slug": m.get("vpn_slug"),
                 "site_slug": m.get("site_slug"),
+                "name": m.get("name"),
+                "slug": m.get("slug"),
                 "role": m.get("role"),
             }
             for m in raw.get("vpn_members") or []
-            if m.get("vpn_slug") and m.get("site_slug")
+            if m.get("vpn_slug") and (m.get("site_slug") or m.get("slug") or m.get("name"))
         ],
         "tunnels": [
             {

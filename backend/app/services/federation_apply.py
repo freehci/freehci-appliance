@@ -723,13 +723,27 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
     for m in ipam.get("vpn_members") or []:
         vpn_slug = (m.get("vpn_slug") or "").strip()
         site = _site_by_slug(db, (m.get("site_slug") or "").strip())
-        if not vpn_slug or site is None:
+        client_slug = (m.get("slug") or "").strip()
+        client_name = (m.get("name") or "").strip()
+        if not vpn_slug:
             continue
         vpn = db.execute(select(IpamVpnService).where(IpamVpnService.slug == vpn_slug)).scalar_one_or_none()
-        if vpn is None or vpn_svc.get_vpn_member_by_site(db, vpn.id, site.id) is not None:
+        if vpn is None:
             continue
         try:
-            vpn_svc.create_vpn_member(db, vpn, IpamVpnMemberCreate(site_id=site.id, role=m.get("role")))
+            if site is not None:
+                if vpn_svc.get_vpn_member_by_site(db, vpn.id, site.id) is not None:
+                    continue
+                vpn_svc.create_vpn_member(db, vpn, IpamVpnMemberCreate(site_id=site.id, role=m.get("role")))
+            elif client_slug or client_name:
+                slug = client_slug or None
+                if slug and vpn_svc.get_vpn_member_by_slug(db, vpn.id, slug) is not None:
+                    continue
+                vpn_svc.create_vpn_member(
+                    db,
+                    vpn,
+                    IpamVpnMemberCreate(name=client_name or slug, slug=slug, role=m.get("role")),
+                )
         except Exception:
             continue
     for t in ipam.get("tunnels") or []:

@@ -666,14 +666,19 @@ class IpamVpnService(Base):
 
 
 class IpamVpnMember(Base):
-    """Site-medlem i en VPN-tjeneste. Topologi gjettes ikke fra antall medlemmer."""
+    """Site- eller klientmedlem i en VPN-tjeneste. Topologi og nøkler gjettes ikke."""
 
     __tablename__ = "ipam_vpn_members"
-    __table_args__ = (UniqueConstraint("vpn_service_id", "site_id", name="uq_ipam_vpn_member_site"),)
+    __table_args__ = (
+        UniqueConstraint("vpn_service_id", "site_id", name="uq_ipam_vpn_member_site"),
+        UniqueConstraint("vpn_service_id", "slug", name="uq_ipam_vpn_member_slug"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     vpn_service_id: Mapped[int] = mapped_column(ForeignKey("ipam_vpn_services.id", ondelete="CASCADE"), nullable=False)
-    site_id: Mapped[int] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=False)
+    site_id: Mapped[int | None] = mapped_column(ForeignKey("dcim_sites.id", ondelete="CASCADE"), nullable=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    slug: Mapped[str | None] = mapped_column(String(128), nullable=True)
     role: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

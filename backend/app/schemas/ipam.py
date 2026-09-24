@@ -1673,7 +1673,9 @@ class IpamVpnServiceRead(BaseModel):
 class IpamVpnMemberCreate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    site_id: int = Field(..., ge=1)
+    site_id: int | None = Field(None, ge=1)
+    name: str | None = Field(None, max_length=255)
+    slug: str | None = Field(None, max_length=128)
     role: str | None = None
 
     @field_validator("role")
@@ -1694,9 +1696,11 @@ class IpamVpnMemberRead(BaseModel):
 
     id: int
     vpn_service_id: int
-    site_id: int
-    site_name: str
-    site_slug: str
+    site_id: int | None = None
+    site_name: str | None = None
+    site_slug: str | None = None
+    name: str | None = None
+    slug: str | None = None
     role: str | None
     created_at: dt.datetime
 
