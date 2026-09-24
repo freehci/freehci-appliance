@@ -374,6 +374,7 @@ export type IpamCircuitTermination = {
   id: number;
   circuit_id: number;
   endpoint: string;
+  kind: string | null;
   device_id: number | null;
   interface_id: number | null;
   site_id?: number | null;

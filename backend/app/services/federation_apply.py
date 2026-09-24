@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
-from app.models.dcim import Building, Cable, DeviceInstance, DeviceModel, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, Cable, DeviceInstance, DeviceInterface, DeviceModel, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamTunnel, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
@@ -37,6 +37,7 @@ from app.schemas.ipam import (
     IpamCircuitCreate,
     IpamCircuitGroupCreate,
     IpamCircuitStrandCreate,
+    IpamCircuitTerminationCreate,
     IpamTunnelCreate,
     IpamTunnelTransportCreate,
     IpamVpnMemberCreate,
@@ -699,6 +700,46 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 z_site_id=z_site.id if z_site is not None else None,
             ),
         )
+    for t in ipam.get("circuit_terminations") or []:
+        number = (t.get("circuit_number") or "").strip()
+        endpoint = (t.get("endpoint") or "").strip().lower()
+        if not number or endpoint not in {"a", "z"}:
+            continue
+        circuit = db.execute(select(IpamCircuit).where(IpamCircuit.circuit_number == number)).scalar_one_or_none()
+        if circuit is None:
+            continue
+        site = _site_by_slug(db, (t.get("site_slug") or "").strip())
+        device = None
+        iface = None
+        device_name = (t.get("device_name") or "").strip()
+        iface_name = (t.get("interface_name") or "").strip()
+        if device_name:
+            q = select(DeviceInstance).where(DeviceInstance.name == device_name)
+            if site is not None:
+                q = q.where(DeviceInstance.site_id == site.id)
+            device = db.execute(q).scalars().first()
+        if device is not None and iface_name:
+            iface = db.execute(
+                select(DeviceInterface).where(
+                    DeviceInterface.device_id == device.id,
+                    DeviceInterface.name == iface_name,
+                ),
+            ).scalar_one_or_none()
+        try:
+            fac_svc.upsert_circuit_termination(
+                db,
+                circuit,
+                IpamCircuitTerminationCreate(
+                    endpoint=endpoint,
+                    kind=t.get("kind"),
+                    site_id=site.id if site is not None else None,
+                    device_id=device.id if device is not None else None,
+                    interface_id=iface.id if iface is not None else None,
+                    label=t.get("label"),
+                ),
+            )
+        except Exception:
+            continue
     for v in ipam.get("vpn_services") or []:
         slug = (v.get("slug") or "").strip()
         if not slug:

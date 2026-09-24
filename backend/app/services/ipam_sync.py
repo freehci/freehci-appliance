@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.dcim import Cable, DeviceInstance, FiberStrand, Site
+from app.models.dcim import Cable, DeviceInstance, DeviceInterface, FiberStrand, Site
 from app.models.ipam import (
     IpamAutonomousSystem,
     IpamIpv4Address,
@@ -20,6 +20,7 @@ from app.models.ipam import (
     IpamVrfRouteTarget,
     IpamCircuitGroup,
     IpamCircuitStrand,
+    IpamCircuitTermination,
     IpamContract,
     IpamProvider,
     IpamTunnel,
@@ -225,6 +226,23 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         list(db.execute(select(IpamCircuitStrand).where(IpamCircuitStrand.circuit_id.in_(circuit_ids))).scalars().all())
         if circuit_ids
         else []
+    )
+    terms = (
+        list(db.execute(select(IpamCircuitTermination).where(IpamCircuitTermination.circuit_id.in_(circuit_ids))).scalars().all())
+        if circuit_ids
+        else []
+    )
+    term_device_ids = {t.device_id for t in terms if t.device_id}
+    term_devices = (
+        {d.id: d for d in db.execute(select(DeviceInstance).where(DeviceInstance.id.in_(term_device_ids))).scalars().all()}
+        if term_device_ids
+        else {}
+    )
+    term_iface_ids = {t.interface_id for t in terms if t.interface_id}
+    term_ifaces = (
+        {i.id: i for i in db.execute(select(DeviceInterface).where(DeviceInterface.id.in_(term_iface_ids))).scalars().all()}
+        if term_iface_ids
+        else {}
     )
     strand_ids = {b.strand_id for b in binds}
     strands = (
@@ -454,6 +472,18 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "operational_status": getattr(c, "operational_status", None),
             }
             for c in circuits
+        ],
+        "circuit_terminations": [
+            {
+                "circuit_number": next((c.circuit_number for c in circuits if c.id == t.circuit_id), None),
+                "endpoint": t.endpoint,
+                "kind": t.kind,
+                "site_slug": site_by_id[t.site_id].slug if t.site_id and t.site_id in site_by_id else None,
+                "device_name": term_devices[t.device_id].name if t.device_id and t.device_id in term_devices else None,
+                "interface_name": term_ifaces[t.interface_id].name if t.interface_id and t.interface_id in term_ifaces else None,
+                "label": t.label,
+            }
+            for t in terms
         ],
         "circuit_strands": [
             {

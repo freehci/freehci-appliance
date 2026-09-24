@@ -587,7 +587,7 @@ class IpamCircuit(Base):
 
 
 class IpamCircuitTermination(Base):
-    """Endepunkt A eller Z på samband; peker på Device og/eller Interface."""
+    """Endepunkt A eller Z på samband. `kind` gjettes aldri fra manglende enhet eller leverandør."""
 
     __tablename__ = "ipam_circuit_terminations"
     __table_args__ = (UniqueConstraint("circuit_id", "endpoint", name="uq_ipam_circuit_term_endpoint"),)
@@ -598,6 +598,7 @@ class IpamCircuitTermination(Base):
         nullable=False,
     )
     endpoint: Mapped[str] = mapped_column(String(1), nullable=False)
+    kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
     device_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),

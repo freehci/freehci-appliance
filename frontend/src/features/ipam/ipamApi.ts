@@ -611,6 +611,7 @@ export function upsertCircuitTermination(
   circuitId: number,
   body: {
     endpoint: "a" | "z";
+    kind?: string | null;
     device_id?: number | null;
     interface_id?: number | null;
     site_id?: number | null;

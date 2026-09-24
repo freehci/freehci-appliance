@@ -840,6 +840,8 @@ def upsert_circuit_termination(
         device_id=data.device_id,
         interface_id=data.interface_id,
     )
+    if data.kind in {"unknown", "provider-network"} and (device_id is not None or interface_id is not None):
+        raise ipam_error(400, "circuit_term_kind", "ukjent ende eller leverandørnett kan ikke peke på lokal enhet")
     if data.site_id is not None:
         _require_site(db, data.site_id)
 
@@ -851,6 +853,7 @@ def upsert_circuit_termination(
     ).scalar_one_or_none()
 
     if existing is not None:
+        existing.kind = data.kind
         existing.device_id = device_id
         existing.interface_id = interface_id
         existing.site_id = data.site_id
@@ -862,6 +865,7 @@ def upsert_circuit_termination(
     row = IpamCircuitTermination(
         circuit_id=circuit.id,
         endpoint=data.endpoint,
+        kind=data.kind,
         device_id=device_id,
         interface_id=interface_id,
         site_id=data.site_id,

@@ -503,6 +503,19 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for c in raw.get("circuits") or []
             if c.get("circuit_number")
         ],
+        "circuit_terminations": [
+            {
+                "circuit_number": t.get("circuit_number"),
+                "endpoint": t.get("endpoint"),
+                "kind": t.get("kind"),
+                "site_slug": t.get("site_slug"),
+                "device_name": t.get("device_name"),
+                "interface_name": t.get("interface_name"),
+                "label": t.get("label"),
+            }
+            for t in raw.get("circuit_terminations") or []
+            if t.get("circuit_number") and t.get("endpoint") in {"a", "z"}
+        ],
         "circuit_strands": [
             {
                 "circuit_number": b.get("circuit_number"),

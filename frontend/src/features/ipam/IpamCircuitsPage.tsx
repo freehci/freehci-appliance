@@ -73,6 +73,8 @@ export function IpamCircuitsPage() {
   const [termSite, setTermSite] = useState("");
   const [termDevice, setTermDevice] = useState("");
   const [termIface, setTermIface] = useState("");
+  const [termKind, setTermKind] = useState("");
+  const [termLabel, setTermLabel] = useState("");
   const [aSiteId, setASiteId] = useState("");
   const [zSiteId, setZSiteId] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -234,9 +236,11 @@ export function IpamCircuitsPage() {
     mutationFn: () =>
       ipamApi.upsertCircuitTermination(termCircuitId!, {
         endpoint: termEndpoint,
-        device_id: termDevice === "" ? null : Number(termDevice),
-        interface_id: termIface === "" ? null : Number(termIface),
+        kind: termKind === "" ? null : termKind,
+        device_id: termKind === "unknown" || termKind === "provider-network" ? null : termDevice === "" ? null : Number(termDevice),
+        interface_id: termKind === "unknown" || termKind === "provider-network" ? null : termIface === "" ? null : Number(termIface),
         site_id: termSite === "" ? null : Number(termSite),
+        label: termLabel.trim() === "" ? null : termLabel.trim(),
       }),
     onSuccess: () => {
       setErr(null);
@@ -1014,7 +1018,8 @@ export function IpamCircuitsPage() {
           <ul className={dcimStyles.ipList}>
             {(termsQ.data ?? []).map((x) => (
               <li key={x.id}>
-                {x.endpoint.toUpperCase()}: {x.device_name ?? "—"} / {x.interface_name ?? "—"}
+                {x.endpoint.toUpperCase()}
+                {x.kind ? ` [${x.kind}]` : ""}: {x.device_name ?? "—"} / {x.interface_name ?? "—"}
                 {x.label ? ` (${x.label})` : ""}
               </li>
             ))}
@@ -1034,6 +1039,28 @@ export function IpamCircuitsPage() {
                 <option value="a">A</option>
                 <option value="z">Z</option>
               </select>
+            </label>
+            <label>
+              {t("ipam.circuits.termKind")}
+              <select
+                value={termKind}
+                onChange={(e) => {
+                  setTermKind(e.target.value);
+                  if (e.target.value === "unknown" || e.target.value === "provider-network") {
+                    setTermDevice("");
+                    setTermIface("");
+                  }
+                }}
+              >
+                <option value="">{t("ipam.circuits.attrUnset")}</option>
+                <option value="local">local</option>
+                <option value="unknown">unknown</option>
+                <option value="provider-network">provider-network</option>
+              </select>
+            </label>
+            <label>
+              {t("ipam.circuits.termLabel")}
+              <input value={termLabel} onChange={(e) => setTermLabel(e.target.value)} />
             </label>
             <label>
               {t("ipam.circuits.termSite")}
@@ -1061,6 +1088,7 @@ export function IpamCircuitsPage() {
                   setTermDevice(e.target.value);
                   setTermIface("");
                 }}
+                disabled={termKind === "unknown" || termKind === "provider-network"}
               >
                 <option value="">{t("ipam.circuits.noDevice")}</option>
                 {termDevices.map((d) => (

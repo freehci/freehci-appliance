@@ -22,6 +22,7 @@ CIRCUIT_LAYERS = frozenset({"transport", "overlay"})
 CIRCUIT_SERVICE_TYPES = frozenset({"internet", "ethernet", "dark-fiber", "other"})
 CIRCUIT_MEDIA = frozenset({"fiber", "copper", "radio", "other"})
 CIRCUIT_OPERATIONAL_STATUSES = frozenset({"planned", "active", "offline", "decommissioned"})
+CIRCUIT_TERM_KINDS = frozenset({"local", "unknown", "provider-network"})
 VPN_MEMBER_ROLES = frozenset({"hub", "spoke", "peer", "client", "other"})
 VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
 TUNNEL_STATUSES = frozenset({"planned", "active", "deprecated"})
@@ -1500,11 +1501,26 @@ class IpamCircuitGroupRead(BaseModel):
 
 
 class IpamCircuitTerminationCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     endpoint: Literal["a", "z"]
+    kind: str | None = Field(None, max_length=32)
     device_id: int | None = Field(None, ge=1)
     interface_id: int | None = Field(None, ge=1)
     site_id: int | None = Field(None, ge=1)
     label: str | None = Field(None, max_length=255)
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_TERM_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(CIRCUIT_TERM_KINDS))}")
+        return s
 
 
 class IpamCircuitTerminationRead(BaseModel):
@@ -1513,6 +1529,7 @@ class IpamCircuitTerminationRead(BaseModel):
     id: int
     circuit_id: int
     endpoint: str
+    kind: str | None = None
     device_id: int | None = None
     interface_id: int | None
     site_id: int | None = None
