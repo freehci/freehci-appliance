@@ -351,6 +351,7 @@ export type IpamCircuit = {
   service_type: string | null;
   medium: string | null;
   operational_status: string | null;
+  ownership: string | null;
   is_leased: boolean;
   provider_name: string | null;
   provider_id: number | null;

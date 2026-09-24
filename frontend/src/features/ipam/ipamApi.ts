@@ -539,6 +539,7 @@ export function createIpamCircuit(body: {
   circuit_type: string;
   layer?: string | null;
   description?: string | null;
+  ownership?: string | null;
   is_leased?: boolean;
   provider_name?: string | null;
   provider_id?: number | null;
@@ -566,6 +567,7 @@ export function patchIpamCircuit(
     description: string | null;
     circuit_type: string;
     layer: string | null;
+    ownership?: string | null;
     is_leased: boolean;
     provider_name: string | null;
     provider_id: number | null;

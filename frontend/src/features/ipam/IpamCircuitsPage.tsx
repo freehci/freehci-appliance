@@ -55,7 +55,7 @@ export function IpamCircuitsPage() {
   const [circuitNumber, setCircuitNumber] = useState("");
   const [name, setName] = useState("");
   const [circuitType, setCircuitType] = useState<string>("fiber");
-  const [isLeased, setIsLeased] = useState(false);
+  const [ownership, setOwnership] = useState("");
   const [providerId, setProviderId] = useState("");
   const [providerName, setProviderName] = useState("");
   const [contractId, setContractId] = useState("");
@@ -173,7 +173,7 @@ export function IpamCircuitsPage() {
         name: name.trim(),
         circuit_type: circuitType,
         layer: TRANSPORT_TYPES.includes(circuitType as (typeof TRANSPORT_TYPES)[number]) ? "transport" : null,
-        is_leased: isLeased,
+        ownership: ownership === "" ? null : ownership,
         provider_id: providerId === "" ? null : Number(providerId),
         provider_name: providerName.trim() === "" ? null : providerName.trim(),
         contract_id: contractId === "" ? null : Number(contractId),
@@ -203,6 +203,7 @@ export function IpamCircuitsPage() {
       setServiceType("");
       setMedium("");
       setOperationalStatus("");
+      setOwnership("");
       setEstablished("");
       setContractEnd("");
       setDrawerOpen(false);
@@ -523,7 +524,7 @@ export function IpamCircuitsPage() {
                     <th>{t("ipam.circuits.layer")}</th>
                     <th>{t("ipam.circuits.aSite")}</th>
                     <th>{t("ipam.circuits.zSite")}</th>
-                    <th>{t("ipam.circuits.leased")}</th>
+                    <th>{t("ipam.circuits.ownership")}</th>
                     <th>{t("ipam.circuits.provider")}</th>
                     <th>{t("ipam.circuits.contract")}</th>
                     <th>{t("ipam.circuits.group")}</th>
@@ -544,7 +545,13 @@ export function IpamCircuitsPage() {
                       <td>{c.layer ?? t("ipam.circuits.layerUnset")}</td>
                       <td>{siteName(c.a_site_id)}</td>
                       <td>{siteName(c.z_site_id)}</td>
-                      <td>{c.is_leased ? t("ipam.circuits.yes") : t("ipam.circuits.no")}</td>
+                      <td>
+                        {c.ownership === "owned"
+                          ? t("ipam.circuits.ownershipOwned")
+                          : c.ownership === "leased"
+                            ? t("ipam.circuits.ownershipLeased")
+                            : "—"}
+                      </td>
                       <td>{providerLabel(c, providersQ.data ?? [])}</td>
                       <td>{contractLabel(c, contractsQ.data ?? [])}</td>
                       <td>{groupLabel(c, groupsQ.data ?? [])}</td>
@@ -1193,9 +1200,13 @@ export function IpamCircuitsPage() {
               ))}
             </select>
           </label>
-          <label className={prefixStyles.drawerCheck}>
-            <input type="checkbox" checked={isLeased} onChange={(e) => setIsLeased(e.target.checked)} />
-            {t("ipam.circuits.leased")}
+          <label>
+            {t("ipam.circuits.ownership")}
+            <select value={ownership} onChange={(e) => setOwnership(e.target.value)}>
+              <option value="">{t("ipam.circuits.ownershipUnset")}</option>
+              <option value="owned">{t("ipam.circuits.ownershipOwned")}</option>
+              <option value="leased">{t("ipam.circuits.ownershipLeased")}</option>
+            </select>
           </label>
           <label>
             {t("ipam.circuits.provider")}

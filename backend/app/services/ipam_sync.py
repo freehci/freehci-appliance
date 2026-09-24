@@ -471,6 +471,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "service_type": getattr(c, "service_type", None),
                 "medium": getattr(c, "medium", None),
                 "operational_status": getattr(c, "operational_status", None),
+                "ownership": getattr(c, "ownership", None),
             }
             for c in circuits
         ],

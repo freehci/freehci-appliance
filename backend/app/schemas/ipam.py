@@ -22,6 +22,7 @@ CIRCUIT_LAYERS = frozenset({"transport", "overlay"})
 CIRCUIT_SERVICE_TYPES = frozenset({"internet", "ethernet", "dark-fiber", "other"})
 CIRCUIT_MEDIA = frozenset({"fiber", "copper", "radio", "other"})
 CIRCUIT_OPERATIONAL_STATUSES = frozenset({"planned", "active", "offline", "decommissioned"})
+CIRCUIT_OWNERSHIPS = frozenset({"owned", "leased"})
 CIRCUIT_TERM_KINDS = frozenset({"local", "unknown", "provider-network"})
 VPN_MEMBER_ROLES = frozenset({"hub", "spoke", "peer", "client", "other"})
 VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
@@ -1312,7 +1313,8 @@ class IpamCircuitCreate(BaseModel):
     circuit_type: str = Field(..., min_length=1, max_length=32)
     layer: str | None = Field(None, max_length=16)
     description: str | None = None
-    is_leased: bool = False
+    ownership: str | None = Field(None, max_length=16)
+    is_leased: bool | None = None
     provider_name: str | None = Field(None, max_length=255)
     provider_id: int | None = Field(None, ge=1)
     provider_account_id: int | None = Field(None, ge=1)
@@ -1328,6 +1330,18 @@ class IpamCircuitCreate(BaseModel):
     service_type: str | None = Field(None, max_length=32)
     medium: str | None = Field(None, max_length=32)
     operational_status: str | None = Field(None, max_length=32)
+
+    @field_validator("ownership")
+    @classmethod
+    def ownership_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_OWNERSHIPS:
+            raise ValueError(f"ownership må være en av: {', '.join(sorted(CIRCUIT_OWNERSHIPS))}")
+        return s
 
     @field_validator("circuit_type")
     @classmethod
@@ -1393,6 +1407,7 @@ class IpamCircuitUpdate(BaseModel):
     description: str | None = None
     circuit_type: str | None = Field(None, min_length=1, max_length=32)
     layer: str | None = Field(None, max_length=16)
+    ownership: str | None = Field(None, max_length=16)
     is_leased: bool | None = None
     provider_name: str | None = Field(None, max_length=255)
     provider_id: int | None = Field(None, ge=1)
@@ -1410,6 +1425,18 @@ class IpamCircuitUpdate(BaseModel):
     service_type: str | None = Field(None, max_length=32)
     medium: str | None = Field(None, max_length=32)
     operational_status: str | None = Field(None, max_length=32)
+
+    @field_validator("ownership")
+    @classmethod
+    def ownership_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            return None
+        if s not in CIRCUIT_OWNERSHIPS:
+            raise ValueError(f"ownership må være en av: {', '.join(sorted(CIRCUIT_OWNERSHIPS))}")
+        return s
 
     @field_validator("circuit_type")
     @classmethod
@@ -1498,6 +1525,7 @@ class IpamCircuitRead(BaseModel):
     service_type: str | None = None
     medium: str | None = None
     operational_status: str | None = None
+    ownership: str | None = None
     is_leased: bool
     provider_name: str | None
     provider_id: int | None = None

@@ -729,6 +729,8 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 service_type=c.get("service_type"),
                 medium=c.get("medium"),
                 operational_status=c.get("operational_status"),
+                ownership=c.get("ownership"),
+                is_leased=c.get("is_leased") if c.get("ownership") is None else None,
                 a_site_id=a_site.id if a_site is not None else None,
                 z_site_id=z_site.id if z_site is not None else None,
             ),

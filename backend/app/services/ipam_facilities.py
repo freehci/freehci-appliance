@@ -56,6 +56,14 @@ def _slugify(value: str) -> str:
     return (s or "item")[:128]
 
 
+def resolve_circuit_ownership(*, ownership: str | None, is_leased: bool | None) -> str | None:
+    if ownership:
+        return ownership
+    if is_leased is True:
+        return "leased"
+    return None
+
+
 def _unique_slug(db: Session, *, site_id: int, desired: str, kind: str, exclude_id: int | None = None) -> str:
     model = IpamVrf if kind == "vrf" else IpamVlanGroup if kind == "vlan_group" else IpamVlan
     base = _slugify(desired)
@@ -623,7 +631,8 @@ def create_circuit(db: Session, data: IpamCircuitCreate) -> IpamCircuit:
         service_type=data.service_type,
         medium=data.medium,
         operational_status=data.operational_status,
-        is_leased=data.is_leased,
+        ownership=resolve_circuit_ownership(ownership=data.ownership, is_leased=data.is_leased),
+        is_leased=resolve_circuit_ownership(ownership=data.ownership, is_leased=data.is_leased) == "leased",
         provider_name=data.provider_name.strip() if data.provider_name else None,
         provider_id=provider_id,
         provider_account_id=data.provider_account_id,
@@ -666,8 +675,9 @@ def update_circuit(db: Session, row: IpamCircuit, data: IpamCircuitUpdate) -> Ip
         row.medium = data.medium
     if data.operational_status is not None:
         row.operational_status = data.operational_status
-    if data.is_leased is not None:
-        row.is_leased = data.is_leased
+    if data.ownership is not None or data.is_leased is True:
+        row.ownership = resolve_circuit_ownership(ownership=data.ownership, is_leased=data.is_leased)
+        row.is_leased = row.ownership == "leased"
     if data.provider_name is not None:
         row.provider_name = data.provider_name.strip() if data.provider_name else None
     provider_id = data.provider_id if data.provider_id is not None else row.provider_id
