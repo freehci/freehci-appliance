@@ -12,7 +12,7 @@ import { DcimOwnerComponentsPanel } from "./DcimOwnerComponentsPanel";
 import { DevicePortsCablesPanel } from "./DevicePortsCablesPanel";
 import { DCIM_DEVICE_ICON_URL_ATTR } from "./modelImages";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
-import type { DeviceInterface, DeviceInterfaceLag, DeviceIpAssignment } from "./types";
+import type { DeviceInterface, DeviceInterfaceLag, DeviceInterfaceVlanMember, DeviceIpAssignment } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
 import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
 import { usePlugins } from "@/plugins/PluginContext";
@@ -38,7 +38,8 @@ type DeviceNetDeleteConfirm =
   | { kind: "interface"; iid: number; name: string }
   | { kind: "ip"; iid: number; aid: number; address: string }
   | { kind: "lag"; lid: number; name: string }
-  | { kind: "lag-member"; mid: number; name: string };
+  | { kind: "lag-member"; mid: number; name: string }
+  | { kind: "vlan-member"; mid: number; name: string };
 
 export function DcimDeviceDetailPage() {
   const { t } = useI18n();
@@ -105,6 +106,9 @@ export function DcimDeviceDetailPage() {
   const [lagName, setLagName] = useState("");
   const [lagId, setLagId] = useState("");
   const [lagIfaceId, setLagIfaceId] = useState("");
+  const [vlanMemIfaceId, setVlanMemIfaceId] = useState("");
+  const [vlanMemVlanId, setVlanMemVlanId] = useState("");
+  const [vlanMemRole, setVlanMemRole] = useState("");
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -121,6 +125,11 @@ export function DcimDeviceDetailPage() {
   const lagsQ = useQuery({
     queryKey: ["dcim", "devices", id, "interface-lags"],
     queryFn: () => api.listDeviceInterfaceLags(id),
+    enabled: Number.isFinite(id) && id > 0,
+  });
+  const vlanMemQ = useQuery({
+    queryKey: ["dcim", "devices", id, "interface-vlans"],
+    queryFn: () => api.listDeviceInterfaceVlans(id),
     enabled: Number.isFinite(id) && id > 0,
   });
 
@@ -649,6 +658,34 @@ export function DcimDeviceDetailPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const invalidateVlanMem = () => {
+    void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interface-vlans"] });
+  };
+
+  const addVlanMem = useMutation({
+    mutationFn: () =>
+      api.addDeviceInterfaceVlan(id, Number(vlanMemIfaceId), {
+        ipam_vlan_id: Number(vlanMemVlanId),
+        role: vlanMemRole === "" ? null : vlanMemRole,
+      }),
+    onSuccess: () => {
+      setVlanMemVlanId("");
+      setVlanMemRole("");
+      setErr(null);
+      invalidateVlanMem();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delVlanMem = useMutation({
+    mutationFn: (mid: number) => api.deleteDeviceInterfaceVlan(mid),
+    onSuccess: () => {
+      setErr(null);
+      invalidateVlanMem();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const toggleIf = useMutation({
     mutationFn: ({ iid, enabled }: { iid: number; enabled: boolean }) =>
       api.updateDeviceInterface(id, iid, { enabled }),
@@ -688,10 +725,12 @@ export function DcimDeviceDetailPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
-  const netDeleteBusy = delIf.isPending || delIp.isPending || delLag.isPending || delLagMember.isPending;
+  const netDeleteBusy =
+    delIf.isPending || delIp.isPending || delLag.isPending || delLagMember.isPending || delVlanMem.isPending;
   const lags: DeviceInterfaceLag[] = lagsQ.data ?? [];
   const lagTaken = new Set(lags.flatMap((b) => b.members.map((m) => m.interface_id)));
   const freeLagIfaces = (interfacesQ.data ?? []).filter((x) => !lagTaken.has(x.id));
+  const vlanMembers: DeviceInterfaceVlanMember[] = vlanMemQ.data ?? [];
 
   const setPrimaryIp = useMutation({
     mutationFn: ({ iid, aid }: { iid: number; aid: number }) =>
@@ -1910,6 +1949,85 @@ export function DcimDeviceDetailPage() {
             </button>
           </form>
         ) : null}
+        <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.vlanMem.title")}</h3>
+        <p className={styles.muted}>{t("dcim.equip.vlanMem.hint")}</p>
+        {vlanMembers.length === 0 && !vlanMemQ.isLoading ? (
+          <p className={styles.muted}>{t("dcim.equip.vlanMem.empty")}</p>
+        ) : null}
+        {vlanMembers.length > 0 ? (
+          <ul className={styles.ipList}>
+            {vlanMembers.map((m) => (
+              <li key={m.id}>
+                {m.interface_name}: {m.vlan_name} ({m.vlan_slug}, vid {m.vlan_vid})
+                {m.role ? ` · ${m.role}` : ""}{" "}
+                <button
+                  type="button"
+                  className={styles.btnLink}
+                  onClick={() =>
+                    setNetDeleteConfirm({
+                      kind: "vlan-member",
+                      mid: m.id,
+                      name: `${m.vlan_name} @ ${m.interface_name}`,
+                    })
+                  }
+                >
+                  {t("dcim.equip.vlanMem.remove")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {deviceSiteId == null ? (
+          <p className={styles.muted}>{t("dcim.equip.vlanMem.needsSite")}</p>
+        ) : (
+          <form
+            className={styles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              addVlanMem.mutate();
+            }}
+          >
+            <label>
+              {t("dcim.equip.vlanMem.iface")}
+              <select value={vlanMemIfaceId} onChange={(e) => setVlanMemIfaceId(e.target.value)}>
+                <option value="">{t("dcim.equip.vlanMem.chooseIface")}</option>
+                {(interfacesQ.data ?? []).map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {ifaceIndentedLabel(x)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("dcim.equip.vlanMem.vlan")}
+              <select value={vlanMemVlanId} onChange={(e) => setVlanMemVlanId(e.target.value)}>
+                <option value="">{t("dcim.equip.vlanMem.chooseVlan")}</option>
+                {(vlansQ.data ?? []).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.slug}, vid {v.vid})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("dcim.equip.vlanMem.role")}
+              <select value={vlanMemRole} onChange={(e) => setVlanMemRole(e.target.value)}>
+                <option value="">{t("dcim.equip.vlanMem.roleNone")}</option>
+                <option value="tagged">{t("dcim.equip.vlanMem.roleTagged")}</option>
+                <option value="untagged">{t("dcim.equip.vlanMem.roleUntagged")}</option>
+                <option value="native">{t("dcim.equip.vlanMem.roleNative")}</option>
+                <option value="other">{t("dcim.equip.vlanMem.roleOther")}</option>
+              </select>
+            </label>
+            <button
+              type="submit"
+              className={styles.btn}
+              disabled={addVlanMem.isPending || vlanMemIfaceId === "" || vlanMemVlanId === ""}
+            >
+              {addVlanMem.isPending ? "…" : t("dcim.equip.vlanMem.bind")}
+            </button>
+          </form>
+        )}
           </>
         ) : null}
       </Panel>
@@ -1927,7 +2045,9 @@ export function DcimDeviceDetailPage() {
                 ? t("dcim.equip.dev.deleteLagModalTitle", { name: netDeleteConfirm.name })
                 : netDeleteConfirm?.kind === "lag-member"
                   ? t("dcim.equip.dev.deleteLagMemberModalTitle", { name: netDeleteConfirm.name })
-                  : ""
+                  : netDeleteConfirm?.kind === "vlan-member"
+                    ? t("dcim.equip.dev.deleteVlanMemModalTitle", { name: netDeleteConfirm.name })
+                    : ""
         }
         message={
           netDeleteConfirm?.kind === "interface"
@@ -1938,10 +2058,14 @@ export function DcimDeviceDetailPage() {
                 ? t("dcim.equip.dev.deleteLagModalHint")
                 : netDeleteConfirm?.kind === "lag-member"
                   ? t("dcim.equip.dev.deleteLagMemberModalHint")
-                  : null
+                  : netDeleteConfirm?.kind === "vlan-member"
+                    ? t("dcim.equip.dev.deleteVlanMemModalHint")
+                    : null
         }
         confirmLabel={
-          netDeleteConfirm?.kind === "ip" || netDeleteConfirm?.kind === "lag-member"
+          netDeleteConfirm?.kind === "ip" ||
+          netDeleteConfirm?.kind === "lag-member" ||
+          netDeleteConfirm?.kind === "vlan-member"
             ? t("dcim.common.remove")
             : t("dcim.common.delete")
         }
@@ -1960,6 +2084,10 @@ export function DcimDeviceDetailPage() {
           }
           if (netDeleteConfirm.kind === "lag-member") {
             delLagMember.mutate(netDeleteConfirm.mid, { onSettled: () => setNetDeleteConfirm(null) });
+            return;
+          }
+          if (netDeleteConfirm.kind === "vlan-member") {
+            delVlanMem.mutate(netDeleteConfirm.mid, { onSettled: () => setNetDeleteConfirm(null) });
             return;
           }
           delIp.mutate(

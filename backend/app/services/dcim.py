@@ -38,6 +38,7 @@ from app.models.dcim import (
     DeviceInterface,
     DeviceInterfaceLag,
     DeviceInterfaceLagMember,
+    DeviceInterfaceVlanMember,
     DeviceIpAssignment,
     DeviceModel,
     DeviceModelComponent,
@@ -103,6 +104,9 @@ from app.schemas.dcim import (
     DeviceInterfaceLagMemberCreate,
     DeviceInterfaceLagMemberRead,
     DeviceInterfaceLagRead,
+    DeviceInterfaceVlanMemberCreate,
+    DeviceInterfaceVlanMemberRead,
+    IFACE_VLAN_MEMBER_ROLES,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
     ExternalIdentityObservation,
@@ -4794,9 +4798,19 @@ def delete_device_interface(db: Session, row: DeviceInterface) -> None:
                 .all()
             ):
                 db.delete(m)
+            for m in list(
+                db.execute(select(DeviceInterfaceVlanMember).where(DeviceInterfaceVlanMember.interface_id == child.id))
+                .scalars()
+                .all()
+            ):
+                db.delete(m)
             db.delete(child)
     for m in list(
         db.execute(select(DeviceInterfaceLagMember).where(DeviceInterfaceLagMember.interface_id == row.id)).scalars().all()
+    ):
+        db.delete(m)
+    for m in list(
+        db.execute(select(DeviceInterfaceVlanMember).where(DeviceInterfaceVlanMember.interface_id == row.id)).scalars().all()
     ):
         db.delete(m)
     db.delete(row)
@@ -5252,3 +5266,103 @@ def interface_lag_to_read(db: Session, row: DeviceInterfaceLag) -> DeviceInterfa
 def delete_placement(db: Session, row: RackPlacement) -> None:
     db.delete(row)
     db.commit()
+
+
+def _normalize_iface_vlan_role(role: str | None) -> str | None:
+    if role is None or str(role).strip() == "":
+        return None
+    value = str(role).strip().lower()
+    if value not in IFACE_VLAN_MEMBER_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_vlan_role", "detail": "ukjent VLAN-rolle på grensesnitt"},
+        )
+    return value
+
+
+def list_interface_vlan_members(db: Session, device_id: int) -> list[DeviceInterfaceVlanMember]:
+    _require_device(db, device_id)
+    iface_ids = list(
+        db.execute(select(DeviceInterface.id).where(DeviceInterface.device_id == device_id)).scalars().all()
+    )
+    if not iface_ids:
+        return []
+    return list(
+        db.execute(
+            select(DeviceInterfaceVlanMember).where(DeviceInterfaceVlanMember.interface_id.in_(iface_ids)),
+        ).scalars().all()
+    )
+
+
+def get_interface_vlan_member(db: Session, member_id: int) -> DeviceInterfaceVlanMember | None:
+    return db.get(DeviceInterfaceVlanMember, member_id)
+
+
+def add_interface_vlan_member(
+    db: Session,
+    iface: DeviceInterface,
+    data: DeviceInterfaceVlanMemberCreate,
+) -> DeviceInterfaceVlanMember:
+    vlan = db.get(IpamVlan, data.ipam_vlan_id)
+    if vlan is None:
+        raise HTTPException(status_code=404, detail="VLAN ikke funnet")
+    site_id = device_effective_site_id(db, iface.device_id)
+    if site_id is None or int(vlan.site_id) != int(site_id):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_vlan_site", "detail": "VLAN tilhører en annen site enn enheten"},
+        )
+    if iface.ipam_vlan_id is not None and int(iface.ipam_vlan_id) == int(vlan.id):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "iface_vlan_member_taken", "detail": "VLAN er allerede primærkobling på grensesnittet"},
+        )
+    existing = db.execute(
+        select(DeviceInterfaceVlanMember).where(
+            DeviceInterfaceVlanMember.interface_id == iface.id,
+            DeviceInterfaceVlanMember.ipam_vlan_id == vlan.id,
+        ),
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "iface_vlan_member_taken", "detail": "VLAN er allerede medlem på grensesnittet"},
+        )
+    row = DeviceInterfaceVlanMember(
+        interface_id=iface.id,
+        ipam_vlan_id=vlan.id,
+        role=_normalize_iface_vlan_role(data.role),
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "iface_vlan_member_taken", "detail": "VLAN er allerede medlem på grensesnittet"},
+        )
+    db.refresh(row)
+    return row
+
+
+def delete_interface_vlan_member(db: Session, row: DeviceInterfaceVlanMember) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def interface_vlan_member_to_read(db: Session, row: DeviceInterfaceVlanMember) -> DeviceInterfaceVlanMemberRead:
+    iface = db.get(DeviceInterface, row.interface_id)
+    vlan = db.get(IpamVlan, row.ipam_vlan_id)
+    if iface is None or vlan is None:
+        raise HTTPException(status_code=404, detail="VLAN-medlem ikke funnet")
+    return DeviceInterfaceVlanMemberRead(
+        id=row.id,
+        interface_id=row.interface_id,
+        interface_name=iface.name,
+        ipam_vlan_id=row.ipam_vlan_id,
+        vlan_vid=vlan.vid,
+        vlan_name=vlan.name,
+        vlan_slug=vlan.slug,
+        role=row.role,
+    )

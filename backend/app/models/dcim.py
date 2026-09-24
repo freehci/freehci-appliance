@@ -913,6 +913,10 @@ class DeviceInterface(Base):
         back_populates="interface",
         cascade="all, delete-orphan",
     )
+    vlan_memberships: Mapped[list["DeviceInterfaceVlanMember"]] = relationship(
+        back_populates="interface",
+        cascade="all, delete-orphan",
+    )
 
 
 class InterfaceIpAssignment(Base):
@@ -1212,3 +1216,17 @@ class DeviceInterfaceLagMember(Base):
 
     lag: Mapped["DeviceInterfaceLag"] = relationship(back_populates="members")
     interface: Mapped["DeviceInterface"] = relationship(back_populates="lag_memberships")
+
+
+class DeviceInterfaceVlanMember(Base):
+    """Ekstra registrert IPAM-VLAN på et grensesnitt. Trunk, tagged og native gjettes aldri."""
+
+    __tablename__ = "dcim_device_interface_vlan_members"
+    __table_args__ = (UniqueConstraint("interface_id", "ipam_vlan_id", name="uq_dcim_iface_vlan_member"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    interface_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_interfaces.id", ondelete="CASCADE"), nullable=False)
+    ipam_vlan_id: Mapped[int] = mapped_column(ForeignKey("ipam_vlans.id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    interface: Mapped["DeviceInterface"] = relationship(back_populates="vlan_memberships")

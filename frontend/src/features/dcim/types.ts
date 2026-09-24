@@ -776,6 +776,17 @@ export type DeviceInterfaceLag = {
   created_at: string;
 };
 
+export type DeviceInterfaceVlanMember = {
+  id: number;
+  interface_id: number;
+  interface_name: string;
+  ipam_vlan_id: number;
+  vlan_vid: number;
+  vlan_name: string;
+  vlan_slug: string;
+  role: string | null;
+};
+
 export type CablePathHop = {
   object_type: string;
   object_id: number;

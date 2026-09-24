@@ -25,6 +25,7 @@ from app.schemas.dcim import (
     DeviceInterfaceLagCreate,
     DeviceInterfaceLagMemberCreate,
     DeviceInterfaceUpdate,
+    DeviceInterfaceVlanMemberCreate,
     DeviceRoleCreate,
     DeviceTypeCreate,
     FloorCreate,
@@ -442,6 +443,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     _apply_device_interface_lags(db, doc)
     _apply_device_interface_vlans(db, doc)
+    _apply_device_interface_vlan_members(db, doc)
 
     for p in doc.get("placements") or []:
         site = _site_by_slug(db, p["site_slug"])
@@ -541,6 +543,32 @@ def _apply_device_interface_vlans(db: Session, doc: dict[str, Any]) -> None:
                 device.id,
                 iface,
                 DeviceInterfaceUpdate(ipam_vlan_id=vlan.id),
+            )
+        except Exception:
+            continue
+
+
+def _apply_device_interface_vlan_members(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("device_interface_vlan_members") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        iface_name = str(rec.get("interface_name") or "").strip()
+        vlan_slug = str(rec.get("vlan_slug") or "").strip()
+        site = _site_by_slug(db, rec.get("site_slug")) if rec.get("site_slug") else None
+        if device is None or not iface_name or not vlan_slug or site is None:
+            continue
+        iface = db.execute(
+            select(DeviceInterface).where(DeviceInterface.device_id == device.id, DeviceInterface.name == iface_name),
+        ).scalar_one_or_none()
+        vlan = db.execute(
+            select(IpamVlan).where(IpamVlan.site_id == site.id, IpamVlan.slug == vlan_slug),
+        ).scalar_one_or_none()
+        if iface is None or vlan is None:
+            continue
+        try:
+            dcim_svc.add_interface_vlan_member(
+                db,
+                iface,
+                DeviceInterfaceVlanMemberCreate(ipam_vlan_id=vlan.id, role=rec.get("role")),
             )
         except Exception:
             continue

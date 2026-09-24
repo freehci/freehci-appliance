@@ -53,6 +53,7 @@ import type {
   FiberStrand,
   FiberBundle,
   DeviceInterfaceLag,
+  DeviceInterfaceVlanMember,
   NetBoxDtlApply,
   NetBoxDtlImport,
   NetBoxDtlItem,
@@ -1565,4 +1566,20 @@ export function deleteDeviceInterfaceLag(id: number): Promise<void> {
 
 export function deleteDeviceInterfaceLagMember(id: number): Promise<void> {
   return apiDelete(`${P}/interface-lag-members/${id}`);
+}
+
+export function listDeviceInterfaceVlans(deviceId: number): Promise<DeviceInterfaceVlanMember[]> {
+  return apiGet(`${P}/devices/${deviceId}/interface-vlans`);
+}
+
+export function addDeviceInterfaceVlan(
+  deviceId: number,
+  interfaceId: number,
+  body: { ipam_vlan_id: number; role?: string | null },
+): Promise<DeviceInterfaceVlanMember> {
+  return apiPost(`${P}/devices/${deviceId}/interfaces/${interfaceId}/vlans`, body);
+}
+
+export function deleteDeviceInterfaceVlan(id: number): Promise<void> {
+  return apiDelete(`${P}/interface-vlans/${id}`);
 }

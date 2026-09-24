@@ -51,6 +51,8 @@ from app.schemas.dcim import (
     DeviceInterfaceLagCreate,
     DeviceInterfaceLagMemberCreate,
     DeviceInterfaceLagRead,
+    DeviceInterfaceVlanMemberCreate,
+    DeviceInterfaceVlanMemberRead,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
     DeviceModelIdentityCreate,
@@ -1813,6 +1815,32 @@ def delete_device_interface_lag_member(member_id: int, db: Session = Depends(get
     if row is None:
         raise HTTPException(status_code=404, detail="LAG-medlem ikke funnet")
     dcim_svc.delete_interface_lag_member(db, row)
+
+
+@router.get("/devices/{did}/interface-vlans", response_model=list[DeviceInterfaceVlanMemberRead])
+def list_device_interface_vlans(did: int, db: Session = Depends(get_db)) -> list[DeviceInterfaceVlanMemberRead]:
+    return [dcim_svc.interface_vlan_member_to_read(db, r) for r in dcim_svc.list_interface_vlan_members(db, did)]
+
+
+@router.post("/devices/{did}/interfaces/{iid}/vlans", response_model=DeviceInterfaceVlanMemberRead)
+def add_device_interface_vlan(
+    did: int,
+    iid: int,
+    data: DeviceInterfaceVlanMemberCreate,
+    db: Session = Depends(get_db),
+) -> DeviceInterfaceVlanMemberRead:
+    row = dcim_svc.get_device_interface(db, did, iid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
+    return dcim_svc.interface_vlan_member_to_read(db, dcim_svc.add_interface_vlan_member(db, row, data))
+
+
+@router.delete("/interface-vlans/{member_id}", status_code=204)
+def delete_device_interface_vlan(member_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_interface_vlan_member(db, member_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="VLAN-medlem ikke funnet")
+    dcim_svc.delete_interface_vlan_member(db, row)
 
 
 @router.get("/devices/{did}", response_model=DeviceInstanceRead)

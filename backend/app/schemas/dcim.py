@@ -2006,3 +2006,24 @@ class DeviceInterfaceLagMemberCreate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     interface_id: int = Field(..., ge=1)
+
+
+IFACE_VLAN_MEMBER_ROLES = ("tagged", "untagged", "native", "other")
+
+
+class DeviceInterfaceVlanMemberCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    ipam_vlan_id: int = Field(..., ge=1)
+    role: str | None = Field(None, max_length=16)
+
+
+class DeviceInterfaceVlanMemberRead(BaseModel):
+    id: int
+    interface_id: int
+    interface_name: str
+    ipam_vlan_id: int
+    vlan_vid: int
+    vlan_name: str
+    vlan_slug: str
+    role: str | None = None
