@@ -1685,6 +1685,15 @@ export const nb = {
   "ipam.bgp.observed": "Observert",
   "ipam.bgp.unobserved": "Ikke observert",
   "ipam.bgp.alsoV6": "Utveksle også IPv6 unicast på denne sesjonen",
+  "ipam.bgp.instanceTitle": "BGP-instanser",
+  "ipam.bgp.instanceHint":
+    "Registrer en BGP-prosess på en ruter. Naboer, rutetall og observert tilstand gjettes ikke, og ingenting påføres.",
+  "ipam.bgp.instanceAdd": "Legg til instans",
+  "ipam.bgp.instanceEmpty": "Ingen BGP-instans registrert på en enhet ennå.",
+  "ipam.bgp.instancePick": "BGP-instans",
+  "ipam.bgp.instanceChoose": "Ingen instans (kun sesjon)",
+  "ipam.bgp.routerId": "Router-ID",
+  "ipam.bgp.routerIdHelp": "Valgfri IPv4. Kopieres ikke fra enhetens administrasjonsadresse.",
 
   "ipam.vlan.title": "Segmenter",
   "ipam.vlan.intro":

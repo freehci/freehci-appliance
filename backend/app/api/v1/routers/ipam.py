@@ -85,6 +85,8 @@ from app.schemas.ipam import (
     IpamAutonomousSystemCreate,
     IpamAutonomousSystemRead,
     IpamAutonomousSystemUpdate,
+    IpamBgpInstanceCreate,
+    IpamBgpInstanceRead,
     IpamBgpSessionCreate,
     IpamBgpSessionRead,
     IpamBgpSessionUpdate,
@@ -812,6 +814,42 @@ def delete_as_assignment(assignment_id: int, db: Session = Depends(get_db)) -> N
     if row is None:
         raise HTTPException(status_code=404, detail="AS-tilordning ikke funnet")
     bgp_svc.delete_as_assignment(db, row)
+
+
+@router.get("/bgp-instances", response_model=list[IpamBgpInstanceRead])
+def list_bgp_instances(
+    site_id: int | None = Query(None),
+    device_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[IpamBgpInstanceRead]:
+    return [
+        bgp_svc.instance_to_read(db, r)
+        for r in bgp_svc.list_bgp_instances(db, site_id=site_id, device_id=device_id)
+    ]
+
+
+@router.post("/bgp-instances", response_model=IpamBgpInstanceRead)
+def create_bgp_instance(data: IpamBgpInstanceCreate, db: Session = Depends(get_db)) -> IpamBgpInstanceRead:
+    try:
+        return bgp_svc.instance_to_read(db, bgp_svc.create_bgp_instance(db, data))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/bgp-instances/{iid}", response_model=IpamBgpInstanceRead)
+def get_bgp_instance(iid: int, db: Session = Depends(get_db)) -> IpamBgpInstanceRead:
+    row = bgp_svc.get_bgp_instance(db, iid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="BGP-instans ikke funnet")
+    return bgp_svc.instance_to_read(db, row)
+
+
+@router.delete("/bgp-instances/{iid}", status_code=204)
+def delete_bgp_instance(iid: int, db: Session = Depends(get_db)) -> None:
+    row = bgp_svc.get_bgp_instance(db, iid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="BGP-instans ikke funnet")
+    bgp_svc.delete_bgp_instance(db, row)
 
 
 @router.get("/bgp-sessions", response_model=list[IpamBgpSessionRead])

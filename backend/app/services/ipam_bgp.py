@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
 from app.models.dcim import DeviceInstance, DeviceInterface, Site
-from app.models.ipam import IpamAsAssignment, IpamAutonomousSystem, IpamBgpSession, IpamVrf
+from app.models.ipam import IpamAsAssignment, IpamAutonomousSystem, IpamBgpInstance, IpamBgpSession, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.ipam import (
     IpamAsAssignmentCreate,
@@ -18,10 +18,13 @@ from app.schemas.ipam import (
     IpamAutonomousSystemCreate,
     IpamAutonomousSystemRead,
     IpamAutonomousSystemUpdate,
+    IpamBgpInstanceCreate,
+    IpamBgpInstanceRead,
     IpamBgpSessionCreate,
     IpamBgpSessionRead,
     IpamBgpSessionUpdate,
 )
+from app.services import dcim as dcim_svc
 from app.services.ipam_errors import ipam_error
 
 
@@ -166,6 +169,9 @@ def delete_autonomous_system(db: Session, row: IpamAutonomousSystem) -> None:
     used = db.execute(select(IpamBgpSession.id).where(IpamBgpSession.local_as_id == row.id).limit(1)).scalar_one_or_none()
     if used is not None:
         raise ipam_error(409, "as_in_use", "AS brukes av en BGP-sesjon")
+    inst = db.execute(select(IpamBgpInstance.id).where(IpamBgpInstance.local_as_id == row.id).limit(1)).scalar_one_or_none()
+    if inst is not None:
+        raise ipam_error(409, "as_in_use", "AS brukes av en BGP-instans")
     db.delete(row)
     db.commit()
 
@@ -218,6 +224,151 @@ def delete_as_assignment(db: Session, row: IpamAsAssignment) -> None:
     db.commit()
 
 
+def list_bgp_instances(
+    db: Session,
+    *,
+    site_id: int | None = None,
+    device_id: int | None = None,
+) -> list[IpamBgpInstance]:
+    q = select(IpamBgpInstance).order_by(IpamBgpInstance.slug)
+    if site_id is not None:
+        q = q.where(IpamBgpInstance.site_id == site_id)
+    if device_id is not None:
+        q = q.where(IpamBgpInstance.device_id == device_id)
+    return list(db.execute(q).scalars().all())
+
+
+def get_bgp_instance(db: Session, instance_id: int) -> IpamBgpInstance | None:
+    return db.get(IpamBgpInstance, instance_id)
+
+
+def get_bgp_instance_by_slug(db: Session, site_id: int, slug: str) -> IpamBgpInstance | None:
+    return db.execute(
+        select(IpamBgpInstance).where(IpamBgpInstance.site_id == site_id, IpamBgpInstance.slug == slug.strip().lower()),
+    ).scalar_one_or_none()
+
+
+def _unique_instance_slug(db: Session, site_id: int, desired: str, *, exclude_id: int | None = None) -> str:
+    base = _slugify(desired)
+    candidate = base
+    n = 2
+    while True:
+        q = select(IpamBgpInstance.id).where(IpamBgpInstance.site_id == site_id, IpamBgpInstance.slug == candidate)
+        if exclude_id is not None:
+            q = q.where(IpamBgpInstance.id != exclude_id)
+        if db.execute(q).scalar_one_or_none() is None:
+            return candidate
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+        if n > 1000:
+            raise ipam_error(400, "slug_exhausted", "kunne ikke lage unik slug")
+
+
+def create_bgp_instance(db: Session, data: IpamBgpInstanceCreate) -> IpamBgpInstance:
+    device = dcim_svc.get_device(db, data.device_id)
+    if device is None:
+        raise ValueError("enhet ikke funnet")
+    site_id = dcim_svc.device_effective_site_id(db, device.id)
+    if site_id is None:
+        raise ipam_error(400, "device_site_required", "enheten må tilhøre en site før BGP-instans kan registreres")
+    local = db.get(IpamAutonomousSystem, data.local_as_id)
+    if local is None:
+        raise ValueError("lokalt AS ikke funnet")
+    vrf_scope = 0
+    if data.vrf_id is not None:
+        _require_vrf(db, data.vrf_id, site_id=int(site_id))
+        vrf_scope = data.vrf_id
+    existing = db.execute(
+        select(IpamBgpInstance.id).where(
+            IpamBgpInstance.device_id == device.id,
+            IpamBgpInstance.local_as_id == local.id,
+            IpamBgpInstance.vrf_scope == vrf_scope,
+        ),
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise ipam_error(409, "bgp_instance_exists", "BGP-instans finnes allerede på denne enheten for AS/VRF")
+    if data.slug:
+        slug = data.slug.strip().lower()
+        if get_bgp_instance_by_slug(db, int(site_id), slug) is not None:
+            raise ipam_error(409, "bgp_instance_slug", "instans-slug finnes allerede")
+    else:
+        slug = _unique_instance_slug(db, int(site_id), data.name or f"bgp-{device.name}-as{local.asn}")
+    name = (data.name or "").strip() or f"AS{local.asn} {device.name}"
+    row = IpamBgpInstance(
+        site_id=int(site_id),
+        device_id=device.id,
+        local_as_id=local.id,
+        vrf_id=data.vrf_id,
+        vrf_scope=vrf_scope,
+        name=name,
+        slug=slug,
+        intent=data.intent,
+        router_id=data.router_id,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "bgp_instance_exists", "BGP-instans finnes allerede på denne enheten for AS/VRF")
+    db.refresh(row)
+    return row
+
+
+def delete_bgp_instance(db: Session, row: IpamBgpInstance) -> None:
+    for s in list(
+        db.execute(select(IpamBgpSession).where(IpamBgpSession.bgp_instance_id == row.id)).scalars().all()
+    ):
+        s.bgp_instance_id = None
+    db.delete(row)
+    db.commit()
+
+
+def instance_to_read(db: Session, row: IpamBgpInstance) -> IpamBgpInstanceRead:
+    device = db.get(DeviceInstance, row.device_id)
+    local = db.get(IpamAutonomousSystem, row.local_as_id)
+    vrf = db.get(IpamVrf, row.vrf_id) if row.vrf_id is not None else None
+    return IpamBgpInstanceRead(
+        id=row.id,
+        site_id=row.site_id,
+        device_id=row.device_id,
+        device_name=device.name if device is not None else None,
+        local_as_id=row.local_as_id,
+        local_asn=local.asn if local is not None else None,
+        vrf_id=row.vrf_id,
+        vrf_name=vrf.name if vrf is not None else None,
+        name=row.name,
+        slug=row.slug,
+        intent=row.intent,
+        router_id=row.router_id,
+        description=row.description,
+        created_at=row.created_at,
+    )
+
+
+def _bind_session_to_instance(
+    db: Session,
+    data: IpamBgpSessionCreate,
+) -> tuple[int, int, int | None, int | None, int | None]:
+    inst = get_bgp_instance(db, data.bgp_instance_id) if data.bgp_instance_id is not None else None
+    if data.bgp_instance_id is not None and inst is None:
+        raise ValueError("BGP-instans ikke funnet")
+    if inst is None:
+        assert data.site_id is not None and data.local_as_id is not None
+        return data.site_id, data.local_as_id, data.vrf_id, data.local_device_id, None
+    if data.site_id is not None and data.site_id != inst.site_id:
+        raise ipam_error(400, "bgp_instance_site", "sesjonens site stemmer ikke med BGP-instansen")
+    if data.local_as_id is not None and data.local_as_id != inst.local_as_id:
+        raise ipam_error(400, "bgp_instance_as", "sesjonens lokale AS stemmer ikke med BGP-instansen")
+    if data.local_device_id is not None and data.local_device_id != inst.device_id:
+        raise ipam_error(400, "bgp_instance_device", "sesjonens enhet stemmer ikke med BGP-instansen")
+    provided = data.model_dump(exclude_unset=True)
+    if "vrf_id" in provided and data.vrf_id != inst.vrf_id:
+        raise ipam_error(400, "bgp_instance_vrf", "sesjonens VRF stemmer ikke med BGP-instansen")
+    return inst.site_id, inst.local_as_id, inst.vrf_id, inst.device_id, inst.id
+
+
 def list_bgp_sessions(db: Session, *, site_id: int | None = None) -> list[IpamBgpSession]:
     q = select(IpamBgpSession).order_by(IpamBgpSession.name)
     if site_id is not None:
@@ -241,38 +392,40 @@ def _resolve_remote_asn(db: Session, data: IpamBgpSessionCreate) -> tuple[int | 
 
 
 def create_bgp_session(db: Session, data: IpamBgpSessionCreate) -> IpamBgpSession:
-    _require_site(db, data.site_id)
-    local = db.get(IpamAutonomousSystem, data.local_as_id)
+    site_id, local_as_id, vrf_id, local_device_id, instance_id = _bind_session_to_instance(db, data)
+    _require_site(db, site_id)
+    local = db.get(IpamAutonomousSystem, local_as_id)
     if local is None:
         raise ValueError("lokalt AS ikke funnet")
     vrf_scope = 0
-    if data.vrf_id is not None:
-        _require_vrf(db, data.vrf_id, site_id=data.site_id)
-        vrf_scope = data.vrf_id
-    if data.local_device_id is not None and db.get(DeviceInstance, data.local_device_id) is None:
+    if vrf_id is not None:
+        _require_vrf(db, vrf_id, site_id=site_id)
+        vrf_scope = vrf_id
+    if local_device_id is not None and db.get(DeviceInstance, local_device_id) is None:
         raise ValueError("enhet ikke funnet")
     if data.local_interface_id is not None:
         iface = db.get(DeviceInterface, data.local_interface_id)
         if iface is None:
             raise ValueError("grensesnitt ikke funnet")
-        if data.local_device_id is not None and iface.device_id != data.local_device_id:
+        if local_device_id is not None and iface.device_id != local_device_id:
             raise ipam_error(400, "device_interface_mismatch", "grensesnittet tilhører en annen enhet")
     remote_as_id, remote_asn = _resolve_remote_asn(db, data)
     name = (data.name or "").strip() or f"AS{local.asn}-AS{remote_asn}"
     row = IpamBgpSession(
-        site_id=data.site_id,
+        site_id=site_id,
+        bgp_instance_id=instance_id,
         local_as_id=local.id,
         remote_as_id=remote_as_id,
         remote_asn=remote_asn,
         peer_ip=data.peer_ip,
-        vrf_id=data.vrf_id,
+        vrf_id=vrf_id,
         vrf_scope=vrf_scope,
         name=name,
-        slug=_unique_bgp_slug(db, data.site_id, data.slug or name),
+        slug=_unique_bgp_slug(db, site_id, data.slug or name),
         address_families=data.address_families,
         desired_status=data.desired_status,
         observed_status=data.observed_status,
-        local_device_id=data.local_device_id,
+        local_device_id=local_device_id,
         local_interface_id=data.local_interface_id,
         description=data.description,
     )
@@ -311,6 +464,22 @@ def update_bgp_session(db: Session, row: IpamBgpSession, data: IpamBgpSessionUpd
         row.remote_asn = remote.asn
     elif data.remote_asn is not None:
         row.remote_asn = data.remote_asn
+    if data.bgp_instance_id is not None:
+        inst = get_bgp_instance(db, data.bgp_instance_id)
+        if inst is None:
+            raise ValueError("BGP-instans ikke funnet")
+        if inst.site_id != row.site_id:
+            raise ipam_error(400, "bgp_instance_site", "sesjonens site stemmer ikke med BGP-instansen")
+        if inst.local_as_id != row.local_as_id:
+            raise ipam_error(400, "bgp_instance_as", "sesjonens lokale AS stemmer ikke med BGP-instansen")
+        if row.local_device_id is not None and row.local_device_id != inst.device_id:
+            raise ipam_error(400, "bgp_instance_device", "sesjonens enhet stemmer ikke med BGP-instansen")
+        if row.vrf_id != inst.vrf_id:
+            raise ipam_error(400, "bgp_instance_vrf", "sesjonens VRF stemmer ikke med BGP-instansen")
+        row.bgp_instance_id = inst.id
+        row.local_device_id = inst.device_id
+        row.vrf_id = inst.vrf_id
+        row.vrf_scope = inst.vrf_scope
     if data.local_device_id is not None:
         if db.get(DeviceInstance, data.local_device_id) is None:
             raise ValueError("enhet ikke funnet")

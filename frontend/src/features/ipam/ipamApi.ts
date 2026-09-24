@@ -27,6 +27,7 @@ import type {
   IpamVlanGroup,
   IpamAsAssignment,
   IpamAutonomousSystem,
+  IpamBgpInstance,
   IpamBgpSession,
   IpamRouteTarget,
   IpamVrf,
@@ -427,14 +428,37 @@ export function deleteAsAssignment(id: number): Promise<void> {
   return apiDelete(`${P}/as-assignments/${id}`);
 }
 
+export function listBgpInstances(siteId?: number): Promise<IpamBgpInstance[]> {
+  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
+  return apiGet(`${P}/bgp-instances${q}`);
+}
+
+export function createBgpInstance(body: {
+  device_id: number;
+  local_as_id: number;
+  vrf_id?: number | null;
+  name?: string | null;
+  slug?: string | null;
+  intent?: string;
+  router_id?: string | null;
+  description?: string | null;
+}): Promise<IpamBgpInstance> {
+  return apiPost(`${P}/bgp-instances`, body);
+}
+
+export function deleteBgpInstance(id: number): Promise<void> {
+  return apiDelete(`${P}/bgp-instances/${id}`);
+}
+
 export function listBgpSessions(siteId?: number): Promise<IpamBgpSession[]> {
   const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
   return apiGet(`${P}/bgp-sessions${q}`);
 }
 
 export function createBgpSession(body: {
-  site_id: number;
-  local_as_id: number;
+  site_id?: number | null;
+  bgp_instance_id?: number | null;
+  local_as_id?: number | null;
   remote_as_id?: number | null;
   remote_asn?: number | null;
   peer_ip: string;

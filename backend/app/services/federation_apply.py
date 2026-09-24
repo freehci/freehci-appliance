@@ -35,6 +35,7 @@ from app.schemas.dcim import (
 from app.schemas.ipam import (
     IpamAsAssignmentCreate,
     IpamAutonomousSystemCreate,
+    IpamBgpInstanceCreate,
     IpamBgpSessionCreate,
     IpamCircuitCreate,
     IpamCircuitGroupCreate,
@@ -894,6 +895,42 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 db,
                 IpamAsAssignmentCreate(autonomous_system_id=as_row.id, site_id=site.id, vrf_id=vrf_id),
             )
+    for i in ipam.get("bgp_instances") or []:
+        slug = (i.get("slug") or "").strip().lower()
+        device_name = (i.get("device_name") or "").strip()
+        local_asn = i.get("local_asn")
+        if not slug or not device_name or local_asn is None:
+            continue
+        if bgp_svc.get_bgp_instance_by_slug(db, site.id, slug) is not None:
+            continue
+        device = _device_by_site_name(db, site.slug, device_name)
+        local = bgp_svc.resolve_as_for_site(db, int(local_asn), site)
+        if device is None or local is None:
+            continue
+        vrf_id = None
+        vrf_slug = (i.get("vrf_slug") or "").strip()
+        if vrf_slug:
+            vrf = db.execute(select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug)).scalar_one_or_none()
+            vrf_id = vrf.id if vrf is not None else None
+        intent = (i.get("intent") or "recorded").strip().lower()
+        if intent not in ("recorded", "intended"):
+            intent = "recorded"
+        try:
+            bgp_svc.create_bgp_instance(
+                db,
+                IpamBgpInstanceCreate(
+                    device_id=device.id,
+                    local_as_id=local.id,
+                    vrf_id=vrf_id,
+                    name=i.get("name") or slug,
+                    slug=slug,
+                    intent=intent,
+                    router_id=i.get("router_id"),
+                    description=i.get("description"),
+                ),
+            )
+        except Exception:
+            continue
     for s in ipam.get("bgp_sessions") or []:
         slug = (s.get("slug") or "").strip()
         local_asn = s.get("local_asn")
@@ -915,10 +952,16 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
         if vrf_slug:
             vrf = db.execute(select(IpamVrf).where(IpamVrf.site_id == site.id, IpamVrf.slug == vrf_slug)).scalar_one_or_none()
             vrf_id = vrf.id if vrf is not None else None
+        instance_id = None
+        instance_slug = (s.get("instance_slug") or "").strip().lower()
+        if instance_slug:
+            inst = bgp_svc.get_bgp_instance_by_slug(db, site.id, instance_slug)
+            instance_id = inst.id if inst is not None else None
         bgp_svc.create_bgp_session(
             db,
             IpamBgpSessionCreate(
                 site_id=site.id,
+                bgp_instance_id=instance_id,
                 local_as_id=local.id,
                 remote_asn=int(s["remote_asn"]) if s.get("remote_asn") is not None else None,
                 peer_ip=peer_ip,

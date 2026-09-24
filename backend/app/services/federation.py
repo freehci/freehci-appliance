@@ -576,6 +576,21 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             for x in raw.get("as_assignments") or []
             if x.get("asn")
         ],
+        "bgp_instances": [
+            {
+                "slug": i.get("slug"),
+                "name": i.get("name"),
+                "device_name": i.get("device_name"),
+                "local_asn": i.get("local_asn"),
+                "site_slug": site.slug,
+                "vrf_slug": i.get("vrf_slug"),
+                "intent": i.get("intent"),
+                "router_id": i.get("router_id"),
+                "description": i.get("description"),
+            }
+            for i in raw.get("bgp_instances") or []
+            if i.get("slug") and i.get("device_name") and i.get("local_asn")
+        ],
         "bgp_sessions": [
             {
                 "name": s.get("name"),
@@ -585,6 +600,7 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "peer_ip": s.get("peer_ip"),
                 "site_slug": s.get("site_slug"),
                 "vrf_slug": s.get("vrf_slug"),
+                "instance_slug": s.get("instance_slug"),
                 "address_families": s.get("address_families"),
                 "desired_status": s.get("desired_status"),
             }

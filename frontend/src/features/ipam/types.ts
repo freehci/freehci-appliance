@@ -278,9 +278,27 @@ export type IpamAsAssignment = {
   created_at: string;
 };
 
+export type IpamBgpInstance = {
+  id: number;
+  site_id: number;
+  device_id: number;
+  device_name: string | null;
+  local_as_id: number;
+  local_asn: number | null;
+  vrf_id: number | null;
+  vrf_name: string | null;
+  name: string;
+  slug: string;
+  intent: "recorded" | "intended" | string;
+  router_id: string | null;
+  description: string | null;
+  created_at: string;
+};
+
 export type IpamBgpSession = {
   id: number;
   site_id: number;
+  bgp_instance_id: number | null;
   local_as_id: number;
   remote_as_id: number | null;
   remote_asn: number;

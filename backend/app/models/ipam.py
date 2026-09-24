@@ -1023,6 +1023,45 @@ class IpamAsAssignment(Base):
     autonomous_system: Mapped["IpamAutonomousSystem"] = relationship(back_populates="assignments")
 
 
+class IpamBgpInstance(Base):
+    """BGP-prosess på en ruter. Påføres ikke, og naboer eller RIB gjettes ikke."""
+
+    __tablename__ = "ipam_bgp_instances"
+    __table_args__ = (
+        UniqueConstraint("device_id", "local_as_id", "vrf_scope", name="uq_ipam_bgp_instance_device_as_vrf"),
+        UniqueConstraint("site_id", "slug", name="uq_ipam_bgp_instance_site_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_sites.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    local_as_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_autonomous_systems.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    vrf_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    vrf_scope: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    intent: Mapped[str] = mapped_column(String(32), nullable=False, default="recorded")
+    router_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class IpamBgpSession(Base):
     """Én BGP-sesjon mot én peer-IP. IPv4 og IPv6 er address families, ikke to sesjoner."""
 
@@ -1057,6 +1096,11 @@ class IpamBgpSession(Base):
     address_families: Mapped[list | None] = mapped_column(JSON, nullable=True)
     desired_status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
     observed_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    bgp_instance_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("ipam_bgp_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     local_device_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),

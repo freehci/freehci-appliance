@@ -43,6 +43,7 @@ NO_VLAN_ROLES = frozenset({"container", "overlay-pod", "overlay-service", "p2p"}
 NO_HOST_ALLOC_STATUSES = frozenset({"reserved", "deprecated"})
 IPV4_RANGE_KINDS = frozenset({"allocation", "reserved", "dhcp", "other"})
 VRF_INSTANCE_INTENTS = frozenset({"recorded", "intended"})
+BGP_INSTANCE_INTENTS = frozenset({"recorded", "intended"})
 ROUTE_TARGET_DIRECTIONS = frozenset({"import", "export"})
 
 
@@ -1006,9 +1007,68 @@ class IpamAsAssignmentRead(BaseModel):
     created_at: dt.datetime
 
 
-class IpamBgpSessionCreate(BaseModel):
-    site_id: int = Field(..., ge=1)
+class IpamBgpInstanceCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    device_id: int = Field(..., ge=1)
     local_as_id: int = Field(..., ge=1)
+    vrf_id: int | None = Field(None, ge=1)
+    name: str | None = Field(None, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    intent: str = "recorded"
+    router_id: str | None = None
+    description: str | None = None
+
+    @field_validator("intent")
+    @classmethod
+    def intent_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower() or "recorded"
+        if s not in BGP_INSTANCE_INTENTS:
+            raise ValueError(f"intent må være en av: {', '.join(sorted(BGP_INSTANCE_INTENTS))}")
+        return s
+
+    @field_validator("router_id")
+    @classmethod
+    def router_id_ok(cls, v: str | None) -> str | None:
+        if v is None or not str(v).strip():
+            return None
+        import ipaddress
+
+        s = str(v).strip()
+        try:
+            addr = ipaddress.ip_address(s)
+        except ValueError as e:
+            raise ValueError("router_id må være en IPv4-adresse") from e
+        if addr.version != 4:
+            raise ValueError("router_id må være en IPv4-adresse")
+        return str(addr)
+
+
+class IpamBgpInstanceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    site_id: int
+    device_id: int
+    device_name: str | None = None
+    local_as_id: int
+    local_asn: int | None = None
+    vrf_id: int | None
+    vrf_name: str | None = None
+    name: str
+    slug: str
+    intent: str
+    router_id: str | None
+    description: str | None
+    created_at: dt.datetime
+
+
+class IpamBgpSessionCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    site_id: int | None = Field(None, ge=1)
+    bgp_instance_id: int | None = Field(None, ge=1)
+    local_as_id: int | None = Field(None, ge=1)
     remote_as_id: int | None = Field(None, ge=1)
     remote_asn: int | None = None
     peer_ip: str = Field(..., min_length=1, max_length=64)
@@ -1021,6 +1081,12 @@ class IpamBgpSessionCreate(BaseModel):
     local_device_id: int | None = Field(None, ge=1)
     local_interface_id: int | None = Field(None, ge=1)
     description: str | None = None
+
+    @model_validator(mode="after")
+    def site_and_as_without_instance(self) -> "IpamBgpSessionCreate":
+        if self.bgp_instance_id is None and (self.site_id is None or self.local_as_id is None):
+            raise ValueError("site_id og local_as_id kreves uten bgp_instance_id")
+        return self
 
     @field_validator("remote_asn")
     @classmethod
@@ -1077,8 +1143,11 @@ class IpamBgpSessionCreate(BaseModel):
 
 
 class IpamBgpSessionUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str | None = Field(None, max_length=255)
     slug: str | None = Field(None, max_length=128)
+    bgp_instance_id: int | None = Field(None, ge=1)
     remote_as_id: int | None = Field(None, ge=1)
     remote_asn: int | None = None
     peer_ip: str | None = Field(None, min_length=1, max_length=64)
@@ -1153,6 +1222,7 @@ class IpamBgpSessionRead(BaseModel):
 
     id: int
     site_id: int
+    bgp_instance_id: int | None = None
     local_as_id: int
     remote_as_id: int | None
     remote_asn: int

@@ -1675,6 +1675,15 @@ export const en = {
   "ipam.bgp.observed": "Observed",
   "ipam.bgp.unobserved": "Not observed",
   "ipam.bgp.alsoV6": "Also exchange IPv6 unicast on this session",
+  "ipam.bgp.instanceTitle": "BGP instances",
+  "ipam.bgp.instanceHint":
+    "Record a BGP process on a router. Neighbors, route counts and observed state are not invented, and nothing is applied.",
+  "ipam.bgp.instanceAdd": "Add instance",
+  "ipam.bgp.instanceEmpty": "No BGP instance recorded on a device yet.",
+  "ipam.bgp.instancePick": "BGP instance",
+  "ipam.bgp.instanceChoose": "No instance (session only)",
+  "ipam.bgp.routerId": "Router ID",
+  "ipam.bgp.routerIdHelp": "Optional IPv4. Not copied from the device management address.",
 
   "ipam.vlan.title": "Segments",
   "ipam.vlan.intro":

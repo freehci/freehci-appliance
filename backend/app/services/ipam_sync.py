@@ -292,9 +292,10 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         )
     as_assignments = bgp_svc.list_as_assignments(db, site_id=site_id)
     bgp_sessions = bgp_svc.list_bgp_sessions(db, site_id=site_id)
+    bgp_instances = bgp_svc.list_bgp_instances(db, site_id=site_id)
     as_ids = {x.autonomous_system_id for x in as_assignments} | {s.local_as_id for s in bgp_sessions} | {
         s.remote_as_id for s in bgp_sessions if s.remote_as_id
-    }
+    } | {i.local_as_id for i in bgp_instances}
     as_by_id = (
         {a.id: a for a in db.execute(select(IpamAutonomousSystem).where(IpamAutonomousSystem.id.in_(as_ids))).scalars().all()}
         if as_ids
@@ -316,7 +317,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
         if vrf_by_id
         else []
     )
-    inst_device_ids = {x.device_id for x in vrf_instances}
+    inst_device_ids = {x.device_id for x in vrf_instances} | {i.device_id for i in bgp_instances}
     inst_device_by_id = (
         {d.id: d for d in db.execute(select(DeviceInstance).where(DeviceInstance.id.in_(inst_device_ids))).scalars().all()}
         if inst_device_ids
@@ -557,6 +558,20 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             }
             for x in as_assignments
         ],
+        "bgp_instances": [
+            {
+                "slug": i.slug,
+                "name": i.name,
+                "device_name": inst_device_by_id[i.device_id].name if i.device_id in inst_device_by_id else None,
+                "local_asn": as_by_id[i.local_as_id].asn if i.local_as_id in as_by_id else None,
+                "site_slug": site.slug,
+                "vrf_slug": vrf_by_id[i.vrf_id].slug if i.vrf_id and i.vrf_id in vrf_by_id else None,
+                "intent": i.intent,
+                "router_id": i.router_id,
+                "description": i.description,
+            }
+            for i in bgp_instances
+        ],
         "bgp_sessions": [
             {
                 "name": s.name,
@@ -566,6 +581,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "peer_ip": s.peer_ip,
                 "site_slug": site.slug,
                 "vrf_slug": vrf_by_id[s.vrf_id].slug if s.vrf_id and s.vrf_id in vrf_by_id else None,
+                "instance_slug": next((i.slug for i in bgp_instances if i.id == s.bgp_instance_id), None),
                 "address_families": s.address_families,
                 "desired_status": s.desired_status,
             }

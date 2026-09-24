@@ -48,7 +48,14 @@ export function IpamVrfsPage() {
   const [bgpSite, setBgpSite] = useState("");
   const [bgpVrf, setBgpVrf] = useState("");
   const [bgpV6, setBgpV6] = useState(false);
+  const [bgpInst, setBgpInst] = useState("");
   const [bgpDrawer, setBgpDrawer] = useState(false);
+  const [biName, setBiName] = useState("");
+  const [biDevice, setBiDevice] = useState("");
+  const [biAs, setBiAs] = useState("");
+  const [biVrf, setBiVrf] = useState("");
+  const [biIntent, setBiIntent] = useState("recorded");
+  const [biRouterId, setBiRouterId] = useState("");
   const [instVrf, setInstVrf] = useState("");
   const [instDevice, setInstDevice] = useState("");
   const [instRd, setInstRd] = useState("");
@@ -75,6 +82,10 @@ export function IpamVrfsPage() {
   const bgpQ = useQuery({
     queryKey: ["ipam", "bgp-sessions", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listBgpSessions(siteIdFilter),
+  });
+  const bgpInstQ = useQuery({
+    queryKey: ["ipam", "bgp-instances", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listBgpInstances(siteIdFilter),
   });
   const devicesQ = useQuery({ queryKey: ["dcim", "devices"], queryFn: dcimApi.listDevices });
   const instQ = useQuery({
@@ -180,11 +191,12 @@ export function IpamVrfsPage() {
   const createBgpM = useMutation({
     mutationFn: () =>
       ipamApi.createBgpSession({
-        site_id: Number(bgpSite),
-        local_as_id: Number(bgpLocalAs),
+        site_id: bgpInst === "" ? Number(bgpSite) : undefined,
+        bgp_instance_id: bgpInst === "" ? null : Number(bgpInst),
+        local_as_id: bgpInst === "" ? Number(bgpLocalAs) : undefined,
         remote_asn: Number(bgpRemoteAsn),
         peer_ip: bgpPeer.trim(),
-        vrf_id: bgpVrf === "" ? null : Number(bgpVrf),
+        vrf_id: bgpInst === "" && bgpVrf !== "" ? Number(bgpVrf) : undefined,
         name: bgpName.trim() || null,
         address_families: bgpV6 ? ["ipv4-unicast", "ipv6-unicast"] : ["ipv4-unicast"],
       }),
@@ -276,6 +288,37 @@ export function IpamVrfsPage() {
     mutationFn: (id: number) => ipamApi.deleteBgpSession(id),
     onSuccess: () => {
       setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "bgp-sessions"] });
+    },
+    onError: fail,
+  });
+  const createBiM = useMutation({
+    mutationFn: () =>
+      ipamApi.createBgpInstance({
+        device_id: Number(biDevice),
+        local_as_id: Number(biAs),
+        vrf_id: biVrf === "" ? null : Number(biVrf),
+        name: biName.trim() || null,
+        intent: biIntent,
+        router_id: biRouterId.trim() === "" ? null : biRouterId.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setBiName("");
+      setBiDevice("");
+      setBiAs("");
+      setBiVrf("");
+      setBiIntent("recorded");
+      setBiRouterId("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "bgp-instances"] });
+    },
+    onError: fail,
+  });
+  const delBiM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteBgpInstance(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "bgp-instances"] });
       void qc.invalidateQueries({ queryKey: ["ipam", "bgp-sessions"] });
     },
     onError: fail,
@@ -739,6 +782,90 @@ export function IpamVrfsPage() {
       ) : null}
 
       {tab === "bgp" ? (
+        <>
+        <section className={dcimStyles.mfrDetailSection} style={{ marginTop: 0 }}>
+          <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.bgp.instanceTitle")}</h3>
+          <p className={dcimStyles.muted}>{t("ipam.bgp.instanceHint")}</p>
+          <form
+            className={dcimStyles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              createBiM.mutate();
+            }}
+          >
+            <label>
+              {t("dcim.common.name")}
+              <input value={biName} onChange={(e) => setBiName(e.target.value)} />
+            </label>
+            <label>
+              {t("ipam.vrf.chooseDevice")}
+              <select value={biDevice} onChange={(e) => setBiDevice(e.target.value)} required>
+                <option value="">{t("ipam.vrf.chooseDevice")}</option>
+                {(devicesQ.data ?? []).map((d) => (
+                  <option key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.bgp.localAs")}
+              <select value={biAs} onChange={(e) => setBiAs(e.target.value)} required>
+                <option value="">{t("ipam.as.chooseAs")}</option>
+                {(asQ.data ?? []).map((a) => (
+                  <option key={a.id} value={String(a.id)}>
+                    AS{a.asn} {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              VRF
+              <select value={biVrf} onChange={(e) => setBiVrf(e.target.value)}>
+                <option value="">{t("ipam.vlan.noVrf")}</option>
+                {(vrfsQ.data ?? []).map((v) => (
+                  <option key={v.id} value={String(v.id)}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.vrf.instanceIntent")}
+              <select value={biIntent} onChange={(e) => setBiIntent(e.target.value)}>
+                <option value="recorded">{t("ipam.vrf.intentRecorded")}</option>
+                <option value="intended">{t("ipam.vrf.intentIntended")}</option>
+              </select>
+            </label>
+            <label>
+              {t("ipam.bgp.routerId")}
+              <input value={biRouterId} onChange={(e) => setBiRouterId(e.target.value)} placeholder="192.0.2.1" />
+            </label>
+            <button type="submit" className={dcimStyles.btn} disabled={createBiM.isPending || biDevice === "" || biAs === ""}>
+              {t("ipam.bgp.instanceAdd")}
+            </button>
+          </form>
+          <p className={dcimStyles.muted}>{t("ipam.bgp.routerIdHelp")}</p>
+          {(bgpInstQ.data ?? []).length > 0 ? (
+            <ul className={dcimStyles.ipList}>
+              {(bgpInstQ.data ?? []).map((i) => (
+                <li key={i.id}>
+                  {i.name} <code>{i.slug}</code>
+                  {i.device_name ? ` · ${i.device_name}` : ""}
+                  {i.local_asn != null ? ` · AS${i.local_asn}` : ""}
+                  {i.vrf_name ? ` · ${i.vrf_name}` : ""}
+                  {i.router_id ? ` · ${i.router_id}` : ""}{" "}
+                  <button type="button" className={dcimStyles.btnLink} disabled={delBiM.isPending} onClick={() => delBiM.mutate(i.id)}>
+                    {t("dcim.common.delete")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            !bgpInstQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.bgp.instanceEmpty")}</p>
+          )}
+        </section>
         <div className={prefixStyles.tableCard}>
           {bgpQ.isLoading ? (
             <p className={dcimStyles.muted} style={{ padding: "var(--space-3)" }}>
@@ -789,6 +916,7 @@ export function IpamVrfsPage() {
             </div>
           ) : null}
         </div>
+        </>
       ) : null}
 
       <PrefixDrawer
@@ -916,6 +1044,22 @@ export function IpamVrfsPage() {
       >
         <div className={prefixStyles.drawerFields}>
           <p className={dcimStyles.muted}>{t("ipam.bgp.hint")}</p>
+          <label>
+            {t("ipam.bgp.instancePick")}
+            <select
+              value={bgpInst}
+              onChange={(e) => {
+                setBgpInst(e.target.value);
+              }}
+            >
+              <option value="">{t("ipam.bgp.instanceChoose")}</option>
+              {(bgpInstQ.data ?? []).map((i) => (
+                <option key={i.id} value={String(i.id)}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             {t("ipam.ipv4.site")}
             <select value={bgpSite} onChange={(e) => setBgpSite(e.target.value)} required>
