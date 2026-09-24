@@ -1734,6 +1734,14 @@ export const nb = {
   "ipam.stretch.vlanA": "VLAN A",
   "ipam.stretch.vlanB": "VLAN B",
   "ipam.stretch.chooseVlan": "Velg VLAN",
+  "ipam.overlayStretch.title": "Strekte overlay",
+  "ipam.overlayStretch.hint":
+    "Registrer at to overlay-segmenter på ulike sites er samme overlay. Samme VNI eller navn gjettes aldri som strekning, og ingenting påføres svitsjer.",
+  "ipam.overlayStretch.add": "Legg til overlay-strekning",
+  "ipam.overlayStretch.empty": "Ingen overlay-strekning registrert ennå.",
+  "ipam.overlayStretch.segA": "Overlay A",
+  "ipam.overlayStretch.segB": "Overlay B",
+  "ipam.overlayStretch.choose": "Velg overlay",
 
   "ipam.circuits.title": "Samband",
   "ipam.circuits.intro":

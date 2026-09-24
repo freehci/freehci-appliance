@@ -15,6 +15,7 @@ from app.models.ipam import (
     IpamCircuitStrand,
     IpamCircuitTermination,
     IpamOverlaySegment,
+    IpamOverlayStretch,
     IpamTunnelTransport,
     IpamVlan,
     IpamVlanStretch,
@@ -37,6 +38,8 @@ from app.schemas.ipam import (
     IpamCircuitUpdate,
     IpamOverlaySegmentCreate,
     IpamOverlaySegmentRead,
+    IpamOverlayStretchCreate,
+    IpamOverlayStretchRead,
     IpamVlanCreate,
     IpamVlanStretchCreate,
     IpamVlanStretchRead,
@@ -436,6 +439,14 @@ def create_overlay_segment(db: Session, data: IpamOverlaySegmentCreate) -> IpamO
 
 
 def delete_overlay_segment(db: Session, row: IpamOverlaySegment) -> None:
+    for stretch in list(
+        db.execute(
+            select(IpamOverlayStretch).where(
+                (IpamOverlayStretch.overlay_low_id == row.id) | (IpamOverlayStretch.overlay_high_id == row.id),
+            ),
+        ).scalars().all()
+    ):
+        db.delete(stretch)
     db.delete(row)
     db.commit()
 
@@ -454,6 +465,109 @@ def overlay_segment_to_read(db: Session, row: IpamOverlaySegment) -> IpamOverlay
         vlan_vid=vlan.vid if vlan is not None else None,
         vrf_id=row.vrf_id,
         vrf_name=vrf.name if vrf is not None else None,
+        description=row.description,
+        created_at=row.created_at,
+    )
+
+
+def list_overlay_stretches(db: Session, *, site_id: int | None = None) -> list[IpamOverlayStretch]:
+    q = select(IpamOverlayStretch).order_by(IpamOverlayStretch.slug)
+    rows = list(db.execute(q).scalars().all())
+    if site_id is None:
+        return rows
+    out: list[IpamOverlayStretch] = []
+    for row in rows:
+        a = get_overlay_segment(db, row.overlay_low_id)
+        b = get_overlay_segment(db, row.overlay_high_id)
+        if (a is not None and a.site_id == site_id) or (b is not None and b.site_id == site_id):
+            out.append(row)
+    return out
+
+
+def get_overlay_stretch(db: Session, stretch_id: int) -> IpamOverlayStretch | None:
+    return db.get(IpamOverlayStretch, stretch_id)
+
+
+def get_overlay_stretch_by_slug(db: Session, slug: str) -> IpamOverlayStretch | None:
+    return db.execute(
+        select(IpamOverlayStretch).where(IpamOverlayStretch.slug == slug.strip().lower()),
+    ).scalar_one_or_none()
+
+
+def _unique_overlay_stretch_slug(db: Session, desired: str) -> str:
+    base = _slugify(desired)
+    candidate = base
+    n = 2
+    while True:
+        if get_overlay_stretch_by_slug(db, candidate) is None:
+            return candidate
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+        if n > 1000:
+            raise ipam_error(400, "slug_exhausted", "kunne ikke lage unik slug")
+
+
+def create_overlay_stretch(db: Session, data: IpamOverlayStretchCreate) -> IpamOverlayStretch:
+    if data.overlay_a_id == data.overlay_b_id:
+        raise ipam_error(400, "overlay_stretch_same_overlay", "strekning krever to ulike overlay-segmenter")
+    ov_a = get_overlay_segment(db, data.overlay_a_id)
+    ov_b = get_overlay_segment(db, data.overlay_b_id)
+    if ov_a is None or ov_b is None:
+        raise ipam_error(400, "overlay_stretch_overlay", "overlay-segment ikke funnet")
+    if ov_a.site_id == ov_b.site_id:
+        raise ipam_error(400, "overlay_stretch_same_site", "strekning krever overlay-segmenter på ulike sites")
+    low_id, high_id = sorted((ov_a.id, ov_b.id))
+    taken = db.execute(
+        select(IpamOverlayStretch.id).where(
+            IpamOverlayStretch.overlay_low_id == low_id,
+            IpamOverlayStretch.overlay_high_id == high_id,
+        ),
+    ).scalar_one_or_none()
+    if taken is not None:
+        raise ipam_error(409, "overlay_stretch_exists", "strekning mellom disse overlay-segmentene er allerede registrert")
+    if data.slug:
+        slug = _slugify(data.slug)
+        if get_overlay_stretch_by_slug(db, slug) is not None:
+            raise ipam_error(409, "overlay_stretch_slug", "strekning-slug finnes allerede")
+    else:
+        slug = _unique_overlay_stretch_slug(db, data.name)
+    row = IpamOverlayStretch(
+        overlay_low_id=low_id,
+        overlay_high_id=high_id,
+        name=data.name.strip(),
+        slug=slug,
+        description=data.description,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ipam_error(409, "overlay_stretch_exists", "strekning mellom disse overlay-segmentene er allerede registrert")
+    db.refresh(row)
+    return row
+
+
+def delete_overlay_stretch(db: Session, row: IpamOverlayStretch) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def overlay_stretch_to_read(db: Session, row: IpamOverlayStretch) -> IpamOverlayStretchRead:
+    low = get_overlay_segment(db, row.overlay_low_id)
+    high = get_overlay_segment(db, row.overlay_high_id)
+    return IpamOverlayStretchRead(
+        id=row.id,
+        overlay_a_id=row.overlay_low_id,
+        overlay_b_id=row.overlay_high_id,
+        overlay_a_vni=low.vni if low is not None else None,
+        overlay_b_vni=high.vni if high is not None else None,
+        overlay_a_name=low.name if low is not None else None,
+        overlay_b_name=high.name if high is not None else None,
+        site_a_id=low.site_id if low is not None else None,
+        site_b_id=high.site_id if high is not None else None,
+        name=row.name,
+        slug=row.slug,
         description=row.description,
         created_at=row.created_at,
     )

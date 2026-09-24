@@ -168,6 +168,29 @@ def bulk_ensure(db: Session, data: IpamBulkEnsure) -> IpamBulkEnsureRead:
     return IpamBulkEnsureRead(results=results, created=created, unchanged=unchanged, failed=failed)
 
 
+def _overlay_stretches_export(db: Session, stretches: list) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in stretches:
+        low = fac_svc.get_overlay_segment(db, row.overlay_low_id)
+        high = fac_svc.get_overlay_segment(db, row.overlay_high_id)
+        sites = {}
+        ids = {x.site_id for x in (low, high) if x is not None}
+        if ids:
+            sites = {s.id: s for s in db.execute(select(Site).where(Site.id.in_(ids))).scalars().all()}
+        out.append(
+            {
+                "slug": row.slug,
+                "name": row.name,
+                "a_site_slug": sites[low.site_id].slug if low is not None and low.site_id in sites else None,
+                "a_overlay_slug": low.slug if low is not None else None,
+                "z_site_slug": sites[high.site_id].slug if high is not None and high.site_id in sites else None,
+                "z_overlay_slug": high.slug if high is not None else None,
+                "description": row.description,
+            }
+        )
+    return out
+
+
 def _vlan_stretches_export(db: Session, stretches: list) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for row in stretches:
@@ -201,6 +224,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
     v6a, _ = ipv6_svc.list_ipv6_addresses(db, site_id=site_id, limit=5000)
     vlans = fac_svc.list_vlans(db, site_id=site_id)
     overlays = fac_svc.list_overlay_segments(db, site_id=site_id)
+    overlay_stretches = fac_svc.list_overlay_stretches(db, site_id=site_id)
     stretches = fac_svc.list_vlan_stretches(db, site_id=site_id)
     vlan_groups = fac_svc.list_vlan_groups(db, site_id=site_id)
     vrfs = fac_svc.list_vrfs(db, site_id=site_id)
@@ -402,6 +426,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             }
             for o in overlays
         ],
+        "overlay_stretches": _overlay_stretches_export(db, overlay_stretches),
         "vlan_stretches": _vlan_stretches_export(db, stretches),
         "prefixes": [
             {

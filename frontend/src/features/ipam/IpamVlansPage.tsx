@@ -35,6 +35,9 @@ export function IpamVlansPage() {
   const [stName, setStName] = useState("");
   const [stVlanA, setStVlanA] = useState("");
   const [stVlanB, setStVlanB] = useState("");
+  const [ostName, setOstName] = useState("");
+  const [ostA, setOstA] = useState("");
+  const [ostB, setOstB] = useState("");
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -78,6 +81,14 @@ export function IpamVlansPage() {
   const allVlansQ = useQuery({
     queryKey: ["ipam", "vlans", "all-for-stretch"],
     queryFn: () => ipamApi.listIpamVlans(),
+  });
+  const overlayStretchesQ = useQuery({
+    queryKey: ["ipam", "overlay-stretches", siteIdFilter ?? "all"],
+    queryFn: () => ipamApi.listOverlayStretches(siteIdFilter),
+  });
+  const allOverlaysQ = useQuery({
+    queryKey: ["ipam", "overlay-segments", "all-for-stretch"],
+    queryFn: () => ipamApi.listOverlaySegments(),
   });
   const ovVrfsQ = useQuery({
     queryKey: ["ipam", "vrfs", ovSite === "" ? "none" : Number(ovSite)],
@@ -255,6 +266,30 @@ export function IpamVlansPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["ipam", "vlan-stretches"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const createOstM = useMutation({
+    mutationFn: () =>
+      ipamApi.createOverlayStretch({
+        overlay_a_id: Number(ostA),
+        overlay_b_id: Number(ostB),
+        name: ostName.trim(),
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setOstName("");
+      setOstA("");
+      setOstB("");
+      void qc.invalidateQueries({ queryKey: ["ipam", "overlay-stretches"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delOstM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteOverlayStretch(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "overlay-stretches"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -533,6 +568,73 @@ export function IpamVlansPage() {
           </ul>
         ) : (
           !overlaysQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.overlay.empty")}</p>
+        )}
+      </section>
+      <section className={dcimStyles.mfrDetailSection}>
+        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.overlayStretch.title")}</h3>
+        <p className={dcimStyles.muted}>{t("ipam.overlayStretch.hint")}</p>
+        <form
+          className={dcimStyles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            createOstM.mutate();
+          }}
+        >
+          <label>
+            {t("ipam.ipv4.name")}
+            <input value={ostName} onChange={(e) => setOstName(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.overlayStretch.segA")}
+            <select value={ostA} onChange={(e) => setOstA(e.target.value)} required>
+              <option value="">{t("ipam.overlayStretch.choose")}</option>
+              {(allOverlaysQ.data ?? []).map((o) => (
+                <option key={o.id} value={String(o.id)}>
+                  {siteNameById.get(o.site_id) ?? o.site_id} · VNI {o.vni} — {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.overlayStretch.segB")}
+            <select value={ostB} onChange={(e) => setOstB(e.target.value)} required>
+              <option value="">{t("ipam.overlayStretch.choose")}</option>
+              {(allOverlaysQ.data ?? []).map((o) => (
+                <option key={`b-${o.id}`} value={String(o.id)}>
+                  {siteNameById.get(o.site_id) ?? o.site_id} · VNI {o.vni} — {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className={dcimStyles.btn}
+            disabled={createOstM.isPending || ostName.trim() === "" || ostA === "" || ostB === "" || ostA === ostB}
+          >
+            {t("ipam.overlayStretch.add")}
+          </button>
+        </form>
+        {(overlayStretchesQ.data ?? []).length > 0 ? (
+          <ul className={dcimStyles.ipList}>
+            {(overlayStretchesQ.data ?? []).map((s) => (
+              <li key={s.id}>
+                {s.name} <code>{s.slug}</code>
+                {` · ${siteNameById.get(s.site_a_id ?? 0) ?? s.site_a_id} VNI ${s.overlay_a_vni ?? "—"}`}
+                {` ↔ ${siteNameById.get(s.site_b_id ?? 0) ?? s.site_b_id} VNI ${s.overlay_b_vni ?? "—"}`}{" "}
+                <button
+                  type="button"
+                  className={dcimStyles.btnLink}
+                  disabled={delOstM.isPending}
+                  onClick={() => delOstM.mutate(s.id)}
+                >
+                  {t("dcim.common.delete")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          !overlayStretchesQ.isLoading && <p className={dcimStyles.muted}>{t("ipam.overlayStretch.empty")}</p>
         )}
       </section>
       <section className={dcimStyles.mfrDetailSection}>

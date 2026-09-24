@@ -24,6 +24,7 @@ import type {
   IpamVpnMember,
   IpamVpnService,
   IpamOverlaySegment,
+  IpamOverlayStretch,
   IpamVlan,
   IpamVlanStretch,
   IpamVlanGroup,
@@ -549,6 +550,25 @@ export function createOverlaySegment(body: {
 
 export function deleteOverlaySegment(id: number): Promise<void> {
   return apiDelete(`${P}/overlay-segments/${id}`);
+}
+
+export function listOverlayStretches(siteId?: number): Promise<IpamOverlayStretch[]> {
+  const q = siteId != null ? `?site_id=${encodeURIComponent(String(siteId))}` : "";
+  return apiGet(`${P}/overlay-stretches${q}`);
+}
+
+export function createOverlayStretch(body: {
+  overlay_a_id: number;
+  overlay_b_id: number;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+}): Promise<IpamOverlayStretch> {
+  return apiPost(`${P}/overlay-stretches`, body);
+}
+
+export function deleteOverlayStretch(id: number): Promise<void> {
+  return apiDelete(`${P}/overlay-stretches/${id}`);
 }
 
 export function listVlanStretches(siteId?: number): Promise<IpamVlanStretch[]> {

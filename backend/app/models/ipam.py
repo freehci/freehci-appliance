@@ -435,6 +435,34 @@ class IpamOverlaySegment(Base):
     )
 
 
+class IpamOverlayStretch(Base):
+    """Registrert overlay-strekning mellom segmenter på ulike sites. Aldri gjettet fra VNI eller navn."""
+
+    __tablename__ = "ipam_overlay_stretches"
+    __table_args__ = (
+        UniqueConstraint("overlay_low_id", "overlay_high_id", name="uq_ipam_overlay_stretch_pair"),
+        UniqueConstraint("slug", name="uq_ipam_overlay_stretch_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    overlay_low_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_overlay_segments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    overlay_high_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_overlay_segments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class IpamVlanStretch(Base):
     """Registrert L2-strekning mellom VLAN på ulike sites. Aldri gjettet fra VID eller navn."""
 

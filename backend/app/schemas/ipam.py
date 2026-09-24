@@ -1343,6 +1343,34 @@ class IpamOverlaySegmentRead(BaseModel):
     created_at: dt.datetime
 
 
+class IpamOverlayStretchCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    overlay_a_id: int = Field(..., ge=1)
+    overlay_b_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = None
+
+
+class IpamOverlayStretchRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    overlay_a_id: int
+    overlay_b_id: int
+    overlay_a_vni: int | None = None
+    overlay_b_vni: int | None = None
+    overlay_a_name: str | None = None
+    overlay_b_name: str | None = None
+    site_a_id: int | None = None
+    site_b_id: int | None = None
+    name: str
+    slug: str
+    description: str | None
+    created_at: dt.datetime
+
+
 class IpamVlanStretchCreate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

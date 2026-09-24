@@ -1724,6 +1724,14 @@ export const en = {
   "ipam.stretch.vlanA": "VLAN A",
   "ipam.stretch.vlanB": "VLAN B",
   "ipam.stretch.chooseVlan": "Choose VLAN",
+  "ipam.overlayStretch.title": "Stretched overlays",
+  "ipam.overlayStretch.hint":
+    "Record that two overlay segments on different sites are the same overlay. Same VNI or name is never treated as a stretch, and nothing is applied to switches.",
+  "ipam.overlayStretch.add": "Add overlay stretch",
+  "ipam.overlayStretch.empty": "No overlay stretch recorded yet.",
+  "ipam.overlayStretch.segA": "Overlay A",
+  "ipam.overlayStretch.segB": "Overlay B",
+  "ipam.overlayStretch.choose": "Choose overlay",
 
   "ipam.circuits.title": "Circuits",
   "ipam.circuits.intro":

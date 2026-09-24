@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
 from app.models.dcim import Building, Cable, DeviceInstance, DeviceInterface, DeviceModel, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamTunnel, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
+from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamOverlaySegment, IpamTunnel, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
     BuildingCreate,
@@ -48,6 +48,7 @@ from app.schemas.ipam import (
     IpamContractCreate,
     IpamProviderCreate,
     IpamOverlaySegmentCreate,
+    IpamOverlayStretchCreate,
     IpamVlanCreate,
     IpamVlanStretchCreate,
     IpamVlanGroupCreate,
@@ -463,6 +464,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
     for ipam in doc.get("ipam") or []:
         _apply_site_ipam(db, ipam)
     _apply_vlan_stretches(db, doc)
+    _apply_overlay_stretches(db, doc)
 
     site_by_slug = {s.slug: s for s in db.execute(select(Site)).scalars().all()}
     pwr_svc.apply_from_document(db, doc, site_by_slug=site_by_slug)
@@ -506,6 +508,49 @@ def _apply_vlan_stretches(db: Session, doc: dict[str, Any]) -> None:
                 IpamVlanStretchCreate(
                     vlan_a_id=vlan_a.id,
                     vlan_b_id=vlan_z.id,
+                    name=raw.get("name") or slug,
+                    slug=slug,
+                    description=raw.get("description"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_overlay_stretches(db: Session, doc: dict[str, Any]) -> None:
+    rows: list[dict[str, Any]] = list(doc.get("overlay_stretches") or [])
+    for ipam in doc.get("ipam") or []:
+        rows.extend(ipam.get("overlay_stretches") or [])
+    seen: set[str] = set()
+    for raw in rows:
+        slug = (raw.get("slug") or "").strip().lower()
+        a_site = (raw.get("a_site_slug") or "").strip()
+        z_site = (raw.get("z_site_slug") or "").strip()
+        a_ov = (raw.get("a_overlay_slug") or "").strip().lower()
+        z_ov = (raw.get("z_overlay_slug") or "").strip().lower()
+        if not slug or not a_site or not z_site or not a_ov or not z_ov or slug in seen:
+            continue
+        seen.add(slug)
+        if fac_svc.get_overlay_stretch_by_slug(db, slug) is not None:
+            continue
+        site_a = _site_by_slug(db, a_site)
+        site_z = _site_by_slug(db, z_site)
+        if site_a is None or site_z is None:
+            continue
+        ov_a = db.execute(
+            select(IpamOverlaySegment).where(IpamOverlaySegment.site_id == site_a.id, IpamOverlaySegment.slug == a_ov),
+        ).scalar_one_or_none()
+        ov_z = db.execute(
+            select(IpamOverlaySegment).where(IpamOverlaySegment.site_id == site_z.id, IpamOverlaySegment.slug == z_ov),
+        ).scalar_one_or_none()
+        if ov_a is None or ov_z is None:
+            continue
+        try:
+            fac_svc.create_overlay_stretch(
+                db,
+                IpamOverlayStretchCreate(
+                    overlay_a_id=ov_a.id,
+                    overlay_b_id=ov_z.id,
                     name=raw.get("name") or slug,
                     slug=slug,
                     description=raw.get("description"),

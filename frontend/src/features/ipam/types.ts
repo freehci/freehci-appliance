@@ -356,6 +356,22 @@ export type IpamVlanStretch = {
   created_at: string;
 };
 
+export type IpamOverlayStretch = {
+  id: number;
+  overlay_a_id: number;
+  overlay_b_id: number;
+  overlay_a_vni: number | null;
+  overlay_b_vni: number | null;
+  overlay_a_name: string | null;
+  overlay_b_name: string | null;
+  site_a_id: number | null;
+  site_b_id: number | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+};
+
 export type IpamOverlaySegment = {
   id: number;
   site_id: number;

@@ -75,6 +75,8 @@ from app.schemas.ipam import (
     IpamVpnServiceUpdate,
     IpamOverlaySegmentCreate,
     IpamOverlaySegmentRead,
+    IpamOverlayStretchCreate,
+    IpamOverlayStretchRead,
     IpamVlanStretchCreate,
     IpamVlanStretchRead,
     IpamVlanCreate,
@@ -1041,6 +1043,35 @@ def delete_overlay_segment(segment_id: int, db: Session = Depends(get_db)) -> No
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "overlay_not_found", "detail": "overlay-segment ikke funnet"})
     fac_svc.delete_overlay_segment(db, row)
+
+
+@router.get("/overlay-stretches", response_model=list[IpamOverlayStretchRead])
+def list_overlay_stretches(
+    site_id: int | None = Query(None, description="Filtrer på DCIM site-id"),
+    db: Session = Depends(get_db),
+) -> list[IpamOverlayStretchRead]:
+    return [fac_svc.overlay_stretch_to_read(db, r) for r in fac_svc.list_overlay_stretches(db, site_id=site_id)]
+
+
+@router.post("/overlay-stretches", response_model=IpamOverlayStretchRead)
+def create_overlay_stretch(data: IpamOverlayStretchCreate, db: Session = Depends(get_db)) -> IpamOverlayStretchRead:
+    return fac_svc.overlay_stretch_to_read(db, fac_svc.create_overlay_stretch(db, data))
+
+
+@router.get("/overlay-stretches/{stretch_id}", response_model=IpamOverlayStretchRead)
+def get_overlay_stretch(stretch_id: int, db: Session = Depends(get_db)) -> IpamOverlayStretchRead:
+    row = fac_svc.get_overlay_stretch(db, stretch_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "overlay_stretch_not_found", "detail": "overlay-strekning ikke funnet"})
+    return fac_svc.overlay_stretch_to_read(db, row)
+
+
+@router.delete("/overlay-stretches/{stretch_id}", status_code=204)
+def delete_overlay_stretch(stretch_id: int, db: Session = Depends(get_db)) -> None:
+    row = fac_svc.get_overlay_stretch(db, stretch_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "overlay_stretch_not_found", "detail": "overlay-strekning ikke funnet"})
+    fac_svc.delete_overlay_stretch(db, row)
 
 
 @router.get("/vlan-stretches", response_model=list[IpamVlanStretchRead])
