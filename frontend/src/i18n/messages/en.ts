@@ -1081,7 +1081,7 @@ export const en = {
   "dcim.power.chooseRack": "No rack",
   "dcim.ports.title": "Power and patch ports",
   "dcim.ports.hint":
-    "Power ports, outlets, front and rear ports live on the device. A patch panel is a device. Front-to-rear mapping is recorded explicitly — same name is never treated as a pass-through.",
+    "Power ports, outlets, front and rear ports live on the device. A patch panel is a device. Front-to-rear and outlet-to-inlet mapping is recorded explicitly — same name is never treated as a pass-through.",
   "dcim.ports.empty": "No ports yet.",
   "dcim.ports.add": "Add port",
   "dcim.ports.fromTemplates": "Copy from model",
@@ -1091,6 +1091,9 @@ export const en = {
   "dcim.ports.rear": "Rear port",
   "dcim.ports.noRear": "— none —",
   "dcim.ports.chooseRear": "Choose rear port",
+  "dcim.ports.inlet": "Inlet",
+  "dcim.ports.noInlet": "— none —",
+  "dcim.ports.chooseInlet": "Choose inlet",
   "dcim.cables.title": "Cables",
   "dcim.cables.empty": "No cables on this device yet.",
   "dcim.cables.add": "Add cable",

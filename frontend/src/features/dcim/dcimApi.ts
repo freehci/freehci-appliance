@@ -1466,7 +1466,7 @@ export function copyDevicePortsFromTemplates(deviceId: number): Promise<DevicePo
 
 export function patchDevicePort(
   portId: number,
-  body: { rear_port_id?: number | null },
+  body: { rear_port_id?: number | null; power_port_id?: number | null },
 ): Promise<DevicePort> {
   return apiPatch(`${P}/device-ports/${portId}`, body);
 }

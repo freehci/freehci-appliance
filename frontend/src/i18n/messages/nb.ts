@@ -1088,7 +1088,7 @@ export const nb = {
   "dcim.power.chooseRack": "Uten rack",
   "dcim.ports.title": "Strøm- og patchporter",
   "dcim.ports.hint":
-    "Strøminnganger, uttak, front- og bakporter ligger på enheten. Et patchpanel er en enhet. Front-til-bak-mapping registreres eksplisitt — samme navn gjettes aldri som gjennomgang.",
+    "Strøminnganger, uttak, front- og bakporter ligger på enheten. Et patchpanel er en enhet. Front-til-bak- og uttak-til-inntak-mapping registreres eksplisitt — samme navn gjettes aldri som gjennomgang.",
   "dcim.ports.empty": "Ingen porter ennå.",
   "dcim.ports.add": "Ny port",
   "dcim.ports.fromTemplates": "Kopier fra modell",
@@ -1098,6 +1098,9 @@ export const nb = {
   "dcim.ports.rear": "Bakport",
   "dcim.ports.noRear": "— ingen —",
   "dcim.ports.chooseRear": "Velg bakport",
+  "dcim.ports.inlet": "Inntak",
+  "dcim.ports.noInlet": "— ingen —",
+  "dcim.ports.chooseInlet": "Velg inntak",
   "dcim.cables.title": "Kabler",
   "dcim.cables.empty": "Ingen kabler på denne enheten ennå.",
   "dcim.cables.add": "Ny kabel",

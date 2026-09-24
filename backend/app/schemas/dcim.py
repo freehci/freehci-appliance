@@ -1794,6 +1794,7 @@ class DevicePortUpdate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     rear_port_id: int | None = Field(None, ge=1)
+    power_port_id: int | None = Field(None, ge=1)
 
 
 class DevicePortRead(BaseModel):

@@ -450,33 +450,56 @@ def get_port(db: Session, port_id: int) -> DevicePort | None:
 
 
 def update_port(db: Session, row: DevicePort, data: DevicePortUpdate) -> DevicePort:
-    if "rear_port_id" not in data.model_fields_set:
-        return row
-    rear_id = data.rear_port_id
-    if rear_id is None:
-        row.rear_port_id = None
+    changed = False
+    if "rear_port_id" in data.model_fields_set:
+        rear_id = data.rear_port_id
+        if rear_id is None:
+            row.rear_port_id = None
+        else:
+            if row.kind != "front-port":
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "port_rear_kind", "detail": "bare front-port kan peke på bakport"},
+                )
+            if rear_id == row.id:
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "port_rear_same", "detail": "port kan ikke peke på seg selv"},
+                )
+            rear = db.get(DevicePort, rear_id)
+            if rear is None or rear.device_id != row.device_id or rear.kind != "rear-port":
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "port_rear", "detail": "rear_port må være en bakport på samme enhet"},
+                )
+            row.rear_port_id = rear_id
+        changed = True
+    if "power_port_id" in data.model_fields_set:
+        power_id = data.power_port_id
+        if power_id is None:
+            row.power_port_id = None
+        else:
+            if row.kind != "power-outlet":
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "port_power_kind", "detail": "bare power-outlet kan peke på strøminngang"},
+                )
+            if power_id == row.id:
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "port_power_same", "detail": "port kan ikke peke på seg selv"},
+                )
+            inlet = db.get(DevicePort, power_id)
+            if inlet is None or inlet.device_id != row.device_id or inlet.kind != "power-port":
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "port_power", "detail": "power_port må være en strøminngang på samme enhet"},
+                )
+            row.power_port_id = power_id
+        changed = True
+    if changed:
         db.commit()
         db.refresh(row)
-        return row
-    if row.kind != "front-port":
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "port_rear_kind", "detail": "bare front-port kan peke på bakport"},
-        )
-    if rear_id == row.id:
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "port_rear_same", "detail": "port kan ikke peke på seg selv"},
-        )
-    rear = db.get(DevicePort, rear_id)
-    if rear is None or rear.device_id != row.device_id or rear.kind != "rear-port":
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "port_rear", "detail": "rear_port må være en bakport på samme enhet"},
-        )
-    row.rear_port_id = rear_id
-    db.commit()
-    db.refresh(row)
     return row
 
 

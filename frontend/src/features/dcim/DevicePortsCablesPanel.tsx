@@ -31,6 +31,7 @@ export function DevicePortsCablesPanel({
   const [endZ, setEndZ] = useState("");
   const [path, setPath] = useState<CablePathHop[] | null>(null);
   const [rearPort, setRearPort] = useState("");
+  const [powerPort, setPowerPort] = useState("");
 
   const portsQ = useQuery({
     queryKey: ["dcim", "devices", deviceId, "ports"],
@@ -58,18 +59,27 @@ export function DevicePortsCablesPanel({
         kind,
         name: name.trim(),
         rear_port_id: kind === "front-port" && rearPort !== "" ? Number(rearPort) : null,
+        power_port_id: kind === "power-outlet" && powerPort !== "" ? Number(powerPort) : null,
       }),
     onSuccess: () => {
       setName("");
       setRearPort("");
+      setPowerPort("");
       onError(null);
       refresh();
     },
     onError: fail,
   });
   const patchPort = useMutation({
-    mutationFn: ({ id, rear_port_id }: { id: number; rear_port_id: number | null }) =>
-      api.patchDevicePort(id, { rear_port_id }),
+    mutationFn: ({
+      id,
+      rear_port_id,
+      power_port_id,
+    }: {
+      id: number;
+      rear_port_id?: number | null;
+      power_port_id?: number | null;
+    }) => api.patchDevicePort(id, { rear_port_id, power_port_id }),
     onSuccess: () => {
       onError(null);
       refresh();
@@ -144,6 +154,7 @@ export function DevicePortsCablesPanel({
               <th>{t("dcim.ports.kind")}</th>
               <th>{t("dcim.common.name")}</th>
               <th>{t("dcim.ports.rear")}</th>
+              <th>{t("dcim.ports.inlet")}</th>
               <th>{t("dcim.ports.connector")}</th>
               <th>{t("dcim.equip.actionsCol")}</th>
             </tr>
@@ -174,6 +185,29 @@ export function DevicePortsCablesPanel({
                     </select>
                   ) : (
                     t("dcim.ports.noRear")
+                  )}
+                </td>
+                <td>
+                  {p.kind === "power-outlet" ? (
+                    <select
+                      value={p.power_port_id != null ? String(p.power_port_id) : ""}
+                      disabled={patchPort.isPending}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        patchPort.mutate({ id: p.id, power_port_id: raw === "" ? null : Number(raw) });
+                      }}
+                    >
+                      <option value="">{t("dcim.ports.noInlet")}</option>
+                      {(portsQ.data ?? [])
+                        .filter((r) => r.kind === "power-port")
+                        .map((r) => (
+                          <option key={r.id} value={String(r.id)}>
+                            {r.name}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    t("dcim.ports.noInlet")
                   )}
                 </td>
                 <td>{p.connector ?? "—"}</td>
@@ -215,6 +249,7 @@ export function DevicePortsCablesPanel({
             onChange={(e) => {
               setKind(e.target.value);
               setRearPort("");
+              setPowerPort("");
             }}
           >
             {PORT_KINDS.map((k) => (
@@ -235,6 +270,21 @@ export function DevicePortsCablesPanel({
               <option value="">{t("dcim.ports.chooseRear")}</option>
               {(portsQ.data ?? [])
                 .filter((p) => p.kind === "rear-port")
+                .map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        ) : null}
+        {kind === "power-outlet" ? (
+          <label>
+            {t("dcim.ports.inlet")}
+            <select value={powerPort} onChange={(e) => setPowerPort(e.target.value)}>
+              <option value="">{t("dcim.ports.chooseInlet")}</option>
+              {(portsQ.data ?? [])
+                .filter((p) => p.kind === "power-port")
                 .map((p) => (
                   <option key={p.id} value={String(p.id)}>
                     {p.name}
