@@ -62,7 +62,7 @@ from app.models.dcim import (
     Wing,
 )
 from app.models.iam import User
-from app.models.ipam import IpamIpv4Prefix
+from app.models.ipam import IpamIpv4Prefix, IpamVlan
 
 from app.services import tenant as tenant_svc
 
@@ -4643,6 +4643,7 @@ def device_interface_read(row: DeviceInterface) -> DeviceInterfaceRead:
         speed_mbps=row.speed_mbps,
         mtu=row.mtu,
         vlan_id=row.vlan_id,
+        ipam_vlan_id=row.ipam_vlan_id,
         enabled=row.enabled,
         sort_order=row.sort_order,
         ip_assignments=[IpAssignmentRead.model_validate(x) for x in ips],
@@ -4669,11 +4670,43 @@ def get_device_interface(db: Session, device_id: int, interface_id: int) -> Devi
     return row
 
 
+def _validate_iface_ipam_vlan(
+    db: Session,
+    device_id: int,
+    *,
+    vlan_id: int | None,
+    ipam_vlan_id: int | None,
+) -> int | None:
+    if ipam_vlan_id is None:
+        return None
+    vlan = db.get(IpamVlan, ipam_vlan_id)
+    if vlan is None:
+        raise HTTPException(status_code=404, detail="VLAN ikke funnet")
+    site_id = device_effective_site_id(db, device_id)
+    if site_id is None or int(vlan.site_id) != int(site_id):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_vlan_site", "detail": "VLAN tilhører en annen site enn enheten"},
+        )
+    if vlan_id is not None and int(vlan.vid) != int(vlan_id):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_vlan_vid", "detail": "802.1Q-ID stemmer ikke med valgt IPAM-VLAN"},
+        )
+    return vlan.id
+
+
 def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCreate) -> DeviceInterfaceRead:
     _require_device(db, device_id)
     _validate_iface_parent(db, device_id, data.parent_interface_id, exclude_interface_id=None)
     mac = data.mac_address
     mac = None if mac is None or str(mac).strip() == "" else str(mac).strip()
+    ipam_vlan_id = _validate_iface_ipam_vlan(
+        db,
+        device_id,
+        vlan_id=data.vlan_id,
+        ipam_vlan_id=data.ipam_vlan_id,
+    )
     row = DeviceInterface(
         device_id=device_id,
         parent_interface_id=data.parent_interface_id,
@@ -4683,6 +4716,7 @@ def create_device_interface(db: Session, device_id: int, data: DeviceInterfaceCr
         speed_mbps=data.speed_mbps,
         mtu=data.mtu,
         vlan_id=data.vlan_id,
+        ipam_vlan_id=ipam_vlan_id,
         enabled=data.enabled,
         sort_order=data.sort_order,
     )
@@ -4718,6 +4752,20 @@ def update_device_interface(
         row.mtu = patch["mtu"]
     if "vlan_id" in patch:
         row.vlan_id = patch["vlan_id"]
+    if "ipam_vlan_id" in data.model_fields_set:
+        row.ipam_vlan_id = _validate_iface_ipam_vlan(
+            db,
+            device_id,
+            vlan_id=row.vlan_id if "vlan_id" not in patch else patch["vlan_id"],
+            ipam_vlan_id=data.ipam_vlan_id,
+        )
+    elif "vlan_id" in patch and row.ipam_vlan_id is not None:
+        _validate_iface_ipam_vlan(
+            db,
+            device_id,
+            vlan_id=patch["vlan_id"],
+            ipam_vlan_id=row.ipam_vlan_id,
+        )
     if "enabled" in patch and patch["enabled"] is not None:
         row.enabled = bool(patch["enabled"])
     if "sort_order" in patch and patch["sort_order"] is not None:

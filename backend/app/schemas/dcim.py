@@ -1503,24 +1503,30 @@ class DeviceInstanceComponentRead(BaseModel):
 
 
 class DeviceInterfaceCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str = Field(..., min_length=1, max_length=128)
     description: str | None = None
     mac_address: str | None = Field(None, max_length=32)
     speed_mbps: int | None = Field(None, ge=0, le=1_000_000_000)
     mtu: int | None = Field(None, ge=68, le=65535)
     vlan_id: int | None = Field(None, ge=1, le=4094)
+    ipam_vlan_id: int | None = Field(None, ge=1)
     enabled: bool = True
     sort_order: int = 0
     parent_interface_id: int | None = Field(None, ge=1)
 
 
 class DeviceInterfaceUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str | None = Field(None, min_length=1, max_length=128)
     description: str | None = None
     mac_address: str | None = Field(None, max_length=32)
     speed_mbps: int | None = Field(None, ge=0, le=1_000_000_000)
     mtu: int | None = Field(None, ge=68, le=65535)
     vlan_id: int | None = Field(None, ge=1, le=4094)
+    ipam_vlan_id: int | None = Field(None, ge=1)
     enabled: bool | None = None
     sort_order: int | None = None
     parent_interface_id: int | None = Field(None, ge=1)
@@ -1549,6 +1555,7 @@ class DeviceInterfaceRead(BaseModel):
     speed_mbps: int | None
     mtu: int | None
     vlan_id: int | None
+    ipam_vlan_id: int | None = None
     enabled: bool
     sort_order: int
     ip_assignments: list[IpAssignmentRead] = Field(default_factory=list)

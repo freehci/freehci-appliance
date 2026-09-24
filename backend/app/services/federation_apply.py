@@ -24,6 +24,7 @@ from app.schemas.dcim import (
     DeviceArtifactRecordCreate,
     DeviceInterfaceLagCreate,
     DeviceInterfaceLagMemberCreate,
+    DeviceInterfaceUpdate,
     DeviceRoleCreate,
     DeviceTypeCreate,
     FloorCreate,
@@ -440,6 +441,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
             continue
 
     _apply_device_interface_lags(db, doc)
+    _apply_device_interface_vlans(db, doc)
 
     for p in doc.get("placements") or []:
         site = _site_by_slug(db, p["site_slug"])
@@ -513,6 +515,35 @@ def _apply_device_interface_lags(db: Session, doc: dict[str, Any]) -> None:
                 dcim_svc.add_interface_lag_member(db, lag, DeviceInterfaceLagMemberCreate(interface_id=iface.id))
             except Exception:
                 continue
+
+
+def _apply_device_interface_vlans(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("device_interface_vlans") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        iface_name = str(rec.get("interface_name") or "").strip()
+        vlan_slug = str(rec.get("vlan_slug") or "").strip()
+        site = _site_by_slug(db, rec.get("site_slug")) if rec.get("site_slug") else None
+        if device is None or not iface_name or not vlan_slug or site is None:
+            continue
+        iface = db.execute(
+            select(DeviceInterface).where(DeviceInterface.device_id == device.id, DeviceInterface.name == iface_name),
+        ).scalar_one_or_none()
+        vlan = db.execute(
+            select(IpamVlan).where(IpamVlan.site_id == site.id, IpamVlan.slug == vlan_slug),
+        ).scalar_one_or_none()
+        if iface is None or vlan is None:
+            continue
+        if iface.ipam_vlan_id == vlan.id:
+            continue
+        try:
+            dcim_svc.update_device_interface(
+                db,
+                device.id,
+                iface,
+                DeviceInterfaceUpdate(ipam_vlan_id=vlan.id),
+            )
+        except Exception:
+            continue
 
 
 def _apply_vlan_stretches(db: Session, doc: dict[str, Any]) -> None:

@@ -878,8 +878,13 @@ class DeviceInterface(Base):
     mac_address: Mapped[str | None] = mapped_column(String(32), nullable=True)
     speed_mbps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mtu: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # 802.1Q brukbar rekkevidde 1–4094; NULL = ikke satt (ingen kobling til legacy VLAN-tabell).
+    # 802.1Q brukbar rekkevidde 1–4094; NULL = ikke satt. Ikke det samme som ipam_vlans.id.
     vlan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Eksplisitt IPAM-VLAN. Samme VID på siten er aldri medlemskap før denne settes.
+    ipam_vlan_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_vlans.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Logisk underegrensesnitt (f.eks. Juniper me0.0 under fysisk me0); MAC ofte på forelder, VLAN/IP på barn.

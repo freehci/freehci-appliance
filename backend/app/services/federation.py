@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
 from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceInterface, DeviceInterfaceLag, DeviceInterfaceLagMember, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamIpv4Address
+from app.models.ipam import IpamIpv4Address, IpamVlan
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
 from app.models.tenant import Tenant
@@ -916,6 +916,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         ],
         **_export_device_artifacts(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_lags(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
+        **_export_device_interface_vlans(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **pwr_svc.export_for_sites(db, sites),
     }
@@ -1092,6 +1093,53 @@ def _export_device_interface_lags(
             }
             for r in lags
             if r.device_id in device_by_id
+        ],
+    }
+
+
+def _export_device_interface_vlans(
+    db: Session,
+    *,
+    devices: list[DeviceInstance],
+    site_by_id: dict[int, Site],
+    device_by_id: dict[int, DeviceInstance],
+) -> dict[str, Any]:
+    device_ids = {d.id for d in devices}
+    ifaces = (
+        list(
+            db.execute(
+                select(DeviceInterface).where(
+                    DeviceInterface.device_id.in_(device_ids),
+                    DeviceInterface.ipam_vlan_id.is_not(None),
+                )
+            ).scalars().all()
+        )
+        if device_ids
+        else []
+    )
+    vlan_ids = {i.ipam_vlan_id for i in ifaces if i.ipam_vlan_id is not None}
+    vlan_by_id = {
+        v.id: v
+        for v in (
+            db.execute(select(IpamVlan).where(IpamVlan.id.in_(vlan_ids))).scalars().all() if vlan_ids else []
+        )
+    }
+    return {
+        "device_interface_vlans": [
+            {
+                "device_name": device_by_id[i.device_id].name if i.device_id in device_by_id else None,
+                "site_slug": (
+                    site_by_id[device_by_id[i.device_id].site_id].slug
+                    if i.device_id in device_by_id
+                    and device_by_id[i.device_id].site_id
+                    and device_by_id[i.device_id].site_id in site_by_id
+                    else None
+                ),
+                "interface_name": i.name,
+                "vlan_slug": vlan_by_id[i.ipam_vlan_id].slug if i.ipam_vlan_id in vlan_by_id else None,
+            }
+            for i in ifaces
+            if i.device_id in device_by_id and i.ipam_vlan_id in vlan_by_id
         ],
     }
 

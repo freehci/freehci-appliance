@@ -74,6 +74,7 @@ export function DcimDeviceDetailPage() {
   const [ifDesc, setIfDesc] = useState("");
   const [ifSort, setIfSort] = useState("0");
   const [ifVlan, setIfVlan] = useState("");
+  const [ifIpamVlan, setIfIpamVlan] = useState("");
   const [ifParent, setIfParent] = useState("");
   const [vlanDraft, setVlanDraft] = useState<Record<number, string>>({});
   const [parentDraft, setParentDraft] = useState<Record<number, string>>({});
@@ -179,6 +180,11 @@ export function DcimDeviceDetailPage() {
   const prefixesQ = useQuery({
     queryKey: ["ipam", "ipv4-prefixes", deviceSiteId ?? "none"],
     queryFn: () => ipamApi.listIpv4Prefixes(deviceSiteId!),
+    enabled: deviceSiteId != null && deviceSiteId > 0,
+  });
+  const vlansQ = useQuery({
+    queryKey: ["ipam", "vlans", deviceSiteId ?? "none"],
+    queryFn: () => ipamApi.listIpamVlans(deviceSiteId!),
     enabled: deviceSiteId != null && deviceSiteId > 0,
   });
 
@@ -529,6 +535,7 @@ export function DcimDeviceDetailPage() {
         speed_mbps,
         mtu,
         vlan_id,
+        ipam_vlan_id: ifIpamVlan === "" ? null : Number(ifIpamVlan),
         description: ifDesc.trim() === "" ? null : ifDesc.trim(),
         sort_order: Number(ifSort) || 0,
         parent_interface_id: ifParent === "" ? null : Number(ifParent),
@@ -542,6 +549,7 @@ export function DcimDeviceDetailPage() {
       setIfDesc("");
       setIfSort("0");
       setIfVlan("");
+      setIfIpamVlan("");
       setIfParent("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
@@ -559,6 +567,16 @@ export function DcimDeviceDetailPage() {
         delete next[vars.iid];
         return next;
       });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const patchIpamVlan = useMutation({
+    mutationFn: ({ iid, ipam_vlan_id }: { iid: number; ipam_vlan_id: number | null }) =>
+      api.updateDeviceInterface(id, iid, { ipam_vlan_id }),
+    onSuccess: () => {
+      setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
@@ -1435,6 +1453,21 @@ export function DcimDeviceDetailPage() {
               title={t("dcim.equip.if.vlanHint")}
             />
           </label>
+          <label title={t("dcim.equip.if.ipamVlanHint")}>
+            {t("dcim.equip.if.ipamVlan")}
+            {deviceSiteId == null ? (
+              <span className={styles.muted}>{t("dcim.equip.if.ipamVlanNeedsSite")}</span>
+            ) : (
+              <select value={ifIpamVlan} onChange={(e) => setIfIpamVlan(e.target.value)}>
+                <option value="">{t("dcim.equip.if.ipamVlanNone")}</option>
+                {(vlansQ.data ?? []).map((v) => (
+                  <option key={v.id} value={String(v.id)}>
+                    {v.vid} {v.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
           <label>
             {t("dcim.equip.mfr.description")}
             <input value={ifDesc} onChange={(e) => setIfDesc(e.target.value)} />
@@ -1628,6 +1661,33 @@ export function DcimDeviceDetailPage() {
                       >
                         {patchVlan.isPending ? "…" : <i className="fas fa-floppy-disk" aria-hidden />}
                       </button>
+                      {deviceSiteId == null ? (
+                        <span className={styles.muted} title={t("dcim.equip.if.ipamVlanNeedsSite")}>
+                          {t("dcim.equip.if.ipamVlanNone")}
+                        </span>
+                      ) : (
+                        <select
+                          value={x.ipam_vlan_id != null ? String(x.ipam_vlan_id) : ""}
+                          title={t("dcim.equip.if.ipamVlanHint")}
+                          aria-label={t("dcim.equip.if.ipamVlan")}
+                          disabled={patchIpamVlan.isPending}
+                          onChange={(e) => {
+                            setErr(null);
+                            const raw = e.target.value;
+                            patchIpamVlan.mutate({
+                              iid: x.id,
+                              ipam_vlan_id: raw === "" ? null : Number(raw),
+                            });
+                          }}
+                        >
+                          <option value="">{t("dcim.equip.if.ipamVlanNone")}</option>
+                          {(vlansQ.data ?? []).map((v) => (
+                            <option key={v.id} value={String(v.id)}>
+                              {v.vid} {v.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </td>
                   <td>

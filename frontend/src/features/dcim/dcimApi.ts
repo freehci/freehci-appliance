@@ -1214,6 +1214,7 @@ export function createDeviceInterface(
     speed_mbps?: number | null;
     mtu?: number | null;
     vlan_id?: number | null;
+    ipam_vlan_id?: number | null;
     enabled?: boolean;
     sort_order?: number;
     parent_interface_id?: number | null;
@@ -1232,6 +1233,7 @@ export function updateDeviceInterface(
     speed_mbps?: number | null;
     mtu?: number | null;
     vlan_id?: number | null;
+    ipam_vlan_id?: number | null;
     enabled?: boolean;
     sort_order?: number;
     parent_interface_id?: number | null;

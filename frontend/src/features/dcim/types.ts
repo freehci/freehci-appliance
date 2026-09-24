@@ -632,8 +632,10 @@ export type DeviceInterface = {
   mac_address: string | null;
   speed_mbps: number | null;
   mtu: number | null;
-  /** 802.1Q (1–4094), valgfritt */
+  /** 802.1Q (1–4094), valgfritt. Ikke det samme som IPAM-VLAN. */
   vlan_id: number | null;
+  /** Eksplisitt IPAM-VLAN. Samme VID er aldri medlemskap før denne settes. */
+  ipam_vlan_id: number | null;
   enabled: boolean;
   sort_order: number;
   ip_assignments: IpAssignment[];
