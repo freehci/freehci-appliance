@@ -12,7 +12,7 @@ import { DcimInnerTabs } from "./DcimInnerTabs";
 import styles from "./dcim.module.css";
 import { deviceTypeResolvedFaIconClass } from "./dcimTypeIcons";
 import { deviceInstanceListThumbSrc, deviceModelListThumbSrc } from "./modelImages";
-import type { DeviceArtifact, DeviceInstance, DeviceModel, DeviceRole, DeviceType, NetBoxDtlItem, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
+import type { DeviceArtifact, DeviceArtifactBaselineKind, DeviceInstance, DeviceModel, DeviceRole, DeviceType, NetBoxDtlItem, NetBoxDtlPreview, Rack, RackPlacement } from "./types";
 
 type EquipTab = "mfr" | "dt" | "role" | "artifact" | "dm" | "dev" | "pl" | "cmp";
 type EquipVariant = "devices" | "library";
@@ -114,6 +114,12 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
   const [artKind, setArtKind] = useState<DeviceArtifact["kind"]>("other");
   const [artVersion, setArtVersion] = useState("");
   const [artDesc, setArtDesc] = useState("");
+  const [blName, setBlName] = useState("");
+  const [blSlug, setBlSlug] = useState("");
+  const [blKind, setBlKind] = useState<DeviceArtifactBaselineKind>("firmware");
+  const [blDesc, setBlDesc] = useState("");
+  const [blId, setBlId] = useState("");
+  const [blArtId, setBlArtId] = useState("");
   const [plRack, setPlRack] = useState<string>("");
   const [plDev, setPlDev] = useState<string>("");
   const [plU, setPlU] = useState("1");
@@ -137,6 +143,7 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
   const [dtPendingDelete, setDtPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [rolePendingDelete, setRolePendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [artPendingDelete, setArtPendingDelete] = useState<{ id: number; name: string } | null>(null);
+  const [blPendingDelete, setBlPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const [plPendingRemove, setPlPendingRemove] = useState<RackPlacement | null>(null);
 
   const manufacturersQ = useQuery({
@@ -154,6 +161,10 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
   const artifactsQ = useQuery({
     queryKey: ["dcim", "device-artifacts"],
     queryFn: api.listDeviceArtifacts,
+  });
+  const baselinesQ = useQuery({
+    queryKey: ["dcim", "device-artifact-baselines"],
+    queryFn: api.listDeviceArtifactBaselines,
   });
   const modelsQ = useQuery({ queryKey: ["dcim", "device-models"], queryFn: api.listDeviceModels });
   const netboxImportsQ = useQuery({ queryKey: ["dcim", "netbox-dtl-imports"], queryFn: api.listNetBoxDtlImports });
@@ -414,6 +425,50 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "device-artifacts"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-artifact-baselines"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const createBl = useMutation({
+    mutationFn: () =>
+      api.createDeviceArtifactBaseline({
+        name: blName.trim(),
+        slug: blSlug.trim().toLowerCase(),
+        kind: blKind,
+        description: blDesc.trim() === "" ? null : blDesc.trim(),
+      }),
+    onSuccess: () => {
+      setBlName("");
+      setBlSlug("");
+      setBlKind("firmware");
+      setBlDesc("");
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-artifact-baselines"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delBl = useMutation({
+    mutationFn: (id: number) => api.deleteDeviceArtifactBaseline(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-artifact-baselines"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const addBlMember = useMutation({
+    mutationFn: () => api.addDeviceArtifactBaselineMember(Number(blId), Number(blArtId)),
+    onSuccess: () => {
+      setBlArtId("");
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-artifact-baselines"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delBlMember = useMutation({
+    mutationFn: (id: number) => api.deleteDeviceArtifactBaselineMember(id),
+    onSuccess: () => {
+      setErr(null);
+      void qc.invalidateQueries({ queryKey: ["dcim", "device-artifact-baselines"] });
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -904,6 +959,136 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
         ) : (
           !artifactsQ.isLoading && <p className={styles.muted}>{t("dcim.equip.artifact.empty")}</p>
         )}
+        <section className={styles.mfrDetailSection} style={{ marginTop: "var(--space-4)" }}>
+          <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.baseline.title")}</h3>
+          <p className={styles.muted}>{t("dcim.equip.baseline.hint")}</p>
+          <form
+            className={styles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              createBl.mutate();
+            }}
+          >
+            <label>
+              {t("dcim.common.name")}
+              <input value={blName} onChange={(e) => setBlName(e.target.value)} required />
+            </label>
+            <label>
+              {t("dcim.equip.dt.slug")}
+              <input
+                value={blSlug}
+                onChange={(e) => setBlSlug(e.target.value)}
+                placeholder="fw-r640"
+                required
+                pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                title={t("dcim.sites.slugPatternTitle")}
+              />
+            </label>
+            <label>
+              {t("dcim.equip.artifact.kind")}
+              <select value={blKind} onChange={(e) => setBlKind(e.target.value as DeviceArtifactBaselineKind)}>
+                <option value="firmware">{t("dcim.equip.artifact.kindFirmware")}</option>
+                <option value="bios">{t("dcim.equip.artifact.kindBios")}</option>
+              </select>
+            </label>
+            <label>
+              {t("dcim.equip.mfr.description")}
+              <input value={blDesc} onChange={(e) => setBlDesc(e.target.value)} />
+            </label>
+            <button type="submit" className={styles.btn} disabled={createBl.isPending}>
+              {createBl.isPending ? "…" : t("dcim.equip.baseline.add")}
+            </button>
+          </form>
+          {baselinesQ.isLoading ? <p className={styles.muted}>{t("dcim.common.loading")}</p> : null}
+          {baselinesQ.data && baselinesQ.data.length > 0 ? (
+            <ul className={styles.ipList}>
+              {baselinesQ.data.map((b) => (
+                <li key={b.id}>
+                  {b.name}{" "}
+                  <code>{b.slug}</code> · {t(artifactKindKey(b.kind))}
+                  {b.members.length > 0
+                    ? ` (${b.members.map((m) => m.artifact_slug ?? String(m.artifact_id)).join(", ")})`
+                    : ""}{" "}
+                  {b.members.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={styles.btnLink}
+                      disabled={delBlMember.isPending}
+                      onClick={() => delBlMember.mutate(m.id)}
+                    >
+                      {t("dcim.equip.baseline.removeMember")} {m.artifact_slug ?? m.artifact_id}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={styles.btnLink}
+                    disabled={delBl.isPending}
+                    onClick={() => setBlPendingDelete({ id: b.id, name: b.name })}
+                  >
+                    {t("dcim.common.delete")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            !baselinesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.baseline.empty")}</p>
+          )}
+          {baselinesQ.data && baselinesQ.data.length > 0 ? (
+            <form
+              className={styles.formRow}
+              onSubmit={(e) => {
+                e.preventDefault();
+                setErr(null);
+                addBlMember.mutate();
+              }}
+            >
+              <label>
+                {t("dcim.equip.baseline.pick")}
+                <select
+                  value={blId}
+                  onChange={(e) => {
+                    setBlId(e.target.value);
+                    setBlArtId("");
+                  }}
+                >
+                  <option value="">{t("dcim.equip.baseline.choose")}</option>
+                  {baselinesQ.data.map((b) => (
+                    <option key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("dcim.equip.artifact.pick")}
+                <select value={blArtId} onChange={(e) => setBlArtId(e.target.value)}>
+                  <option value="">{t("dcim.equip.artifact.pick")}</option>
+                  {(artifactsQ.data ?? [])
+                    .filter((a) => {
+                      const selected = baselinesQ.data?.find((b) => String(b.id) === blId);
+                      if (selected == null) return false;
+                      if (a.kind !== selected.kind) return false;
+                      return !selected.members.some((m) => m.artifact_id === a.id);
+                    })
+                    .map((a) => (
+                      <option key={a.id} value={String(a.id)}>
+                        {a.name} {a.version}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button
+                type="submit"
+                className={styles.btn}
+                disabled={addBlMember.isPending || blId === "" || blArtId === ""}
+              >
+                {t("dcim.equip.baseline.addMember")}
+              </button>
+            </form>
+          ) : null}
+        </section>
         </>
       ) : null}
       {equipTab === "dm" ? (
@@ -1584,6 +1769,22 @@ export function DcimEquipmentPage({ variant = "devices" }: { variant?: EquipVari
       onConfirm={() => {
         if (!artPendingDelete) return;
         delArt.mutate(artPendingDelete.id, { onSettled: () => setArtPendingDelete(null) });
+      }}
+    />
+    <ConfirmModal
+      open={blPendingDelete != null}
+      onClose={() => {
+        if (!delBl.isPending) setBlPendingDelete(null);
+      }}
+      title={blPendingDelete ? t("dcim.equip.baseline.deleteModalTitle", { name: blPendingDelete.name }) : ""}
+      message={t("dcim.equip.baseline.deleteModalHint")}
+      confirmLabel={t("dcim.common.delete")}
+      cancelLabel={t("dcim.common.cancel")}
+      danger
+      pending={delBl.isPending}
+      onConfirm={() => {
+        if (!blPendingDelete) return;
+        delBl.mutate(blPendingDelete.id, { onSettled: () => setBlPendingDelete(null) });
       }}
     />
     <ConfirmModal

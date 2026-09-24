@@ -304,6 +304,46 @@ class DeviceArtifactRecord(Base):
     intent: Mapped[str] = mapped_column(String(32), nullable=False, default="recorded")
 
 
+class DeviceArtifactBaseline(Base):
+    """Navngitt firmware-baseline eller BIOS-profil. Påføres ikke, og samsvar beregnes ikke."""
+
+    __tablename__ = "dcim_device_artifact_baselines"
+    __table_args__ = (UniqueConstraint("slug", name="uq_dcim_device_artifact_baseline_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    members: Mapped[list["DeviceArtifactBaselineMember"]] = relationship(
+        back_populates="baseline",
+        cascade="all, delete-orphan",
+    )
+
+
+class DeviceArtifactBaselineMember(Base):
+    """Én registrert artefakt i en baseline. Kind må matche, og ingenting flashes."""
+
+    __tablename__ = "dcim_device_artifact_baseline_members"
+    __table_args__ = (
+        UniqueConstraint("baseline_id", "artifact_id", name="uq_dcim_device_artifact_baseline_member"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    baseline_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_artifact_baselines.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    artifact_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_artifacts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    baseline: Mapped["DeviceArtifactBaseline"] = relationship(back_populates="members")
+
+
 class DeviceModel(Base):
     __tablename__ = "dcim_device_models"
 

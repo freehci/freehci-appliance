@@ -1375,6 +1375,18 @@ export const nb = {
   "dcim.equip.artifact.kindBios": "BIOS",
   "dcim.equip.artifact.kindOs": "OS-image",
   "dcim.equip.artifact.kindOther": "Annet",
+  "dcim.equip.baseline.title": "Firmware-baselines og BIOS-profiler",
+  "dcim.equip.baseline.hint":
+    "Grupper registrerte firmware- eller BIOS-artefakter med navn. Dette flasher ikke, påfører ikke en profil og beregner ikke samsvar.",
+  "dcim.equip.baseline.add": "Legg til baseline",
+  "dcim.equip.baseline.empty": "Ingen firmware-baseline eller BIOS-profil registrert ennå.",
+  "dcim.equip.baseline.pick": "Baseline",
+  "dcim.equip.baseline.choose": "Velg baseline",
+  "dcim.equip.baseline.addMember": "Legg til artefakt",
+  "dcim.equip.baseline.removeMember": "Fjern",
+  "dcim.equip.baseline.deleteModalTitle": "Slette baseline «{name}»?",
+  "dcim.equip.baseline.deleteModalHint":
+    "Den navngitte gruppen fjernes. Artefaktene blir stående. Ingenting blir flashet eller rulles tilbake.",
   "dcim.equip.dm.title": "Enhetsmodeller",
   "dcim.equip.dm.mfr": "Produsent",
   "dcim.equip.dm.mfrCol": "Prod.",

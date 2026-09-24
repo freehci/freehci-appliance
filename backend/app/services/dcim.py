@@ -40,6 +40,8 @@ from app.models.dcim import (
     DeviceModelComponent,
     DeviceModelIdentity,
     DeviceArtifact,
+    DeviceArtifactBaseline,
+    DeviceArtifactBaselineMember,
     DeviceArtifactRecord,
     DeviceRole,
     DeviceType,
@@ -119,6 +121,10 @@ from app.schemas.dcim import (
     DeviceModelIdentityUpdate,
     DeviceModelRead,
     DeviceArtifactCreate,
+    DeviceArtifactBaselineCreate,
+    DeviceArtifactBaselineMemberCreate,
+    DeviceArtifactBaselineMemberRead,
+    DeviceArtifactBaselineRead,
     DeviceArtifactRecordCreate,
     DeviceArtifactRecordRead,
     DeviceArtifactRead,
@@ -1506,6 +1512,10 @@ def delete_device_artifact(db: Session, row: DeviceArtifact) -> None:
     )
     for rec in recs:
         db.delete(rec)
+    for m in list(
+        db.execute(select(DeviceArtifactBaselineMember).where(DeviceArtifactBaselineMember.artifact_id == row.id)).scalars().all()
+    ):
+        db.delete(m)
     db.delete(row)
     db.commit()
 
@@ -1548,6 +1558,115 @@ def record_device_artifact(
 def delete_device_artifact_record(db: Session, row: DeviceArtifactRecord) -> None:
     db.delete(row)
     db.commit()
+
+
+def list_artifact_baselines(db: Session) -> list[DeviceArtifactBaseline]:
+    return list(db.execute(select(DeviceArtifactBaseline).order_by(DeviceArtifactBaseline.slug)).scalars().all())
+
+
+def get_artifact_baseline(db: Session, baseline_id: int) -> DeviceArtifactBaseline | None:
+    return db.get(DeviceArtifactBaseline, baseline_id)
+
+
+def get_artifact_baseline_by_slug(db: Session, slug: str) -> DeviceArtifactBaseline | None:
+    return db.execute(select(DeviceArtifactBaseline).where(DeviceArtifactBaseline.slug == slug)).scalar_one_or_none()
+
+
+def get_artifact_baseline_member(db: Session, member_id: int) -> DeviceArtifactBaselineMember | None:
+    return db.get(DeviceArtifactBaselineMember, member_id)
+
+
+def create_artifact_baseline(db: Session, data: DeviceArtifactBaselineCreate) -> DeviceArtifactBaseline:
+    if get_artifact_baseline_by_slug(db, data.slug) is not None:
+        raise HTTPException(status_code=409, detail="baseline-slug finnes allerede")
+    row = DeviceArtifactBaseline(
+        name=data.name.strip(),
+        slug=data.slug,
+        kind=data.kind,
+        description=(data.description or "").strip() or None,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="baseline-slug finnes allerede")
+    db.refresh(row)
+    return row
+
+
+def add_artifact_baseline_member(
+    db: Session,
+    baseline: DeviceArtifactBaseline,
+    data: DeviceArtifactBaselineMemberCreate,
+) -> DeviceArtifactBaselineMember:
+    art = get_device_artifact(db, data.artifact_id)
+    if art is None:
+        raise HTTPException(status_code=404, detail="artefakt ikke funnet")
+    if art.kind != baseline.kind:
+        raise HTTPException(status_code=400, detail="artifact_baseline_kind")
+    existing = db.execute(
+        select(DeviceArtifactBaselineMember).where(
+            DeviceArtifactBaselineMember.baseline_id == baseline.id,
+            DeviceArtifactBaselineMember.artifact_id == art.id,
+        ),
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="artifact_baseline_member_taken")
+    row = DeviceArtifactBaselineMember(baseline_id=baseline.id, artifact_id=art.id)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="artifact_baseline_member_taken")
+    db.refresh(row)
+    return row
+
+
+def delete_artifact_baseline(db: Session, row: DeviceArtifactBaseline) -> None:
+    for m in list(
+        db.execute(select(DeviceArtifactBaselineMember).where(DeviceArtifactBaselineMember.baseline_id == row.id)).scalars().all()
+    ):
+        db.delete(m)
+    db.delete(row)
+    db.commit()
+
+
+def delete_artifact_baseline_member(db: Session, row: DeviceArtifactBaselineMember) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def artifact_baseline_to_read(db: Session, row: DeviceArtifactBaseline) -> DeviceArtifactBaselineRead:
+    members = list(
+        db.execute(
+            select(DeviceArtifactBaselineMember).where(DeviceArtifactBaselineMember.baseline_id == row.id),
+        ).scalars().all()
+    )
+    items: list[DeviceArtifactBaselineMemberRead] = []
+    for m in members:
+        art = db.get(DeviceArtifact, m.artifact_id)
+        items.append(
+            DeviceArtifactBaselineMemberRead(
+                id=m.id,
+                artifact_id=m.artifact_id,
+                artifact_slug=art.slug if art is not None else None,
+                artifact_name=art.name if art is not None else None,
+                artifact_version=art.version if art is not None else None,
+                artifact_kind=art.kind if art is not None else None,
+            )
+        )
+    items.sort(key=lambda x: (x.artifact_slug or "", x.artifact_id))
+    return DeviceArtifactBaselineRead(
+        id=row.id,
+        name=row.name,
+        slug=row.slug,
+        kind=row.kind,
+        description=row.description,
+        members=items,
+        created_at=row.created_at,
+    )
 
 
 # --- Device models ---

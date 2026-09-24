@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
-from app.models.dcim import Building, DeviceArtifact, DeviceArtifactRecord, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamIpv4Address
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -837,7 +837,19 @@ def _export_device_artifacts(
         if device_ids
         else []
     )
-    art_ids = {r.artifact_id for r in records} | {i for i in inst_art if i}
+    baselines = list(db.execute(select(DeviceArtifactBaseline).order_by(DeviceArtifactBaseline.slug)).scalars().all())
+    baseline_ids = {b.id for b in baselines}
+    baseline_members = (
+        list(
+            db.execute(select(DeviceArtifactBaselineMember).where(DeviceArtifactBaselineMember.baseline_id.in_(baseline_ids))).scalars().all()
+        )
+        if baseline_ids
+        else []
+    )
+    members_by_baseline: dict[int, list[DeviceArtifactBaselineMember]] = {}
+    for m in baseline_members:
+        members_by_baseline.setdefault(m.baseline_id, []).append(m)
+    art_ids = {r.artifact_id for r in records} | {i for i in inst_art if i} | {m.artifact_id for m in baseline_members}
     artifacts = (
         list(db.execute(select(DeviceArtifact).where(DeviceArtifact.id.in_(art_ids))).scalars().all()) if art_ids else []
     )
@@ -852,6 +864,20 @@ def _export_device_artifacts(
                 "description": a.description,
             }
             for a in artifacts
+        ],
+        "device_artifact_baselines": [
+            {
+                "slug": b.slug,
+                "name": b.name,
+                "kind": b.kind,
+                "description": b.description,
+                "artifact_slugs": sorted(
+                    art_by_id[m.artifact_id].slug
+                    for m in members_by_baseline.get(b.id, [])
+                    if m.artifact_id in art_by_id
+                ),
+            }
+            for b in baselines
         ],
         "device_artifact_records": [
             {

@@ -149,6 +149,27 @@ export type DeviceArtifactRecord = {
   artifact: DeviceArtifact | null;
 };
 
+export type DeviceArtifactBaselineKind = "firmware" | "bios";
+
+export type DeviceArtifactBaselineMember = {
+  id: number;
+  artifact_id: number;
+  artifact_slug: string | null;
+  artifact_name: string | null;
+  artifact_version: string | null;
+  artifact_kind: string | null;
+};
+
+export type DeviceArtifactBaseline = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: DeviceArtifactBaselineKind;
+  description: string | null;
+  members: DeviceArtifactBaselineMember[];
+  created_at: string;
+};
+
 export type DeviceModelBrief = {
   id: number;
   name: string;

@@ -456,6 +456,7 @@ class DeviceTypeRead(BaseModel):
 DEVICE_ROLE_KINDS = frozenset({"core", "edge", "hypervisor", "other"})
 DEVICE_ARTIFACT_KINDS = frozenset({"firmware", "bios", "os-image", "other"})
 DEVICE_ARTIFACT_INTENTS = frozenset({"recorded", "intended"})
+DEVICE_ARTIFACT_BASELINE_KINDS = frozenset({"firmware", "bios"})
 
 
 class DeviceRoleCreate(BaseModel):
@@ -588,6 +589,58 @@ class DeviceArtifactRecordRead(BaseModel):
     artifact_id: int
     intent: str
     artifact: DeviceArtifactRead | None = None
+
+
+class DeviceArtifactBaselineCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str = Field(..., min_length=1, max_length=64)
+    kind: str
+    description: str | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if not _SLUG_RE.match(s):
+            raise ValueError("slug må være lowercase bokstaver, tall og bindestrek")
+        return s
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        s = (v or "").strip().lower()
+        if s not in DEVICE_ARTIFACT_BASELINE_KINDS:
+            raise ValueError(f"kind må være en av: {', '.join(sorted(DEVICE_ARTIFACT_BASELINE_KINDS))}")
+        return s
+
+
+class DeviceArtifactBaselineMemberRead(BaseModel):
+    id: int
+    artifact_id: int
+    artifact_slug: str | None = None
+    artifact_name: str | None = None
+    artifact_version: str | None = None
+    artifact_kind: str | None = None
+
+
+class DeviceArtifactBaselineRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    kind: str
+    description: str | None
+    members: list[DeviceArtifactBaselineMemberRead] = Field(default_factory=list)
+    created_at: dt.datetime
+
+
+class DeviceArtifactBaselineMemberCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    artifact_id: int = Field(..., ge=1)
 
 
 class DeviceModelBrief(BaseModel):

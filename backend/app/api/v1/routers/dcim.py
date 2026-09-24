@@ -86,6 +86,9 @@ from app.schemas.dcim import (
     DeviceModelUpdate,
     DeviceArtifactCreate,
     DeviceArtifactRead,
+    DeviceArtifactBaselineCreate,
+    DeviceArtifactBaselineMemberCreate,
+    DeviceArtifactBaselineRead,
     DeviceArtifactRecordCreate,
     DeviceArtifactRecordRead,
     DeviceArtifactUpdate,
@@ -833,6 +836,56 @@ def delete_device_artifact_record(did: int, rid: int, db: Session = Depends(get_
     if row is None or row.device_id != did:
         raise HTTPException(status_code=404, detail="artefakt-registrering ikke funnet")
     dcim_svc.delete_device_artifact_record(db, row)
+
+
+@router.get("/device-artifact-baselines", response_model=list[DeviceArtifactBaselineRead])
+def list_artifact_baselines(db: Session = Depends(get_db)) -> list[DeviceArtifactBaselineRead]:
+    return [dcim_svc.artifact_baseline_to_read(db, x) for x in dcim_svc.list_artifact_baselines(db)]
+
+
+@router.post("/device-artifact-baselines", response_model=DeviceArtifactBaselineRead)
+def create_artifact_baseline(
+    data: DeviceArtifactBaselineCreate,
+    db: Session = Depends(get_db),
+) -> DeviceArtifactBaselineRead:
+    return dcim_svc.artifact_baseline_to_read(db, dcim_svc.create_artifact_baseline(db, data))
+
+
+@router.get("/device-artifact-baselines/{bid}", response_model=DeviceArtifactBaselineRead)
+def get_artifact_baseline(bid: int, db: Session = Depends(get_db)) -> DeviceArtifactBaselineRead:
+    row = dcim_svc.get_artifact_baseline(db, bid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="baseline ikke funnet")
+    return dcim_svc.artifact_baseline_to_read(db, row)
+
+
+@router.post("/device-artifact-baselines/{bid}/members", response_model=DeviceArtifactBaselineRead)
+def add_artifact_baseline_member(
+    bid: int,
+    data: DeviceArtifactBaselineMemberCreate,
+    db: Session = Depends(get_db),
+) -> DeviceArtifactBaselineRead:
+    row = dcim_svc.get_artifact_baseline(db, bid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="baseline ikke funnet")
+    dcim_svc.add_artifact_baseline_member(db, row, data)
+    return dcim_svc.artifact_baseline_to_read(db, row)
+
+
+@router.delete("/device-artifact-baselines/{bid}", status_code=204)
+def delete_artifact_baseline(bid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_artifact_baseline(db, bid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="baseline ikke funnet")
+    dcim_svc.delete_artifact_baseline(db, row)
+
+
+@router.delete("/device-artifact-baseline-members/{mid}", status_code=204)
+def delete_artifact_baseline_member(mid: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_artifact_baseline_member(db, mid)
+    if row is None:
+        raise HTTPException(status_code=404, detail="baseline-medlem ikke funnet")
+    dcim_svc.delete_artifact_baseline_member(db, row)
 
 
 # --- Component classes / library ---

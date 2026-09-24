@@ -18,6 +18,8 @@ from app.schemas.dcim import (
     DeviceInstanceUpdate,
     DeviceModelCreate,
     DeviceArtifactCreate,
+    DeviceArtifactBaselineCreate,
+    DeviceArtifactBaselineMemberCreate,
     DeviceArtifactRecordCreate,
     DeviceRoleCreate,
     DeviceTypeCreate,
@@ -302,6 +304,36 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
                 description=art.get("description"),
             ),
         )
+
+    for b in doc.get("device_artifact_baselines") or []:
+        slug = str(b.get("slug") or "").strip().lower()
+        kind = str(b.get("kind") or "").strip().lower()
+        if not slug or kind not in {"firmware", "bios"} or dcim_svc.get_artifact_baseline_by_slug(db, slug) is not None:
+            continue
+        try:
+            baseline = dcim_svc.create_artifact_baseline(
+                db,
+                DeviceArtifactBaselineCreate(
+                    name=b.get("name") or slug,
+                    slug=slug,
+                    kind=kind,
+                    description=b.get("description"),
+                ),
+            )
+        except Exception:
+            continue
+        for art_slug in b.get("artifact_slugs") or []:
+            art = dcim_svc.get_device_artifact_by_slug(db, str(art_slug or "").strip().lower())
+            if art is None:
+                continue
+            try:
+                dcim_svc.add_artifact_baseline_member(
+                    db,
+                    baseline,
+                    DeviceArtifactBaselineMemberCreate(artifact_id=art.id),
+                )
+            except Exception:
+                continue
 
     for dm in doc.get("device_models") or []:
         mfr = db.execute(select(Manufacturer).where(Manufacturer.name == dm["manufacturer_name"])).scalar_one_or_none()

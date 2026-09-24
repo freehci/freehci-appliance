@@ -1366,6 +1366,18 @@ export const en = {
   "dcim.equip.artifact.kindBios": "BIOS",
   "dcim.equip.artifact.kindOs": "OS image",
   "dcim.equip.artifact.kindOther": "Other",
+  "dcim.equip.baseline.title": "Firmware baselines and BIOS profiles",
+  "dcim.equip.baseline.hint":
+    "Group recorded firmware or BIOS artifacts by name. This does not flash, apply a profile, or compute compliance.",
+  "dcim.equip.baseline.add": "Add baseline",
+  "dcim.equip.baseline.empty": "No firmware baseline or BIOS profile recorded yet.",
+  "dcim.equip.baseline.pick": "Baseline",
+  "dcim.equip.baseline.choose": "Choose baseline",
+  "dcim.equip.baseline.addMember": "Add artifact",
+  "dcim.equip.baseline.removeMember": "Remove",
+  "dcim.equip.baseline.deleteModalTitle": "Delete baseline «{name}»?",
+  "dcim.equip.baseline.deleteModalHint":
+    "The named group is removed. Artifacts stay recorded. Nothing is flashed or rolled back.",
   "dcim.equip.dm.title": "Device models",
   "dcim.equip.dm.mfr": "Manufacturer",
   "dcim.equip.dm.mfrCol": "Mfr.",
