@@ -1772,6 +1772,8 @@ class PowerFeedRead(BaseModel):
 
 
 class DevicePortCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     kind: str
     name: str = Field(..., min_length=1, max_length=128)
     label: str | None = Field(None, max_length=128)
@@ -1786,6 +1788,12 @@ class DevicePortCreate(BaseModel):
         if s not in DEVICE_PORT_KINDS:
             raise ValueError(f"kind må være en av: {', '.join(sorted(DEVICE_PORT_KINDS))}")
         return s
+
+
+class DevicePortUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    rear_port_id: int | None = Field(None, ge=1)
 
 
 class DevicePortRead(BaseModel):

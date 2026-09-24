@@ -30,6 +30,7 @@ export function DevicePortsCablesPanel({
   const [endA, setEndA] = useState("");
   const [endZ, setEndZ] = useState("");
   const [path, setPath] = useState<CablePathHop[] | null>(null);
+  const [rearPort, setRearPort] = useState("");
 
   const portsQ = useQuery({
     queryKey: ["dcim", "devices", deviceId, "ports"],
@@ -52,9 +53,24 @@ export function DevicePortsCablesPanel({
   };
 
   const createPort = useMutation({
-    mutationFn: () => api.createDevicePort(deviceId, { kind, name: name.trim() }),
+    mutationFn: () =>
+      api.createDevicePort(deviceId, {
+        kind,
+        name: name.trim(),
+        rear_port_id: kind === "front-port" && rearPort !== "" ? Number(rearPort) : null,
+      }),
     onSuccess: () => {
       setName("");
+      setRearPort("");
+      onError(null);
+      refresh();
+    },
+    onError: fail,
+  });
+  const patchPort = useMutation({
+    mutationFn: ({ id, rear_port_id }: { id: number; rear_port_id: number | null }) =>
+      api.patchDevicePort(id, { rear_port_id }),
+    onSuccess: () => {
       onError(null);
       refresh();
     },
@@ -127,6 +143,7 @@ export function DevicePortsCablesPanel({
             <tr>
               <th>{t("dcim.ports.kind")}</th>
               <th>{t("dcim.common.name")}</th>
+              <th>{t("dcim.ports.rear")}</th>
               <th>{t("dcim.ports.connector")}</th>
               <th>{t("dcim.equip.actionsCol")}</th>
             </tr>
@@ -136,6 +153,29 @@ export function DevicePortsCablesPanel({
               <tr key={p.id}>
                 <td>{p.kind}</td>
                 <td>{p.name}</td>
+                <td>
+                  {p.kind === "front-port" ? (
+                    <select
+                      value={p.rear_port_id != null ? String(p.rear_port_id) : ""}
+                      disabled={patchPort.isPending}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        patchPort.mutate({ id: p.id, rear_port_id: raw === "" ? null : Number(raw) });
+                      }}
+                    >
+                      <option value="">{t("dcim.ports.noRear")}</option>
+                      {(portsQ.data ?? [])
+                        .filter((r) => r.kind === "rear-port")
+                        .map((r) => (
+                          <option key={r.id} value={String(r.id)}>
+                            {r.name}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    t("dcim.ports.noRear")
+                  )}
+                </td>
                 <td>{p.connector ?? "—"}</td>
                 <td>
                   <button
@@ -170,7 +210,13 @@ export function DevicePortsCablesPanel({
       >
         <label>
           {t("dcim.ports.kind")}
-          <select value={kind} onChange={(e) => setKind(e.target.value)}>
+          <select
+            value={kind}
+            onChange={(e) => {
+              setKind(e.target.value);
+              setRearPort("");
+            }}
+          >
             {PORT_KINDS.map((k) => (
               <option key={k} value={k}>
                 {k}
@@ -182,6 +228,21 @@ export function DevicePortsCablesPanel({
           {t("dcim.common.name")}
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
+        {kind === "front-port" ? (
+          <label>
+            {t("dcim.ports.rear")}
+            <select value={rearPort} onChange={(e) => setRearPort(e.target.value)}>
+              <option value="">{t("dcim.ports.chooseRear")}</option>
+              {(portsQ.data ?? [])
+                .filter((p) => p.kind === "rear-port")
+                .map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        ) : null}
         <button type="submit" className={styles.btn} disabled={createPort.isPending}>
           {t("dcim.ports.add")}
         </button>

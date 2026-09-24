@@ -45,6 +45,7 @@ from app.schemas.dcim import (
     CableTerminationRead,
     DevicePortCreate,
     DevicePortRead,
+    DevicePortUpdate,
     PowerCircuitCreate,
     PowerCircuitRead,
     PowerFeedCreate,
@@ -446,6 +447,37 @@ def create_port(db: Session, device_id: int, data: DevicePortCreate) -> DevicePo
 
 def get_port(db: Session, port_id: int) -> DevicePort | None:
     return db.get(DevicePort, port_id)
+
+
+def update_port(db: Session, row: DevicePort, data: DevicePortUpdate) -> DevicePort:
+    if "rear_port_id" not in data.model_fields_set:
+        return row
+    rear_id = data.rear_port_id
+    if rear_id is None:
+        row.rear_port_id = None
+        db.commit()
+        db.refresh(row)
+        return row
+    if row.kind != "front-port":
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "port_rear_kind", "detail": "bare front-port kan peke på bakport"},
+        )
+    if rear_id == row.id:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "port_rear_same", "detail": "port kan ikke peke på seg selv"},
+        )
+    rear = db.get(DevicePort, rear_id)
+    if rear is None or rear.device_id != row.device_id or rear.kind != "rear-port":
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "port_rear", "detail": "rear_port må være en bakport på samme enhet"},
+        )
+    row.rear_port_id = rear_id
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 def delete_port(db: Session, row: DevicePort) -> None:

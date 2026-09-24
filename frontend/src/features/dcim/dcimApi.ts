@@ -1464,6 +1464,13 @@ export function copyDevicePortsFromTemplates(deviceId: number): Promise<DevicePo
   return apiPost(`${P}/devices/${deviceId}/ports/from-templates`, {});
 }
 
+export function patchDevicePort(
+  portId: number,
+  body: { rear_port_id?: number | null },
+): Promise<DevicePort> {
+  return apiPatch(`${P}/device-ports/${portId}`, body);
+}
+
 export function deleteDevicePort(portId: number): Promise<void> {
   return apiDelete(`${P}/device-ports/${portId}`);
 }

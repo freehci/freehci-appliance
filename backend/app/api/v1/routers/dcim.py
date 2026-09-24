@@ -146,6 +146,7 @@ from app.schemas.dcim import (
     PowerFeedRead,
     DevicePortCreate,
     DevicePortRead,
+    DevicePortUpdate,
     CableCreate,
     CableRead,
     CablePathRead,
@@ -1973,6 +1974,14 @@ def create_device_port(did: int, data: DevicePortCreate, db: Session = Depends(g
 @router.post("/devices/{did}/ports/from-templates", response_model=list[DevicePortRead])
 def copy_device_ports_from_templates(did: int, db: Session = Depends(get_db)) -> list[DevicePortRead]:
     return [power_svc.port_to_read(r) for r in power_svc.copy_ports_from_templates(db, did)]
+
+
+@router.patch("/device-ports/{port_id}", response_model=DevicePortRead)
+def patch_device_port(port_id: int, data: DevicePortUpdate, db: Session = Depends(get_db)) -> DevicePortRead:
+    row = power_svc.get_port(db, port_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="port ikke funnet")
+    return power_svc.port_to_read(power_svc.update_port(db, row, data))
 
 
 @router.delete("/device-ports/{port_id}", status_code=204)
