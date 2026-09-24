@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
@@ -35,6 +36,8 @@ from app.models.dcim import (
     DeviceInstance,
     DeviceInstanceComponent,
     DeviceInterface,
+    DeviceInterfaceLag,
+    DeviceInterfaceLagMember,
     DeviceIpAssignment,
     DeviceModel,
     DeviceModelComponent,
@@ -96,6 +99,10 @@ from app.schemas.dcim import (
     DeviceInstanceRead,
     DeviceInstanceUpdate,
     DeviceInterfaceCreate,
+    DeviceInterfaceLagCreate,
+    DeviceInterfaceLagMemberCreate,
+    DeviceInterfaceLagMemberRead,
+    DeviceInterfaceLagRead,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
     ExternalIdentityObservation,
@@ -2048,6 +2055,10 @@ def delete_device(db: Session, row: DeviceInstance) -> None:
     from app.services.federation_guard import require_site_write
 
     require_site_write(db, row.site_id)
+    for lag in list(
+        db.execute(select(DeviceInterfaceLag).where(DeviceInterfaceLag.device_id == row.id)).scalars().all()
+    ):
+        delete_interface_lag(db, lag, commit=False)
     db.delete(row)
     db.commit()
 
@@ -4729,7 +4740,17 @@ def delete_device_interface(db: Session, row: DeviceInterface) -> None:
     for cid in _iface_descendant_ids_post_order(db, row.id):
         child = db.get(DeviceInterface, cid)
         if child is not None:
+            for m in list(
+                db.execute(select(DeviceInterfaceLagMember).where(DeviceInterfaceLagMember.interface_id == child.id))
+                .scalars()
+                .all()
+            ):
+                db.delete(m)
             db.delete(child)
+    for m in list(
+        db.execute(select(DeviceInterfaceLagMember).where(DeviceInterfaceLagMember.interface_id == row.id)).scalars().all()
+    ):
+        db.delete(m)
     db.delete(row)
     db.commit()
 
@@ -5028,6 +5049,156 @@ def update_placement(db: Session, row: RackPlacement, data: RackPlacementUpdate)
 
 def get_placement(db: Session, pid: int) -> RackPlacement | None:
     return db.get(RackPlacement, pid)
+
+
+def _lag_slugify(value: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return (s or "lag")[:128]
+
+
+def _unique_lag_slug(db: Session, device_id: int, desired: str, *, explicit: bool) -> str:
+    base = _lag_slugify(desired)
+    if explicit:
+        taken = db.execute(
+            select(DeviceInterfaceLag.id).where(DeviceInterfaceLag.device_id == device_id, DeviceInterfaceLag.slug == base),
+        ).scalar_one_or_none()
+        if taken is not None:
+            raise HTTPException(status_code=409, detail={"code": "lag_slug", "detail": "LAG-slug finnes allerede"})
+        return base
+    candidate = base
+    n = 2
+    while True:
+        q = select(DeviceInterfaceLag.id).where(
+            DeviceInterfaceLag.device_id == device_id,
+            DeviceInterfaceLag.slug == candidate,
+        )
+        if db.execute(q).scalar_one_or_none() is None:
+            return candidate
+        candidate = f"{base}-{n}"[:128]
+        n += 1
+
+
+def list_interface_lags(db: Session, device_id: int) -> list[DeviceInterfaceLag]:
+    _require_device(db, device_id)
+    return list(
+        db.execute(
+            select(DeviceInterfaceLag).where(DeviceInterfaceLag.device_id == device_id).order_by(DeviceInterfaceLag.slug),
+        ).scalars().all()
+    )
+
+
+def get_interface_lag(db: Session, lag_id: int) -> DeviceInterfaceLag | None:
+    return db.get(DeviceInterfaceLag, lag_id)
+
+
+def get_interface_lag_by_slug(db: Session, device_id: int, slug: str) -> DeviceInterfaceLag | None:
+    return db.execute(
+        select(DeviceInterfaceLag).where(DeviceInterfaceLag.device_id == device_id, DeviceInterfaceLag.slug == slug),
+    ).scalar_one_or_none()
+
+
+def get_interface_lag_member(db: Session, member_id: int) -> DeviceInterfaceLagMember | None:
+    return db.get(DeviceInterfaceLagMember, member_id)
+
+
+def get_lag_member_for_interface(db: Session, interface_id: int) -> DeviceInterfaceLagMember | None:
+    return db.execute(
+        select(DeviceInterfaceLagMember).where(DeviceInterfaceLagMember.interface_id == interface_id),
+    ).scalar_one_or_none()
+
+
+def create_interface_lag(db: Session, device: DeviceInstance, data: DeviceInterfaceLagCreate) -> DeviceInterfaceLag:
+    slug = _unique_lag_slug(db, device.id, data.slug or data.name, explicit=data.slug is not None)
+    row = DeviceInterfaceLag(
+        device_id=device.id,
+        name=data.name.strip(),
+        slug=slug,
+        description=data.description.strip() if data.description else None,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail={"code": "lag_slug", "detail": "LAG-slug finnes allerede"})
+    db.refresh(row)
+    return row
+
+
+def add_interface_lag_member(
+    db: Session,
+    lag: DeviceInterfaceLag,
+    data: DeviceInterfaceLagMemberCreate,
+) -> DeviceInterfaceLagMember:
+    iface = db.get(DeviceInterface, data.interface_id)
+    if iface is None:
+        raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
+    if iface.device_id != lag.device_id:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "lag_member_device", "detail": "grensesnittet tilhører en annen enhet"},
+        )
+    if get_lag_member_for_interface(db, iface.id) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "lag_member_taken", "detail": "grensesnittet ligger allerede i en LAG"},
+        )
+    row = DeviceInterfaceLagMember(lag_id=lag.id, interface_id=iface.id)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "lag_member_taken", "detail": "grensesnittet ligger allerede i en LAG"},
+        )
+    db.refresh(row)
+    return row
+
+
+def delete_interface_lag(db: Session, row: DeviceInterfaceLag, *, commit: bool = True) -> None:
+    for m in list(
+        db.execute(select(DeviceInterfaceLagMember).where(DeviceInterfaceLagMember.lag_id == row.id)).scalars().all()
+    ):
+        db.delete(m)
+    db.delete(row)
+    if commit:
+        db.commit()
+
+
+def delete_interface_lag_member(db: Session, row: DeviceInterfaceLagMember) -> None:
+    db.delete(row)
+    db.commit()
+
+
+def interface_lag_to_read(db: Session, row: DeviceInterfaceLag) -> DeviceInterfaceLagRead:
+    members = list(
+        db.execute(select(DeviceInterfaceLagMember).where(DeviceInterfaceLagMember.lag_id == row.id)).scalars().all()
+    )
+    items: list[DeviceInterfaceLagMemberRead] = []
+    for m in members:
+        iface = db.get(DeviceInterface, m.interface_id)
+        if iface is None:
+            continue
+        items.append(
+            DeviceInterfaceLagMemberRead(
+                id=m.id,
+                interface_id=m.interface_id,
+                interface_name=iface.name,
+                speed_mbps=iface.speed_mbps,
+            )
+        )
+    items.sort(key=lambda x: x.interface_name)
+    return DeviceInterfaceLagRead(
+        id=row.id,
+        device_id=row.device_id,
+        name=row.name,
+        slug=row.slug,
+        description=row.description,
+        members=items,
+        created_at=row.created_at,
+    )
 
 
 def delete_placement(db: Session, row: RackPlacement) -> None:

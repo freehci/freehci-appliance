@@ -52,6 +52,7 @@ import type {
   CablePathHop,
   FiberStrand,
   FiberBundle,
+  DeviceInterfaceLag,
   NetBoxDtlApply,
   NetBoxDtlImport,
   NetBoxDtlItem,
@@ -1539,4 +1540,27 @@ export function deleteFiberBundle(id: number): Promise<void> {
 
 export function deleteFiberBundleMember(id: number): Promise<void> {
   return apiDelete(`${P}/fiber-bundle-members/${id}`);
+}
+
+export function listDeviceInterfaceLags(deviceId: number): Promise<DeviceInterfaceLag[]> {
+  return apiGet(`${P}/devices/${deviceId}/interface-lags`);
+}
+
+export function createDeviceInterfaceLag(
+  deviceId: number,
+  body: { name: string; slug?: string | null; description?: string | null },
+): Promise<DeviceInterfaceLag> {
+  return apiPost(`${P}/devices/${deviceId}/interface-lags`, body);
+}
+
+export function addDeviceInterfaceLagMember(lagId: number, interfaceId: number): Promise<DeviceInterfaceLag> {
+  return apiPost(`${P}/interface-lags/${lagId}/members`, { interface_id: interfaceId });
+}
+
+export function deleteDeviceInterfaceLag(id: number): Promise<void> {
+  return apiDelete(`${P}/interface-lags/${id}`);
+}
+
+export function deleteDeviceInterfaceLagMember(id: number): Promise<void> {
+  return apiDelete(`${P}/interface-lag-members/${id}`);
 }

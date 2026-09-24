@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
-from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceInterface, DeviceInterfaceLag, DeviceInterfaceLagMember, DeviceModel, DeviceRole, DeviceType, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamIpv4Address
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -915,6 +915,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
             {"slug": r.slug, "name": r.name, "kind": r.kind, "description": r.description} for r in roles
         ],
         **_export_device_artifacts(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
+        **_export_device_interface_lags(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **pwr_svc.export_for_sites(db, sites),
     }
@@ -1032,6 +1033,65 @@ def _export_device_artifacts(
             }
             for a in assignments
             if a.device_id in device_by_id and a.baseline_id in baseline_by_id
+        ],
+    }
+
+
+def _export_device_interface_lags(
+    db: Session,
+    *,
+    devices: list[DeviceInstance],
+    site_by_id: dict[int, Site],
+    device_by_id: dict[int, DeviceInstance],
+) -> dict[str, Any]:
+    device_ids = {d.id for d in devices}
+    lags = (
+        list(
+            db.execute(
+                select(DeviceInterfaceLag)
+                .where(DeviceInterfaceLag.device_id.in_(device_ids))
+                .order_by(DeviceInterfaceLag.slug)
+            ).scalars().all()
+        )
+        if device_ids
+        else []
+    )
+    members_by_lag: dict[int, list[DeviceInterfaceLagMember]] = {}
+    if lags:
+        for m in db.execute(
+            select(DeviceInterfaceLagMember).where(DeviceInterfaceLagMember.lag_id.in_({r.id for r in lags}))
+        ).scalars().all():
+            members_by_lag.setdefault(m.lag_id, []).append(m)
+    iface_by_id = {
+        i.id: i
+        for i in (
+            db.execute(select(DeviceInterface).where(DeviceInterface.device_id.in_(device_ids))).scalars().all()
+            if device_ids
+            else []
+        )
+    }
+    return {
+        "device_interface_lags": [
+            {
+                "device_name": device_by_id[r.device_id].name if r.device_id in device_by_id else None,
+                "site_slug": (
+                    site_by_id[device_by_id[r.device_id].site_id].slug
+                    if r.device_id in device_by_id
+                    and device_by_id[r.device_id].site_id
+                    and device_by_id[r.device_id].site_id in site_by_id
+                    else None
+                ),
+                "slug": r.slug,
+                "name": r.name,
+                "description": r.description,
+                "interface_names": sorted(
+                    iface_by_id[m.interface_id].name
+                    for m in members_by_lag.get(r.id, [])
+                    if m.interface_id in iface_by_id
+                ),
+            }
+            for r in lags
+            if r.device_id in device_by_id
         ],
     }
 

@@ -470,6 +470,11 @@ class DeviceInstance(Base):
         cascade="all, delete-orphan",
         order_by="DeviceInterface.sort_order, DeviceInterface.name",
     )
+    interface_lags: Mapped[list["DeviceInterfaceLag"]] = relationship(
+        back_populates="device",
+        cascade="all, delete-orphan",
+        order_by="DeviceInterfaceLag.slug",
+    )
     device_ip_assignments: Mapped[list["DeviceIpAssignment"]] = relationship(
         back_populates="device",
         cascade="all, delete-orphan",
@@ -899,6 +904,10 @@ class DeviceInterface(Base):
         cascade="all, delete-orphan",
         order_by="InterfaceIpAssignment.family, InterfaceIpAssignment.address",
     )
+    lag_memberships: Mapped[list["DeviceInterfaceLagMember"]] = relationship(
+        back_populates="interface",
+        cascade="all, delete-orphan",
+    )
 
 
 class InterfaceIpAssignment(Base):
@@ -1161,3 +1170,40 @@ class FiberBundleMember(Base):
 
     bundle: Mapped["FiberBundle"] = relationship(back_populates="members")
     strand: Mapped["FiberStrand"] = relationship(back_populates="bundle_memberships")
+
+
+class DeviceInterfaceLag(Base):
+    """Navngitt LAG på én enhet. Medlemskap er aldri gjettet fra navn, hastighet eller LACP."""
+
+    __tablename__ = "dcim_device_interface_lags"
+    __table_args__ = (UniqueConstraint("device_id", "slug", name="uq_dcim_iface_lag_device_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_instances.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    device: Mapped["DeviceInstance"] = relationship(back_populates="interface_lags")
+    members: Mapped[list["DeviceInterfaceLagMember"]] = relationship(
+        back_populates="lag",
+        cascade="all, delete-orphan",
+    )
+
+
+class DeviceInterfaceLagMember(Base):
+    """Ett registrert grensesnitt i en LAG. Et grensesnitt kan bare ligge i én LAG."""
+
+    __tablename__ = "dcim_device_interface_lag_members"
+    __table_args__ = (
+        UniqueConstraint("interface_id", name="uq_dcim_iface_lag_member_iface"),
+        UniqueConstraint("lag_id", "interface_id", name="uq_dcim_iface_lag_member_lag_iface"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lag_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_interface_lags.id", ondelete="CASCADE"), nullable=False)
+    interface_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_interfaces.id", ondelete="CASCADE"), nullable=False)
+
+    lag: Mapped["DeviceInterfaceLag"] = relationship(back_populates="members")
+    interface: Mapped["DeviceInterface"] = relationship(back_populates="lag_memberships")

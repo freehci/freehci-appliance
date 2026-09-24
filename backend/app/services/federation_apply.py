@@ -22,6 +22,8 @@ from app.schemas.dcim import (
     DeviceArtifactBaselineMemberCreate,
     DeviceArtifactBaselineAssignmentCreate,
     DeviceArtifactRecordCreate,
+    DeviceInterfaceLagCreate,
+    DeviceInterfaceLagMemberCreate,
     DeviceRoleCreate,
     DeviceTypeCreate,
     FloorCreate,
@@ -437,6 +439,8 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
         except Exception:
             continue
 
+    _apply_device_interface_lags(db, doc)
+
     for p in doc.get("placements") or []:
         site = _site_by_slug(db, p["site_slug"])
         if site is None:
@@ -474,6 +478,41 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
     _apply_platform(db, doc)
     _bind_vif_ipv4(db, doc)
     _apply_catalog(db, doc)
+
+
+def _apply_device_interface_lags(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("device_interface_lags") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        slug = str(rec.get("slug") or "").strip()
+        if device is None or not slug:
+            continue
+        lag = dcim_svc.get_interface_lag_by_slug(db, device.id, slug)
+        if lag is None:
+            try:
+                lag = dcim_svc.create_interface_lag(
+                    db,
+                    device,
+                    DeviceInterfaceLagCreate(
+                        name=rec.get("name") or slug,
+                        slug=slug,
+                        description=rec.get("description"),
+                    ),
+                )
+            except Exception:
+                continue
+        for raw_name in rec.get("interface_names") or []:
+            name = str(raw_name or "").strip()
+            if not name:
+                continue
+            iface = db.execute(
+                select(DeviceInterface).where(DeviceInterface.device_id == device.id, DeviceInterface.name == name),
+            ).scalar_one_or_none()
+            if iface is None:
+                continue
+            try:
+                dcim_svc.add_interface_lag_member(db, lag, DeviceInterfaceLagMemberCreate(interface_id=iface.id))
+            except Exception:
+                continue
 
 
 def _apply_vlan_stretches(db: Session, doc: dict[str, Any]) -> None:

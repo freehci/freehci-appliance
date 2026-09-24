@@ -1966,3 +1966,36 @@ class FiberBundleMemberCreate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     strand_id: int = Field(..., ge=1)
+
+
+class DeviceInterfaceLagCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    description: str | None = None
+
+
+class DeviceInterfaceLagMemberRead(BaseModel):
+    id: int
+    interface_id: int
+    interface_name: str
+    speed_mbps: int | None = None
+
+
+class DeviceInterfaceLagRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    name: str
+    slug: str
+    description: str | None
+    members: list[DeviceInterfaceLagMemberRead] = Field(default_factory=list)
+    created_at: dt.datetime
+
+
+class DeviceInterfaceLagMemberCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    interface_id: int = Field(..., ge=1)

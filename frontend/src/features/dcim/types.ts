@@ -757,6 +757,23 @@ export type FiberBundle = {
   created_at: string;
 };
 
+export type DeviceInterfaceLagMember = {
+  id: number;
+  interface_id: number;
+  interface_name: string;
+  speed_mbps: number | null;
+};
+
+export type DeviceInterfaceLag = {
+  id: number;
+  device_id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  members: DeviceInterfaceLagMember[];
+  created_at: string;
+};
+
 export type CablePathHop = {
   object_type: string;
   object_id: number;

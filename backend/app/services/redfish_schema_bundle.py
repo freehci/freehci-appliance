@@ -18,6 +18,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+
+# DMTF avviser python-httpx-standard-UA med 403; identifiser oss, ikke later som en nettleser.
+_DOWNLOAD_HEADERS = {
+    "User-Agent": "FreeHCI (https://github.com/freehci/freehci-appliance)",
+    "Accept": "application/zip, application/octet-stream, */*",
+}
 from app.models.dcim import RedfishSchemaBundle, RedfishSchemaResource
 from app.schemas.dcim import (
     ExternalInventoryImportApplyRequest,
@@ -87,10 +93,18 @@ async def import_schema_bundle_download(
     url: str,
     name: str | None = None,
 ) -> RedfishSchemaBundle:
-    async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+    async with httpx.AsyncClient(follow_redirects=True, timeout=60, headers=_DOWNLOAD_HEADERS) as client:
         try:
             response = await client.get(url)
             response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Kunne ikke laste ned Redfish schema ZIP: {exc}. "
+                    "DMTF avviser ofte klienter uten User-Agent; last opp ZIP manuelt hvis URL fortsatt feiler."
+                ),
+            ) from exc
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=400, detail=f"Kunne ikke laste ned Redfish schema ZIP: {exc}") from exc
     data = response.content

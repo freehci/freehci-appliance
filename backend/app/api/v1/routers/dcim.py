@@ -48,6 +48,9 @@ from app.schemas.dcim import (
     DeviceIpAssignmentRead,
     DeviceIpAssignmentUpdate,
     DeviceInterfaceCreate,
+    DeviceInterfaceLagCreate,
+    DeviceInterfaceLagMemberCreate,
+    DeviceInterfaceLagRead,
     DeviceInterfaceRead,
     DeviceInterfaceUpdate,
     DeviceModelIdentityCreate,
@@ -1756,6 +1759,60 @@ def delete_device_interface(did: int, iid: int, db: Session = Depends(get_db)) -
     if row is None:
         raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
     dcim_svc.delete_device_interface(db, row)
+
+
+@router.get("/devices/{did}/interface-lags", response_model=list[DeviceInterfaceLagRead])
+def list_device_interface_lags(did: int, db: Session = Depends(get_db)) -> list[DeviceInterfaceLagRead]:
+    return [dcim_svc.interface_lag_to_read(db, r) for r in dcim_svc.list_interface_lags(db, did)]
+
+
+@router.post("/devices/{did}/interface-lags", response_model=DeviceInterfaceLagRead)
+def create_device_interface_lag(
+    did: int,
+    data: DeviceInterfaceLagCreate,
+    db: Session = Depends(get_db),
+) -> DeviceInterfaceLagRead:
+    device = dcim_svc.get_device(db, did)
+    if device is None:
+        raise HTTPException(status_code=404, detail="device ikke funnet")
+    return dcim_svc.interface_lag_to_read(db, dcim_svc.create_interface_lag(db, device, data))
+
+
+@router.get("/interface-lags/{lag_id}", response_model=DeviceInterfaceLagRead)
+def get_device_interface_lag(lag_id: int, db: Session = Depends(get_db)) -> DeviceInterfaceLagRead:
+    row = dcim_svc.get_interface_lag(db, lag_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="LAG ikke funnet")
+    return dcim_svc.interface_lag_to_read(db, row)
+
+
+@router.post("/interface-lags/{lag_id}/members", response_model=DeviceInterfaceLagRead)
+def add_device_interface_lag_member(
+    lag_id: int,
+    data: DeviceInterfaceLagMemberCreate,
+    db: Session = Depends(get_db),
+) -> DeviceInterfaceLagRead:
+    row = dcim_svc.get_interface_lag(db, lag_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="LAG ikke funnet")
+    dcim_svc.add_interface_lag_member(db, row, data)
+    return dcim_svc.interface_lag_to_read(db, row)
+
+
+@router.delete("/interface-lags/{lag_id}", status_code=204)
+def delete_device_interface_lag(lag_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_interface_lag(db, lag_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="LAG ikke funnet")
+    dcim_svc.delete_interface_lag(db, row)
+
+
+@router.delete("/interface-lag-members/{member_id}", status_code=204)
+def delete_device_interface_lag_member(member_id: int, db: Session = Depends(get_db)) -> None:
+    row = dcim_svc.get_interface_lag_member(db, member_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="LAG-medlem ikke funnet")
+    dcim_svc.delete_interface_lag_member(db, row)
 
 
 @router.get("/devices/{did}", response_model=DeviceInstanceRead)

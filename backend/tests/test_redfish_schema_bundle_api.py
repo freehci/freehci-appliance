@@ -126,7 +126,8 @@ def test_redfish_schema_bundle_download_can_be_mocked(monkeypatch) -> None:
 
     class _FakeAsyncClient:
         def __init__(self, *args, **kwargs) -> None:
-            pass
+            headers = kwargs.get("headers") or {}
+            assert str(headers.get("User-Agent", "")).startswith("FreeHCI")
 
         async def __aenter__(self):
             return self

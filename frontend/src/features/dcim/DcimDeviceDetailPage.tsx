@@ -12,7 +12,7 @@ import { DcimOwnerComponentsPanel } from "./DcimOwnerComponentsPanel";
 import { DevicePortsCablesPanel } from "./DevicePortsCablesPanel";
 import { DCIM_DEVICE_ICON_URL_ATTR } from "./modelImages";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
-import type { DeviceInterface, DeviceIpAssignment } from "./types";
+import type { DeviceInterface, DeviceInterfaceLag, DeviceIpAssignment } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
 import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
 import { usePlugins } from "@/plugins/PluginContext";
@@ -36,7 +36,9 @@ type DeviceDetailTab = "overview" | "network" | "hardware" | "os";
 
 type DeviceNetDeleteConfirm =
   | { kind: "interface"; iid: number; name: string }
-  | { kind: "ip"; iid: number; aid: number; address: string };
+  | { kind: "ip"; iid: number; aid: number; address: string }
+  | { kind: "lag"; lid: number; name: string }
+  | { kind: "lag-member"; mid: number; name: string };
 
 export function DcimDeviceDetailPage() {
   const { t } = useI18n();
@@ -99,6 +101,9 @@ export function DcimDeviceDetailPage() {
   const [devIpPrefix, setDevIpPrefix] = useState("");
   const [devIpPrefixDraft, setDevIpPrefixDraft] = useState<Record<number, string>>({});
   const [netDeleteConfirm, setNetDeleteConfirm] = useState<DeviceNetDeleteConfirm | null>(null);
+  const [lagName, setLagName] = useState("");
+  const [lagId, setLagId] = useState("");
+  const [lagIfaceId, setLagIfaceId] = useState("");
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -109,6 +114,12 @@ export function DcimDeviceDetailPage() {
   const interfacesQ = useQuery({
     queryKey: ["dcim", "devices", id, "interfaces"],
     queryFn: () => api.listDeviceInterfaces(id),
+    enabled: Number.isFinite(id) && id > 0,
+  });
+
+  const lagsQ = useQuery({
+    queryKey: ["dcim", "devices", id, "interface-lags"],
+    queryFn: () => api.listDeviceInterfaceLags(id),
     enabled: Number.isFinite(id) && id > 0,
   });
 
@@ -573,6 +584,49 @@ export function DcimDeviceDetailPage() {
     onSuccess: () => {
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
+      void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interface-lags"] });
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const invalidateLags = () => {
+    void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interface-lags"] });
+  };
+
+  const createLag = useMutation({
+    mutationFn: () => api.createDeviceInterfaceLag(id, { name: lagName.trim() }),
+    onSuccess: () => {
+      setLagName("");
+      setErr(null);
+      invalidateLags();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const addLagMember = useMutation({
+    mutationFn: () => api.addDeviceInterfaceLagMember(Number(lagId), Number(lagIfaceId)),
+    onSuccess: () => {
+      setLagIfaceId("");
+      setErr(null);
+      invalidateLags();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delLag = useMutation({
+    mutationFn: (lid: number) => api.deleteDeviceInterfaceLag(lid),
+    onSuccess: () => {
+      setErr(null);
+      invalidateLags();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delLagMember = useMutation({
+    mutationFn: (mid: number) => api.deleteDeviceInterfaceLagMember(mid),
+    onSuccess: () => {
+      setErr(null);
+      invalidateLags();
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
@@ -616,7 +670,10 @@ export function DcimDeviceDetailPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
-  const netDeleteBusy = delIf.isPending || delIp.isPending;
+  const netDeleteBusy = delIf.isPending || delIp.isPending || delLag.isPending || delLagMember.isPending;
+  const lags: DeviceInterfaceLag[] = lagsQ.data ?? [];
+  const lagTaken = new Set(lags.flatMap((b) => b.members.map((m) => m.interface_id)));
+  const freeLagIfaces = (interfacesQ.data ?? []).filter((x) => !lagTaken.has(x.id));
 
   const setPrimaryIp = useMutation({
     mutationFn: ({ iid, aid }: { iid: number; aid: number }) =>
@@ -1703,6 +1760,96 @@ export function DcimDeviceDetailPage() {
         ) : (
           !interfacesQ.isLoading && <p className={styles.muted}>{t("dcim.equip.if.empty")}</p>
         )}
+        <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.lag.title")}</h3>
+        <p className={styles.muted}>{t("dcim.equip.lag.hint")}</p>
+        {lags.length === 0 && !lagsQ.isLoading ? <p className={styles.muted}>{t("dcim.equip.lag.empty")}</p> : null}
+        {lags.length > 0 ? (
+          <ul className={styles.ipList}>
+            {lags.map((b) => (
+              <li key={b.id}>
+                {b.name}
+                {b.members.length > 0
+                  ? ` (${b.members.map((m) => m.interface_name).join(", ")})`
+                  : ""}{" "}
+                <button
+                  type="button"
+                  className={styles.btnLink}
+                  onClick={() => setNetDeleteConfirm({ kind: "lag", lid: b.id, name: b.name })}
+                >
+                  {t("dcim.common.delete")}
+                </button>
+                {b.members.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={styles.btnLink}
+                    onClick={() =>
+                      setNetDeleteConfirm({ kind: "lag-member", mid: m.id, name: m.interface_name })
+                    }
+                  >
+                    {t("dcim.equip.lag.removeMember")} {m.interface_name}
+                  </button>
+                ))}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <form
+          className={styles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            createLag.mutate();
+          }}
+        >
+          <label>
+            {t("dcim.equip.lag.name")}
+            <input value={lagName} onChange={(e) => setLagName(e.target.value)} required />
+          </label>
+          <button type="submit" className={styles.btn} disabled={createLag.isPending || lagName.trim() === ""}>
+            {createLag.isPending ? "…" : t("dcim.equip.lag.add")}
+          </button>
+        </form>
+        {lags.length > 0 ? (
+          <form
+            className={styles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              addLagMember.mutate();
+            }}
+          >
+            <label>
+              {t("dcim.equip.lag.lag")}
+              <select value={lagId} onChange={(e) => setLagId(e.target.value)}>
+                <option value="">{t("dcim.equip.lag.chooseLag")}</option>
+                {lags.map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("dcim.equip.lag.member")}
+              <select value={lagIfaceId} onChange={(e) => setLagIfaceId(e.target.value)}>
+                <option value="">{t("dcim.equip.lag.chooseIface")}</option>
+                {freeLagIfaces.map((x) => (
+                  <option key={x.id} value={String(x.id)}>
+                    {ifaceIndentedLabel(x)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className={styles.btn}
+              disabled={addLagMember.isPending || lagId === "" || lagIfaceId === ""}
+            >
+              {addLagMember.isPending ? "…" : t("dcim.equip.lag.bind")}
+            </button>
+          </form>
+        ) : null}
           </>
         ) : null}
       </Panel>
@@ -1716,17 +1863,27 @@ export function DcimDeviceDetailPage() {
             ? t("dcim.equip.dev.deleteIfModalTitle", { name: netDeleteConfirm.name })
             : netDeleteConfirm?.kind === "ip"
               ? t("dcim.equip.dev.deleteIpModalTitle", { address: netDeleteConfirm.address })
-              : ""
+              : netDeleteConfirm?.kind === "lag"
+                ? t("dcim.equip.dev.deleteLagModalTitle", { name: netDeleteConfirm.name })
+                : netDeleteConfirm?.kind === "lag-member"
+                  ? t("dcim.equip.dev.deleteLagMemberModalTitle", { name: netDeleteConfirm.name })
+                  : ""
         }
         message={
           netDeleteConfirm?.kind === "interface"
             ? t("dcim.equip.dev.deleteIfModalHint")
             : netDeleteConfirm?.kind === "ip"
               ? t("dcim.equip.dev.deleteIpModalHint")
-              : null
+              : netDeleteConfirm?.kind === "lag"
+                ? t("dcim.equip.dev.deleteLagModalHint")
+                : netDeleteConfirm?.kind === "lag-member"
+                  ? t("dcim.equip.dev.deleteLagMemberModalHint")
+                  : null
         }
         confirmLabel={
-          netDeleteConfirm?.kind === "ip" ? t("dcim.common.remove") : t("dcim.common.delete")
+          netDeleteConfirm?.kind === "ip" || netDeleteConfirm?.kind === "lag-member"
+            ? t("dcim.common.remove")
+            : t("dcim.common.delete")
         }
         cancelLabel={t("dcim.common.cancel")}
         danger
@@ -1735,6 +1892,14 @@ export function DcimDeviceDetailPage() {
           if (!netDeleteConfirm) return;
           if (netDeleteConfirm.kind === "interface") {
             delIf.mutate(netDeleteConfirm.iid, { onSettled: () => setNetDeleteConfirm(null) });
+            return;
+          }
+          if (netDeleteConfirm.kind === "lag") {
+            delLag.mutate(netDeleteConfirm.lid, { onSettled: () => setNetDeleteConfirm(null) });
+            return;
+          }
+          if (netDeleteConfirm.kind === "lag-member") {
+            delLagMember.mutate(netDeleteConfirm.mid, { onSettled: () => setNetDeleteConfirm(null) });
             return;
           }
           delIp.mutate(
