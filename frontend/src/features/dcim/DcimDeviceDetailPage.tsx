@@ -24,6 +24,10 @@ function strAttr(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+function looksIpv6(addr: string): boolean {
+  return addr.includes(":");
+}
+
 function formatSnmpExtra(attrs: Record<string, unknown>): string {
   const x = attrs.snmp_communities;
   if (Array.isArray(x)) return x.map(String).join(", ");
@@ -84,7 +88,9 @@ export function DcimDeviceDetailPage() {
   const [ipAddr, setIpAddr] = useState("");
   const [ipPrimary, setIpPrimary] = useState(false);
   const [ipPrefix, setIpPrefix] = useState("");
+  const [ipPrefix6, setIpPrefix6] = useState("");
   const [ipPrefixDraft, setIpPrefixDraft] = useState<Record<number, string>>({});
+  const [ipPrefix6Draft, setIpPrefix6Draft] = useState<Record<number, string>>({});
   const [typeEdit, setTypeEdit] = useState("");
   const [roleEdit, setRoleEdit] = useState("");
   const [artPick, setArtPick] = useState("");
@@ -102,7 +108,9 @@ export function DcimDeviceDetailPage() {
   const [devIpAddr, setDevIpAddr] = useState("");
   const [devIpPrimary, setDevIpPrimary] = useState(false);
   const [devIpPrefix, setDevIpPrefix] = useState("");
+  const [devIpPrefix6, setDevIpPrefix6] = useState("");
   const [devIpPrefixDraft, setDevIpPrefixDraft] = useState<Record<number, string>>({});
+  const [devIpPrefix6Draft, setDevIpPrefix6Draft] = useState<Record<number, string>>({});
   const [netDeleteConfirm, setNetDeleteConfirm] = useState<DeviceNetDeleteConfirm | null>(null);
   const [lagName, setLagName] = useState("");
   const [lagId, setLagId] = useState("");
@@ -192,6 +200,11 @@ export function DcimDeviceDetailPage() {
     queryFn: () => ipamApi.listIpv4Prefixes(deviceSiteId!),
     enabled: deviceSiteId != null && deviceSiteId > 0,
   });
+  const prefixes6Q = useQuery({
+    queryKey: ["ipam", "ipv6-prefixes", deviceSiteId ?? "none"],
+    queryFn: () => ipamApi.listIpv6Prefixes(deviceSiteId!),
+    enabled: deviceSiteId != null && deviceSiteId > 0,
+  });
   const vlansQ = useQuery({
     queryKey: ["ipam", "vlans", deviceSiteId ?? "none"],
     queryFn: () => ipamApi.listIpamVlans(deviceSiteId!),
@@ -203,6 +216,11 @@ export function DcimDeviceDetailPage() {
     for (const p of prefixesQ.data ?? []) m.set(p.id, p.cidr);
     return m;
   }, [prefixesQ.data]);
+  const prefix6ById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const p of prefixes6Q.data ?? []) m.set(p.id, p.cidr);
+    return m;
+  }, [prefixes6Q.data]);
 
   const ifaceDepthById = useMemo(
     () => interfaceDepthByInterfaceList(interfacesQ.data ?? []),
@@ -711,17 +729,23 @@ export function DcimDeviceDetailPage() {
 
   const createIp = useMutation({
     mutationFn: () => {
-      const body: { address: string; is_primary: boolean; ipv4_prefix_id?: number } = {
-        address: ipAddr.trim(),
+      const addr = ipAddr.trim();
+      const body: { address: string; is_primary: boolean; ipv4_prefix_id?: number; ipv6_prefix_id?: number } = {
+        address: addr,
         is_primary: ipPrimary,
       };
-      if (ipPrefix !== "") body.ipv4_prefix_id = Number(ipPrefix);
+      if (looksIpv6(addr)) {
+        if (ipPrefix6 !== "") body.ipv6_prefix_id = Number(ipPrefix6);
+      } else if (ipPrefix !== "") {
+        body.ipv4_prefix_id = Number(ipPrefix);
+      }
       return api.createIfaceIpAssignment(id, Number(ipIface), body);
     },
     onSuccess: () => {
       setIpAddr("");
       setIpPrimary(false);
       setIpPrefix("");
+      setIpPrefix6("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interfaces"] });
     },
@@ -757,17 +781,23 @@ export function DcimDeviceDetailPage() {
 
   const createDevIp = useMutation({
     mutationFn: () => {
-      const body: { address: string; is_primary: boolean; ipv4_prefix_id?: number } = {
-        address: devIpAddr.trim(),
+      const addr = devIpAddr.trim();
+      const body: { address: string; is_primary: boolean; ipv4_prefix_id?: number; ipv6_prefix_id?: number } = {
+        address: addr,
         is_primary: devIpPrimary,
       };
-      if (devIpPrefix !== "") body.ipv4_prefix_id = Number(devIpPrefix);
+      if (looksIpv6(addr)) {
+        if (devIpPrefix6 !== "") body.ipv6_prefix_id = Number(devIpPrefix6);
+      } else if (devIpPrefix !== "") {
+        body.ipv4_prefix_id = Number(devIpPrefix);
+      }
       return api.createDeviceIpAssignment(id, body);
     },
     onSuccess: () => {
       setDevIpAddr("");
       setDevIpPrimary(false);
       setDevIpPrefix("");
+      setDevIpPrefix6("");
       setErr(null);
       void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "device-ip-assignments"] });
     },
@@ -793,11 +823,23 @@ export function DcimDeviceDetailPage() {
   });
 
   const patchDevIpPrefix = useMutation({
-    mutationFn: ({ aid, ipv4_prefix_id }: { aid: number; ipv4_prefix_id: number | null }) =>
-      api.updateDeviceIpAssignment(id, aid, { ipv4_prefix_id }),
+    mutationFn: ({
+      aid,
+      ipv4_prefix_id,
+      ipv6_prefix_id,
+    }: {
+      aid: number;
+      ipv4_prefix_id?: number | null;
+      ipv6_prefix_id?: number | null;
+    }) => api.updateDeviceIpAssignment(id, aid, { ipv4_prefix_id, ipv6_prefix_id }),
     onSuccess: (_d, vars) => {
       setErr(null);
       setDevIpPrefixDraft((prev) => {
+        const next = { ...prev };
+        delete next[vars.aid];
+        return next;
+      });
+      setDevIpPrefix6Draft((prev) => {
         const next = { ...prev };
         delete next[vars.aid];
         return next;
@@ -812,14 +854,21 @@ export function DcimDeviceDetailPage() {
       iid,
       aid,
       ipv4_prefix_id,
+      ipv6_prefix_id,
     }: {
       iid: number;
       aid: number;
-      ipv4_prefix_id: number | null;
-    }) => api.updateIfaceIpAssignment(id, iid, aid, { ipv4_prefix_id }),
+      ipv4_prefix_id?: number | null;
+      ipv6_prefix_id?: number | null;
+    }) => api.updateIfaceIpAssignment(id, iid, aid, { ipv4_prefix_id, ipv6_prefix_id }),
     onSuccess: (_d, vars) => {
       setErr(null);
       setIpPrefixDraft((prev) => {
+        const next = { ...prev };
+        delete next[vars.aid];
+        return next;
+      });
+      setIpPrefix6Draft((prev) => {
         const next = { ...prev };
         delete next[vars.aid];
         return next;
@@ -1335,17 +1384,30 @@ export function DcimDeviceDetailPage() {
                 />
               </label>
               {deviceSiteId != null ? (
-                <label>
-                  {t("dcim.equip.ip.ipv4Prefix")}
-                  <select value={devIpPrefix} onChange={(e) => setDevIpPrefix(e.target.value)}>
-                    <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
-                    {(prefixesQ.data ?? []).map((p) => (
-                      <option key={p.id} value={String(p.id)}>
-                        {p.name} — {p.cidr}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <>
+                  <label>
+                    {t("dcim.equip.ip.ipv4Prefix")}
+                    <select value={devIpPrefix} onChange={(e) => setDevIpPrefix(e.target.value)}>
+                      <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
+                      {(prefixesQ.data ?? []).map((p) => (
+                        <option key={p.id} value={String(p.id)}>
+                          {p.name} — {p.cidr}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t("dcim.equip.ip.ipv6Prefix")}
+                    <select value={devIpPrefix6} onChange={(e) => setDevIpPrefix6(e.target.value)}>
+                      <option value="">{t("dcim.equip.ip.ipv6PrefixNone")}</option>
+                      {(prefixes6Q.data ?? []).map((p) => (
+                        <option key={p.id} value={String(p.id)}>
+                          {p.name} — {p.cidr}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               ) : null}
               <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
                 <input
@@ -1369,6 +1431,12 @@ export function DcimDeviceDetailPage() {
                       <span className={styles.muted}>
                         {" "}
                         · {prefixById.get(ip.ipv4_prefix_id) ?? `#${ip.ipv4_prefix_id}`}
+                      </span>
+                    ) : null}
+                    {ip.family === "ipv6" && ip.ipv6_prefix_id != null ? (
+                      <span className={styles.muted}>
+                        {" "}
+                        · {prefix6ById.get(ip.ipv6_prefix_id) ?? `#${ip.ipv6_prefix_id}`}
                       </span>
                     ) : null}
                     {ip.family === "ipv4" && deviceSiteId != null ? (
@@ -1417,6 +1485,58 @@ export function DcimDeviceDetailPage() {
                               ipv4_prefix_id = n;
                             }
                             patchDevIpPrefix.mutate({ aid: ip.id, ipv4_prefix_id });
+                          }}
+                        >
+                          {patchDevIpPrefix.isPending ? "…" : t("dcim.common.save")}
+                        </button>
+                      </span>
+                    ) : null}
+                    {ip.family === "ipv6" && deviceSiteId != null ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          flexWrap: "wrap",
+                          gap: "0.25rem",
+                          alignItems: "center",
+                          marginLeft: "0.35rem",
+                        }}
+                      >
+                        <select
+                          style={{ maxWidth: "14rem", fontSize: "var(--text-xs)" }}
+                          value={
+                            devIpPrefix6Draft[ip.id] ??
+                            (ip.ipv6_prefix_id != null ? String(ip.ipv6_prefix_id) : "")
+                          }
+                          onChange={(e) =>
+                            setDevIpPrefix6Draft((prev) => ({ ...prev, [ip.id]: e.target.value }))
+                          }
+                          title={t("dcim.equip.ip.ipv6Prefix")}
+                        >
+                          <option value="">{t("dcim.equip.ip.ipv6PrefixNone")}</option>
+                          {(prefixes6Q.data ?? []).map((p) => (
+                            <option key={p.id} value={String(p.id)}>
+                              {p.name} — {p.cidr}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className={styles.btn}
+                          style={{ fontSize: "var(--text-xs)", padding: "0.15rem 0.45rem" }}
+                          disabled={patchDevIpPrefix.isPending}
+                          onClick={() => {
+                            setErr(null);
+                            const raw = (
+                              devIpPrefix6Draft[ip.id] ??
+                              (ip.ipv6_prefix_id != null ? String(ip.ipv6_prefix_id) : "")
+                            ).trim();
+                            let ipv6_prefix_id: number | null = null;
+                            if (raw !== "") {
+                              const n = Number(raw);
+                              if (!Number.isFinite(n)) return;
+                              ipv6_prefix_id = n;
+                            }
+                            patchDevIpPrefix.mutate({ aid: ip.id, ipv6_prefix_id });
                           }}
                         >
                           {patchDevIpPrefix.isPending ? "…" : t("dcim.common.save")}
@@ -1587,17 +1707,30 @@ export function DcimDeviceDetailPage() {
                 />
               </label>
               {deviceSiteId != null ? (
-                <label>
-                  {t("dcim.equip.ip.ipv4Prefix")}
-                  <select value={ipPrefix} onChange={(e) => setIpPrefix(e.target.value)}>
-                    <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
-                    {(prefixesQ.data ?? []).map((p) => (
-                      <option key={p.id} value={String(p.id)}>
-                        {p.name} — {p.cidr}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <>
+                  <label>
+                    {t("dcim.equip.ip.ipv4Prefix")}
+                    <select value={ipPrefix} onChange={(e) => setIpPrefix(e.target.value)}>
+                      <option value="">{t("dcim.equip.ip.ipv4PrefixNone")}</option>
+                      {(prefixesQ.data ?? []).map((p) => (
+                        <option key={p.id} value={String(p.id)}>
+                          {p.name} — {p.cidr}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t("dcim.equip.ip.ipv6Prefix")}
+                    <select value={ipPrefix6} onChange={(e) => setIpPrefix6(e.target.value)}>
+                      <option value="">{t("dcim.equip.ip.ipv6PrefixNone")}</option>
+                      {(prefixes6Q.data ?? []).map((p) => (
+                        <option key={p.id} value={String(p.id)}>
+                          {p.name} — {p.cidr}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               ) : null}
               <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
                 <input
@@ -1816,6 +1949,12 @@ export function DcimDeviceDetailPage() {
                               · {prefixById.get(ip.ipv4_prefix_id) ?? `#${ip.ipv4_prefix_id}`}
                             </span>
                           ) : null}
+                          {ip.family === "ipv6" && ip.ipv6_prefix_id != null ? (
+                            <span className={styles.muted}>
+                              {" "}
+                              · {prefix6ById.get(ip.ipv6_prefix_id) ?? `#${ip.ipv6_prefix_id}`}
+                            </span>
+                          ) : null}
                           {ip.family === "ipv4" && deviceSiteId != null ? (
                             <span
                               style={{
@@ -1863,6 +2002,59 @@ export function DcimDeviceDetailPage() {
                                     ipv4_prefix_id = n;
                                   }
                                   patchIpPrefix.mutate({ iid: x.id, aid: ip.id, ipv4_prefix_id });
+                                }}
+                              >
+                                {patchIpPrefix.isPending ? "…" : <i className="fas fa-floppy-disk" aria-hidden />}
+                              </button>
+                            </span>
+                          ) : null}
+                          {ip.family === "ipv6" && deviceSiteId != null ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                flexWrap: "wrap",
+                                gap: "0.25rem",
+                                alignItems: "center",
+                                marginLeft: "0.35rem",
+                              }}
+                            >
+                              <select
+                                style={{ maxWidth: "14rem", fontSize: "var(--text-xs)" }}
+                                value={
+                                  ipPrefix6Draft[ip.id] ??
+                                  (ip.ipv6_prefix_id != null ? String(ip.ipv6_prefix_id) : "")
+                                }
+                                onChange={(e) =>
+                                  setIpPrefix6Draft((prev) => ({ ...prev, [ip.id]: e.target.value }))
+                                }
+                                title={t("dcim.equip.ip.ipv6Prefix")}
+                              >
+                                <option value="">{t("dcim.equip.ip.ipv6PrefixNone")}</option>
+                                {(prefixes6Q.data ?? []).map((p) => (
+                                  <option key={p.id} value={String(p.id)}>
+                                    {p.name} — {p.cidr}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className={styles.tableIconBtn}
+                                disabled={patchIpPrefix.isPending}
+                                title={t("dcim.common.save")}
+                                aria-label={t("dcim.common.save")}
+                                onClick={() => {
+                                  setErr(null);
+                                  const raw = (
+                                    ipPrefix6Draft[ip.id] ??
+                                    (ip.ipv6_prefix_id != null ? String(ip.ipv6_prefix_id) : "")
+                                  ).trim();
+                                  let ipv6_prefix_id: number | null = null;
+                                  if (raw !== "") {
+                                    const n = Number(raw);
+                                    if (!Number.isFinite(n)) return;
+                                    ipv6_prefix_id = n;
+                                  }
+                                  patchIpPrefix.mutate({ iid: x.id, aid: ip.id, ipv6_prefix_id });
                                 }}
                               >
                                 {patchIpPrefix.isPending ? "…" : <i className="fas fa-floppy-disk" aria-hidden />}

@@ -1540,6 +1540,7 @@ class IpAssignmentRead(BaseModel):
     id: int
     interface_id: int
     ipv4_prefix_id: int | None = None
+    ipv6_prefix_id: int | None = None
     family: str
     address: str
     is_primary: bool
@@ -1565,14 +1566,20 @@ class DeviceInterfaceRead(BaseModel):
 
 
 class IpAssignmentCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     address: str = Field(..., min_length=1, max_length=45)
     is_primary: bool = False
     ipv4_prefix_id: int | None = None
+    ipv6_prefix_id: int | None = None
 
 
 class IpAssignmentUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     is_primary: bool | None = None
     ipv4_prefix_id: int | None = None
+    ipv6_prefix_id: int | None = None
 
 
 class DeviceIpAssignmentRead(BaseModel):
@@ -1581,20 +1588,27 @@ class DeviceIpAssignmentRead(BaseModel):
     id: int
     device_id: int
     ipv4_prefix_id: int | None = None
+    ipv6_prefix_id: int | None = None
     family: str
     address: str
     is_primary: bool
 
 
 class DeviceIpAssignmentCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     address: str = Field(..., min_length=1, max_length=45)
     is_primary: bool = False
     ipv4_prefix_id: int | None = None
+    ipv6_prefix_id: int | None = None
 
 
 class DeviceIpAssignmentUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     is_primary: bool | None = None
     ipv4_prefix_id: int | None = None
+    ipv6_prefix_id: int | None = None
 
 
 class RackPlacementCreate(BaseModel):

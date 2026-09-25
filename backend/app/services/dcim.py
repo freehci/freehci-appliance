@@ -63,7 +63,7 @@ from app.models.dcim import (
     Wing,
 )
 from app.models.iam import User
-from app.models.ipam import IpamIpv4Prefix, IpamVlan, IpamVrf
+from app.models.ipam import IpamIpv4Prefix, IpamIpv6Prefix, IpamVlan, IpamVrf
 
 from app.services import tenant as tenant_svc
 
@@ -287,6 +287,49 @@ def _validate_ipv4_prefix_for_assignment(
         raise HTTPException(status_code=400, detail=f"ugyldig adresse eller prefiks: {e}") from e
     if ip_a not in net:
         raise HTTPException(status_code=400, detail="IP-adressen ligger ikke innenfor valgt prefiks")
+    return prefix_id
+
+
+def _validate_ipv6_prefix_for_assignment(
+    db: Session,
+    *,
+    device_id: int,
+    prefix_id: int | None,
+    family: str,
+    address: str,
+) -> int | None:
+    if prefix_id is None:
+        return None
+    if family != "ipv6":
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_ip_v6pfx_family", "detail": "IPv6-prefiks kan bare knyttes til IPv6-adresser"},
+        )
+    pfx = db.get(IpamIpv6Prefix, prefix_id)
+    if pfx is None:
+        raise HTTPException(status_code=404, detail="IPAM-IPv6-prefiks ikke funnet")
+    site_id = device_effective_site_id(db, device_id)
+    if site_id is None:
+        device = db.get(DeviceInstance, device_id)
+        if device is None:
+            raise HTTPException(status_code=404, detail="enhet ikke funnet")
+        device.site_id = pfx.site_id
+        site_id = pfx.site_id
+    if pfx.site_id != site_id:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_ip_v6pfx_site", "detail": "prefiks tilhører en annen site enn enheten"},
+        )
+    try:
+        net = ipaddress.ip_network(pfx.cidr, strict=False)
+        ip_a = ipaddress.ip_address(address)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"ugyldig adresse eller prefiks: {e}") from e
+    if ip_a not in net:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "iface_ip_v6pfx_cidr", "detail": "IP-adressen ligger ikke innenfor valgt prefiks"},
+        )
     return prefix_id
 
 
@@ -4871,11 +4914,19 @@ def create_iface_ip_assignment(
         family=family,
         address=addr,
     )
+    pfx6_id = _validate_ipv6_prefix_for_assignment(
+        db,
+        device_id=device_id,
+        prefix_id=data.ipv6_prefix_id,
+        family=family,
+        address=addr,
+    )
     if data.is_primary:
         _clear_primary_same_family(db, interface_id, family)
     row = InterfaceIpAssignment(
         interface_id=interface_id,
         ipv4_prefix_id=pfx_id,
+        ipv6_prefix_id=pfx6_id,
         family=family,
         address=addr,
         is_primary=data.is_primary,
@@ -4926,6 +4977,18 @@ def update_iface_ip_assignment(
                 db,
                 device_id=device_id,
                 prefix_id=int(v),
+                family=row.family,
+                address=row.address,
+            )
+    if "ipv6_prefix_id" in patch:
+        v6 = patch["ipv6_prefix_id"]
+        if v6 is None:
+            row.ipv6_prefix_id = None
+        else:
+            row.ipv6_prefix_id = _validate_ipv6_prefix_for_assignment(
+                db,
+                device_id=device_id,
+                prefix_id=int(v6),
                 family=row.family,
                 address=row.address,
             )
@@ -4987,11 +5050,19 @@ def create_device_ip_assignment(
         family=family,
         address=addr,
     )
+    pfx6_id = _validate_ipv6_prefix_for_assignment(
+        db,
+        device_id=device_id,
+        prefix_id=data.ipv6_prefix_id,
+        family=family,
+        address=addr,
+    )
     if data.is_primary:
         _clear_primary_same_family_device(db, device_id, family)
     row = DeviceIpAssignment(
         device_id=device_id,
         ipv4_prefix_id=pfx_id,
+        ipv6_prefix_id=pfx6_id,
         family=family,
         address=addr,
         is_primary=data.is_primary,
@@ -5034,6 +5105,18 @@ def update_device_ip_assignment(
                 db,
                 device_id=device_id,
                 prefix_id=int(v),
+                family=row.family,
+                address=row.address,
+            )
+    if "ipv6_prefix_id" in patch:
+        v6 = patch["ipv6_prefix_id"]
+        if v6 is None:
+            row.ipv6_prefix_id = None
+        else:
+            row.ipv6_prefix_id = _validate_ipv6_prefix_for_assignment(
+                db,
+                device_id=device_id,
+                prefix_id=int(v6),
                 family=row.family,
                 address=row.address,
             )

@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
 from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceInterface, DeviceInterfaceLag, DeviceInterfaceLagMember, DeviceInterfaceVlanMember, DeviceIpAssignment, DeviceModel, DevicePort, DeviceRole, DeviceType, Floor, InterfaceIpAssignment, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamVlan, IpamVrf
+from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamIpv6Prefix, IpamVlan, IpamVrf
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
 from app.models.tenant import Tenant
@@ -1361,6 +1361,13 @@ def _export_device_interface_ips(
         p.id: p
         for p in (db.execute(select(IpamIpv4Prefix).where(IpamIpv4Prefix.id.in_(pfx_ids))).scalars().all() if pfx_ids else [])
     }
+    pfx6_ids = {r.ipv6_prefix_id for r in rows if getattr(r, "ipv6_prefix_id", None)}
+    pfx6_by_id = {
+        p.id: p
+        for p in (
+            db.execute(select(IpamIpv6Prefix).where(IpamIpv6Prefix.id.in_(pfx6_ids))).scalars().all() if pfx6_ids else []
+        )
+    }
     return {
         "device_interface_ips": [
             {
@@ -1375,7 +1382,13 @@ def _export_device_interface_ips(
                 "interface_name": iface.name,
                 "address": r.address,
                 "is_primary": r.is_primary,
-                "prefix_slug": pfx_by_id[r.ipv4_prefix_id].slug if r.ipv4_prefix_id in pfx_by_id else None,
+                "prefix_slug": (
+                    pfx_by_id[r.ipv4_prefix_id].slug
+                    if r.ipv4_prefix_id in pfx_by_id
+                    else pfx6_by_id[r.ipv6_prefix_id].slug
+                    if getattr(r, "ipv6_prefix_id", None) in pfx6_by_id
+                    else None
+                ),
             }
             for r in rows
             if (iface := iface_by_id.get(r.interface_id)) is not None and iface.device_id in device_by_id
@@ -1401,6 +1414,13 @@ def _export_device_ips(
         p.id: p
         for p in (db.execute(select(IpamIpv4Prefix).where(IpamIpv4Prefix.id.in_(pfx_ids))).scalars().all() if pfx_ids else [])
     }
+    pfx6_ids = {r.ipv6_prefix_id for r in rows if getattr(r, "ipv6_prefix_id", None)}
+    pfx6_by_id = {
+        p.id: p
+        for p in (
+            db.execute(select(IpamIpv6Prefix).where(IpamIpv6Prefix.id.in_(pfx6_ids))).scalars().all() if pfx6_ids else []
+        )
+    }
     return {
         "device_ips": [
             {
@@ -1414,7 +1434,13 @@ def _export_device_ips(
                 ),
                 "address": r.address,
                 "is_primary": r.is_primary,
-                "prefix_slug": pfx_by_id[r.ipv4_prefix_id].slug if r.ipv4_prefix_id in pfx_by_id else None,
+                "prefix_slug": (
+                    pfx_by_id[r.ipv4_prefix_id].slug
+                    if r.ipv4_prefix_id in pfx_by_id
+                    else pfx6_by_id[r.ipv6_prefix_id].slug
+                    if getattr(r, "ipv6_prefix_id", None) in pfx6_by_id
+                    else None
+                ),
             }
             for r in rows
             if r.device_id in device_by_id

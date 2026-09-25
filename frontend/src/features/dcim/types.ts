@@ -606,6 +606,7 @@ export type IpAssignment = {
   id: number;
   interface_id: number;
   ipv4_prefix_id: number | null;
+  ipv6_prefix_id: number | null;
   family: string;
   address: string;
   is_primary: boolean;
@@ -616,6 +617,7 @@ export type DeviceIpAssignment = {
   id: number;
   device_id: number;
   ipv4_prefix_id: number | null;
+  ipv6_prefix_id: number | null;
   family: string;
   address: string;
   is_primary: boolean;

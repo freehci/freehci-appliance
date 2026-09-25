@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import ipaddress
 from typing import Any
 
 from sqlalchemy import select
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
 from app.models.dcim import Building, Cable, DeviceInstance, DeviceInterface, DeviceModel, DevicePort, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamOverlaySegment, IpamTunnel, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
+from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamIpv6Prefix, IpamOverlaySegment, IpamTunnel, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
     BuildingCreate,
@@ -575,6 +576,33 @@ def _prefix_by_site_slug(db: Session, site: Site | None, prefix_slug: str | None
     ).scalar_one_or_none()
 
 
+def _ipv6_prefix_by_site_slug(db: Session, site: Site | None, prefix_slug: str | None) -> IpamIpv6Prefix | None:
+    slug = str(prefix_slug or "").strip()
+    if site is None or not slug:
+        return None
+    return db.execute(
+        select(IpamIpv6Prefix).where(IpamIpv6Prefix.site_id == site.id, IpamIpv6Prefix.slug == slug),
+    ).scalar_one_or_none()
+
+
+def _assignment_prefix_ids(
+    db: Session,
+    site: Site | None,
+    rec: dict[str, Any],
+    address: str,
+) -> tuple[int | None, int | None]:
+    try:
+        parsed = ipaddress.ip_address(address.strip())
+    except ValueError:
+        return None, None
+    slug = rec.get("prefix_slug")
+    if isinstance(parsed, ipaddress.IPv6Address):
+        p6 = _ipv6_prefix_by_site_slug(db, site, slug)
+        return None, p6.id if p6 is not None else None
+    p4 = _prefix_by_site_slug(db, site, slug)
+    return p4.id if p4 is not None else None, None
+
+
 def _apply_device_interface_ips(db: Session, doc: dict[str, Any]) -> None:
     for rec in doc.get("device_interface_ips") or []:
         device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
@@ -588,7 +616,7 @@ def _apply_device_interface_ips(db: Session, doc: dict[str, Any]) -> None:
         if iface is None:
             continue
         site = _site_by_slug(db, rec.get("site_slug")) if rec.get("site_slug") else None
-        prefix = _prefix_by_site_slug(db, site, rec.get("prefix_slug"))
+        ipv4_prefix_id, ipv6_prefix_id = _assignment_prefix_ids(db, site, rec, address)
         try:
             dcim_svc.create_iface_ip_assignment(
                 db,
@@ -597,7 +625,8 @@ def _apply_device_interface_ips(db: Session, doc: dict[str, Any]) -> None:
                 IpAssignmentCreate(
                     address=address,
                     is_primary=rec.get("is_primary") is True,
-                    ipv4_prefix_id=prefix.id if prefix is not None else None,
+                    ipv4_prefix_id=ipv4_prefix_id,
+                    ipv6_prefix_id=ipv6_prefix_id,
                 ),
             )
         except Exception:
@@ -611,7 +640,7 @@ def _apply_device_ips(db: Session, doc: dict[str, Any]) -> None:
         if device is None or not address:
             continue
         site = _site_by_slug(db, rec.get("site_slug")) if rec.get("site_slug") else None
-        prefix = _prefix_by_site_slug(db, site, rec.get("prefix_slug"))
+        ipv4_prefix_id, ipv6_prefix_id = _assignment_prefix_ids(db, site, rec, address)
         try:
             dcim_svc.create_device_ip_assignment(
                 db,
@@ -619,7 +648,8 @@ def _apply_device_ips(db: Session, doc: dict[str, Any]) -> None:
                 DeviceIpAssignmentCreate(
                     address=address,
                     is_primary=rec.get("is_primary") is True,
-                    ipv4_prefix_id=prefix.id if prefix is not None else None,
+                    ipv4_prefix_id=ipv4_prefix_id,
+                    ipv6_prefix_id=ipv6_prefix_id,
                 ),
             )
         except Exception:

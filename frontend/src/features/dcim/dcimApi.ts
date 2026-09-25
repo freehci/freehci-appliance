@@ -1252,7 +1252,7 @@ export function deleteDeviceInterface(deviceId: number, interfaceId: number): Pr
 export function createIfaceIpAssignment(
   deviceId: number,
   interfaceId: number,
-  body: { address: string; is_primary?: boolean; ipv4_prefix_id?: number | null },
+  body: { address: string; is_primary?: boolean; ipv4_prefix_id?: number | null; ipv6_prefix_id?: number | null },
 ): Promise<IpAssignment> {
   return apiPost(`${P}/devices/${deviceId}/interfaces/${interfaceId}/ip-assignments`, body);
 }
@@ -1261,7 +1261,7 @@ export function updateIfaceIpAssignment(
   deviceId: number,
   interfaceId: number,
   assignmentId: number,
-  body: { is_primary?: boolean; ipv4_prefix_id?: number | null },
+  body: { is_primary?: boolean; ipv4_prefix_id?: number | null; ipv6_prefix_id?: number | null },
 ): Promise<IpAssignment> {
   return apiPatch(`${P}/devices/${deviceId}/interfaces/${interfaceId}/ip-assignments/${assignmentId}`, body);
 }
@@ -1280,7 +1280,7 @@ export function listDeviceIpAssignments(deviceId: number): Promise<DeviceIpAssig
 
 export function createDeviceIpAssignment(
   deviceId: number,
-  body: { address: string; is_primary?: boolean; ipv4_prefix_id?: number | null },
+  body: { address: string; is_primary?: boolean; ipv4_prefix_id?: number | null; ipv6_prefix_id?: number | null },
 ): Promise<DeviceIpAssignment> {
   return apiPost(`${P}/devices/${deviceId}/device-ip-assignments`, body);
 }
@@ -1288,7 +1288,7 @@ export function createDeviceIpAssignment(
 export function updateDeviceIpAssignment(
   deviceId: number,
   assignmentId: number,
-  body: { is_primary?: boolean; ipv4_prefix_id?: number | null },
+  body: { is_primary?: boolean; ipv4_prefix_id?: number | null; ipv6_prefix_id?: number | null },
 ): Promise<DeviceIpAssignment> {
   return apiPatch(`${P}/devices/${deviceId}/device-ip-assignments/${assignmentId}`, body);
 }

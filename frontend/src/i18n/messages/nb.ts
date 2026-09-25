@@ -1604,6 +1604,8 @@ export const nb = {
   "dcim.equip.ip.chooseIface": "Velg et grensesnitt.",
   "dcim.equip.ip.ipv4Prefix": "IPv4-prefiks (valgfritt)",
   "dcim.equip.ip.ipv4PrefixNone": "— ingen —",
+  "dcim.equip.ip.ipv6Prefix": "IPv6-prefiks (valgfritt)",
+  "dcim.equip.ip.ipv6PrefixNone": "— ingen —",
   "dcim.equip.ip.deviceTitle": "Enhets-IP (uten grensesnitt)",
   "dcim.equip.ip.deviceHint":
     "Når samme MAC er på alle porter eller du bare kjenner management-IP, legg den her i stedet for å knytte til én port.",

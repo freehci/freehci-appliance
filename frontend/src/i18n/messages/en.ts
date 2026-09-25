@@ -1594,6 +1594,8 @@ export const en = {
   "dcim.equip.ip.chooseIface": "Choose an interface.",
   "dcim.equip.ip.ipv4Prefix": "IPv4 prefix (optional)",
   "dcim.equip.ip.ipv4PrefixNone": "— none —",
+  "dcim.equip.ip.ipv6Prefix": "IPv6 prefix (optional)",
+  "dcim.equip.ip.ipv6PrefixNone": "— none —",
   "dcim.equip.ip.prefixNeedsSite": "Place the device in a rack to link an IPv4 address to a site-scoped prefix.",
   "dcim.equip.ip.deviceTitle": "Device IP addresses (no interface)",
   "dcim.equip.ip.deviceHint":
