@@ -771,6 +771,7 @@ export function IpamCircuitsPage() {
               ) : null}
             </section>
           ) : null}
+          <IpsecProfilesPanel openTunnelId={openTunnelId} onError={setErr} />
         </>
       ) : null}
 
@@ -1748,5 +1749,260 @@ function VpnMembersPanel({ vpnId, onError }: { vpnId: number; onError: (msg: str
         </button>
       </form>
     </div>
+  );
+}
+
+function IpsecProfilesPanel({
+  openTunnelId,
+  onError,
+}: {
+  openTunnelId: number | null;
+  onError: (msg: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [ike, setIke] = useState("");
+  const [mode, setMode] = useState("");
+  const [psk, setPsk] = useState("");
+  const [localId, setLocalId] = useState("");
+  const [remoteId, setRemoteId] = useState("");
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [selName, setSelName] = useState("");
+  const [selLocal, setSelLocal] = useState("");
+  const [selRemote, setSelRemote] = useState("");
+  const [bindProfile, setBindProfile] = useState("");
+  const listQ = useQuery({
+    queryKey: ["ipam", "ipsec-profiles"],
+    queryFn: ipamApi.listIpsecProfiles,
+  });
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["ipam", "ipsec-profiles"] });
+  };
+  const createM = useMutation({
+    mutationFn: () =>
+      ipamApi.createIpsecProfile({
+        name: name.trim(),
+        ike_version: ike === "" ? null : ike,
+        mode: mode === "" ? null : mode,
+        psk_ref: psk.trim() === "" ? null : psk.trim(),
+        local_id: localId.trim() === "" ? null : localId.trim(),
+        remote_id: remoteId.trim() === "" ? null : remoteId.trim(),
+      }),
+    onSuccess: () => {
+      setName("");
+      setIke("");
+      setMode("");
+      setPsk("");
+      setLocalId("");
+      setRemoteId("");
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const delM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteIpsecProfile(id),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const addSelM = useMutation({
+    mutationFn: () =>
+      ipamApi.createIpsecSelector(openId!, {
+        name: selName.trim(),
+        local_cidr: selLocal.trim() === "" ? null : selLocal.trim(),
+        remote_cidr: selRemote.trim() === "" ? null : selRemote.trim(),
+      }),
+    onSuccess: () => {
+      setSelName("");
+      setSelLocal("");
+      setSelRemote("");
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const delSelM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteIpsecSelector(id),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const bindM = useMutation({
+    mutationFn: () => ipamApi.bindIpsecTunnel(openTunnelId!, Number(bindProfile)),
+    onSuccess: () => {
+      setBindProfile("");
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const unbindM = useMutation({
+    mutationFn: (id: number) => ipamApi.unbindIpsecTunnel(id),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const profiles = listQ.data ?? [];
+  const open = profiles.find((p) => p.id === openId) ?? null;
+
+  return (
+    <section className={dcimStyles.mfrDetailSection} style={{ marginTop: "var(--space-3)" }}>
+      <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.ipsec.title")}</h3>
+      <p className={dcimStyles.muted}>{t("ipam.circuits.ipsec.hint")}</p>
+      {profiles.length === 0 && !listQ.isLoading ? <p className={dcimStyles.muted}>{t("ipam.circuits.ipsec.empty")}</p> : null}
+      {profiles.length > 0 ? (
+        <ul className={dcimStyles.ipList}>
+          {profiles.map((p) => (
+            <li key={p.id}>
+              {p.name}
+              {p.ike_version ? ` · ${p.ike_version}` : ""}
+              {p.mode ? ` · ${p.mode}` : ""}
+              {p.tunnels.length > 0
+                ? ` · ${p.tunnels.map((b) => `${b.vpn_slug ?? ""}/${b.tunnel_slug ?? ""}`).join(", ")}`
+                : ""}{" "}
+              <button
+                type="button"
+                className={dcimStyles.btnLink}
+                onClick={() => setOpenId(openId === p.id ? null : p.id)}
+              >
+                {openId === p.id ? t("ipam.circuits.hidePeers") : t("ipam.circuits.ipsec.selectors")}
+              </button>{" "}
+              <button type="button" className={dcimStyles.btnLink} onClick={() => delM.mutate(p.id)}>
+                {t("dcim.common.delete")}
+              </button>
+              {p.tunnels.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className={dcimStyles.btnLink}
+                  onClick={() => unbindM.mutate(b.id)}
+                >
+                  {t("ipam.circuits.ipsec.unbind")} {b.tunnel_slug}
+                </button>
+              ))}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className={dcimStyles.formRow}
+        style={{ flexWrap: "wrap", marginTop: "var(--space-2)" }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          onError(null);
+          createM.mutate();
+        }}
+      >
+        <label>
+          {t("ipam.circuits.ipsec.name")}
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <label>
+          {t("ipam.circuits.ipsec.ike")}
+          <select value={ike} onChange={(e) => setIke(e.target.value)}>
+            <option value="">{t("ipam.circuits.ipsec.ikeNone")}</option>
+            <option value="ikev1">IKEv1</option>
+            <option value="ikev2">IKEv2</option>
+            <option value="other">other</option>
+          </select>
+        </label>
+        <label>
+          {t("ipam.circuits.ipsec.mode")}
+          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="">{t("ipam.circuits.ipsec.modeNone")}</option>
+            <option value="route-based">{t("ipam.circuits.ipsec.modeRoute")}</option>
+            <option value="policy-based">{t("ipam.circuits.ipsec.modePolicy")}</option>
+            <option value="other">{t("ipam.circuits.ipsec.modeOther")}</option>
+          </select>
+        </label>
+        <label>
+          {t("ipam.circuits.ipsec.psk")}
+          <input value={psk} onChange={(e) => setPsk(e.target.value)} placeholder="secret:…" />
+        </label>
+        <label>
+          {t("ipam.circuits.ipsec.localId")}
+          <input value={localId} onChange={(e) => setLocalId(e.target.value)} />
+        </label>
+        <label>
+          {t("ipam.circuits.ipsec.remoteId")}
+          <input value={remoteId} onChange={(e) => setRemoteId(e.target.value)} />
+        </label>
+        <button type="submit" className={dcimStyles.btn} disabled={createM.isPending || name.trim() === ""}>
+          {createM.isPending ? "…" : t("ipam.circuits.ipsec.add")}
+        </button>
+      </form>
+      {open != null ? (
+        <form
+          className={dcimStyles.formRow}
+          style={{ flexWrap: "wrap", marginTop: "var(--space-2)" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onError(null);
+            addSelM.mutate();
+          }}
+        >
+          <label>
+            {t("ipam.ipv4.name")}
+            <input value={selName} onChange={(e) => setSelName(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.circuits.ipsec.localCidr")}
+            <input value={selLocal} onChange={(e) => setSelLocal(e.target.value)} />
+          </label>
+          <label>
+            {t("ipam.circuits.ipsec.remoteCidr")}
+            <input value={selRemote} onChange={(e) => setSelRemote(e.target.value)} />
+          </label>
+          <button type="submit" className={dcimStyles.btn} disabled={addSelM.isPending || selName.trim() === ""}>
+            {addSelM.isPending ? "…" : t("ipam.circuits.ipsec.addSelector")}
+          </button>
+          {open.selectors.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={dcimStyles.btnLink}
+              onClick={() => delSelM.mutate(s.id)}
+            >
+              {t("dcim.common.remove")} {s.name}
+              {s.local_cidr || s.remote_cidr ? ` (${s.local_cidr ?? "—"} → ${s.remote_cidr ?? "—"})` : ""}
+            </button>
+          ))}
+        </form>
+      ) : null}
+      {openTunnelId != null && profiles.length > 0 ? (
+        <form
+          className={dcimStyles.formRow}
+          style={{ flexWrap: "wrap", marginTop: "var(--space-2)" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onError(null);
+            bindM.mutate();
+          }}
+        >
+          <label>
+            {t("ipam.circuits.ipsec.chooseProfile")}
+            <select value={bindProfile} onChange={(e) => setBindProfile(e.target.value)}>
+              <option value="">{t("ipam.circuits.ipsec.chooseProfile")}</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className={dcimStyles.btn} disabled={bindM.isPending || bindProfile === ""}>
+            {bindM.isPending ? "…" : t("ipam.circuits.ipsec.bind")}
+          </button>
+        </form>
+      ) : null}
+    </section>
   );
 }

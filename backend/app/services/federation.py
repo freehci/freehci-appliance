@@ -29,6 +29,9 @@ from app.models.ipam import (
     IpamVrf,
     IpamWireGuardInterface,
     IpamWireGuardPeer,
+    IpamIpsecProfile,
+    IpamIpsecSelector,
+    IpamIpsecTunnel,
 )
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -932,6 +935,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         **_export_device_interface_vrfs(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_port_interfaces(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_wireguard(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
+        **_export_ipsec(db),
         **_export_device_interface_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1393,6 +1397,63 @@ def _export_wireguard(
             }
             for p in peers
             if p.wg_interface_id in wg_by_id
+        ],
+    }
+
+
+def _export_ipsec(db: Session) -> dict[str, Any]:
+    profiles = list(db.execute(select(IpamIpsecProfile).order_by(IpamIpsecProfile.slug)).scalars().all())
+    selectors = list(db.execute(select(IpamIpsecSelector)).scalars().all()) if profiles else []
+    binds = list(db.execute(select(IpamIpsecTunnel)).scalars().all()) if profiles else []
+    profile_by_id = {p.id: p for p in profiles}
+    tunnel_ids = {b.tunnel_id for b in binds}
+    tunnels = (
+        list(db.execute(select(IpamTunnel).where(IpamTunnel.id.in_(tunnel_ids))).scalars().all()) if tunnel_ids else []
+    )
+    tunnel_by_id = {t.id: t for t in tunnels}
+    vpn_ids = {t.vpn_service_id for t in tunnels}
+    vpns = (
+        list(db.execute(select(IpamVpnService).where(IpamVpnService.id.in_(vpn_ids))).scalars().all()) if vpn_ids else []
+    )
+    vpn_by_id = {v.id: v for v in vpns}
+    return {
+        "ipsec_profiles": [
+            {
+                "slug": p.slug,
+                "name": p.name,
+                "ike_version": p.ike_version,
+                "mode": p.mode,
+                "psk_ref": p.psk_ref,
+                "local_id": p.local_id,
+                "remote_id": p.remote_id,
+                "notes": p.notes,
+            }
+            for p in profiles
+        ],
+        "ipsec_selectors": [
+            {
+                "profile_slug": profile_by_id[s.profile_id].slug if s.profile_id in profile_by_id else None,
+                "slug": s.slug,
+                "name": s.name,
+                "local_cidr": s.local_cidr,
+                "remote_cidr": s.remote_cidr,
+                "notes": s.notes,
+            }
+            for s in selectors
+            if s.profile_id in profile_by_id
+        ],
+        "ipsec_tunnels": [
+            {
+                "vpn_slug": (
+                    vpn_by_id[tunnel_by_id[b.tunnel_id].vpn_service_id].slug
+                    if b.tunnel_id in tunnel_by_id and tunnel_by_id[b.tunnel_id].vpn_service_id in vpn_by_id
+                    else None
+                ),
+                "tunnel_slug": tunnel_by_id[b.tunnel_id].slug if b.tunnel_id in tunnel_by_id else None,
+                "profile_slug": profile_by_id[b.profile_id].slug if b.profile_id in profile_by_id else None,
+            }
+            for b in binds
+            if b.tunnel_id in tunnel_by_id and b.profile_id in profile_by_id
         ],
     }
 

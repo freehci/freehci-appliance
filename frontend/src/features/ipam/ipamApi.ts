@@ -23,6 +23,9 @@ import type {
   IpamTunnelProfile,
   IpamWireGuardInterface,
   IpamWireGuardPeer,
+  IpamIpsecProfile,
+  IpamIpsecSelector,
+  IpamIpsecTunnelBind,
   IpamVpnMember,
   IpamVpnService,
   IpamOverlaySegment,
@@ -935,6 +938,52 @@ export function createWireGuardPeer(
 
 export function deleteWireGuardPeer(id: number): Promise<void> {
   return apiDelete(`${P}/wireguard-peers/${id}`);
+}
+
+export function listIpsecProfiles(): Promise<IpamIpsecProfile[]> {
+  return apiGet(`${P}/ipsec-profiles`);
+}
+
+export function createIpsecProfile(body: {
+  name: string;
+  slug?: string | null;
+  ike_version?: string | null;
+  mode?: string | null;
+  psk_ref?: string | null;
+  local_id?: string | null;
+  remote_id?: string | null;
+  notes?: string | null;
+}): Promise<IpamIpsecProfile> {
+  return apiPost(`${P}/ipsec-profiles`, body);
+}
+
+export function deleteIpsecProfile(id: number): Promise<void> {
+  return apiDelete(`${P}/ipsec-profiles/${id}`);
+}
+
+export function createIpsecSelector(
+  profileId: number,
+  body: {
+    name: string;
+    slug?: string | null;
+    local_cidr?: string | null;
+    remote_cidr?: string | null;
+    notes?: string | null;
+  },
+): Promise<IpamIpsecSelector> {
+  return apiPost(`${P}/ipsec-profiles/${profileId}/selectors`, body);
+}
+
+export function deleteIpsecSelector(id: number): Promise<void> {
+  return apiDelete(`${P}/ipsec-selectors/${id}`);
+}
+
+export function bindIpsecTunnel(tunnelId: number, profileId: number): Promise<IpamIpsecTunnelBind> {
+  return apiPost(`${P}/ipsec-tunnels`, { tunnel_id: tunnelId, profile_id: profileId });
+}
+
+export function unbindIpsecTunnel(bindId: number): Promise<void> {
+  return apiDelete(`${P}/ipsec-tunnels/${bindId}`);
 }
 
 export function listTunnelProfiles(): Promise<IpamTunnelProfile[]> {

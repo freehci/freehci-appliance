@@ -74,6 +74,12 @@ from app.schemas.ipam import (
     IpamWireGuardPeerCreate,
     IpamWireGuardPeerRead,
     IpamWireGuardPeerUpdate,
+    IpamIpsecProfileCreate,
+    IpamIpsecProfileRead,
+    IpamIpsecSelectorCreate,
+    IpamIpsecSelectorRead,
+    IpamIpsecTunnelCreate,
+    IpamIpsecTunnelRead,
     IpamVpnMemberCreate,
     IpamVpnMemberRead,
     IpamVpnServiceCreate,
@@ -148,6 +154,7 @@ from app.services import ipam_bgp as bgp_svc
 from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
+from app.services import ipam_ipsec as ipsec_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
@@ -1746,6 +1753,65 @@ def delete_wireguard_peer(peer_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="WireGuard-peer ikke funnet")
     wg_svc.delete_peer(db, row)
+
+
+@router.get("/ipsec-profiles", response_model=list[IpamIpsecProfileRead])
+def list_ipsec_profiles(db: Session = Depends(get_db)) -> list[IpamIpsecProfileRead]:
+    return [ipsec_svc.profile_to_read(db, r) for r in ipsec_svc.list_profiles(db)]
+
+
+@router.post("/ipsec-profiles", response_model=IpamIpsecProfileRead)
+def create_ipsec_profile(data: IpamIpsecProfileCreate, db: Session = Depends(get_db)) -> IpamIpsecProfileRead:
+    return ipsec_svc.profile_to_read(db, ipsec_svc.create_profile(db, data))
+
+
+@router.get("/ipsec-profiles/{profile_id}", response_model=IpamIpsecProfileRead)
+def get_ipsec_profile(profile_id: int, db: Session = Depends(get_db)) -> IpamIpsecProfileRead:
+    row = ipsec_svc.get_profile(db, profile_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IPsec-profil ikke funnet")
+    return ipsec_svc.profile_to_read(db, row)
+
+
+@router.delete("/ipsec-profiles/{profile_id}", status_code=204)
+def delete_ipsec_profile(profile_id: int, db: Session = Depends(get_db)) -> None:
+    row = ipsec_svc.get_profile(db, profile_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IPsec-profil ikke funnet")
+    ipsec_svc.delete_profile(db, row)
+
+
+@router.post("/ipsec-profiles/{profile_id}/selectors", response_model=IpamIpsecSelectorRead)
+def create_ipsec_selector(
+    profile_id: int,
+    data: IpamIpsecSelectorCreate,
+    db: Session = Depends(get_db),
+) -> IpamIpsecSelectorRead:
+    row = ipsec_svc.get_profile(db, profile_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IPsec-profil ikke funnet")
+    return ipsec_svc.selector_to_read(ipsec_svc.create_selector(db, row, data))
+
+
+@router.delete("/ipsec-selectors/{selector_id}", status_code=204)
+def delete_ipsec_selector(selector_id: int, db: Session = Depends(get_db)) -> None:
+    row = ipsec_svc.get_selector(db, selector_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IPsec-selektor ikke funnet")
+    ipsec_svc.delete_selector(db, row)
+
+
+@router.post("/ipsec-tunnels", response_model=IpamIpsecTunnelRead)
+def bind_ipsec_tunnel(data: IpamIpsecTunnelCreate, db: Session = Depends(get_db)) -> IpamIpsecTunnelRead:
+    return ipsec_svc.tunnel_bind_to_read(db, ipsec_svc.bind_tunnel(db, data))
+
+
+@router.delete("/ipsec-tunnels/{bind_id}", status_code=204)
+def unbind_ipsec_tunnel(bind_id: int, db: Session = Depends(get_db)) -> None:
+    row = ipsec_svc.get_tunnel_bind(db, bind_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="IPsec-tunnelbinding ikke funnet")
+    ipsec_svc.unbind_tunnel(db, row)
 
 
 @router.get("/tunnel-profiles", response_model=list[IpamTunnelProfileRead])

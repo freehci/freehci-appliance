@@ -45,6 +45,9 @@ from app.schemas.dcim import (
 from app.schemas.ipam import (
     IpamWireGuardInterfaceCreate,
     IpamWireGuardPeerCreate,
+    IpamIpsecProfileCreate,
+    IpamIpsecSelectorCreate,
+    IpamIpsecTunnelCreate,
     IpamAsAssignmentCreate,
     IpamAutonomousSystemCreate,
     IpamBgpInstanceCreate,
@@ -102,6 +105,7 @@ from app.services import ipam_bgp as bgp_svc
 from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
+from app.services import ipam_ipsec as ipsec_svc
 from app.services import tenant as tenant_svc
 from app.schemas.tenant import TenantCreate
 
@@ -486,6 +490,9 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
     _apply_device_interface_vrfs(db, doc)
     _apply_wireguard_interfaces(db, doc)
     _apply_wireguard_peers(db, doc)
+    _apply_ipsec_profiles(db, doc)
+    _apply_ipsec_selectors(db, doc)
+    _apply_ipsec_tunnels(db, doc)
     _apply_vlan_stretches(db, doc)
     _apply_overlay_stretches(db, doc)
     _apply_vrf_stretches(db, doc)
@@ -768,6 +775,76 @@ def _apply_wireguard_peers(db: Session, doc: dict[str, Any]) -> None:
                     notes=rec.get("notes"),
                 ),
             )
+        except Exception:
+            continue
+
+
+def _apply_ipsec_profiles(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("ipsec_profiles") or []:
+        slug = str(rec.get("slug") or "").strip()
+        if not slug or ipsec_svc.get_profile_by_slug(db, slug) is not None:
+            continue
+        try:
+            ipsec_svc.create_profile(
+                db,
+                IpamIpsecProfileCreate(
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
+                    ike_version=str(rec.get("ike_version") or "").strip() or None,
+                    mode=str(rec.get("mode") or "").strip() or None,
+                    psk_ref=str(rec.get("psk_ref") or "").strip() or None,
+                    local_id=str(rec.get("local_id") or "").strip() or None,
+                    remote_id=str(rec.get("remote_id") or "").strip() or None,
+                    notes=rec.get("notes"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_ipsec_selectors(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("ipsec_selectors") or []:
+        profile_slug = str(rec.get("profile_slug") or "").strip()
+        slug = str(rec.get("slug") or "").strip()
+        if not profile_slug or not slug:
+            continue
+        profile = ipsec_svc.get_profile_by_slug(db, profile_slug)
+        if profile is None or ipsec_svc.get_selector_by_slug(db, profile.id, slug) is not None:
+            continue
+        try:
+            ipsec_svc.create_selector(
+                db,
+                profile,
+                IpamIpsecSelectorCreate(
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
+                    local_cidr=str(rec.get("local_cidr") or "").strip() or None,
+                    remote_cidr=str(rec.get("remote_cidr") or "").strip() or None,
+                    notes=rec.get("notes"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_ipsec_tunnels(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("ipsec_tunnels") or []:
+        vpn_slug = str(rec.get("vpn_slug") or "").strip()
+        tunnel_slug = str(rec.get("tunnel_slug") or "").strip()
+        profile_slug = str(rec.get("profile_slug") or "").strip()
+        if not vpn_slug or not tunnel_slug or not profile_slug:
+            continue
+        vpn = db.execute(select(IpamVpnService).where(IpamVpnService.slug == vpn_slug)).scalar_one_or_none()
+        profile = ipsec_svc.get_profile_by_slug(db, profile_slug)
+        if vpn is None or profile is None:
+            continue
+        tunnel = db.execute(
+            select(IpamTunnel).where(IpamTunnel.vpn_service_id == vpn.id, IpamTunnel.slug == tunnel_slug),
+        ).scalar_one_or_none()
+        if tunnel is None or ipsec_svc.get_bind_for_tunnel(db, tunnel.id) is not None:
+            continue
+        try:
+            ipsec_svc.bind_tunnel(db, IpamIpsecTunnelCreate(tunnel_id=tunnel.id, profile_id=profile.id))
         except Exception:
             continue
 

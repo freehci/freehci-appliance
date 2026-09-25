@@ -1007,6 +1007,65 @@ class IpamWireGuardPeer(Base):
     wg_interface: Mapped["IpamWireGuardInterface"] = relationship(back_populates="peers")
 
 
+class IpamIpsecProfile(Base):
+    """IKE-/IPsec-profil. Algoritmer, levetid og applied-tilstand gjettes ikke."""
+
+    __tablename__ = "ipam_ipsec_profiles"
+    __table_args__ = (UniqueConstraint("slug", name="uq_ipam_ipsec_profile_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    ike_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    psk_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    local_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    remote_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    selectors: Mapped[list["IpamIpsecSelector"]] = relationship(
+        back_populates="profile",
+        cascade="all, delete-orphan",
+    )
+    tunnels: Mapped[list["IpamIpsecTunnel"]] = relationship(
+        back_populates="profile",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamIpsecTunnel(Base):
+    """Tunnel bruker en IPsec-profil. vpn_type=ipsec er ikke en binding."""
+
+    __tablename__ = "ipam_ipsec_tunnels"
+    __table_args__ = (UniqueConstraint("tunnel_id", name="uq_ipam_ipsec_tunnel"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tunnel_id: Mapped[int] = mapped_column(ForeignKey("ipam_tunnels.id", ondelete="CASCADE"), nullable=False)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("ipam_ipsec_profiles.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    profile: Mapped["IpamIpsecProfile"] = relationship(back_populates="tunnels")
+
+
+class IpamIpsecSelector(Base):
+    """Trafikkselektor. CIDR er registrert, ikke gjettet fra prefiks eller AllowedIPs."""
+
+    __tablename__ = "ipam_ipsec_selectors"
+    __table_args__ = (UniqueConstraint("profile_id", "slug", name="uq_ipam_ipsec_selector_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("ipam_ipsec_profiles.id", ondelete="CASCADE"), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    local_cidr: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    remote_cidr: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    profile: Mapped["IpamIpsecProfile"] = relationship(back_populates="selectors")
+
+
 class IpamIdempotencyKey(Base):
     """Idempotency-Key for request/allocate — én nøkkel, ett resultat."""
 

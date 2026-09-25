@@ -590,6 +590,41 @@ export type IpamWireGuardInterface = {
   peers: IpamWireGuardPeer[];
 };
 
+export type IpamIpsecSelector = {
+  id: number;
+  profile_id: number;
+  name: string;
+  slug: string;
+  local_cidr: string | null;
+  remote_cidr: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type IpamIpsecTunnelBind = {
+  id: number;
+  tunnel_id: number;
+  profile_id: number;
+  tunnel_slug: string | null;
+  vpn_slug: string | null;
+  created_at: string;
+};
+
+export type IpamIpsecProfile = {
+  id: number;
+  name: string;
+  slug: string;
+  ike_version: string | null;
+  mode: string | null;
+  psk_ref: string | null;
+  local_id: string | null;
+  remote_id: string | null;
+  notes: string | null;
+  created_at: string;
+  selectors: IpamIpsecSelector[];
+  tunnels: IpamIpsecTunnelBind[];
+};
+
 export type IpamTunnelPeer = {
   id: number;
   tunnel_id: number;

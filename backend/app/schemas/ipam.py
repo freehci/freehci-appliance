@@ -27,6 +27,8 @@ OVERLAY_SEGMENT_KINDS = frozenset({"vxlan", "evpn", "other"})
 CIRCUIT_TERM_KINDS = frozenset({"local", "unknown", "provider-network"})
 VPN_MEMBER_ROLES = frozenset({"hub", "spoke", "peer", "client", "other"})
 VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
+IPSEC_IKE_VERSIONS = frozenset({"ikev1", "ikev2", "other"})
+IPSEC_MODES = frozenset({"route-based", "policy-based", "other"})
 TUNNEL_STATUSES = frozenset({"planned", "active", "deprecated"})
 _OVERLAP_POLICIES = frozenset({"site-local", "global-unique"})
 _OWNER_TYPES = frozenset({"user", "token", "cluster", "system"})
@@ -2276,6 +2278,92 @@ class IpamWireGuardInterfaceRead(BaseModel):
     notes: str | None
     created_at: dt.datetime
     peers: list[IpamWireGuardPeerRead] = Field(default_factory=list)
+
+
+class IpamIpsecSelectorCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    local_cidr: str | None = Field(None, max_length=64)
+    remote_cidr: str | None = Field(None, max_length=64)
+    notes: str | None = None
+
+    @field_validator("local_cidr", "remote_cidr")
+    @classmethod
+    def selector_cidr_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
+
+
+class IpamIpsecSelectorRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    profile_id: int
+    name: str
+    slug: str
+    local_cidr: str | None
+    remote_cidr: str | None
+    notes: str | None
+    created_at: dt.datetime
+
+
+class IpamIpsecTunnelRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tunnel_id: int
+    profile_id: int
+    tunnel_slug: str | None = None
+    vpn_slug: str | None = None
+    created_at: dt.datetime
+
+
+class IpamIpsecProfileCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    ike_version: str | None = Field(None, max_length=32)
+    mode: str | None = Field(None, max_length=32)
+    psk_ref: str | None = Field(None, max_length=255)
+    local_id: str | None = Field(None, max_length=255)
+    remote_id: str | None = Field(None, max_length=255)
+    notes: str | None = None
+
+    @field_validator("psk_ref")
+    @classmethod
+    def psk_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
+
+    @field_validator("ike_version", "mode", "local_id", "remote_id")
+    @classmethod
+    def strip_opt(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
+
+
+class IpamIpsecProfileRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    ike_version: str | None
+    mode: str | None
+    psk_ref: str | None
+    local_id: str | None
+    remote_id: str | None
+    notes: str | None
+    created_at: dt.datetime
+    selectors: list[IpamIpsecSelectorRead] = Field(default_factory=list)
+    tunnels: list[IpamIpsecTunnelRead] = Field(default_factory=list)
+
+
+class IpamIpsecTunnelCreate(BaseModel):
+    tunnel_id: int = Field(..., ge=1)
+    profile_id: int = Field(..., ge=1)
 
 
 class Ipv4PrefixSplitHalfIn(BaseModel):
