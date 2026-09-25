@@ -1066,6 +1066,44 @@ class IpamIpsecSelector(Base):
     profile: Mapped["IpamIpsecProfile"] = relationship(back_populates="selectors")
 
 
+class IpamGreProfile(Base):
+    """GRE-profil. GRE er innkapsling, ikke kryptering. Endepunkt og nøkkel gjettes ikke."""
+
+    __tablename__ = "ipam_gre_profiles"
+    __table_args__ = (UniqueConstraint("slug", name="uq_ipam_gre_profile_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    local_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    remote_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    key_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ttl: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    checksum: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    sequence: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    tunnels: Mapped[list["IpamGreTunnel"]] = relationship(
+        back_populates="profile",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamGreTunnel(Base):
+    """Tunnel bruker en GRE-profil. vpn_type=gre er ikke en binding."""
+
+    __tablename__ = "ipam_gre_tunnels"
+    __table_args__ = (UniqueConstraint("tunnel_id", name="uq_ipam_gre_tunnel"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tunnel_id: Mapped[int] = mapped_column(ForeignKey("ipam_tunnels.id", ondelete="CASCADE"), nullable=False)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("ipam_gre_profiles.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    profile: Mapped["IpamGreProfile"] = relationship(back_populates="tunnels")
+
+
 class IpamIdempotencyKey(Base):
     """Idempotency-Key for request/allocate — én nøkkel, ett resultat."""
 

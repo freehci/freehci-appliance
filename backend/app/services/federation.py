@@ -32,6 +32,8 @@ from app.models.ipam import (
     IpamIpsecProfile,
     IpamIpsecSelector,
     IpamIpsecTunnel,
+    IpamGreProfile,
+    IpamGreTunnel,
 )
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -936,6 +938,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         **_export_device_port_interfaces(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_wireguard(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_ipsec(db),
+        **_export_gre(db),
         **_export_device_interface_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1443,6 +1446,51 @@ def _export_ipsec(db: Session) -> dict[str, Any]:
             if s.profile_id in profile_by_id
         ],
         "ipsec_tunnels": [
+            {
+                "vpn_slug": (
+                    vpn_by_id[tunnel_by_id[b.tunnel_id].vpn_service_id].slug
+                    if b.tunnel_id in tunnel_by_id and tunnel_by_id[b.tunnel_id].vpn_service_id in vpn_by_id
+                    else None
+                ),
+                "tunnel_slug": tunnel_by_id[b.tunnel_id].slug if b.tunnel_id in tunnel_by_id else None,
+                "profile_slug": profile_by_id[b.profile_id].slug if b.profile_id in profile_by_id else None,
+            }
+            for b in binds
+            if b.tunnel_id in tunnel_by_id and b.profile_id in profile_by_id
+        ],
+    }
+
+
+def _export_gre(db: Session) -> dict[str, Any]:
+    profiles = list(db.execute(select(IpamGreProfile).order_by(IpamGreProfile.slug)).scalars().all())
+    binds = list(db.execute(select(IpamGreTunnel)).scalars().all()) if profiles else []
+    profile_by_id = {p.id: p for p in profiles}
+    tunnel_ids = {b.tunnel_id for b in binds}
+    tunnels = (
+        list(db.execute(select(IpamTunnel).where(IpamTunnel.id.in_(tunnel_ids))).scalars().all()) if tunnel_ids else []
+    )
+    tunnel_by_id = {t.id: t for t in tunnels}
+    vpn_ids = {t.vpn_service_id for t in tunnels}
+    vpns = (
+        list(db.execute(select(IpamVpnService).where(IpamVpnService.id.in_(vpn_ids))).scalars().all()) if vpn_ids else []
+    )
+    vpn_by_id = {v.id: v for v in vpns}
+    return {
+        "gre_profiles": [
+            {
+                "slug": p.slug,
+                "name": p.name,
+                "local_address": p.local_address,
+                "remote_address": p.remote_address,
+                "key_id": p.key_id,
+                "ttl": p.ttl,
+                "checksum": p.checksum,
+                "sequence": p.sequence,
+                "notes": p.notes,
+            }
+            for p in profiles
+        ],
+        "gre_tunnels": [
             {
                 "vpn_slug": (
                     vpn_by_id[tunnel_by_id[b.tunnel_id].vpn_service_id].slug

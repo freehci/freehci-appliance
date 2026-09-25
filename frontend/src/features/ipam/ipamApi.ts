@@ -26,6 +26,8 @@ import type {
   IpamIpsecProfile,
   IpamIpsecSelector,
   IpamIpsecTunnelBind,
+  IpamGreProfile,
+  IpamGreTunnelBind,
   IpamVpnMember,
   IpamVpnService,
   IpamOverlaySegment,
@@ -984,6 +986,36 @@ export function bindIpsecTunnel(tunnelId: number, profileId: number): Promise<Ip
 
 export function unbindIpsecTunnel(bindId: number): Promise<void> {
   return apiDelete(`${P}/ipsec-tunnels/${bindId}`);
+}
+
+export function listGreProfiles(): Promise<IpamGreProfile[]> {
+  return apiGet(`${P}/gre-profiles`);
+}
+
+export function createGreProfile(body: {
+  name: string;
+  slug?: string | null;
+  local_address?: string | null;
+  remote_address?: string | null;
+  key_id?: number | null;
+  ttl?: number | null;
+  checksum?: boolean | null;
+  sequence?: boolean | null;
+  notes?: string | null;
+}): Promise<IpamGreProfile> {
+  return apiPost(`${P}/gre-profiles`, body);
+}
+
+export function deleteGreProfile(id: number): Promise<void> {
+  return apiDelete(`${P}/gre-profiles/${id}`);
+}
+
+export function bindGreTunnel(tunnelId: number, profileId: number): Promise<IpamGreTunnelBind> {
+  return apiPost(`${P}/gre-tunnels`, { tunnel_id: tunnelId, profile_id: profileId });
+}
+
+export function unbindGreTunnel(bindId: number): Promise<void> {
+  return apiDelete(`${P}/gre-tunnels/${bindId}`);
 }
 
 export function listTunnelProfiles(): Promise<IpamTunnelProfile[]> {

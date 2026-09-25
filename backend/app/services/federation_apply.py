@@ -48,6 +48,8 @@ from app.schemas.ipam import (
     IpamIpsecProfileCreate,
     IpamIpsecSelectorCreate,
     IpamIpsecTunnelCreate,
+    IpamGreProfileCreate,
+    IpamGreTunnelCreate,
     IpamAsAssignmentCreate,
     IpamAutonomousSystemCreate,
     IpamBgpInstanceCreate,
@@ -106,6 +108,7 @@ from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
+from app.services import ipam_gre as gre_svc
 from app.services import tenant as tenant_svc
 from app.schemas.tenant import TenantCreate
 
@@ -493,6 +496,8 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
     _apply_ipsec_profiles(db, doc)
     _apply_ipsec_selectors(db, doc)
     _apply_ipsec_tunnels(db, doc)
+    _apply_gre_profiles(db, doc)
+    _apply_gre_tunnels(db, doc)
     _apply_vlan_stretches(db, doc)
     _apply_overlay_stretches(db, doc)
     _apply_vrf_stretches(db, doc)
@@ -845,6 +850,60 @@ def _apply_ipsec_tunnels(db: Session, doc: dict[str, Any]) -> None:
             continue
         try:
             ipsec_svc.bind_tunnel(db, IpamIpsecTunnelCreate(tunnel_id=tunnel.id, profile_id=profile.id))
+        except Exception:
+            continue
+
+
+def _opt_recorded_bool(value: Any) -> bool | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _apply_gre_profiles(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("gre_profiles") or []:
+        slug = str(rec.get("slug") or "").strip()
+        if not slug or gre_svc.get_profile_by_slug(db, slug) is not None:
+            continue
+        try:
+            gre_svc.create_profile(
+                db,
+                IpamGreProfileCreate(
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
+                    local_address=str(rec.get("local_address") or "").strip() or None,
+                    remote_address=str(rec.get("remote_address") or "").strip() or None,
+                    key_id=_opt_recorded_int(rec.get("key_id")),
+                    ttl=_opt_recorded_int(rec.get("ttl")),
+                    checksum=_opt_recorded_bool(rec.get("checksum")),
+                    sequence=_opt_recorded_bool(rec.get("sequence")),
+                    notes=rec.get("notes"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_gre_tunnels(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("gre_tunnels") or []:
+        vpn_slug = str(rec.get("vpn_slug") or "").strip()
+        tunnel_slug = str(rec.get("tunnel_slug") or "").strip()
+        profile_slug = str(rec.get("profile_slug") or "").strip()
+        if not vpn_slug or not tunnel_slug or not profile_slug:
+            continue
+        vpn = db.execute(select(IpamVpnService).where(IpamVpnService.slug == vpn_slug)).scalar_one_or_none()
+        profile = gre_svc.get_profile_by_slug(db, profile_slug)
+        if vpn is None or profile is None:
+            continue
+        tunnel = db.execute(
+            select(IpamTunnel).where(IpamTunnel.vpn_service_id == vpn.id, IpamTunnel.slug == tunnel_slug),
+        ).scalar_one_or_none()
+        if tunnel is None or gre_svc.get_bind_for_tunnel(db, tunnel.id) is not None:
+            continue
+        try:
+            gre_svc.bind_tunnel(db, IpamGreTunnelCreate(tunnel_id=tunnel.id, profile_id=profile.id))
         except Exception:
             continue
 

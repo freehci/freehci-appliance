@@ -26,7 +26,7 @@ CIRCUIT_OWNERSHIPS = frozenset({"owned", "leased"})
 OVERLAY_SEGMENT_KINDS = frozenset({"vxlan", "evpn", "other"})
 CIRCUIT_TERM_KINDS = frozenset({"local", "unknown", "provider-network"})
 VPN_MEMBER_ROLES = frozenset({"hub", "spoke", "peer", "client", "other"})
-VPN_TYPES = frozenset({"wireguard", "ipsec", "other"})
+VPN_TYPES = frozenset({"wireguard", "ipsec", "gre", "other"})
 IPSEC_IKE_VERSIONS = frozenset({"ikev1", "ikev2", "other"})
 IPSEC_MODES = frozenset({"route-based", "policy-based", "other"})
 TUNNEL_STATUSES = frozenset({"planned", "active", "deprecated"})
@@ -2362,6 +2362,59 @@ class IpamIpsecProfileRead(BaseModel):
 
 
 class IpamIpsecTunnelCreate(BaseModel):
+    tunnel_id: int = Field(..., ge=1)
+    profile_id: int = Field(..., ge=1)
+
+
+class IpamGreTunnelRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tunnel_id: int
+    profile_id: int
+    tunnel_slug: str | None = None
+    vpn_slug: str | None = None
+    created_at: dt.datetime
+
+
+class IpamGreProfileCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    local_address: str | None = Field(None, max_length=64)
+    remote_address: str | None = Field(None, max_length=64)
+    key_id: int | None = None
+    ttl: int | None = None
+    checksum: bool | None = None
+    sequence: bool | None = None
+    notes: str | None = None
+
+    @field_validator("local_address", "remote_address")
+    @classmethod
+    def strip_addr(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
+
+
+class IpamGreProfileRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    local_address: str | None
+    remote_address: str | None
+    key_id: int | None
+    ttl: int | None
+    checksum: bool | None
+    sequence: bool | None
+    notes: str | None
+    created_at: dt.datetime
+    tunnels: list[IpamGreTunnelRead] = Field(default_factory=list)
+
+
+class IpamGreTunnelCreate(BaseModel):
     tunnel_id: int = Field(..., ge=1)
     profile_id: int = Field(..., ge=1)
 

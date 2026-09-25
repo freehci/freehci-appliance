@@ -625,6 +625,30 @@ export type IpamIpsecProfile = {
   tunnels: IpamIpsecTunnelBind[];
 };
 
+export type IpamGreTunnelBind = {
+  id: number;
+  tunnel_id: number;
+  profile_id: number;
+  tunnel_slug: string | null;
+  vpn_slug: string | null;
+  created_at: string;
+};
+
+export type IpamGreProfile = {
+  id: number;
+  name: string;
+  slug: string;
+  local_address: string | null;
+  remote_address: string | null;
+  key_id: number | null;
+  ttl: number | null;
+  checksum: boolean | null;
+  sequence: boolean | null;
+  notes: string | null;
+  created_at: string;
+  tunnels: IpamGreTunnelBind[];
+};
+
 export type IpamTunnelPeer = {
   id: number;
   tunnel_id: number;

@@ -80,6 +80,10 @@ from app.schemas.ipam import (
     IpamIpsecSelectorRead,
     IpamIpsecTunnelCreate,
     IpamIpsecTunnelRead,
+    IpamGreProfileCreate,
+    IpamGreProfileRead,
+    IpamGreTunnelCreate,
+    IpamGreTunnelRead,
     IpamVpnMemberCreate,
     IpamVpnMemberRead,
     IpamVpnServiceCreate,
@@ -155,6 +159,7 @@ from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
+from app.services import ipam_gre as gre_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
@@ -1812,6 +1817,45 @@ def unbind_ipsec_tunnel(bind_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="IPsec-tunnelbinding ikke funnet")
     ipsec_svc.unbind_tunnel(db, row)
+
+
+@router.get("/gre-profiles", response_model=list[IpamGreProfileRead])
+def list_gre_profiles(db: Session = Depends(get_db)) -> list[IpamGreProfileRead]:
+    return [gre_svc.profile_to_read(db, r) for r in gre_svc.list_profiles(db)]
+
+
+@router.post("/gre-profiles", response_model=IpamGreProfileRead)
+def create_gre_profile(data: IpamGreProfileCreate, db: Session = Depends(get_db)) -> IpamGreProfileRead:
+    return gre_svc.profile_to_read(db, gre_svc.create_profile(db, data))
+
+
+@router.get("/gre-profiles/{profile_id}", response_model=IpamGreProfileRead)
+def get_gre_profile(profile_id: int, db: Session = Depends(get_db)) -> IpamGreProfileRead:
+    row = gre_svc.get_profile(db, profile_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="GRE-profil ikke funnet")
+    return gre_svc.profile_to_read(db, row)
+
+
+@router.delete("/gre-profiles/{profile_id}", status_code=204)
+def delete_gre_profile(profile_id: int, db: Session = Depends(get_db)) -> None:
+    row = gre_svc.get_profile(db, profile_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="GRE-profil ikke funnet")
+    gre_svc.delete_profile(db, row)
+
+
+@router.post("/gre-tunnels", response_model=IpamGreTunnelRead)
+def bind_gre_tunnel(data: IpamGreTunnelCreate, db: Session = Depends(get_db)) -> IpamGreTunnelRead:
+    return gre_svc.tunnel_bind_to_read(db, gre_svc.bind_tunnel(db, data))
+
+
+@router.delete("/gre-tunnels/{bind_id}", status_code=204)
+def unbind_gre_tunnel(bind_id: int, db: Session = Depends(get_db)) -> None:
+    row = gre_svc.get_tunnel_bind(db, bind_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="GRE-tunnelbinding ikke funnet")
+    gre_svc.unbind_tunnel(db, row)
 
 
 @router.get("/tunnel-profiles", response_model=list[IpamTunnelProfileRead])

@@ -772,6 +772,7 @@ export function IpamCircuitsPage() {
             </section>
           ) : null}
           <IpsecProfilesPanel openTunnelId={openTunnelId} onError={setErr} />
+          <GreProfilesPanel openTunnelId={openTunnelId} onError={setErr} />
         </>
       ) : null}
 
@@ -1344,6 +1345,7 @@ export function IpamCircuitsPage() {
             <select value={vpnType} onChange={(e) => setVpnType(e.target.value)}>
               <option value="wireguard">WireGuard</option>
               <option value="ipsec">IPsec</option>
+              <option value="gre">{t("ipam.circuits.type.gre")}</option>
               <option value="other">{t("ipam.circuits.type.other")}</option>
             </select>
           </label>
@@ -2000,6 +2002,205 @@ function IpsecProfilesPanel({
           </label>
           <button type="submit" className={dcimStyles.btn} disabled={bindM.isPending || bindProfile === ""}>
             {bindM.isPending ? "…" : t("ipam.circuits.ipsec.bind")}
+          </button>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function GreProfilesPanel({
+  openTunnelId,
+  onError,
+}: {
+  openTunnelId: number | null;
+  onError: (msg: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [localAddr, setLocalAddr] = useState("");
+  const [remoteAddr, setRemoteAddr] = useState("");
+  const [keyId, setKeyId] = useState("");
+  const [ttl, setTtl] = useState("");
+  const [checksum, setChecksum] = useState("");
+  const [sequence, setSequence] = useState("");
+  const [bindProfile, setBindProfile] = useState("");
+  const listQ = useQuery({
+    queryKey: ["ipam", "gre-profiles"],
+    queryFn: ipamApi.listGreProfiles,
+  });
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["ipam", "gre-profiles"] });
+  };
+  const parseOptInt = (raw: string): number | null => {
+    const s = raw.trim();
+    if (s === "") return null;
+    const n = Number(s);
+    return Number.isInteger(n) ? n : null;
+  };
+  const parseOptBool = (raw: string): boolean | null => {
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    return null;
+  };
+  const createM = useMutation({
+    mutationFn: () =>
+      ipamApi.createGreProfile({
+        name: name.trim(),
+        local_address: localAddr.trim() === "" ? null : localAddr.trim(),
+        remote_address: remoteAddr.trim() === "" ? null : remoteAddr.trim(),
+        key_id: parseOptInt(keyId),
+        ttl: parseOptInt(ttl),
+        checksum: parseOptBool(checksum),
+        sequence: parseOptBool(sequence),
+      }),
+    onSuccess: () => {
+      setName("");
+      setLocalAddr("");
+      setRemoteAddr("");
+      setKeyId("");
+      setTtl("");
+      setChecksum("");
+      setSequence("");
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const delM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteGreProfile(id),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const bindM = useMutation({
+    mutationFn: () => ipamApi.bindGreTunnel(openTunnelId!, Number(bindProfile)),
+    onSuccess: () => {
+      setBindProfile("");
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const unbindM = useMutation({
+    mutationFn: (id: number) => ipamApi.unbindGreTunnel(id),
+    onSuccess: () => {
+      onError(null);
+      invalidate();
+    },
+    onError: (e: Error) => onError(e instanceof ApiError ? e.message : e.message),
+  });
+  const profiles = listQ.data ?? [];
+
+  return (
+    <section className={dcimStyles.mfrDetailSection} style={{ marginTop: "var(--space-3)" }}>
+      <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.circuits.gre.title")}</h3>
+      <p className={dcimStyles.muted}>{t("ipam.circuits.gre.hint")}</p>
+      {profiles.length === 0 && !listQ.isLoading ? <p className={dcimStyles.muted}>{t("ipam.circuits.gre.empty")}</p> : null}
+      {profiles.length > 0 ? (
+        <ul className={dcimStyles.ipList}>
+          {profiles.map((p) => (
+            <li key={p.id}>
+              {p.name}
+              {p.local_address || p.remote_address
+                ? ` · ${p.local_address ?? "—"} → ${p.remote_address ?? "—"}`
+                : ""}
+              {p.key_id != null ? ` · key ${p.key_id}` : ""}
+              {p.tunnels.length > 0
+                ? ` · ${p.tunnels.map((b) => `${b.vpn_slug ?? ""}/${b.tunnel_slug ?? ""}`).join(", ")}`
+                : ""}{" "}
+              <button type="button" className={dcimStyles.btnLink} onClick={() => delM.mutate(p.id)}>
+                {t("dcim.common.delete")}
+              </button>
+              {p.tunnels.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className={dcimStyles.btnLink}
+                  onClick={() => unbindM.mutate(b.id)}
+                >
+                  {t("ipam.circuits.gre.unbind")} {b.tunnel_slug}
+                </button>
+              ))}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className={dcimStyles.formRow}
+        style={{ flexWrap: "wrap", marginTop: "var(--space-2)" }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          onError(null);
+          createM.mutate();
+        }}
+      >
+        <label>
+          {t("ipam.circuits.gre.name")}
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <label>
+          {t("ipam.circuits.gre.local")}
+          <input value={localAddr} onChange={(e) => setLocalAddr(e.target.value)} />
+        </label>
+        <label>
+          {t("ipam.circuits.gre.remote")}
+          <input value={remoteAddr} onChange={(e) => setRemoteAddr(e.target.value)} />
+        </label>
+        <label>
+          {t("ipam.circuits.gre.key")}
+          <input value={keyId} onChange={(e) => setKeyId(e.target.value)} inputMode="numeric" />
+        </label>
+        <label>
+          {t("ipam.circuits.gre.ttl")}
+          <input value={ttl} onChange={(e) => setTtl(e.target.value)} inputMode="numeric" />
+        </label>
+        <label>
+          {t("ipam.circuits.gre.checksum")}
+          <select value={checksum} onChange={(e) => setChecksum(e.target.value)}>
+            <option value="">{t("ipam.circuits.gre.unset")}</option>
+            <option value="true">{t("ipam.circuits.yes")}</option>
+            <option value="false">{t("ipam.circuits.no")}</option>
+          </select>
+        </label>
+        <label>
+          {t("ipam.circuits.gre.sequence")}
+          <select value={sequence} onChange={(e) => setSequence(e.target.value)}>
+            <option value="">{t("ipam.circuits.gre.unset")}</option>
+            <option value="true">{t("ipam.circuits.yes")}</option>
+            <option value="false">{t("ipam.circuits.no")}</option>
+          </select>
+        </label>
+        <button type="submit" className={dcimStyles.btn} disabled={createM.isPending || name.trim() === ""}>
+          {createM.isPending ? "…" : t("ipam.circuits.gre.add")}
+        </button>
+      </form>
+      {openTunnelId != null && profiles.length > 0 ? (
+        <form
+          className={dcimStyles.formRow}
+          style={{ flexWrap: "wrap", marginTop: "var(--space-2)" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onError(null);
+            bindM.mutate();
+          }}
+        >
+          <label>
+            {t("ipam.circuits.gre.chooseProfile")}
+            <select value={bindProfile} onChange={(e) => setBindProfile(e.target.value)}>
+              <option value="">{t("ipam.circuits.gre.chooseProfile")}</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className={dcimStyles.btn} disabled={bindM.isPending || bindProfile === ""}>
+            {bindM.isPending ? "…" : t("ipam.circuits.gre.bind")}
           </button>
         </form>
       ) : null}
