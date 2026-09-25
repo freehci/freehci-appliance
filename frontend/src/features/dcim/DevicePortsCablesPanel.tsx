@@ -7,6 +7,7 @@ import styles from "./dcim.module.css";
 import type { CablePathHop } from "./types";
 
 const PORT_KINDS = ["power-port", "power-outlet", "front-port", "rear-port"] as const;
+const PORT_IFACE_KINDS = new Set(["front-port", "rear-port"]);
 const CABLE_TYPES = ["power", "cat6", "cat6a", "sm-os2", "mm-om4", "dac", "other"] as const;
 const FIBER_CABLE_TYPES = new Set(["sm-os2", "mm-om4"]);
 
@@ -32,10 +33,15 @@ export function DevicePortsCablesPanel({
   const [path, setPath] = useState<CablePathHop[] | null>(null);
   const [rearPort, setRearPort] = useState("");
   const [powerPort, setPowerPort] = useState("");
+  const [ifaceId, setIfaceId] = useState("");
 
   const portsQ = useQuery({
     queryKey: ["dcim", "devices", deviceId, "ports"],
     queryFn: () => api.listDevicePorts(deviceId),
+  });
+  const ifacesQ = useQuery({
+    queryKey: ["dcim", "devices", deviceId, "interfaces"],
+    queryFn: () => api.listDeviceInterfaces(deviceId),
   });
   const cablesQ = useQuery({
     queryKey: ["dcim", "cables", "device", deviceId],
@@ -60,11 +66,13 @@ export function DevicePortsCablesPanel({
         name: name.trim(),
         rear_port_id: kind === "front-port" && rearPort !== "" ? Number(rearPort) : null,
         power_port_id: kind === "power-outlet" && powerPort !== "" ? Number(powerPort) : null,
+        interface_id: PORT_IFACE_KINDS.has(kind) && ifaceId !== "" ? Number(ifaceId) : null,
       }),
     onSuccess: () => {
       setName("");
       setRearPort("");
       setPowerPort("");
+      setIfaceId("");
       onError(null);
       refresh();
     },
@@ -75,11 +83,13 @@ export function DevicePortsCablesPanel({
       id,
       rear_port_id,
       power_port_id,
+      interface_id,
     }: {
       id: number;
       rear_port_id?: number | null;
       power_port_id?: number | null;
-    }) => api.patchDevicePort(id, { rear_port_id, power_port_id }),
+      interface_id?: number | null;
+    }) => api.patchDevicePort(id, { rear_port_id, power_port_id, interface_id }),
     onSuccess: () => {
       onError(null);
       refresh();
@@ -155,6 +165,7 @@ export function DevicePortsCablesPanel({
               <th>{t("dcim.common.name")}</th>
               <th>{t("dcim.ports.rear")}</th>
               <th>{t("dcim.ports.inlet")}</th>
+              <th>{t("dcim.ports.iface")}</th>
               <th>{t("dcim.ports.connector")}</th>
               <th>{t("dcim.equip.actionsCol")}</th>
             </tr>
@@ -210,6 +221,27 @@ export function DevicePortsCablesPanel({
                     t("dcim.ports.noInlet")
                   )}
                 </td>
+                <td>
+                  {PORT_IFACE_KINDS.has(p.kind) ? (
+                    <select
+                      value={p.interface_id != null ? String(p.interface_id) : ""}
+                      disabled={patchPort.isPending}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        patchPort.mutate({ id: p.id, interface_id: raw === "" ? null : Number(raw) });
+                      }}
+                    >
+                      <option value="">{t("dcim.ports.noIface")}</option>
+                      {(ifacesQ.data ?? []).map((iface) => (
+                        <option key={iface.id} value={String(iface.id)}>
+                          {iface.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    t("dcim.ports.noIface")
+                  )}
+                </td>
                 <td>{p.connector ?? "—"}</td>
                 <td>
                   <button
@@ -250,6 +282,7 @@ export function DevicePortsCablesPanel({
               setKind(e.target.value);
               setRearPort("");
               setPowerPort("");
+              setIfaceId("");
             }}
           >
             {PORT_KINDS.map((k) => (
@@ -290,6 +323,19 @@ export function DevicePortsCablesPanel({
                     {p.name}
                   </option>
                 ))}
+            </select>
+          </label>
+        ) : null}
+        {PORT_IFACE_KINDS.has(kind) ? (
+          <label>
+            {t("dcim.ports.iface")}
+            <select value={ifaceId} onChange={(e) => setIfaceId(e.target.value)}>
+              <option value="">{t("dcim.ports.chooseIface")}</option>
+              {(ifacesQ.data ?? []).map((iface) => (
+                <option key={iface.id} value={String(iface.id)}>
+                  {iface.name}
+                </option>
+              ))}
             </select>
           </label>
         ) : null}

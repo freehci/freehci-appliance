@@ -1063,7 +1063,10 @@ class DevicePort(Base):
     """Strømport, uttak eller patchport på en Device. Patchpanel er Device."""
 
     __tablename__ = "dcim_device_ports"
-    __table_args__ = (UniqueConstraint("device_id", "kind", "name", name="uq_dcim_device_port_kind_name"),)
+    __table_args__ = (
+        UniqueConstraint("device_id", "kind", "name", name="uq_dcim_device_port_kind_name"),
+        UniqueConstraint("interface_id", name="uq_dcim_device_port_iface"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     device_id: Mapped[int] = mapped_column(ForeignKey("dcim_device_instances.id", ondelete="CASCADE"), nullable=False)
@@ -1077,6 +1080,10 @@ class DevicePort(Base):
     )
     power_port_id: Mapped[int | None] = mapped_column(
         ForeignKey("dcim_device_ports.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    interface_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
         nullable=True,
     )
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

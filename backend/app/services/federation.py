@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
-from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceInterface, DeviceInterfaceLag, DeviceInterfaceLagMember, DeviceInterfaceVlanMember, DeviceIpAssignment, DeviceModel, DeviceRole, DeviceType, Floor, InterfaceIpAssignment, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceInterface, DeviceInterfaceLag, DeviceInterfaceLagMember, DeviceInterfaceVlanMember, DeviceIpAssignment, DeviceModel, DevicePort, DeviceRole, DeviceType, Floor, InterfaceIpAssignment, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamVlan, IpamVrf
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -920,6 +920,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         **_export_device_interface_vlans(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_vlan_members(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_vrfs(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
+        **_export_device_port_interfaces(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1247,6 +1248,49 @@ def _export_device_interface_vlan_members(
             if (iface := iface_by_id.get(m.interface_id)) is not None
             and iface.device_id in device_by_id
             and m.ipam_vlan_id in vlan_by_id
+        ],
+    }
+
+
+def _export_device_port_interfaces(
+    db: Session,
+    *,
+    devices: list[DeviceInstance],
+    site_by_id: dict[int, Site],
+    device_by_id: dict[int, DeviceInstance],
+) -> dict[str, Any]:
+    device_ids = {d.id for d in devices}
+    ports = (
+        list(db.execute(select(DevicePort).where(DevicePort.device_id.in_(device_ids))).scalars().all())
+        if device_ids
+        else []
+    )
+    iface_ids = {p.interface_id for p in ports if p.interface_id}
+    iface_by_id = {
+        i.id: i
+        for i in (
+            db.execute(select(DeviceInterface).where(DeviceInterface.id.in_(iface_ids))).scalars().all()
+            if iface_ids
+            else []
+        )
+    }
+    return {
+        "device_port_interfaces": [
+            {
+                "device_name": device_by_id[p.device_id].name if p.device_id in device_by_id else None,
+                "site_slug": (
+                    site_by_id[device_by_id[p.device_id].site_id].slug
+                    if p.device_id in device_by_id
+                    and device_by_id[p.device_id].site_id
+                    and device_by_id[p.device_id].site_id in site_by_id
+                    else None
+                ),
+                "port_kind": p.kind,
+                "port_name": p.name,
+                "interface_name": iface_by_id[p.interface_id].name if p.interface_id in iface_by_id else None,
+            }
+            for p in ports
+            if p.device_id in device_by_id and p.interface_id in iface_by_id
         ],
     }
 

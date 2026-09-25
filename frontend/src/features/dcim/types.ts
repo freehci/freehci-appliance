@@ -709,6 +709,7 @@ export type DevicePort = {
   connector: string | null;
   rear_port_id: number | null;
   power_port_id: number | null;
+  interface_id: number | null;
   created_at: string;
 };
 

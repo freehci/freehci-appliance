@@ -46,6 +46,7 @@ from app.schemas.dcim import (
     DevicePortCreate,
     DevicePortRead,
     DevicePortUpdate,
+    PORT_IFACE_KINDS,
     PowerCircuitCreate,
     PowerCircuitRead,
     PowerFeedCreate,
@@ -413,6 +414,41 @@ def list_ports(db: Session, *, device_id: int | None = None, kind: str | None = 
     return list(db.execute(q).scalars().all())
 
 
+def _validate_port_interface(
+    db: Session,
+    device_id: int,
+    *,
+    kind: str,
+    interface_id: int | None,
+    exclude_port_id: int | None,
+) -> int | None:
+    if interface_id is None:
+        return None
+    if kind not in PORT_IFACE_KINDS:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "port_iface_kind", "detail": "bare front-port og rear-port kan peke på et grensesnitt"},
+        )
+    iface = db.get(DeviceInterface, interface_id)
+    if iface is None:
+        raise HTTPException(status_code=404, detail="grensesnitt ikke funnet")
+    if iface.device_id != device_id:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "port_iface_device", "detail": "grensesnitt må tilhøre samme enhet"},
+        )
+    q = select(DevicePort).where(DevicePort.interface_id == interface_id)
+    if exclude_port_id is not None:
+        q = q.where(DevicePort.id != exclude_port_id)
+    taken = db.execute(q).scalar_one_or_none()
+    if taken is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "port_iface_taken", "detail": "grensesnittet er allerede knyttet til en port"},
+        )
+    return interface_id
+
+
 def create_port(db: Session, device_id: int, data: DevicePortCreate) -> DevicePort:
     if db.get(DeviceInstance, device_id) is None:
         raise HTTPException(status_code=404, detail="enhet ikke funnet")
@@ -426,6 +462,13 @@ def create_port(db: Session, device_id: int, data: DevicePortCreate) -> DevicePo
         inlet = db.get(DevicePort, power_id)
         if inlet is None or inlet.device_id != device_id or inlet.kind != "power-port":
             raise HTTPException(status_code=400, detail="power_port må være en strøminngang på samme enhet")
+    iface_id = _validate_port_interface(
+        db,
+        device_id,
+        kind=data.kind,
+        interface_id=data.interface_id,
+        exclude_port_id=None,
+    )
     row = DevicePort(
         device_id=device_id,
         kind=data.kind,
@@ -434,6 +477,7 @@ def create_port(db: Session, device_id: int, data: DevicePortCreate) -> DevicePo
         connector=(data.connector or "").strip() or None,
         rear_port_id=rear_id,
         power_port_id=power_id,
+        interface_id=iface_id,
     )
     db.add(row)
     try:
@@ -496,6 +540,15 @@ def update_port(db: Session, row: DevicePort, data: DevicePortUpdate) -> DeviceP
                     detail={"code": "port_power", "detail": "power_port må være en strøminngang på samme enhet"},
                 )
             row.power_port_id = power_id
+        changed = True
+    if "interface_id" in data.model_fields_set:
+        row.interface_id = _validate_port_interface(
+            db,
+            row.device_id,
+            kind=row.kind,
+            interface_id=data.interface_id,
+            exclude_port_id=row.id,
+        )
         changed = True
     if changed:
         db.commit()

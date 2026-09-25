@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.asn import is_private_asn
-from app.models.dcim import Building, Cable, DeviceInstance, DeviceInterface, DeviceModel, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
+from app.models.dcim import Building, Cable, DeviceInstance, DeviceInterface, DeviceModel, DevicePort, DeviceType, FiberStrand, Floor, Manufacturer, Rack, RackPlacement, Room, Site, Wing
 from app.models.ipam import IpamBgpSession, IpamCircuit, IpamIpv4Address, IpamIpv4Prefix, IpamOverlaySegment, IpamTunnel, IpamVlan, IpamVlanGroup, IpamVpnService, IpamVrf
 from app.models.tenant import Tenant
 from app.schemas.dcim import (
@@ -28,6 +28,7 @@ from app.schemas.dcim import (
     DeviceInterfaceUpdate,
     DeviceInterfaceVlanMemberCreate,
     DeviceIpAssignmentCreate,
+    DevicePortUpdate,
     IpAssignmentCreate,
     DeviceRoleCreate,
     DeviceTypeCreate,
@@ -485,6 +486,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     site_by_slug = {s.slug: s for s in db.execute(select(Site)).scalars().all()}
     pwr_svc.apply_from_document(db, doc, site_by_slug=site_by_slug)
+    _apply_device_port_interfaces(db, doc)
     _apply_circuit_strands(db, doc)
     _apply_platform(db, doc)
     _bind_vif_ipv4(db, doc)
@@ -649,6 +651,34 @@ def _apply_device_interface_vrfs(db: Session, doc: dict[str, Any]) -> None:
                 iface,
                 DeviceInterfaceUpdate(ipam_vrf_id=vrf.id),
             )
+        except Exception:
+            continue
+
+
+def _apply_device_port_interfaces(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("device_port_interfaces") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        port_kind = str(rec.get("port_kind") or "").strip()
+        port_name = str(rec.get("port_name") or "").strip()
+        iface_name = str(rec.get("interface_name") or "").strip()
+        if device is None or not port_kind or not port_name or not iface_name:
+            continue
+        port = db.execute(
+            select(DevicePort).where(
+                DevicePort.device_id == device.id,
+                DevicePort.kind == port_kind,
+                DevicePort.name == port_name,
+            ),
+        ).scalar_one_or_none()
+        iface = db.execute(
+            select(DeviceInterface).where(DeviceInterface.device_id == device.id, DeviceInterface.name == iface_name),
+        ).scalar_one_or_none()
+        if port is None or iface is None:
+            continue
+        if port.interface_id == iface.id:
+            continue
+        try:
+            pwr_svc.update_port(db, port, DevicePortUpdate(interface_id=iface.id))
         except Exception:
             continue
 

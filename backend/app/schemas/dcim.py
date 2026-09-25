@@ -1643,6 +1643,7 @@ POWER_SUPPLIES = frozenset({"ac", "dc"})
 POWER_PHASES = frozenset({"single", "three"})
 POWER_SOURCE_KINDS = frozenset({"grid", "generator", "ups-device", "other"})
 DEVICE_PORT_KINDS = frozenset({"power-port", "power-outlet", "front-port", "rear-port"})
+PORT_IFACE_KINDS = frozenset({"front-port", "rear-port"})
 CABLE_TYPES = frozenset({"power", "cat5e", "cat6", "cat6a", "sm-os2", "mm-om4", "dac", "coax", "other"})
 FIBER_CABLE_TYPES = frozenset({"sm-os2", "mm-om4"})
 FIBER_STRAND_STATUSES = frozenset({"unused", "reserved", "used", "damaged"})
@@ -1790,6 +1791,7 @@ class DevicePortCreate(BaseModel):
     connector: str | None = Field(None, max_length=64)
     rear_port_id: int | None = Field(None, ge=1)
     power_port_id: int | None = Field(None, ge=1)
+    interface_id: int | None = Field(None, ge=1)
 
     @field_validator("kind")
     @classmethod
@@ -1805,6 +1807,7 @@ class DevicePortUpdate(BaseModel):
 
     rear_port_id: int | None = Field(None, ge=1)
     power_port_id: int | None = Field(None, ge=1)
+    interface_id: int | None = Field(None, ge=1)
 
 
 class DevicePortRead(BaseModel):
@@ -1818,6 +1821,7 @@ class DevicePortRead(BaseModel):
     connector: str | None
     rear_port_id: int | None
     power_port_id: int | None
+    interface_id: int | None
     created_at: dt.datetime
 
 
