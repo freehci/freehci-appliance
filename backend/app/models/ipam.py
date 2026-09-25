@@ -862,6 +862,9 @@ class IpamTunnel(Base):
         back_populates="tunnel",
         cascade="all, delete-orphan",
     )
+    wireguard_interfaces: Mapped[list["IpamWireGuardInterface"]] = relationship(
+        back_populates="tunnel",
+    )
 
 
 class IpamTunnelTransport(Base):
@@ -943,6 +946,65 @@ class IpamTunnelPeer(Base):
     )
 
     tunnel: Mapped["IpamTunnel"] = relationship(back_populates="peers")
+
+
+class IpamWireGuardInterface(Base):
+    """Lokalt WireGuard-grensesnitt. Listen-port, adresse og nøkler gjettes ikke."""
+
+    __tablename__ = "ipam_wireguard_interfaces"
+    __table_args__ = (UniqueConstraint("device_id", "slug", name="uq_ipam_wg_iface_device_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    interface_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_interfaces.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    listen_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    private_key_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tunnel_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_tunnels.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    tunnel: Mapped["IpamTunnel | None"] = relationship(back_populates="wireguard_interfaces")
+    peers: Mapped[list["IpamWireGuardPeer"]] = relationship(
+        back_populates="wg_interface",
+        cascade="all, delete-orphan",
+    )
+
+
+class IpamWireGuardPeer(Base):
+    """Peer på et WireGuard-grensesnitt. AllowedIPs er ikke BGP. PSK er referanse."""
+
+    __tablename__ = "ipam_wireguard_peers"
+    __table_args__ = (UniqueConstraint("wg_interface_id", "slug", name="uq_ipam_wg_peer_iface_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    wg_interface_id: Mapped[int] = mapped_column(
+        ForeignKey("ipam_wireguard_interfaces.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    public_key_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    psk_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    endpoint_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    endpoint_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    allowed_ips: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    persistent_keepalive: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    wg_interface: Mapped["IpamWireGuardInterface"] = relationship(back_populates="peers")
 
 
 class IpamIdempotencyKey(Base):

@@ -21,6 +21,8 @@ import type {
   IpamTunnelPeer,
   IpamTunnelTransport,
   IpamTunnelProfile,
+  IpamWireGuardInterface,
+  IpamWireGuardPeer,
   IpamVpnMember,
   IpamVpnService,
   IpamOverlaySegment,
@@ -890,6 +892,49 @@ export function createTunnelPeer(
 
 export function deleteTunnelPeer(id: number): Promise<void> {
   return apiDelete(`${P}/tunnel-peers/${id}`);
+}
+
+export function listWireGuardInterfaces(deviceId?: number): Promise<IpamWireGuardInterface[]> {
+  const q = deviceId != null ? `?device_id=${deviceId}` : "";
+  return apiGet(`${P}/wireguard-interfaces${q}`);
+}
+
+export function createWireGuardInterface(body: {
+  device_id: number;
+  name: string;
+  slug?: string | null;
+  interface_id?: number | null;
+  listen_port?: number | null;
+  address?: string | null;
+  private_key_ref?: string | null;
+  tunnel_id?: number | null;
+  notes?: string | null;
+}): Promise<IpamWireGuardInterface> {
+  return apiPost(`${P}/wireguard-interfaces`, body);
+}
+
+export function deleteWireGuardInterface(id: number): Promise<void> {
+  return apiDelete(`${P}/wireguard-interfaces/${id}`);
+}
+
+export function createWireGuardPeer(
+  ifaceId: number,
+  body: {
+    name: string;
+    slug?: string | null;
+    public_key_ref?: string | null;
+    psk_ref?: string | null;
+    endpoint_host?: string | null;
+    endpoint_port?: number | null;
+    allowed_ips?: string[] | null;
+    persistent_keepalive?: number | null;
+  },
+): Promise<IpamWireGuardPeer> {
+  return apiPost(`${P}/wireguard-interfaces/${ifaceId}/peers`, body);
+}
+
+export function deleteWireGuardPeer(id: number): Promise<void> {
+  return apiDelete(`${P}/wireguard-peers/${id}`);
 }
 
 export function listTunnelProfiles(): Promise<IpamTunnelProfile[]> {

@@ -19,7 +19,17 @@ from app.core.config import get_settings
 from app.models.admin_account import AdminAccount
 from app.models.catalog import ServiceInstance, ServiceTemplate
 from app.models.dcim import Building, DeviceArtifact, DeviceArtifactBaseline, DeviceArtifactBaselineAssignment, DeviceArtifactBaselineMember, DeviceArtifactRecord, DeviceInstance, DeviceInterface, DeviceInterfaceLag, DeviceInterfaceLagMember, DeviceInterfaceVlanMember, DeviceIpAssignment, DeviceModel, DevicePort, DeviceRole, DeviceType, Floor, InterfaceIpAssignment, Manufacturer, Rack, RackPlacement, Room, Site, Wing
-from app.models.ipam import IpamIpv4Address, IpamIpv4Prefix, IpamIpv6Prefix, IpamVlan, IpamVrf
+from app.models.ipam import (
+    IpamIpv4Address,
+    IpamIpv4Prefix,
+    IpamIpv6Prefix,
+    IpamTunnel,
+    IpamVlan,
+    IpamVpnService,
+    IpamVrf,
+    IpamWireGuardInterface,
+    IpamWireGuardPeer,
+)
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
 from app.models.tenant import Tenant
@@ -921,6 +931,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         **_export_device_interface_vlan_members(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_vrfs(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_port_interfaces(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
+        **_export_wireguard(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_interface_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1291,6 +1302,97 @@ def _export_device_port_interfaces(
             }
             for p in ports
             if p.device_id in device_by_id and p.interface_id in iface_by_id
+        ],
+    }
+
+
+def _export_wireguard(
+    db: Session,
+    *,
+    devices: list[DeviceInstance],
+    site_by_id: dict[int, Site],
+    device_by_id: dict[int, DeviceInstance],
+) -> dict[str, Any]:
+    device_ids = {d.id for d in devices}
+    ifaces = (
+        list(db.execute(select(IpamWireGuardInterface).where(IpamWireGuardInterface.device_id.in_(device_ids))).scalars().all())
+        if device_ids
+        else []
+    )
+    iface_ids = {i.id for i in ifaces}
+    peers = (
+        list(db.execute(select(IpamWireGuardPeer).where(IpamWireGuardPeer.wg_interface_id.in_(iface_ids))).scalars().all())
+        if iface_ids
+        else []
+    )
+    dcim_ids = {i.interface_id for i in ifaces if i.interface_id}
+    dcim_by_id = {
+        x.id: x
+        for x in (
+            db.execute(select(DeviceInterface).where(DeviceInterface.id.in_(dcim_ids))).scalars().all() if dcim_ids else []
+        )
+    }
+    tunnel_ids = {i.tunnel_id for i in ifaces if i.tunnel_id}
+    tunnel_by_id = {
+        t.id: t
+        for t in (db.execute(select(IpamTunnel).where(IpamTunnel.id.in_(tunnel_ids))).scalars().all() if tunnel_ids else [])
+    }
+    vpn_ids = {t.vpn_service_id for t in tunnel_by_id.values()}
+    vpn_by_id = {
+        v.id: v
+        for v in (db.execute(select(IpamVpnService).where(IpamVpnService.id.in_(vpn_ids))).scalars().all() if vpn_ids else [])
+    }
+    wg_by_id = {i.id: i for i in ifaces}
+
+    def _site_slug(device_id: int) -> str | None:
+        if device_id not in device_by_id:
+            return None
+        sid = device_by_id[device_id].site_id
+        return site_by_id[sid].slug if sid and sid in site_by_id else None
+
+    return {
+        "wireguard_interfaces": [
+            {
+                "device_name": device_by_id[i.device_id].name if i.device_id in device_by_id else None,
+                "site_slug": _site_slug(i.device_id),
+                "slug": i.slug,
+                "name": i.name,
+                "interface_name": dcim_by_id[i.interface_id].name if i.interface_id in dcim_by_id else None,
+                "listen_port": i.listen_port,
+                "address": i.address,
+                "private_key_ref": i.private_key_ref,
+                "vpn_slug": (
+                    vpn_by_id[tunnel_by_id[i.tunnel_id].vpn_service_id].slug
+                    if i.tunnel_id in tunnel_by_id and tunnel_by_id[i.tunnel_id].vpn_service_id in vpn_by_id
+                    else None
+                ),
+                "tunnel_slug": tunnel_by_id[i.tunnel_id].slug if i.tunnel_id in tunnel_by_id else None,
+                "notes": i.notes,
+            }
+            for i in ifaces
+            if i.device_id in device_by_id
+        ],
+        "wireguard_peers": [
+            {
+                "device_name": (
+                    device_by_id[wg_by_id[p.wg_interface_id].device_id].name
+                    if p.wg_interface_id in wg_by_id and wg_by_id[p.wg_interface_id].device_id in device_by_id
+                    else None
+                ),
+                "site_slug": _site_slug(wg_by_id[p.wg_interface_id].device_id) if p.wg_interface_id in wg_by_id else None,
+                "wg_slug": wg_by_id[p.wg_interface_id].slug if p.wg_interface_id in wg_by_id else None,
+                "slug": p.slug,
+                "name": p.name,
+                "public_key_ref": p.public_key_ref,
+                "psk_ref": p.psk_ref,
+                "endpoint_host": p.endpoint_host,
+                "endpoint_port": p.endpoint_port,
+                "allowed_ips": list(p.allowed_ips) if p.allowed_ips else None,
+                "persistent_keepalive": p.persistent_keepalive,
+                "notes": p.notes,
+            }
+            for p in peers
+            if p.wg_interface_id in wg_by_id
         ],
     }
 

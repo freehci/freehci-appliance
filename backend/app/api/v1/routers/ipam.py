@@ -68,6 +68,12 @@ from app.schemas.ipam import (
     IpamTunnelTransportCreate,
     IpamTunnelTransportRead,
     IpamTunnelUpdate,
+    IpamWireGuardInterfaceCreate,
+    IpamWireGuardInterfaceRead,
+    IpamWireGuardInterfaceUpdate,
+    IpamWireGuardPeerCreate,
+    IpamWireGuardPeerRead,
+    IpamWireGuardPeerUpdate,
     IpamVpnMemberCreate,
     IpamVpnMemberRead,
     IpamVpnServiceCreate,
@@ -141,6 +147,7 @@ from app.services import ipam_facilities as fac_svc
 from app.services import ipam_bgp as bgp_svc
 from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
+from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
@@ -1655,6 +1662,90 @@ def delete_tunnel_peer(peer_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="peer ikke funnet")
     vpn_svc.delete_peer(db, row)
+
+
+@router.get("/wireguard-interfaces", response_model=list[IpamWireGuardInterfaceRead])
+def list_wireguard_interfaces(
+    device_id: int | None = Query(None, ge=1),
+    db: Session = Depends(get_db),
+) -> list[IpamWireGuardInterfaceRead]:
+    return [wg_svc.iface_to_read(db, r) for r in wg_svc.list_interfaces(db, device_id=device_id)]
+
+
+@router.post("/wireguard-interfaces", response_model=IpamWireGuardInterfaceRead)
+def create_wireguard_interface(
+    data: IpamWireGuardInterfaceCreate,
+    db: Session = Depends(get_db),
+) -> IpamWireGuardInterfaceRead:
+    return wg_svc.iface_to_read(db, wg_svc.create_interface(db, data))
+
+
+@router.get("/wireguard-interfaces/{iface_id}", response_model=IpamWireGuardInterfaceRead)
+def get_wireguard_interface(iface_id: int, db: Session = Depends(get_db)) -> IpamWireGuardInterfaceRead:
+    row = wg_svc.get_interface(db, iface_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="WireGuard-grensesnitt ikke funnet")
+    return wg_svc.iface_to_read(db, row)
+
+
+@router.patch("/wireguard-interfaces/{iface_id}", response_model=IpamWireGuardInterfaceRead)
+def patch_wireguard_interface(
+    iface_id: int,
+    data: IpamWireGuardInterfaceUpdate,
+    db: Session = Depends(get_db),
+) -> IpamWireGuardInterfaceRead:
+    row = wg_svc.get_interface(db, iface_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="WireGuard-grensesnitt ikke funnet")
+    return wg_svc.iface_to_read(db, wg_svc.update_interface(db, row, data))
+
+
+@router.delete("/wireguard-interfaces/{iface_id}", status_code=204)
+def delete_wireguard_interface(iface_id: int, db: Session = Depends(get_db)) -> None:
+    row = wg_svc.get_interface(db, iface_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="WireGuard-grensesnitt ikke funnet")
+    wg_svc.delete_interface(db, row)
+
+
+@router.get("/wireguard-interfaces/{iface_id}/peers", response_model=list[IpamWireGuardPeerRead])
+def list_wireguard_peers(iface_id: int, db: Session = Depends(get_db)) -> list[IpamWireGuardPeerRead]:
+    row = wg_svc.get_interface(db, iface_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="WireGuard-grensesnitt ikke funnet")
+    return [wg_svc.peer_to_read(p) for p in sorted(row.peers, key=lambda x: x.slug)]
+
+
+@router.post("/wireguard-interfaces/{iface_id}/peers", response_model=IpamWireGuardPeerRead)
+def create_wireguard_peer(
+    iface_id: int,
+    data: IpamWireGuardPeerCreate,
+    db: Session = Depends(get_db),
+) -> IpamWireGuardPeerRead:
+    row = wg_svc.get_interface(db, iface_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="WireGuard-grensesnitt ikke funnet")
+    return wg_svc.peer_to_read(wg_svc.create_peer(db, row, data))
+
+
+@router.patch("/wireguard-peers/{peer_id}", response_model=IpamWireGuardPeerRead)
+def patch_wireguard_peer(
+    peer_id: int,
+    data: IpamWireGuardPeerUpdate,
+    db: Session = Depends(get_db),
+) -> IpamWireGuardPeerRead:
+    row = wg_svc.get_peer(db, peer_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="WireGuard-peer ikke funnet")
+    return wg_svc.peer_to_read(wg_svc.update_peer(db, row, data))
+
+
+@router.delete("/wireguard-peers/{peer_id}", status_code=204)
+def delete_wireguard_peer(peer_id: int, db: Session = Depends(get_db)) -> None:
+    row = wg_svc.get_peer(db, peer_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="WireGuard-peer ikke funnet")
+    wg_svc.delete_peer(db, row)
 
 
 @router.get("/tunnel-profiles", response_model=list[IpamTunnelProfileRead])

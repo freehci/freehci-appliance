@@ -43,6 +43,8 @@ from app.schemas.dcim import (
     WingCreate,
 )
 from app.schemas.ipam import (
+    IpamWireGuardInterfaceCreate,
+    IpamWireGuardPeerCreate,
     IpamAsAssignmentCreate,
     IpamAutonomousSystemCreate,
     IpamBgpInstanceCreate,
@@ -99,6 +101,7 @@ from app.services import dcim_power as pwr_svc
 from app.services import ipam_bgp as bgp_svc
 from app.services import ipam_providers as prov_svc
 from app.services import ipam_vpn as vpn_svc
+from app.services import ipam_wireguard as wg_svc
 from app.services import tenant as tenant_svc
 from app.schemas.tenant import TenantCreate
 
@@ -481,6 +484,8 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
     _apply_device_interface_ips(db, doc)
     _apply_device_ips(db, doc)
     _apply_device_interface_vrfs(db, doc)
+    _apply_wireguard_interfaces(db, doc)
+    _apply_wireguard_peers(db, doc)
     _apply_vlan_stretches(db, doc)
     _apply_overlay_stretches(db, doc)
     _apply_vrf_stretches(db, doc)
@@ -680,6 +685,88 @@ def _apply_device_interface_vrfs(db: Session, doc: dict[str, Any]) -> None:
                 device.id,
                 iface,
                 DeviceInterfaceUpdate(ipam_vrf_id=vrf.id),
+            )
+        except Exception:
+            continue
+
+
+def _apply_wireguard_interfaces(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("wireguard_interfaces") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        slug = str(rec.get("slug") or "").strip()
+        if device is None or not slug:
+            continue
+        if wg_svc.get_interface_by_slug(db, device.id, slug) is not None:
+            continue
+        dcim_iface_id = None
+        iface_name = str(rec.get("interface_name") or "").strip()
+        if iface_name:
+            dcim_iface = db.execute(
+                select(DeviceInterface).where(
+                    DeviceInterface.device_id == device.id,
+                    DeviceInterface.name == iface_name,
+                ),
+            ).scalar_one_or_none()
+            dcim_iface_id = dcim_iface.id if dcim_iface is not None else None
+        tunnel_id = None
+        vpn_slug = str(rec.get("vpn_slug") or "").strip()
+        tunnel_slug = str(rec.get("tunnel_slug") or "").strip()
+        if vpn_slug and tunnel_slug:
+            vpn = db.execute(select(IpamVpnService).where(IpamVpnService.slug == vpn_slug)).scalar_one_or_none()
+            if vpn is not None:
+                tunnel = db.execute(
+                    select(IpamTunnel).where(IpamTunnel.vpn_service_id == vpn.id, IpamTunnel.slug == tunnel_slug),
+                ).scalar_one_or_none()
+                tunnel_id = tunnel.id if tunnel is not None else None
+        listen_port = _opt_recorded_int(rec.get("listen_port"))
+        address = str(rec.get("address") or "").strip() or None
+        private_key_ref = str(rec.get("private_key_ref") or "").strip() or None
+        try:
+            wg_svc.create_interface(
+                db,
+                IpamWireGuardInterfaceCreate(
+                    device_id=device.id,
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
+                    interface_id=dcim_iface_id,
+                    listen_port=listen_port,
+                    address=address,
+                    private_key_ref=private_key_ref,
+                    tunnel_id=tunnel_id,
+                    notes=rec.get("notes"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_wireguard_peers(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("wireguard_peers") or []:
+        device = _device_by_site_name(db, rec.get("site_slug"), rec.get("device_name"))
+        wg_slug = str(rec.get("wg_slug") or "").strip()
+        slug = str(rec.get("slug") or "").strip()
+        if device is None or not wg_slug or not slug:
+            continue
+        iface = wg_svc.get_interface_by_slug(db, device.id, wg_slug)
+        if iface is None or wg_svc.get_peer_by_slug(db, iface.id, slug) is not None:
+            continue
+        allowed = rec.get("allowed_ips")
+        allowed_ips = [str(x).strip() for x in allowed] if isinstance(allowed, list) else None
+        try:
+            wg_svc.create_peer(
+                db,
+                iface,
+                IpamWireGuardPeerCreate(
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
+                    public_key_ref=str(rec.get("public_key_ref") or "").strip() or None,
+                    psk_ref=str(rec.get("psk_ref") or "").strip() or None,
+                    endpoint_host=str(rec.get("endpoint_host") or "").strip() or None,
+                    endpoint_port=_opt_recorded_int(rec.get("endpoint_port")),
+                    allowed_ips=allowed_ips,
+                    persistent_keepalive=_opt_recorded_int(rec.get("persistent_keepalive")),
+                    notes=rec.get("notes"),
+                ),
             )
         except Exception:
             continue

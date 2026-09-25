@@ -555,6 +555,41 @@ export type IpamTunnelEndpoint = {
   interface_name: string | null;
 };
 
+export type IpamWireGuardPeer = {
+  id: number;
+  wg_interface_id: number;
+  name: string;
+  slug: string;
+  public_key_ref: string | null;
+  psk_ref: string | null;
+  endpoint_host: string | null;
+  endpoint_port: number | null;
+  allowed_ips: string[] | null;
+  persistent_keepalive: number | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type IpamWireGuardInterface = {
+  id: number;
+  device_id: number;
+  device_name: string | null;
+  site_id: number | null;
+  name: string;
+  slug: string;
+  interface_id: number | null;
+  interface_name: string | null;
+  listen_port: number | null;
+  address: string | null;
+  private_key_ref: string | null;
+  tunnel_id: number | null;
+  tunnel_slug: string | null;
+  vpn_slug: string | null;
+  notes: string | null;
+  created_at: string;
+  peers: IpamWireGuardPeer[];
+};
+
 export type IpamTunnelPeer = {
   id: number;
   tunnel_id: number;

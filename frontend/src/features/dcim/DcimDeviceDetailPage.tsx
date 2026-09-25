@@ -12,6 +12,7 @@ import { DcimOwnerComponentsPanel } from "./DcimOwnerComponentsPanel";
 import { DevicePortsCablesPanel } from "./DevicePortsCablesPanel";
 import { DCIM_DEVICE_ICON_URL_ATTR } from "./modelImages";
 import { interfaceDepthByInterfaceList, interfaceIndentedName } from "./interfaceTreeLabels";
+import type { IpamWireGuardInterface } from "@/features/ipam/types";
 import type { DeviceInterface, DeviceInterfaceLag, DeviceInterfaceVlanMember, DeviceIpAssignment } from "./types";
 import { CAP_DCIM_DEVICE_HARDWARE_VIEW, CAP_DCIM_DEVICE_OS_VIEW } from "@/plugins/capabilities";
 import { pluginsWithCapability } from "@/plugins/devicePluginSupport";
@@ -43,6 +44,8 @@ type DeviceNetDeleteConfirm =
   | { kind: "ip"; iid: number; aid: number; address: string }
   | { kind: "lag"; lid: number; name: string }
   | { kind: "lag-member"; mid: number; name: string }
+  | { kind: "wg"; wid: number; name: string }
+  | { kind: "wg-peer"; pid: number; name: string }
   | { kind: "vlan-member"; mid: number; name: string };
 
 export function DcimDeviceDetailPage() {
@@ -118,6 +121,20 @@ export function DcimDeviceDetailPage() {
   const [vlanMemIfaceId, setVlanMemIfaceId] = useState("");
   const [vlanMemVlanId, setVlanMemVlanId] = useState("");
   const [vlanMemRole, setVlanMemRole] = useState("");
+  const [wgName, setWgName] = useState("");
+  const [wgListen, setWgListen] = useState("");
+  const [wgAddr, setWgAddr] = useState("");
+  const [wgPriv, setWgPriv] = useState("");
+  const [wgDcimIface, setWgDcimIface] = useState("");
+  const [wgVpnId, setWgVpnId] = useState("");
+  const [wgTunnelId, setWgTunnelId] = useState("");
+  const [wgPeerIface, setWgPeerIface] = useState("");
+  const [wgPeerName, setWgPeerName] = useState("");
+  const [wgPeerKey, setWgPeerKey] = useState("");
+  const [wgPeerPsk, setWgPeerPsk] = useState("");
+  const [wgPeerHost, setWgPeerHost] = useState("");
+  const [wgPeerPort, setWgPeerPort] = useState("");
+  const [wgPeerAllowed, setWgPeerAllowed] = useState("");
 
   const deviceQ = useQuery({
     queryKey: ["dcim", "devices", id],
@@ -140,6 +157,20 @@ export function DcimDeviceDetailPage() {
     queryKey: ["dcim", "devices", id, "interface-vlans"],
     queryFn: () => api.listDeviceInterfaceVlans(id),
     enabled: Number.isFinite(id) && id > 0,
+  });
+  const wgQ = useQuery({
+    queryKey: ["ipam", "wireguard-interfaces", id],
+    queryFn: () => ipamApi.listWireGuardInterfaces(id),
+    enabled: Number.isFinite(id) && id > 0,
+  });
+  const wgVpnsQ = useQuery({
+    queryKey: ["ipam", "vpn-services"],
+    queryFn: () => ipamApi.listVpnServices(),
+  });
+  const wgTunnelsQ = useQuery({
+    queryKey: ["ipam", "vpn-tunnels", wgVpnId],
+    queryFn: () => ipamApi.listVpnTunnels(Number(wgVpnId)),
+    enabled: wgVpnId !== "",
   });
 
   const deviceIpsQ = useQuery({
@@ -689,6 +720,78 @@ export function DcimDeviceDetailPage() {
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
 
+  const invalidateWg = () => {
+    void qc.invalidateQueries({ queryKey: ["ipam", "wireguard-interfaces", id] });
+  };
+
+  const createWg = useMutation({
+    mutationFn: () =>
+      ipamApi.createWireGuardInterface({
+        device_id: id,
+        name: wgName.trim(),
+        interface_id: wgDcimIface === "" ? null : Number(wgDcimIface),
+        listen_port: wgListen.trim() === "" ? null : Number(wgListen),
+        address: wgAddr.trim() === "" ? null : wgAddr.trim(),
+        private_key_ref: wgPriv.trim() === "" ? null : wgPriv.trim(),
+        tunnel_id: wgTunnelId === "" ? null : Number(wgTunnelId),
+      }),
+    onSuccess: () => {
+      setWgName("");
+      setWgListen("");
+      setWgAddr("");
+      setWgPriv("");
+      setWgDcimIface("");
+      setWgTunnelId("");
+      setErr(null);
+      invalidateWg();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const addWgPeer = useMutation({
+    mutationFn: () =>
+      ipamApi.createWireGuardPeer(Number(wgPeerIface), {
+        name: wgPeerName.trim(),
+        public_key_ref: wgPeerKey.trim() === "" ? null : wgPeerKey.trim(),
+        psk_ref: wgPeerPsk.trim() === "" ? null : wgPeerPsk.trim(),
+        endpoint_host: wgPeerHost.trim() === "" ? null : wgPeerHost.trim(),
+        endpoint_port: wgPeerPort.trim() === "" ? null : Number(wgPeerPort),
+        allowed_ips:
+          wgPeerAllowed.trim() === ""
+            ? null
+            : wgPeerAllowed.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean),
+      }),
+    onSuccess: () => {
+      setWgPeerName("");
+      setWgPeerKey("");
+      setWgPeerPsk("");
+      setWgPeerHost("");
+      setWgPeerPort("");
+      setWgPeerAllowed("");
+      setErr(null);
+      invalidateWg();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delWg = useMutation({
+    mutationFn: (wid: number) => ipamApi.deleteWireGuardInterface(wid),
+    onSuccess: () => {
+      setErr(null);
+      invalidateWg();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const delWgPeer = useMutation({
+    mutationFn: (pid: number) => ipamApi.deleteWireGuardPeer(pid),
+    onSuccess: () => {
+      setErr(null);
+      invalidateWg();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
   const invalidateVlanMem = () => {
     void qc.invalidateQueries({ queryKey: ["dcim", "devices", id, "interface-vlans"] });
   };
@@ -763,8 +866,15 @@ export function DcimDeviceDetailPage() {
   });
 
   const netDeleteBusy =
-    delIf.isPending || delIp.isPending || delLag.isPending || delLagMember.isPending || delVlanMem.isPending;
+    delIf.isPending ||
+    delIp.isPending ||
+    delLag.isPending ||
+    delLagMember.isPending ||
+    delWg.isPending ||
+    delWgPeer.isPending ||
+    delVlanMem.isPending;
   const lags: DeviceInterfaceLag[] = lagsQ.data ?? [];
+  const wgIfaces: IpamWireGuardInterface[] = wgQ.data ?? [];
   const lagTaken = new Set(lags.flatMap((b) => b.members.map((m) => m.interface_id)));
   const freeLagIfaces = (interfacesQ.data ?? []).filter((x) => !lagTaken.has(x.id));
   const vlanMembers: DeviceInterfaceVlanMember[] = vlanMemQ.data ?? [];
@@ -2199,6 +2309,160 @@ export function DcimDeviceDetailPage() {
             </button>
           </form>
         ) : null}
+        <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.wg.title")}</h3>
+        <p className={styles.muted}>{t("dcim.equip.wg.hint")}</p>
+        {wgIfaces.length === 0 && !wgQ.isLoading ? <p className={styles.muted}>{t("dcim.equip.wg.empty")}</p> : null}
+        {wgIfaces.length > 0 ? (
+          <ul className={styles.ipList}>
+            {wgIfaces.map((w) => (
+              <li key={w.id}>
+                {w.name}
+                {w.listen_port != null ? ` :${w.listen_port}` : ""}
+                {w.address ? ` ${w.address}` : ""}
+                {w.interface_name ? ` · ${w.interface_name}` : ""}
+                {w.tunnel_slug ? ` · ${w.vpn_slug ?? ""}/${w.tunnel_slug}` : ""}{" "}
+                <button
+                  type="button"
+                  className={styles.btnLink}
+                  onClick={() => setNetDeleteConfirm({ kind: "wg", wid: w.id, name: w.name })}
+                >
+                  {t("dcim.common.delete")}
+                </button>
+                {w.peers.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={styles.btnLink}
+                    onClick={() => setNetDeleteConfirm({ kind: "wg-peer", pid: p.id, name: p.name })}
+                  >
+                    {t("dcim.equip.wg.removePeer")} {p.name}
+                    {p.allowed_ips && p.allowed_ips.length > 0 ? ` (${p.allowed_ips.join(", ")})` : ""}
+                  </button>
+                ))}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <form
+          className={styles.formRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setErr(null);
+            createWg.mutate();
+          }}
+        >
+          <label>
+            {t("dcim.equip.wg.name")}
+            <input value={wgName} onChange={(e) => setWgName(e.target.value)} required />
+          </label>
+          <label>
+            {t("dcim.equip.wg.listenPort")}
+            <input value={wgListen} onChange={(e) => setWgListen(e.target.value)} inputMode="numeric" />
+          </label>
+          <label>
+            {t("dcim.equip.wg.address")}
+            <input value={wgAddr} onChange={(e) => setWgAddr(e.target.value)} />
+          </label>
+          <label>
+            {t("dcim.equip.wg.privateRef")}
+            <input value={wgPriv} onChange={(e) => setWgPriv(e.target.value)} placeholder="secret:…" />
+          </label>
+          <label>
+            {t("dcim.equip.wg.dcimIface")}
+            <select value={wgDcimIface} onChange={(e) => setWgDcimIface(e.target.value)}>
+              <option value="">{t("dcim.equip.wg.dcimIfaceNone")}</option>
+              {(interfacesQ.data ?? []).map((x) => (
+                <option key={x.id} value={String(x.id)}>
+                  {ifaceIndentedLabel(x)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("dcim.equip.wg.vpn")}
+            <select
+              value={wgVpnId}
+              onChange={(e) => {
+                setWgVpnId(e.target.value);
+                setWgTunnelId("");
+              }}
+            >
+              <option value="">{t("dcim.equip.wg.vpnNone")}</option>
+              {(wgVpnsQ.data ?? []).map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("dcim.equip.wg.tunnel")}
+            <select value={wgTunnelId} onChange={(e) => setWgTunnelId(e.target.value)} disabled={wgVpnId === ""}>
+              <option value="">{t("dcim.equip.wg.tunnelNone")}</option>
+              {(wgTunnelsQ.data ?? []).map((tun) => (
+                <option key={tun.id} value={String(tun.id)}>
+                  {tun.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className={styles.btn} disabled={createWg.isPending || wgName.trim() === ""}>
+            {createWg.isPending ? "…" : t("dcim.equip.wg.add")}
+          </button>
+        </form>
+        {wgIfaces.length > 0 ? (
+          <form
+            className={styles.formRow}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setErr(null);
+              addWgPeer.mutate();
+            }}
+          >
+            <label>
+              {t("dcim.equip.wg.peerIface")}
+              <select value={wgPeerIface} onChange={(e) => setWgPeerIface(e.target.value)}>
+                <option value="">{t("dcim.equip.wg.chooseIface")}</option>
+                {wgIfaces.map((w) => (
+                  <option key={w.id} value={String(w.id)}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("dcim.equip.wg.peerName")}
+              <input value={wgPeerName} onChange={(e) => setWgPeerName(e.target.value)} required />
+            </label>
+            <label>
+              {t("dcim.equip.wg.peerKey")}
+              <input value={wgPeerKey} onChange={(e) => setWgPeerKey(e.target.value)} placeholder="secret:…" />
+            </label>
+            <label>
+              {t("dcim.equip.wg.peerPsk")}
+              <input value={wgPeerPsk} onChange={(e) => setWgPeerPsk(e.target.value)} placeholder="secret:…" />
+            </label>
+            <label>
+              {t("dcim.equip.wg.peerEndpoint")}
+              <input value={wgPeerHost} onChange={(e) => setWgPeerHost(e.target.value)} />
+            </label>
+            <label>
+              {t("dcim.equip.wg.peerPort")}
+              <input value={wgPeerPort} onChange={(e) => setWgPeerPort(e.target.value)} inputMode="numeric" />
+            </label>
+            <label>
+              {t("dcim.equip.wg.peerAllowed")}
+              <input value={wgPeerAllowed} onChange={(e) => setWgPeerAllowed(e.target.value)} />
+            </label>
+            <button
+              type="submit"
+              className={styles.btn}
+              disabled={addWgPeer.isPending || wgPeerIface === "" || wgPeerName.trim() === ""}
+            >
+              {addWgPeer.isPending ? "…" : t("dcim.equip.wg.addPeer")}
+            </button>
+          </form>
+        ) : null}
         <h3 className={styles.mfrDetailSectionTitle}>{t("dcim.equip.vlanMem.title")}</h3>
         <p className={styles.muted}>{t("dcim.equip.vlanMem.hint")}</p>
         {vlanMembers.length === 0 && !vlanMemQ.isLoading ? (
@@ -2297,7 +2561,11 @@ export function DcimDeviceDetailPage() {
                   ? t("dcim.equip.dev.deleteLagMemberModalTitle", { name: netDeleteConfirm.name })
                   : netDeleteConfirm?.kind === "vlan-member"
                     ? t("dcim.equip.dev.deleteVlanMemModalTitle", { name: netDeleteConfirm.name })
-                    : ""
+                    : netDeleteConfirm?.kind === "wg"
+                      ? t("dcim.equip.dev.deleteWgModalTitle", { name: netDeleteConfirm.name })
+                      : netDeleteConfirm?.kind === "wg-peer"
+                        ? t("dcim.equip.dev.deleteWgPeerModalTitle", { name: netDeleteConfirm.name })
+                        : ""
         }
         message={
           netDeleteConfirm?.kind === "interface"
@@ -2310,12 +2578,17 @@ export function DcimDeviceDetailPage() {
                   ? t("dcim.equip.dev.deleteLagMemberModalHint")
                   : netDeleteConfirm?.kind === "vlan-member"
                     ? t("dcim.equip.dev.deleteVlanMemModalHint")
-                    : null
+                    : netDeleteConfirm?.kind === "wg"
+                      ? t("dcim.equip.dev.deleteWgModalHint")
+                      : netDeleteConfirm?.kind === "wg-peer"
+                        ? t("dcim.equip.dev.deleteWgPeerModalHint")
+                        : null
         }
         confirmLabel={
           netDeleteConfirm?.kind === "ip" ||
           netDeleteConfirm?.kind === "lag-member" ||
-          netDeleteConfirm?.kind === "vlan-member"
+          netDeleteConfirm?.kind === "vlan-member" ||
+          netDeleteConfirm?.kind === "wg-peer"
             ? t("dcim.common.remove")
             : t("dcim.common.delete")
         }
@@ -2338,6 +2611,14 @@ export function DcimDeviceDetailPage() {
           }
           if (netDeleteConfirm.kind === "vlan-member") {
             delVlanMem.mutate(netDeleteConfirm.mid, { onSettled: () => setNetDeleteConfirm(null) });
+            return;
+          }
+          if (netDeleteConfirm.kind === "wg") {
+            delWg.mutate(netDeleteConfirm.wid, { onSettled: () => setNetDeleteConfirm(null) });
+            return;
+          }
+          if (netDeleteConfirm.kind === "wg-peer") {
+            delWgPeer.mutate(netDeleteConfirm.pid, { onSettled: () => setNetDeleteConfirm(null) });
             return;
           }
           delIp.mutate(

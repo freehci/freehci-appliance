@@ -2140,6 +2140,144 @@ class IpamTunnelPeerRead(BaseModel):
     created_at: dt.datetime
 
 
+class IpamWireGuardPeerCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    public_key_ref: str | None = Field(None, max_length=255)
+    psk_ref: str | None = Field(None, max_length=255)
+    endpoint_host: str | None = Field(None, max_length=255)
+    endpoint_port: int | None = Field(None, ge=1, le=65535)
+    allowed_ips: list[str] | None = None
+    persistent_keepalive: int | None = Field(None, ge=0, le=86400)
+    notes: str | None = None
+
+    @field_validator("public_key_ref", "psk_ref")
+    @classmethod
+    def peer_ref_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
+
+    @field_validator("allowed_ips", mode="before")
+    @classmethod
+    def peer_ips_ok(cls, v: Any) -> list[str] | None:
+        if v is None:
+            return None
+        items = _csv_or_list(v)
+        return items or None
+
+
+class IpamWireGuardPeerUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    public_key_ref: str | None = Field(None, max_length=255)
+    psk_ref: str | None = Field(None, max_length=255)
+    endpoint_host: str | None = Field(None, max_length=255)
+    endpoint_port: int | None = Field(None, ge=1, le=65535)
+    allowed_ips: list[str] | None = None
+    persistent_keepalive: int | None = Field(None, ge=0, le=86400)
+    notes: str | None = None
+
+    @field_validator("public_key_ref", "psk_ref")
+    @classmethod
+    def peer_ref_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
+
+    @field_validator("allowed_ips", mode="before")
+    @classmethod
+    def peer_ips_ok(cls, v: Any) -> list[str] | None:
+        if v is None:
+            return None
+        items = _csv_or_list(v)
+        return items or None
+
+
+class IpamWireGuardPeerRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    wg_interface_id: int
+    name: str
+    slug: str
+    public_key_ref: str | None
+    psk_ref: str | None
+    endpoint_host: str | None
+    endpoint_port: int | None
+    allowed_ips: list[str] | None
+    persistent_keepalive: int | None
+    notes: str | None
+    created_at: dt.datetime
+
+
+class IpamWireGuardInterfaceCreate(BaseModel):
+    device_id: int = Field(..., ge=1)
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    interface_id: int | None = Field(None, ge=1)
+    listen_port: int | None = Field(None, ge=1, le=65535)
+    address: str | None = Field(None, max_length=64)
+    private_key_ref: str | None = Field(None, max_length=255)
+    tunnel_id: int | None = Field(None, ge=1)
+    notes: str | None = None
+
+    @field_validator("private_key_ref")
+    @classmethod
+    def priv_ref_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
+
+    @field_validator("address")
+    @classmethod
+    def addr_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
+
+
+class IpamWireGuardInterfaceUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    interface_id: int | None = Field(None, ge=1)
+    listen_port: int | None = Field(None, ge=1, le=65535)
+    address: str | None = Field(None, max_length=64)
+    private_key_ref: str | None = Field(None, max_length=255)
+    tunnel_id: int | None = Field(None, ge=1)
+    notes: str | None = None
+
+    @field_validator("private_key_ref")
+    @classmethod
+    def priv_ref_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
+
+    @field_validator("address")
+    @classmethod
+    def addr_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
+
+
+class IpamWireGuardInterfaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    device_name: str | None = None
+    site_id: int | None = None
+    name: str
+    slug: str
+    interface_id: int | None
+    interface_name: str | None = None
+    listen_port: int | None
+    address: str | None
+    private_key_ref: str | None
+    tunnel_id: int | None
+    tunnel_slug: str | None = None
+    vpn_slug: str | None = None
+    notes: str | None
+    created_at: dt.datetime
+    peers: list[IpamWireGuardPeerRead] = Field(default_factory=list)
+
+
 class Ipv4PrefixSplitHalfIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     cidr: str = Field(..., min_length=1, max_length=32)
