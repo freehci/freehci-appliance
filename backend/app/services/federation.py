@@ -34,6 +34,7 @@ from app.models.ipam import (
     IpamIpsecTunnel,
     IpamGreProfile,
     IpamGreTunnel,
+    IpamDualStackGroup,
 )
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -552,12 +553,19 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "vlan_slug": p.get("vlan_slug"),
                 "vrf_slug": p.get("vrf_slug"),
                 "overlap_policy": p.get("overlap_policy"),
+                "dual_stack_group_slug": p.get("dual_stack_group_slug"),
             }
             for p in raw.get("prefixes") or []
         ],
         "addresses": addresses,
         "ipv6_prefixes": [
-            {"cidr": p["cidr"], "slug": p.get("slug"), "role": p.get("role"), "status": p.get("status")}
+            {
+                "cidr": p["cidr"],
+                "slug": p.get("slug"),
+                "role": p.get("role"),
+                "status": p.get("status"),
+                "dual_stack_group_slug": p.get("dual_stack_group_slug"),
+            }
             for p in raw.get("ipv6_prefixes") or []
         ],
         "ipv6_addresses": v6_addrs,
@@ -939,6 +947,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         **_export_wireguard(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_ipsec(db),
         **_export_gre(db),
+        **_export_dual_stack(db),
         **_export_device_interface_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1502,6 +1511,16 @@ def _export_gre(db: Session) -> dict[str, Any]:
             }
             for b in binds
             if b.tunnel_id in tunnel_by_id and b.profile_id in profile_by_id
+        ],
+    }
+
+
+def _export_dual_stack(db: Session) -> dict[str, Any]:
+    groups = list(db.execute(select(IpamDualStackGroup).order_by(IpamDualStackGroup.slug)).scalars().all())
+    return {
+        "dual_stack_groups": [
+            {"slug": g.slug, "name": g.name, "notes": g.notes}
+            for g in groups
         ],
     }
 

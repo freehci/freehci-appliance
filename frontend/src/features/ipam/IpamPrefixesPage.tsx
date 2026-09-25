@@ -144,6 +144,7 @@ export function IpamPrefixesPage() {
     queryFn: () => ipamApi.listIpamVlans(),
   });
   const vrfsQ = useQuery({ queryKey: ["ipam", "vrfs", "all-for-prefixes"], queryFn: () => ipamApi.listIpamVrfs() });
+  const dsGroupsQ = useQuery({ queryKey: ["ipam", "dual-stack-groups"], queryFn: ipamApi.listDualStackGroups });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
 
@@ -1126,8 +1127,8 @@ export function IpamPrefixesPage() {
                   {exploreQ.data.prefix.role ? ` · ${exploreQ.data.prefix.role}` : ""}
                   {exploreQ.data.prefix.status ? ` · ${exploreQ.data.prefix.status}` : ""}
                   {exploreQ.data.prefix.overlap_policy ? ` · ${exploreQ.data.prefix.overlap_policy}` : ""}
-                  {exploreQ.data.prefix.dual_stack_group_id != null
-                    ? ` · dual-stack #${exploreQ.data.prefix.dual_stack_group_id}`
+                  {exploreQ.data.prefix.dual_stack_group_name || exploreQ.data.prefix.dual_stack_group_slug
+                    ? ` · dual-stack ${exploreQ.data.prefix.dual_stack_group_name ?? exploreQ.data.prefix.dual_stack_group_slug}`
                     : ""}
                 </span>
               </h3>
@@ -2217,7 +2218,14 @@ export function IpamPrefixesPage() {
                 </label>
                 <label>
                   {t("ipam.gitops.dualStack")}
-                  <input value={newDualStack} onChange={(e) => setNewDualStack(e.target.value)} placeholder="80" />
+                  <select value={newDualStack} onChange={(e) => setNewDualStack(e.target.value)}>
+                    <option value="">{t("ipam.dualStack.none")}</option>
+                    {(dsGroupsQ.data ?? []).map((g) => (
+                      <option key={g.id} value={String(g.id)}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </>
             ) : null}

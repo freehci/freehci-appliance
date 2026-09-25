@@ -72,6 +72,12 @@ def test_ipv6_ensure_request_and_dual_stack_pair() -> None:
     app = create_app()
     with TestClient(app) as client:
         sid = _site(client, "site-v6")
+        group = client.post(
+            "/api/v1/ipam/dual-stack-groups",
+            json={"name": "pods", "slug": "ds-pods"},
+        )
+        assert group.status_code == 200, group.text
+        gid = group.json()["id"]
         v4 = client.post(
             "/api/v1/ipam/ipv4-prefixes",
             json={
@@ -79,7 +85,7 @@ def test_ipv6_ensure_request_and_dual_stack_pair() -> None:
                 "name": "pods4",
                 "cidr": "10.89.0.0/16",
                 "role": "overlay-pod",
-                "dual_stack_group_id": 80,
+                "dual_stack_group_id": gid,
             },
         )
         assert v4.status_code == 200, v4.text
@@ -91,13 +97,14 @@ def test_ipv6_ensure_request_and_dual_stack_pair() -> None:
                 "cidr": "fd80::/48",
                 "role": "overlay-pod",
                 "slug": "site-a-pod6",
-                "dual_stack_group_id": 80,
+                "dual_stack_group_id": gid,
             },
         )
         assert v6.status_code == 200, v6.text
         assert v6.json()["created"] is True
         assert v6.json()["overlap_policy"] == "global-unique"
-        assert v6.json()["dual_stack_group_id"] == 80
+        assert v6.json()["dual_stack_group_id"] == gid
+        assert v6.json()["dual_stack_group_slug"] == "ds-pods"
         pid = v6.json()["id"]
 
         again = client.post(

@@ -1658,6 +1658,13 @@ export const nb = {
   "ipam.gitops.overlap": "Overlap",
   "ipam.gitops.overlapDefault": "Standard for rolle",
   "ipam.gitops.dualStack": "Dual-stack gruppe",
+  "ipam.dualStack.title": "Dual-stack-grupper",
+  "ipam.dualStack.hint":
+    "Opprett en gruppe først, og knytt deretter IPv4- og IPv6-prefiks. Samme navn eller CIDR lager aldri en paring. Et fritt tall er ikke en gruppe.",
+  "ipam.dualStack.empty": "Ingen dual-stack-gruppe registrert.",
+  "ipam.dualStack.name": "Navn",
+  "ipam.dualStack.add": "Legg til gruppe",
+  "ipam.dualStack.none": "— ingen —",
   "ipam.gitops.title": "IPAM — GitOps",
   "ipam.gitops.intro":
     "Drift mot siste skann, eksport av site som YAML/JSON, webhooks og revisjonslogg. Dette er det GUI-brukere trenger fra sync- og audit-kontrakten.",

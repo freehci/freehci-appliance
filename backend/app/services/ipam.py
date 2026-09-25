@@ -38,6 +38,7 @@ from app.services import tenant as tenant_svc
 from app.services import ipam_facilities as fac_svc
 from app.services.ipam_errors import ipam_error
 from app.services import ipam_audit as audit_svc
+from app.services import ipam_dual_stack as ds_svc
 from app.services import ipam_etag as etag_svc
 
 _INVENTORY_USED_STATUSES = frozenset({"reserved", "assigned"})
@@ -429,6 +430,7 @@ def ipv4_prefix_read(
         services = parse_subnet_services(getattr(row, "subnet_services", None))
     except Exception:
         services = getattr(row, "subnet_services", None)
+    ds_slug, ds_name = ds_svc.labels(db, getattr(row, "dual_stack_group_id", None))
     return Ipv4PrefixRead(
         id=row.id,
         site_id=row.site_id,
@@ -452,6 +454,8 @@ def ipv4_prefix_read(
         subnet_services=services,
         overlap_policy=getattr(row, "overlap_policy", None) or "site-local",
         dual_stack_group_id=getattr(row, "dual_stack_group_id", None),
+        dual_stack_group_slug=ds_slug,
+        dual_stack_group_name=ds_name,
         etag=etag_svc.format_etag(row),
     )
 
@@ -723,7 +727,11 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
         vlan_id=data.vlan_id,
         vrf_id=data.vrf_id,
         overlap_policy=policy,
-        dual_stack_group_id=data.dual_stack_group_id,
+        dual_stack_group_id=ds_svc.resolve_ref(
+            db,
+            group_id=data.dual_stack_group_id,
+            group_slug=getattr(data, "dual_stack_group_slug", None),
+        ),
     )
     db.add(row)
     try:
@@ -788,8 +796,12 @@ def _apply_prefix_ensure_update(db: Session, row: IpamIpv4Prefix, data: Ipv4Pref
         row.vlan_id = data.vlan_id
     if data.overlap_policy is not None:
         row.overlap_policy = resolve_overlap_policy(prefix_role(row), data.overlap_policy)
-    if data.dual_stack_group_id is not None:
-        row.dual_stack_group_id = data.dual_stack_group_id
+    if data.dual_stack_group_id is not None or getattr(data, "dual_stack_group_slug", None):
+        row.dual_stack_group_id = ds_svc.resolve_ref(
+            db,
+            group_id=data.dual_stack_group_id,
+            group_slug=getattr(data, "dual_stack_group_slug", None),
+        )
     return row
 
 
@@ -835,7 +847,11 @@ def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure, *, update: bool = Fa
         vlan_id=data.vlan_id,
         vrf_id=data.vrf_id,
         overlap_policy=data.overlap_policy,
-        dual_stack_group_id=data.dual_stack_group_id,
+        dual_stack_group_id=ds_svc.resolve_ref(
+            db,
+            group_id=data.dual_stack_group_id,
+            group_slug=getattr(data, "dual_stack_group_slug", None),
+        ),
     )
     try:
         return create_ipv4_prefix(db, create)
@@ -880,7 +896,7 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
             exclude_prefix_id=row.id,
         )
     if "dual_stack_group_id" in patch:
-        row.dual_stack_group_id = patch["dual_stack_group_id"]
+        row.dual_stack_group_id = ds_svc.require_existing(db, patch["dual_stack_group_id"])
     if "description" in patch:
         v = patch["description"]
         row.description = None if v is None else (str(v).strip() or None)

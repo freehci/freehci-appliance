@@ -125,6 +125,7 @@ class Ipv4PrefixCreate(BaseModel):
     vrf_id: int | None = Field(None, ge=1, description="Valgfritt: VRF (må tilhøre samme site)")
     overlap_policy: str | None = Field(None, description="site-local | global-unique; overlay/p2p default global-unique")
     dual_stack_group_id: int | None = Field(None, ge=1)
+    dual_stack_group_slug: str | None = Field(None, max_length=128)
 
     @field_validator("cidr")
     @classmethod
@@ -180,6 +181,7 @@ class Ipv4PrefixEnsure(BaseModel):
     vrf_slug: str | None = Field(None, max_length=128)
     overlap_policy: str | None = None
     dual_stack_group_id: int | None = Field(None, ge=1)
+    dual_stack_group_slug: str | None = Field(None, max_length=128)
 
     @model_validator(mode="after")
     def site_ref_present(self) -> Ipv4PrefixEnsure:
@@ -405,6 +407,8 @@ class Ipv4PrefixRead(BaseModel):
     )
     overlap_policy: str = "site-local"
     dual_stack_group_id: int | None = None
+    dual_stack_group_slug: str | None = None
+    dual_stack_group_name: str | None = None
     etag: str | None = Field(None, description="Optimistic concurrency; send som If-Match på PATCH/DELETE")
 
 
@@ -2419,6 +2423,22 @@ class IpamGreTunnelCreate(BaseModel):
     profile_id: int = Field(..., ge=1)
 
 
+class IpamDualStackGroupCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    notes: str | None = None
+
+
+class IpamDualStackGroupRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    notes: str | None
+    created_at: dt.datetime
+
+
 class Ipv4PrefixSplitHalfIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     cidr: str = Field(..., min_length=1, max_length=32)
@@ -2589,6 +2609,8 @@ class Ipv6PrefixRead(BaseModel):
     description: str | None = None
     overlap_policy: str = "site-local"
     dual_stack_group_id: int | None = None
+    dual_stack_group_slug: str | None = None
+    dual_stack_group_name: str | None = None
     parent_id: int | None = None
     used_count: int = 0
     created: bool | None = None

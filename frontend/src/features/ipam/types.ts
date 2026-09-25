@@ -26,6 +26,8 @@ export type Ipv4Prefix = {
   status?: string;
   overlap_policy?: string;
   dual_stack_group_id?: number | null;
+  dual_stack_group_slug?: string | null;
+  dual_stack_group_name?: string | null;
   etag?: string | null;
   cidr: string;
   description: string | null;
@@ -634,6 +636,14 @@ export type IpamGreTunnelBind = {
   created_at: string;
 };
 
+export type IpamDualStackGroup = {
+  id: number;
+  name: string;
+  slug: string;
+  notes: string | null;
+  created_at: string;
+};
+
 export type IpamGreProfile = {
   id: number;
   name: string;
@@ -686,6 +696,8 @@ export type Ipv6Prefix = {
   status?: string;
   overlap_policy?: string;
   dual_stack_group_id?: number | null;
+  dual_stack_group_slug?: string | null;
+  dual_stack_group_name?: string | null;
   cidr: string;
   description?: string | null;
   parent_id?: number | null;

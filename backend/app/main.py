@@ -43,7 +43,7 @@ Machine-readable connect info: `GET /api/v1/auth/agent` (no auth).
 - LB/pool ranges: `GET /ipv4-prefixes/{id}/available-ranges`. `address-grid` is 400 for prefixes larger than /22.
 - `request` / `request-batch` are atomic and accept `Idempotency-Key`. Bind inventory IP: `POST /ipv4-addresses/{id}/bind`.
 - Overlay/p2p prefixes default to `overlap_policy=global-unique` (no CIDR overlap across sites).
-- IPv6: `/ipv6-prefixes` and `/ipv6-addresses` with the same ensure/request/allocate contract. Pair stacks with `dual_stack_group_id`.
+- IPv6: `/ipv6-prefixes` and `/ipv6-addresses` with the same ensure/request/allocate contract. Pair stacks with an explicit dual-stack group (`/dual-stack-groups`).
 - IPv6 grid is 400 `prefix_too_large_for_grid` above /118. Use `GET /ipv6-prefixes/{id}/available-ranges`. Split with `/split` and `/split-equal`. `POST /subnet-scans` accepts `ipv6_prefix_id` (max 2048 addresses).
 - Circuits may omit `tenant_id` and terminate on `a_site_id`/`z_site_id` (WireGuard).
 - Audit: `GET /ipam/audit`. API tokens accept `scopes`: `ipam:read`, `ipam:alloc`, `ipam:admin`.

@@ -50,6 +50,7 @@ from app.schemas.ipam import (
     IpamIpsecTunnelCreate,
     IpamGreProfileCreate,
     IpamGreTunnelCreate,
+    IpamDualStackGroupCreate,
     IpamAsAssignmentCreate,
     IpamAutonomousSystemCreate,
     IpamBgpInstanceCreate,
@@ -109,6 +110,7 @@ from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
 from app.services import ipam_gre as gre_svc
+from app.services import ipam_dual_stack as ds_svc
 from app.services import tenant as tenant_svc
 from app.schemas.tenant import TenantCreate
 
@@ -486,6 +488,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
                 ),
             )
 
+    _apply_dual_stack_groups(db, doc)
     for ipam in doc.get("ipam") or []:
         _apply_site_ipam(db, ipam)
     _apply_device_interface_ips(db, doc)
@@ -879,6 +882,24 @@ def _apply_gre_profiles(db: Session, doc: dict[str, Any]) -> None:
                     ttl=_opt_recorded_int(rec.get("ttl")),
                     checksum=_opt_recorded_bool(rec.get("checksum")),
                     sequence=_opt_recorded_bool(rec.get("sequence")),
+                    notes=rec.get("notes"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_dual_stack_groups(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("dual_stack_groups") or []:
+        slug = str(rec.get("slug") or "").strip()
+        if not slug or ds_svc.get_group_by_slug(db, slug) is not None:
+            continue
+        try:
+            ds_svc.create_group(
+                db,
+                IpamDualStackGroupCreate(
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
                     notes=rec.get("notes"),
                 ),
             )
@@ -1342,6 +1363,7 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 vlan_slug=p.get("vlan_slug"),
                 vrf_slug=p.get("vrf_slug"),
                 overlap_policy=p.get("overlap_policy"),
+                dual_stack_group_slug=str(p.get("dual_stack_group_slug") or "").strip() or None,
             ),
             update=True,
         )
@@ -1390,7 +1412,14 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
     for p in ipam.get("ipv6_prefixes") or []:
         ipv6_svc.ensure_ipv6_prefix(
             db,
-            Ipv6PrefixEnsure(site_slug=site_slug, cidr=p["cidr"], slug=p.get("slug"), role=p.get("role"), status=p.get("status")),
+            Ipv6PrefixEnsure(
+                site_slug=site_slug,
+                cidr=p["cidr"],
+                slug=p.get("slug"),
+                role=p.get("role"),
+                status=p.get("status"),
+                dual_stack_group_slug=str(p.get("dual_stack_group_slug") or "").strip() or None,
+            ),
             update=True,
         )
     for a in ipam.get("ipv6_addresses") or []:

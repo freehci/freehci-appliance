@@ -19,6 +19,19 @@ if TYPE_CHECKING:
     from app.models.tenant import Tenant
 
 
+class IpamDualStackGroup(Base):
+    """Eksplisitt IPv4/IPv6-paring. Samme navn eller CIDR er ikke en gruppe."""
+
+    __tablename__ = "ipam_dual_stack_groups"
+    __table_args__ = (UniqueConstraint("slug", name="uq_ipam_dual_stack_group_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class IpamIpv4Prefix(Base):
     __tablename__ = "ipam_ipv4_prefixes"
     __table_args__ = (
@@ -52,7 +65,10 @@ class IpamIpv4Prefix(Base):
     # Livsløp: planned | active | reserved | deprecated.
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     overlap_policy: Mapped[str] = mapped_column(String(16), nullable=False, default="site-local")
-    dual_stack_group_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dual_stack_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_dual_stack_groups.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Kanonisk IPv4 CIDR-streng, f.eks. 192.168.1.0/24 (normaliseres i tjenestelaget).
     cidr: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -1141,7 +1157,10 @@ class IpamIpv6Prefix(Base):
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="access")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     overlap_policy: Mapped[str] = mapped_column(String(16), nullable=False, default="site-local")
-    dual_stack_group_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dual_stack_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_dual_stack_groups.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     cidr: Mapped[str] = mapped_column(String(64), nullable=False)
     subnet_services: Mapped[dict | None] = mapped_column(JSON, nullable=True)

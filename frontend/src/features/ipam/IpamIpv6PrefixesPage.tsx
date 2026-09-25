@@ -52,6 +52,7 @@ export function IpamIpv6PrefixesPage() {
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const vrfsQ = useQuery({ queryKey: ["ipam", "vrfs", "all-for-prefixes"], queryFn: () => ipamApi.listIpamVrfs() });
+  const dsGroupsQ = useQuery({ queryKey: ["ipam", "dual-stack-groups"], queryFn: ipamApi.listDualStackGroups });
   const prefixesQ = useQuery({
     queryKey: ["ipam", "ipv6-prefixes", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listIpv6Prefixes(siteIdFilter),
@@ -344,7 +345,9 @@ export function IpamIpv6PrefixesPage() {
               {" "}
               · {siteNameById.get(explore.site_id) ?? `#${explore.site_id}`} · {explore.role} · {explore.status} ·{" "}
               {explore.overlap_policy}
-              {explore.dual_stack_group_id != null ? ` · dual-stack #${explore.dual_stack_group_id}` : ""}
+              {explore.dual_stack_group_name || explore.dual_stack_group_slug
+                ? ` · dual-stack ${explore.dual_stack_group_name ?? explore.dual_stack_group_slug}`
+                : ""}
             </span>
           </h3>
 
@@ -722,7 +725,14 @@ export function IpamIpv6PrefixesPage() {
           </label>
           <label>
             {t("ipam.gitops.dualStack")}
-            <input value={newDualStack} onChange={(e) => setNewDualStack(e.target.value)} placeholder="80" />
+            <select value={newDualStack} onChange={(e) => setNewDualStack(e.target.value)}>
+              <option value="">{t("ipam.dualStack.none")}</option>
+              {(dsGroupsQ.data ?? []).map((g) => (
+                <option key={g.id} value={String(g.id)}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             VRF

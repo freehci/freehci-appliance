@@ -1647,6 +1647,13 @@ export const en = {
   "ipam.gitops.overlap": "Overlap",
   "ipam.gitops.overlapDefault": "Default for role",
   "ipam.gitops.dualStack": "Dual-stack group",
+  "ipam.dualStack.title": "Dual-stack groups",
+  "ipam.dualStack.hint":
+    "Create a group first, then attach IPv4 and IPv6 prefixes. Matching names or CIDRs never create a pair. A typed number is not a group.",
+  "ipam.dualStack.empty": "No dual-stack group recorded.",
+  "ipam.dualStack.name": "Name",
+  "ipam.dualStack.add": "Add group",
+  "ipam.dualStack.none": "— none —",
   "ipam.gitops.title": "IPAM — GitOps",
   "ipam.gitops.intro":
     "Drift vs last scan, site export as YAML/JSON, webhooks, and audit log — the GUI view of the sync and audit contract.",

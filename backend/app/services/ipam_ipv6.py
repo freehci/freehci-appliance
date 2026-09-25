@@ -24,6 +24,7 @@ from app.schemas.ipam import (
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_audit as audit_svc
+from app.services import ipam_dual_stack as ds_svc
 from app.services import ipam_etag as etag_svc
 from app.services.ipam_errors import ipam_error
 
@@ -81,6 +82,7 @@ def ipv6_prefix_read(db: Session, row: IpamIpv6Prefix, *, created: bool | None =
             continue
         if ip in net:
             in_net += 1
+    ds_slug, ds_name = ds_svc.labels(db, row.dual_stack_group_id)
     return Ipv6PrefixRead(
         id=row.id,
         site_id=row.site_id,
@@ -95,6 +97,8 @@ def ipv6_prefix_read(db: Session, row: IpamIpv6Prefix, *, created: bool | None =
         description=row.description,
         overlap_policy=row.overlap_policy,
         dual_stack_group_id=row.dual_stack_group_id,
+        dual_stack_group_slug=ds_slug,
+        dual_stack_group_name=ds_name,
         parent_id=parent.id if parent is not None else None,
         used_count=in_net,
         created=created,
@@ -304,7 +308,11 @@ def create_ipv6_prefix(db: Session, data: Ipv6PrefixCreate) -> Ipv6PrefixRead:
         role=data.role,
         status=data.status,
         overlap_policy=policy,
-        dual_stack_group_id=data.dual_stack_group_id,
+        dual_stack_group_id=ds_svc.resolve_ref(
+            db,
+            group_id=data.dual_stack_group_id,
+            group_slug=getattr(data, "dual_stack_group_slug", None),
+        ),
         description=data.description,
         cidr=cidr,
         subnet_services=ipam_svc.dump_subnet_services(data.subnet_services),
@@ -370,8 +378,12 @@ def ensure_ipv6_prefix(db: Session, data: Ipv6PrefixEnsure, *, update: bool = Fa
                 existing.status = data.status
             if data.overlap_policy:
                 existing.overlap_policy = data.overlap_policy
-            if data.dual_stack_group_id is not None:
-                existing.dual_stack_group_id = data.dual_stack_group_id
+            if data.dual_stack_group_id is not None or getattr(data, "dual_stack_group_slug", None):
+                existing.dual_stack_group_id = ds_svc.resolve_ref(
+                    db,
+                    group_id=data.dual_stack_group_id,
+                    group_slug=getattr(data, "dual_stack_group_slug", None),
+                )
             db.commit()
             db.refresh(existing)
         return ipv6_prefix_read(db, existing, created=False)
@@ -389,6 +401,7 @@ def ensure_ipv6_prefix(db: Session, data: Ipv6PrefixEnsure, *, update: bool = Fa
         vrf_id=data.vrf_id,
         overlap_policy=data.overlap_policy,
         dual_stack_group_id=data.dual_stack_group_id,
+        dual_stack_group_slug=getattr(data, "dual_stack_group_slug", None),
     )
     return create_ipv6_prefix(db, create)
 

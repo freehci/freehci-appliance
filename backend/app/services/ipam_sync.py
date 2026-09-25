@@ -26,6 +26,7 @@ from app.models.ipam import (
     IpamTunnel,
     IpamTunnelTransport,
     IpamVpnMember,
+    IpamDualStackGroup,
     IpamScanHost,
     IpamSubnetScan,
     IpamVpnService,
@@ -257,6 +258,17 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
     group_by_id = {g.id: g for g in vlan_groups}
     vrf_by_id = {v.id: v for v in vrfs}
     prefix_by_id = {p.id: p for p in prefixes}
+    ds_ids = {p.dual_stack_group_id for p in prefixes if p.dual_stack_group_id} | {
+        p.dual_stack_group_id for p in v6 if p.dual_stack_group_id
+    }
+    ds_by_id = {
+        g.id: g
+        for g in (
+            db.execute(select(IpamDualStackGroup).where(IpamDualStackGroup.id.in_(ds_ids))).scalars().all()
+            if ds_ids
+            else []
+        )
+    }
     v6_by_id = {p.id: p for p in v6}
     site_ids = {c.a_site_id for c in circuits if c.a_site_id} | {c.z_site_id for c in circuits if c.z_site_id}
     site_by_id = {s.id: s for s in db.execute(select(Site).where(Site.id.in_(site_ids))).scalars().all()} if site_ids else {}
@@ -467,6 +479,9 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "vrf_slug": vrf_by_id[p.vrf_id].slug if p.vrf_id and p.vrf_id in vrf_by_id else None,
                 "overlap_policy": p.overlap_policy,
                 "dual_stack_group_id": p.dual_stack_group_id,
+                "dual_stack_group_slug": (
+                    ds_by_id[p.dual_stack_group_id].slug if p.dual_stack_group_id in ds_by_id else None
+                ),
                 "subnet_services": p.subnet_services,
             }
             for p in prefixes
@@ -490,7 +505,17 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
             if a.status in _HELD
         ],
         "ipv6_prefixes": [
-            {"cidr": p.cidr, "slug": p.slug, "role": p.role, "status": p.status, "site_slug": site.slug} for p in v6
+            {
+                "cidr": p.cidr,
+                "slug": p.slug,
+                "role": p.role,
+                "status": p.status,
+                "site_slug": site.slug,
+                "dual_stack_group_slug": (
+                    ds_by_id[p.dual_stack_group_id].slug if p.dual_stack_group_id in ds_by_id else None
+                ),
+            }
+            for p in v6
         ],
         "ipv6_addresses": [
             {

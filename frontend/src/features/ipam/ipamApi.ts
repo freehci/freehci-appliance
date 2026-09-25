@@ -28,6 +28,7 @@ import type {
   IpamIpsecTunnelBind,
   IpamGreProfile,
   IpamGreTunnelBind,
+  IpamDualStackGroup,
   IpamVpnMember,
   IpamVpnService,
   IpamOverlaySegment,
@@ -1016,6 +1017,22 @@ export function bindGreTunnel(tunnelId: number, profileId: number): Promise<Ipam
 
 export function unbindGreTunnel(bindId: number): Promise<void> {
   return apiDelete(`${P}/gre-tunnels/${bindId}`);
+}
+
+export function listDualStackGroups(): Promise<IpamDualStackGroup[]> {
+  return apiGet(`${P}/dual-stack-groups`);
+}
+
+export function createDualStackGroup(body: {
+  name: string;
+  slug?: string | null;
+  notes?: string | null;
+}): Promise<IpamDualStackGroup> {
+  return apiPost(`${P}/dual-stack-groups`, body);
+}
+
+export function deleteDualStackGroup(id: number): Promise<void> {
+  return apiDelete(`${P}/dual-stack-groups/${id}`);
 }
 
 export function listTunnelProfiles(): Promise<IpamTunnelProfile[]> {

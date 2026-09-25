@@ -84,6 +84,8 @@ from app.schemas.ipam import (
     IpamGreProfileRead,
     IpamGreTunnelCreate,
     IpamGreTunnelRead,
+    IpamDualStackGroupCreate,
+    IpamDualStackGroupRead,
     IpamVpnMemberCreate,
     IpamVpnMemberRead,
     IpamVpnServiceCreate,
@@ -160,6 +162,7 @@ from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
 from app.services import ipam_gre as gre_svc
+from app.services import ipam_dual_stack as ds_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
 from app.services import ipam_ipv6 as ipv6_svc
@@ -1856,6 +1859,32 @@ def unbind_gre_tunnel(bind_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="GRE-tunnelbinding ikke funnet")
     gre_svc.unbind_tunnel(db, row)
+
+
+@router.get("/dual-stack-groups", response_model=list[IpamDualStackGroupRead])
+def list_dual_stack_groups(db: Session = Depends(get_db)) -> list[IpamDualStackGroupRead]:
+    return [ds_svc.group_to_read(r) for r in ds_svc.list_groups(db)]
+
+
+@router.post("/dual-stack-groups", response_model=IpamDualStackGroupRead)
+def create_dual_stack_group(data: IpamDualStackGroupCreate, db: Session = Depends(get_db)) -> IpamDualStackGroupRead:
+    return ds_svc.group_to_read(ds_svc.create_group(db, data))
+
+
+@router.get("/dual-stack-groups/{group_id}", response_model=IpamDualStackGroupRead)
+def get_dual_stack_group(group_id: int, db: Session = Depends(get_db)) -> IpamDualStackGroupRead:
+    row = ds_svc.get_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="dual-stack-gruppe ikke funnet")
+    return ds_svc.group_to_read(row)
+
+
+@router.delete("/dual-stack-groups/{group_id}", status_code=204)
+def delete_dual_stack_group(group_id: int, db: Session = Depends(get_db)) -> None:
+    row = ds_svc.get_group(db, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="dual-stack-gruppe ikke funnet")
+    ds_svc.delete_group(db, row)
 
 
 @router.get("/tunnel-profiles", response_model=list[IpamTunnelProfileRead])
