@@ -29,6 +29,7 @@ import type {
   IpamGreProfile,
   IpamGreTunnelBind,
   IpamDualStackGroup,
+  Ipv6Range,
   IpamVpnMember,
   IpamVpnService,
   IpamOverlaySegment,
@@ -1069,6 +1070,28 @@ export function getIpv6PrefixAddressGrid(prefixId: number): Promise<Ipv6PrefixAd
 
 export function getIpv6AvailableRanges(prefixId: number): Promise<Ipv6AvailableRanges> {
   return apiGet(`${P}/ipv6-prefixes/${prefixId}/available-ranges`);
+}
+
+export function listIpv6Ranges(prefixId: number): Promise<Ipv6Range[]> {
+  return apiGet(`${P}/ipv6-prefixes/${prefixId}/ranges`);
+}
+
+export function createIpv6Range(
+  prefixId: number,
+  body: {
+    name: string;
+    slug?: string | null;
+    kind?: string;
+    start_address: string;
+    end_address: string;
+    description?: string | null;
+  },
+): Promise<Ipv6Range> {
+  return apiPost(`${P}/ipv6-prefixes/${prefixId}/ranges`, body);
+}
+
+export function deleteIpv6Range(rangeId: number): Promise<void> {
+  return apiDelete(`${P}/ipv6-ranges/${rangeId}`);
 }
 
 export function ipv6PrefixSplit(

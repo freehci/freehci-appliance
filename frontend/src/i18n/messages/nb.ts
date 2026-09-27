@@ -1708,6 +1708,8 @@ export const nb = {
   "ipam.ipv6.gridRows": "rader",
   "ipam.ipv6.rangesTitle": "Ledige ranges",
   "ipam.ipv6.rangesHint": "Prefiks større enn grid-taket viser kompakte ledige CIDR-er i stedet for alle adresser.",
+  "ipam.ipv6.recordedTitle": "Registrerte områder",
+  "ipam.ipv6.recordedHint": "Inventory-vinduer i dette prefikset. Ledige CIDR-er blir aldri et område. Ikke en DHCP-tjeneste.",
   "ipam.ipv6.usedCount": "Brukt",
   "ipam.ipv6.freeCidrs": "Ledige CIDR-er",
   "ipam.ipv6.splitNoOptions": "Dette prefikset kan ikke deles videre.",

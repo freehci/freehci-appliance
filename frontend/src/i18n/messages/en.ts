@@ -1697,6 +1697,8 @@ export const en = {
   "ipam.ipv6.gridRows": "rows",
   "ipam.ipv6.rangesTitle": "Free ranges",
   "ipam.ipv6.rangesHint": "Prefixes larger than the grid cap show compact free CIDRs instead of every address.",
+  "ipam.ipv6.recordedTitle": "Recorded ranges",
+  "ipam.ipv6.recordedHint": "Inventory windows inside this prefix. Free CIDRs never become a range. Not a DHCP service.",
   "ipam.ipv6.usedCount": "Used",
   "ipam.ipv6.freeCidrs": "Free CIDRs",
   "ipam.ipv6.splitNoOptions": "This prefix cannot be split further.",

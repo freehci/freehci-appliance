@@ -7,8 +7,15 @@ import dcimStyles from "@/features/dcim/dcim.module.css";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ApiError } from "@/lib/api";
 import * as ipamApi from "./ipamApi";
-import type { Ipv6Prefix } from "./types";
-import { OVERLAP_POLICIES, PREFIX_ROLES, PREFIX_STATUSES } from "./types";
+import type { Ipv6Prefix, Ipv6Range } from "./types";
+import { IPV4_RANGE_KINDS, OVERLAP_POLICIES, PREFIX_ROLES, PREFIX_STATUSES } from "./types";
+
+const RANGE_KIND_KEYS = {
+  allocation: "ipam.detail.rangeKindAllocation",
+  reserved: "ipam.detail.rangeKindReserved",
+  dhcp: "ipam.detail.rangeKindDhcp",
+  other: "ipam.detail.rangeKindOther",
+} as const;
 import {
   buildIpv6ChildrenByParent,
   filterIpv6KeepingAncestors,
@@ -48,6 +55,12 @@ export function IpamIpv6PrefixesPage() {
   const [splitErr, setSplitErr] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Ipv6Prefix | null>(null);
   const [reqNote, setReqNote] = useState("");
+  const [rangeName, setRangeName] = useState("");
+  const [rangeSlug, setRangeSlug] = useState("");
+  const [rangeKind, setRangeKind] = useState("allocation");
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+  const [deleteRange, setDeleteRange] = useState<Ipv6Range | null>(null);
 
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
@@ -72,6 +85,11 @@ export function IpamIpv6PrefixesPage() {
     queryKey: ["ipam", "ipv6-ranges", explore?.id],
     queryFn: () => ipamApi.getIpv6AvailableRanges(explore!.id),
     enabled: explore != null && !gridEnabled,
+  });
+  const poolQ = useQuery({
+    queryKey: ["ipam", "ipv6-recorded-ranges", explore?.id],
+    queryFn: () => ipamApi.listIpv6Ranges(explore!.id),
+    enabled: explore != null,
   });
   const addrsQ = useQuery({
     queryKey: ["ipam", "ipv6-addresses", explore?.id],
@@ -146,6 +164,7 @@ export function IpamIpv6PrefixesPage() {
     void qc.invalidateQueries({ queryKey: ["ipam", "ipv6-addresses"] });
     void qc.invalidateQueries({ queryKey: ["ipam", "ipv6-grid"] });
     void qc.invalidateQueries({ queryKey: ["ipam", "ipv6-ranges"] });
+    void qc.invalidateQueries({ queryKey: ["ipam", "ipv6-recorded-ranges"] });
     void qc.invalidateQueries({ queryKey: ["ipam", "ipv6-scans"] });
   };
 
@@ -209,6 +228,35 @@ export function IpamIpv6PrefixesPage() {
   const relM = useMutation({
     mutationFn: (id: number) => ipamApi.releaseIpv6Address(id),
     onSuccess: () => {
+      setErr(null);
+      invalidate();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+
+  const addRange = useMutation({
+    mutationFn: () =>
+      ipamApi.createIpv6Range(explore!.id, {
+        name: rangeName.trim(),
+        slug: rangeSlug.trim() || null,
+        kind: rangeKind,
+        start_address: rangeStart.trim(),
+        end_address: rangeEnd.trim(),
+      }),
+    onSuccess: () => {
+      setRangeName("");
+      setRangeSlug("");
+      setRangeStart("");
+      setRangeEnd("");
+      setErr(null);
+      invalidate();
+    },
+    onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delRangeM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteIpv6Range(id),
+    onSuccess: () => {
+      setDeleteRange(null);
       setErr(null);
       invalidate();
     },
@@ -429,6 +477,87 @@ export function IpamIpv6PrefixesPage() {
           ) : (
             <p className={dcimStyles.muted}>{t("ipam.ipv6.noAddresses")}</p>
           )}
+
+          <h4 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.ipv6.recordedTitle")}</h4>
+          <p className={dcimStyles.muted}>{t("ipam.ipv6.recordedHint")}</p>
+          {poolQ.data?.length ? (
+            <table className={dcimStyles.table}>
+              <thead>
+                <tr>
+                  <th>{t("ipam.detail.rangeName")}</th>
+                  <th>{t("ipam.detail.rangeKind")}</th>
+                  <th>{t("ipam.detail.rangeStart")}</th>
+                  <th>{t("ipam.detail.rangeEnd")}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {poolQ.data.map((rng) => (
+                  <tr key={rng.id}>
+                    <td>
+                      {rng.name} <span className={dcimStyles.muted}>{rng.slug}</span>
+                    </td>
+                    <td>
+                      {rng.kind in RANGE_KIND_KEYS
+                        ? t(RANGE_KIND_KEYS[rng.kind as keyof typeof RANGE_KIND_KEYS])
+                        : rng.kind}
+                    </td>
+                    <td>
+                      <code>{rng.start_address}</code>
+                    </td>
+                    <td>
+                      <code>{rng.end_address}</code>
+                    </td>
+                    <td>
+                      <button type="button" className={dcimStyles.btnLink} onClick={() => setDeleteRange(rng)}>
+                        {t("dcim.common.delete")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className={dcimStyles.muted}>{t("ipam.detail.rangeEmpty")}</p>
+          )}
+          <form
+            className={dcimStyles.formRow}
+            style={{ flexWrap: "wrap" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              addRange.mutate();
+            }}
+          >
+            <label>
+              {t("ipam.detail.rangeName")}
+              <input value={rangeName} onChange={(e) => setRangeName(e.target.value)} required />
+            </label>
+            <label>
+              {t("ipam.detail.rangeSlug")}
+              <input value={rangeSlug} onChange={(e) => setRangeSlug(e.target.value)} />
+            </label>
+            <label>
+              {t("ipam.detail.rangeKind")}
+              <select value={rangeKind} onChange={(e) => setRangeKind(e.target.value)}>
+                {IPV4_RANGE_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {t(RANGE_KIND_KEYS[kind])}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("ipam.detail.rangeStart")}
+              <input value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} required />
+            </label>
+            <label>
+              {t("ipam.detail.rangeEnd")}
+              <input value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} required />
+            </label>
+            <button type="submit" className={dcimStyles.btn} disabled={addRange.isPending || rangeName.trim() === ""}>
+              {addRange.isPending ? "…" : t("ipam.detail.rangeAdd")}
+            </button>
+          </form>
 
           {gridEnabled ? (
             <>
@@ -853,6 +982,22 @@ export function IpamIpv6PrefixesPage() {
         onConfirm={() => {
           if (!deleteTarget) return;
           delM.mutate(deleteTarget.id, { onSettled: () => setDeleteTarget(null) });
+        }}
+      />
+      <ConfirmModal
+        open={deleteRange != null}
+        onClose={() => {
+          if (!delRangeM.isPending) setDeleteRange(null);
+        }}
+        title={t("ipam.detail.rangeDelete")}
+        message={t("ipam.detail.rangeDeleteConfirm")}
+        confirmLabel={t("dcim.common.delete")}
+        cancelLabel={t("dcim.common.cancel")}
+        danger
+        pending={delRangeM.isPending}
+        onConfirm={() => {
+          if (!deleteRange) return;
+          delRangeM.mutate(deleteRange.id);
         }}
       />
     </>

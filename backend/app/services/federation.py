@@ -568,6 +568,20 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
             }
             for p in raw.get("ipv6_prefixes") or []
         ],
+        "ipv6_ranges": [
+            {
+                "prefix_cidr": r.get("prefix_cidr"),
+                "site_slug": site.slug,
+                "slug": r.get("slug"),
+                "name": r.get("name"),
+                "kind": r.get("kind"),
+                "start_address": r.get("start_address"),
+                "end_address": r.get("end_address"),
+                "description": r.get("description"),
+            }
+            for r in raw.get("ipv6_ranges") or []
+            if r.get("slug") and r.get("start_address") and r.get("end_address")
+        ],
         "ipv6_addresses": v6_addrs,
         "providers": [{"name": p.get("name"), "slug": p.get("slug")} for p in raw.get("providers") or [] if p.get("slug")],
         "circuit_groups": [

@@ -46,6 +46,7 @@ NO_HOST_ALLOC_ROLES = frozenset({"container", "overlay-pod", "overlay-service"})
 NO_VLAN_ROLES = frozenset({"container", "overlay-pod", "overlay-service", "p2p"})
 NO_HOST_ALLOC_STATUSES = frozenset({"reserved", "deprecated"})
 IPV4_RANGE_KINDS = frozenset({"allocation", "reserved", "dhcp", "other"})
+IPV6_RANGE_KINDS = IPV4_RANGE_KINDS
 VRF_INSTANCE_INTENTS = frozenset({"recorded", "intended"})
 BGP_INSTANCE_INTENTS = frozenset({"recorded", "intended"})
 ROUTE_TARGET_DIRECTIONS = frozenset({"import", "export"})
@@ -364,6 +365,107 @@ class Ipv4RangeRead(BaseModel):
 
     id: int
     ipv4_prefix_id: int
+    name: str
+    slug: str
+    kind: str
+    start_address: str
+    end_address: str
+    description: str | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime | None = None
+
+
+class Ipv6RangeCreate(BaseModel):
+    """Inventory-vindu inne i et IPv6-prefiks. Ikke ledig-CIDR, DHCP-scope eller lease."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    kind: str = Field("allocation", description="allocation | reserved | dhcp | other")
+    start_address: str = Field(..., min_length=1, max_length=64)
+    end_address: str = Field(..., min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_strip(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("name kan ikke være tom")
+        return s
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok(cls, v: str) -> str:
+        return _role_ok(v, IPV6_RANGE_KINDS, "kind") or "allocation"
+
+    @field_validator("start_address", "end_address")
+    @classmethod
+    def addr_strip(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("adresse kan ikke være tom")
+        return s
+
+
+class Ipv6RangeUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    slug: str | None = Field(None, min_length=1, max_length=128)
+    kind: str | None = None
+    start_address: str | None = Field(None, min_length=1, max_length=64)
+    end_address: str | None = Field(None, min_length=1, max_length=64)
+    description: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_strip_up(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            raise ValueError("name kan ikke være tom")
+        return s
+
+    @field_validator("slug")
+    @classmethod
+    def slug_strip_up(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip().lower()
+        if not s:
+            raise ValueError("slug kan ikke være tom")
+        return s
+
+    @field_validator("kind")
+    @classmethod
+    def kind_ok_up(cls, v: str | None) -> str | None:
+        return _role_ok(v, IPV6_RANGE_KINDS, "kind")
+
+    @field_validator("start_address", "end_address")
+    @classmethod
+    def addr_strip_up(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            raise ValueError("adresse kan ikke være tom")
+        return s
+
+
+class Ipv6RangeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ipv6_prefix_id: int
     name: str
     slug: str
     kind: str

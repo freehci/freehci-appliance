@@ -499,6 +499,17 @@ def ensure_ipv6_address(db: Session, data: Ipv6AddressEnsure, *, update: bool = 
         raise ipam_error(400, "address_outside_prefix", "adressen ligger ikke i prefiksnettet")
     ip_s = str(ip)
     status = data.status
+    static_alloc = (status in ("reserved", "assigned")) or data.mode in ("reserve", "assign")
+    addr_role = data.role or "host"
+    if static_alloc:
+        from app.services import ipam_ipv6_range as v6_range_svc
+
+        if v6_range_svc.address_in_kinds(pfx, ip_s, {"dhcp"}) and addr_role != "dhcp":
+            raise ipam_error(
+                409,
+                "dhcp_range_protected",
+                "adressen ligger i et dhcp-vindu og kan ikke tildeles statisk uten role=dhcp",
+            )
     if data.mode:
         status = _MODE_TO_STATUS[data.mode]
     row = db.execute(
@@ -560,22 +571,39 @@ def request_ipv6_address(db: Session, data: Ipv6AddressRequest) -> Ipv6AddressRe
     if gw:
         used.add(str(ipaddress.ip_address(str(gw))))
     used.add(str(net.network_address))
+    from app.services import ipam_ipv6_range as v6_range_svc
+
+    def _blocked(addr: str) -> bool:
+        return v6_range_svc.address_in_kinds(pfx, addr, {"dhcp", "reserved"})
+
     chosen: ipaddress.IPv6Address | None = None
     if data.preferred_address:
         try:
             pref = ipaddress.ip_address(data.preferred_address.strip())
         except ValueError as e:
             raise ipam_error(400, "invalid_address", str(e)) from e
-        if pref not in net or str(pref) in used:
+        if pref not in net or str(pref) in used or _blocked(str(pref)):
             raise ipam_error(409, "address_taken", "foretrukket adresse er opptatt")
         chosen = pref  # type: ignore[assignment]
     else:
-        start = int(net.network_address) + 1
-        end = min(int(net.broadcast_address), start + 65536)
-        for n in range(start, end):
-            cand = ipaddress.IPv6Address(n)
-            if str(cand) not in used:
-                chosen = cand
+        windows = v6_range_svc.allocation_windows(pfx)
+        spans: list[tuple[int, int]] = []
+        if windows:
+            for row in windows:
+                lo = int(ipaddress.IPv6Address(row.start_address))
+                hi = int(ipaddress.IPv6Address(row.end_address))
+                spans.append((lo, min(hi, lo + 65536)))
+        else:
+            start = int(net.network_address) + 1
+            spans.append((start, min(int(net.broadcast_address), start + 65536)))
+        for lo, hi in spans:
+            for n in range(lo, hi + 1):
+                cand = ipaddress.IPv6Address(n)
+                s = str(cand)
+                if s not in used and not _blocked(s) and cand in net:
+                    chosen = cand
+                    break
+            if chosen is not None:
                 break
     if chosen is None:
         raise ipam_error(409, "no_free_address", "ingen ledig IPv6-adresse i søkevinduet")
@@ -647,6 +675,11 @@ def _delete_ipv6_prefix_tree(db: Session, row: IpamIpv6Prefix, *, cascade: bool)
             child_count=len(children),
             address_count=len(addrs),
         )
+    from app.models.ipam import IpamIpv6Range
+
+    ranges = list(db.execute(select(IpamIpv6Range).where(IpamIpv6Range.ipv6_prefix_id == row.id)).scalars().all())
+    for rng in ranges:
+        db.delete(rng)
     if cascade:
         for child in children:
             _delete_ipv6_prefix_tree(db, child, cascade=True)

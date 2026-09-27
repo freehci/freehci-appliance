@@ -149,6 +149,9 @@ from app.schemas.ipam import (
     Ipv6PrefixSplitEqualResponse,
     Ipv6PrefixSplitRequest,
     Ipv6PrefixSplitResponse,
+    Ipv6RangeCreate,
+    Ipv6RangeRead,
+    Ipv6RangeUpdate,
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
@@ -173,6 +176,7 @@ from app.services import ipam_etag as etag_svc
 from app.services import ipam_sync as sync_svc
 from app.services import ipam_webhooks as hook_svc
 from app.services import ipam_range as range_svc
+from app.services import ipam_ipv6_range as v6_range_svc
 from app.services import ipam_vrf_instance as vrfi_svc
 from app.services import ipam_route_target as rt_svc
 
@@ -2003,6 +2007,46 @@ def get_ipv6_available_ranges(prefix_id: int, db: Session = Depends(get_db)) -> 
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
     return ipv6_svc.available_ranges(db, row)
+
+
+@router.get("/ipv6-prefixes/{prefix_id}/ranges", response_model=list[Ipv6RangeRead])
+def list_ipv6_ranges(prefix_id: int, db: Session = Depends(get_db)) -> list[Ipv6RangeRead]:
+    row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return [v6_range_svc.range_to_read(x) for x in v6_range_svc.list_ipv6_ranges(db, prefix_id)]
+
+
+@router.post("/ipv6-prefixes/{prefix_id}/ranges", response_model=Ipv6RangeRead)
+def create_ipv6_range(prefix_id: int, data: Ipv6RangeCreate, db: Session = Depends(get_db)) -> Ipv6RangeRead:
+    row = ipv6_svc.get_ipv6_prefix(db, prefix_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "prefix_not_found", "detail": "prefiks ikke funnet"})
+    return v6_range_svc.create_ipv6_range(db, row, data)
+
+
+@router.get("/ipv6-ranges/{range_id}", response_model=Ipv6RangeRead)
+def get_ipv6_range(range_id: int, db: Session = Depends(get_db)) -> Ipv6RangeRead:
+    row = v6_range_svc.get_ipv6_range(db, range_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "range_not_found", "detail": "område ikke funnet"})
+    return v6_range_svc.range_to_read(row)
+
+
+@router.patch("/ipv6-ranges/{range_id}", response_model=Ipv6RangeRead)
+def patch_ipv6_range(range_id: int, data: Ipv6RangeUpdate, db: Session = Depends(get_db)) -> Ipv6RangeRead:
+    row = v6_range_svc.get_ipv6_range(db, range_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "range_not_found", "detail": "område ikke funnet"})
+    return v6_range_svc.update_ipv6_range(db, row, data)
+
+
+@router.delete("/ipv6-ranges/{range_id}", status_code=204)
+def delete_ipv6_range(range_id: int, db: Session = Depends(get_db)) -> None:
+    row = v6_range_svc.get_ipv6_range(db, range_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "range_not_found", "detail": "område ikke funnet"})
+    v6_range_svc.delete_ipv6_range(db, row)
 
 
 @router.post("/ipv6-prefixes/{prefix_id}/split", response_model=Ipv6PrefixSplitResponse)

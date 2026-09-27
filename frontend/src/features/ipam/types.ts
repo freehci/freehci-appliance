@@ -14,6 +14,19 @@ export type Ipv4Range = {
   updated_at?: string | null;
 };
 
+export type Ipv6Range = {
+  id: number;
+  ipv6_prefix_id: number;
+  name: string;
+  slug: string;
+  kind: Ipv4RangeKind | string;
+  start_address: string;
+  end_address: string;
+  description: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 export type Ipv4Prefix = {
   id: number;
   site_id: number;

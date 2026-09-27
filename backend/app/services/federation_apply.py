@@ -73,6 +73,7 @@ from app.schemas.ipam import (
     IpamVpnServiceCreate,
     IpamVrfCreate,
     IPV4_RANGE_KINDS,
+    IPV6_RANGE_KINDS,
     ROUTE_TARGET_DIRECTIONS,
     VRF_INSTANCE_INTENTS,
     IpamRouteTargetCreate,
@@ -83,6 +84,7 @@ from app.schemas.ipam import (
     IpamVrfInstanceCreate,
     Ipv6AddressEnsure,
     Ipv6PrefixEnsure,
+    Ipv6RangeCreate,
 )
 from app.schemas.platform import (
     PlatformCloudSubscriptionCreate,
@@ -99,6 +101,7 @@ from app.services import ipam as ipam_svc
 from app.services import platform as plat_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_range as range_svc
+from app.services import ipam_ipv6_range as v6_range_svc
 from app.services import ipam_vrf_instance as vrfi_svc
 from app.services import ipam_route_target as rt_svc
 from app.services import ipam_facilities as fac_svc
@@ -1421,6 +1424,35 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 dual_stack_group_slug=str(p.get("dual_stack_group_slug") or "").strip() or None,
             ),
             update=True,
+        )
+    for r in ipam.get("ipv6_ranges") or []:
+        slug = str(r.get("slug") or "").strip().lower()
+        start = str(r.get("start_address") or "").strip()
+        end = str(r.get("end_address") or "").strip()
+        cidr = str(r.get("prefix_cidr") or "").strip()
+        if not slug or not start or not end or not cidr:
+            continue
+        pfx = db.execute(
+            select(IpamIpv6Prefix).where(IpamIpv6Prefix.site_id == site.id, IpamIpv6Prefix.cidr == cidr),
+        ).scalar_one_or_none()
+        if pfx is None:
+            continue
+        if v6_range_svc.get_ipv6_range_by_slug(db, pfx.id, slug) is not None:
+            continue
+        kind = str(r.get("kind") or "other").strip().lower() or "other"
+        if kind not in IPV6_RANGE_KINDS:
+            kind = "other"
+        v6_range_svc.create_ipv6_range(
+            db,
+            pfx,
+            Ipv6RangeCreate(
+                name=r.get("name") or slug,
+                slug=slug,
+                kind=kind,
+                start_address=start,
+                end_address=end,
+                description=r.get("description"),
+            ),
         )
     for a in ipam.get("ipv6_addresses") or []:
         ipv6_svc.ensure_ipv6_address(
