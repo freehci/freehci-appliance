@@ -367,6 +367,17 @@ export type IpamVlan = {
   vrf_id: number | null;
   created?: boolean | null;
   description: string | null;
+  l2_domain_id?: number | null;
+  l2_domain_slug?: string | null;
+  l2_domain_name?: string | null;
+  created_at: string;
+};
+
+export type IpamL2Domain = {
+  id: number;
+  name: string;
+  slug: string;
+  notes: string | null;
   created_at: string;
 };
 

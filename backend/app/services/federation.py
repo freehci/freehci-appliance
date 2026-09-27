@@ -36,6 +36,7 @@ from app.models.ipam import (
     IpamGreTunnel,
     IpamDualStackGroup,
     IpamAddressSpace,
+    IpamL2Domain,
 )
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -77,6 +78,7 @@ _STRIP_KEYS = frozenset(
         "site_id",
         "dual_stack_group_id",
         "address_space_id",
+        "l2_domain_id",
         "a_site_id",
         "z_site_id",
         "cluster_id",
@@ -488,6 +490,7 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "name": v["name"],
                 "slug": v["slug"],
                 "vlan_group_slug": v.get("vlan_group_slug"),
+                "l2_domain_slug": v.get("l2_domain_slug"),
             }
             for v in raw.get("vlans") or []
         ],
@@ -967,6 +970,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         **_export_gre(db),
         **_export_dual_stack(db),
         **_export_address_spaces(db),
+        **_export_l2_domains(db),
         **_export_device_interface_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1550,6 +1554,16 @@ def _export_address_spaces(db: Session) -> dict[str, Any]:
         "address_spaces": [
             {"slug": s.slug, "name": s.name, "notes": s.notes}
             for s in spaces
+        ],
+    }
+
+
+def _export_l2_domains(db: Session) -> dict[str, Any]:
+    domains = list(db.execute(select(IpamL2Domain).order_by(IpamL2Domain.slug)).scalars().all())
+    return {
+        "l2_domains": [
+            {"slug": d.slug, "name": d.name, "notes": d.notes}
+            for d in domains
         ],
     }
 

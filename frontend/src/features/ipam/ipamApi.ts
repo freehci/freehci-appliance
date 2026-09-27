@@ -29,6 +29,7 @@ import type {
   IpamGreProfile,
   IpamGreTunnelBind,
   IpamAddressSpace,
+  IpamL2Domain,
   IpamDualStackGroup,
   Ipv6Range,
   IpamVpnMember,
@@ -539,6 +540,7 @@ export function createIpamVlan(body: {
   vrf_id?: number | null;
   description?: string | null;
   tenant_id?: number | null;
+  l2_domain_id?: number | null;
 }): Promise<IpamVlan> {
   return apiPost(`${P}/vlans`, body);
 }
@@ -552,6 +554,7 @@ export function patchIpamVlan(
     vrf_id: number | null;
     description: string | null;
     tenant_id: number | null;
+    l2_domain_id: number | null;
   }>,
 ): Promise<IpamVlan> {
   return apiPatch(`${P}/vlans/${id}`, body);
@@ -1052,6 +1055,22 @@ export function createAddressSpace(body: {
 
 export function deleteAddressSpace(id: number): Promise<void> {
   return apiDelete(`${P}/address-spaces/${id}`);
+}
+
+export function listL2Domains(): Promise<IpamL2Domain[]> {
+  return apiGet(`${P}/l2-domains`);
+}
+
+export function createL2Domain(body: {
+  name: string;
+  slug?: string | null;
+  notes?: string | null;
+}): Promise<IpamL2Domain> {
+  return apiPost(`${P}/l2-domains`, body);
+}
+
+export function deleteL2Domain(id: number): Promise<void> {
+  return apiDelete(`${P}/l2-domains/${id}`);
 }
 
 export function listTunnelProfiles(): Promise<IpamTunnelProfile[]> {

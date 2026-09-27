@@ -1382,6 +1382,8 @@ class IpamVlanGroupRead(BaseModel):
 
 
 class IpamVlanCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     site_id: int = Field(..., ge=1)
     vlan_group_id: int | None = Field(None, ge=1, description="Utelatt: sitens Default-gruppe")
     vid: int = Field(..., ge=1, le=4094)
@@ -1390,6 +1392,8 @@ class IpamVlanCreate(BaseModel):
     vrf_id: int | None = None
     description: str | None = None
     tenant_id: int | None = Field(None, ge=1)
+    l2_domain_id: int | None = Field(None, ge=1)
+    l2_domain_slug: str | None = Field(None, max_length=128)
 
 
 class IpamVlanUpdate(BaseModel):
@@ -1399,6 +1403,8 @@ class IpamVlanUpdate(BaseModel):
     vrf_id: int | None = None
     description: str | None = None
     tenant_id: int | None = Field(None, ge=1)
+    l2_domain_id: int | None = Field(None, ge=1)
+    l2_domain_slug: str | None = Field(None, max_length=128)
 
 
 class IpamVlanEnsure(IpamVlanCreate):
@@ -1417,6 +1423,9 @@ class IpamVlanRead(BaseModel):
     slug: str
     vrf_id: int | None
     description: str | None
+    l2_domain_id: int | None = None
+    l2_domain_slug: str | None = None
+    l2_domain_name: str | None = None
     created: bool | None = None
     created_at: dt.datetime
 
@@ -2556,6 +2565,24 @@ class IpamAddressSpaceCreate(BaseModel):
 
 
 class IpamAddressSpaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+    notes: str | None
+    created_at: dt.datetime
+
+
+class IpamL2DomainCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(None, max_length=128)
+    notes: str | None = None
+
+
+class IpamL2DomainRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

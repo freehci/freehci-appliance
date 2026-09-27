@@ -1662,6 +1662,15 @@ export const en = {
   "ipam.addressSpace.name": "Name",
   "ipam.addressSpace.add": "Add space",
   "ipam.addressSpace.none": "— none —",
+  "ipam.l2Domain.title": "L2 domains",
+  "ipam.l2Domain.hint":
+    "Create a domain first, then attach VLANs. Matching VID or name on two sites never share a domain. An A–B stretch is not a domain, and a typed number is not membership.",
+  "ipam.l2Domain.empty": "No L2 domain recorded.",
+  "ipam.l2Domain.name": "Name",
+  "ipam.l2Domain.add": "Add domain",
+  "ipam.l2Domain.none": "— none —",
+  "ipam.l2Domain.col": "L2 domain",
+  "ipam.l2Domain.optional": "L2 domain (optional)",
   "ipam.gitops.title": "IPAM — GitOps",
   "ipam.gitops.intro":
     "Drift vs last scan, site export as YAML/JSON, webhooks, and audit log — the GUI view of the sync and audit contract.",
@@ -1825,7 +1834,7 @@ export const en = {
   "ipam.overlay.noVlan": "— none —",
   "ipam.stretch.title": "Stretched VLANs",
   "ipam.stretch.hint":
-    "Record that two VLANs on different sites are the same L2 domain. Same VID or name is never treated as a stretch, and nothing is applied to switches.",
+    "Record an A–B stretch between two VLANs. Same VID or name is never treated as a stretch. A stretch is not an L2 domain — three sites need a recorded domain and explicit memberships.",
   "ipam.stretch.add": "Add stretch",
   "ipam.stretch.empty": "No VLAN stretch recorded yet.",
   "ipam.stretch.vlanA": "VLAN A",

@@ -45,6 +45,7 @@ from app.services import ipam as ipam_svc
 from app.services import ipam_address as addr_svc
 from app.services import ipam_facilities as fac_svc
 from app.services import ipam_ipv6 as ipv6_svc
+from app.services import ipam_l2_domain as l2_svc
 from app.services.ipam_errors import ipam_error
 
 _HELD = frozenset({"reserved", "assigned"})
@@ -454,6 +455,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "slug": v.slug,
                 "vlan_group_id": v.vlan_group_id,
                 "vlan_group_slug": group_by_id[v.vlan_group_id].slug if v.vlan_group_id in group_by_id else None,
+                "l2_domain_slug": l2_svc.labels(db, getattr(v, "l2_domain_id", None))[0],
             }
             for v in vlans
         ],

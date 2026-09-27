@@ -348,6 +348,8 @@ def create_vlan(db: Session, data: IpamVlanCreate) -> IpamVlan:
     if data.tenant_id is not None:
         _require_tenant(db, data.tenant_id)
 
+    from app.services import ipam_l2_domain as l2_svc
+
     row = IpamVlan(
         site_id=data.site_id,
         vlan_group_id=group.id,
@@ -357,6 +359,11 @@ def create_vlan(db: Session, data: IpamVlanCreate) -> IpamVlan:
         slug=_unique_slug(db, site_id=data.site_id, desired=data.slug or data.name or f"vlan-{data.vid}", kind="vlan"),
         description=data.description,
         vrf_id=data.vrf_id,
+        l2_domain_id=l2_svc.resolve_ref(
+            db,
+            domain_id=data.l2_domain_id,
+            domain_slug=data.l2_domain_slug,
+        ),
     )
     db.add(row)
     try:
@@ -834,6 +841,14 @@ def update_vlan(db: Session, row: IpamVlan, data: IpamVlanUpdate) -> IpamVlan:
             if vrf is None or vrf.site_id != row.site_id:
                 raise ValueError("vrf ikke funnet eller tilhører ikke samme site")
             row.vrf_id = int(vrf_id)
+    if data.l2_domain_id is not None or getattr(data, "l2_domain_slug", None):
+        from app.services import ipam_l2_domain as l2_svc
+
+        row.l2_domain_id = l2_svc.resolve_ref(
+            db,
+            domain_id=data.l2_domain_id,
+            domain_slug=getattr(data, "l2_domain_slug", None),
+        )
     try:
         db.commit()
     except IntegrityError:
@@ -860,6 +875,8 @@ def ensure_vlan(db: Session, data: IpamVlanEnsure, *, update: bool = False) -> t
                     vrf_id=data.vrf_id,
                     description=data.description,
                     tenant_id=data.tenant_id,
+                    l2_domain_id=data.l2_domain_id,
+                    l2_domain_slug=data.l2_domain_slug,
                 ),
             )
         return existing, False
@@ -1343,8 +1360,13 @@ def vlan_group_to_read(row: IpamVlanGroup) -> IpamVlanGroupRead:
     return IpamVlanGroupRead.model_validate(row)
 
 
-def vlan_to_read(row: IpamVlan, *, created: bool | None = None) -> IpamVlanRead:
-    return IpamVlanRead.model_validate(row).model_copy(update={"created": created})
+def vlan_to_read(row: IpamVlan, *, created: bool | None = None, db: Session | None = None) -> IpamVlanRead:
+    from app.services import ipam_l2_domain as l2_svc
+
+    slug, name = l2_svc.labels(db, getattr(row, "l2_domain_id", None)) if db is not None else (None, None)
+    return IpamVlanRead.model_validate(row).model_copy(
+        update={"created": created, "l2_domain_slug": slug, "l2_domain_name": name},
+    )
 
 
 def circuit_to_read(row: IpamCircuit) -> IpamCircuitRead:

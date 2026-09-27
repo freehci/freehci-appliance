@@ -25,6 +25,9 @@ export function IpamVlansPage() {
   const [vlanGroupId, setVlanGroupId] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const [vlanTenantId, setVlanTenantId] = useState("");
+  const [l2DomainId, setL2DomainId] = useState("");
+  const [domainName, setDomainName] = useState("");
+  const [domainErr, setDomainErr] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [ovSite, setOvSite] = useState("");
   const [ovName, setOvName] = useState("");
@@ -99,6 +102,10 @@ export function IpamVlansPage() {
     queryKey: ["ipam", "vlans", "overlay-form", ovSite === "" ? "none" : Number(ovSite)],
     queryFn: () => ipamApi.listIpamVlans(Number(ovSite)),
     enabled: ovSite !== "",
+  });
+  const domainsQ = useQuery({
+    queryKey: ["ipam", "l2-domains"],
+    queryFn: ipamApi.listL2Domains,
   });
   const siteNameById = useMemo(() => {
     const m = new Map<number, string>();
@@ -189,6 +196,7 @@ export function IpamVlansPage() {
         name: name.trim(),
         vrf_id: vrfId === "" ? null : Number(vrfId),
         tenant_id: vlanTenantId === "" ? undefined : Number(vlanTenantId),
+        l2_domain_id: l2DomainId === "" ? undefined : Number(l2DomainId),
       });
     },
     onSuccess: () => {
@@ -198,6 +206,7 @@ export function IpamVlansPage() {
       setVrfId("");
       setVlanGroupId("");
       setNewGroupName("");
+      setL2DomainId("");
       setVlanTenantId("");
       setDrawerOpen(false);
       void qc.invalidateQueries({ queryKey: ["ipam", "vlans"] });
@@ -293,6 +302,25 @@ export function IpamVlansPage() {
     },
     onError: (e: Error) => setErr(e instanceof ApiError ? e.message : e.message),
   });
+  const createDomainM = useMutation({
+    mutationFn: () => ipamApi.createL2Domain({ name: domainName.trim() }),
+    onSuccess: () => {
+      setDomainName("");
+      setDomainErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "l2-domains"] });
+    },
+    onError: (e: Error) => setDomainErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const delDomainM = useMutation({
+    mutationFn: (id: number) => ipamApi.deleteL2Domain(id),
+    onSuccess: () => {
+      setDomainErr(null);
+      void qc.invalidateQueries({ queryKey: ["ipam", "l2-domains"] });
+      void qc.invalidateQueries({ queryKey: ["ipam", "vlans"] });
+    },
+    onError: (e: Error) => setDomainErr(e instanceof ApiError ? e.message : e.message),
+  });
+  const domains = domainsQ.data ?? [];
 
   const openCreate = () => {
     setErr(null);
@@ -375,6 +403,7 @@ export function IpamVlansPage() {
               <th>{t("ipam.ipv4.tenantCol")}</th>
               <th>VLAN</th>
               <th>{t("ipam.ipv4.name")}</th>
+              <th>{t("ipam.l2Domain.col")}</th>
               <th>Subnets</th>
               <th>VRF</th>
               <th>{t("ipam.ipv4.actionsCol")}</th>
@@ -393,6 +422,9 @@ export function IpamVlansPage() {
                   </td>
                   <td>{v.vid}</td>
                   <td>{v.name}</td>
+                  <td className={dcimStyles.muted}>
+                    {v.l2_domain_name ?? v.l2_domain_slug ?? "—"}
+                  </td>
                   <td className={dcimStyles.muted}>
                     <button
                       type="button"
@@ -416,7 +448,7 @@ export function IpamVlansPage() {
                 </tr>
                 {expandVlanId === v.id ? (
                   <tr key={`${v.id}-subnets`}>
-                    <td colSpan={8} style={{ paddingTop: "0.25rem" }}>
+                    <td colSpan={9} style={{ paddingTop: "0.25rem" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <strong>{t("ipam.vlan.showSubnets")}</strong>
                         <button type="button" className={dcimStyles.btnLink} onClick={() => setExpandVlanId(null)}>
@@ -463,6 +495,41 @@ export function IpamVlansPage() {
         </div>
       ) : null}
       </div>
+      <section className={dcimStyles.mfrDetailSection}>
+        <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.l2Domain.title")}</h3>
+        <p className={dcimStyles.muted}>{t("ipam.l2Domain.hint")}</p>
+        {domainErr ? <p className={dcimStyles.err}>{domainErr}</p> : null}
+        {domains.length === 0 && !domainsQ.isLoading ? <p className={dcimStyles.muted}>{t("ipam.l2Domain.empty")}</p> : null}
+        {domains.length > 0 ? (
+          <ul className={dcimStyles.ipList}>
+            {domains.map((d) => (
+              <li key={d.id}>
+                {d.name} <span className={dcimStyles.muted}>{d.slug}</span>{" "}
+                <button type="button" className={dcimStyles.btnLink} onClick={() => delDomainM.mutate(d.id)}>
+                  {t("dcim.common.delete")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <form
+          className={dcimStyles.formRow}
+          style={{ flexWrap: "wrap", marginTop: "var(--space-2)" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setDomainErr(null);
+            createDomainM.mutate();
+          }}
+        >
+          <label>
+            {t("ipam.l2Domain.name")}
+            <input value={domainName} onChange={(e) => setDomainName(e.target.value)} required />
+          </label>
+          <button type="submit" className={dcimStyles.btn} disabled={createDomainM.isPending || domainName.trim() === ""}>
+            {createDomainM.isPending ? "…" : t("ipam.l2Domain.add")}
+          </button>
+        </form>
+      </section>
       <section className={dcimStyles.mfrDetailSection}>
         <h3 className={dcimStyles.mfrDetailSectionTitle}>{t("ipam.overlay.title")}</h3>
         <p className={dcimStyles.muted}>{t("ipam.overlay.hint")}</p>
@@ -777,6 +844,17 @@ export function IpamVlansPage() {
           <label>
             {t("ipam.ipv4.name")}
             <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <label>
+            {t("ipam.l2Domain.optional")}
+            <select value={l2DomainId} onChange={(e) => setL2DomainId(e.target.value)}>
+              <option value="">{t("ipam.l2Domain.none")}</option>
+              {domains.map((d) => (
+                <option key={d.id} value={String(d.id)}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             {t("ipam.vlan.vrfOptional")}

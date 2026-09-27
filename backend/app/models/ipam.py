@@ -32,6 +32,19 @@ class IpamAddressSpace(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class IpamL2Domain(Base):
+    """Eksplisitt L2-domene. Samme VID, navn eller A–B-strekning er ikke medlemskap."""
+
+    __tablename__ = "ipam_l2_domains"
+    __table_args__ = (UniqueConstraint("slug", name="uq_ipam_l2_domain_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class IpamDualStackGroup(Base):
     """Eksplisitt IPv4/IPv6-paring. Samme navn eller CIDR er ikke en gruppe."""
 
@@ -422,6 +435,10 @@ class IpamVlan(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     vrf_id: Mapped[int | None] = mapped_column(
         ForeignKey("ipam_vrfs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    l2_domain_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ipam_l2_domains.id", ondelete="SET NULL"),
         nullable=True,
     )
     created_at: Mapped[dt.datetime] = mapped_column(

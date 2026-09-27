@@ -88,6 +88,8 @@ from app.schemas.ipam import (
     IpamDualStackGroupRead,
     IpamAddressSpaceCreate,
     IpamAddressSpaceRead,
+    IpamL2DomainCreate,
+    IpamL2DomainRead,
     IpamVpnMemberCreate,
     IpamVpnMemberRead,
     IpamVpnServiceCreate,
@@ -168,6 +170,7 @@ from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
 from app.services import ipam_gre as gre_svc
 from app.services import ipam_address_space as as_svc
+from app.services import ipam_l2_domain as l2_svc
 from app.services import ipam_dual_stack as ds_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
@@ -982,7 +985,7 @@ def list_ipam_vlans(
     vlan_group_id: int | None = Query(None, description="Filtrer på VLAN-gruppe"),
     db: Session = Depends(get_db),
 ) -> list[IpamVlanRead]:
-    return [fac_svc.vlan_to_read(r) for r in fac_svc.list_vlans(db, site_id=site_id, vlan_group_id=vlan_group_id)]
+    return [fac_svc.vlan_to_read(r, db=db) for r in fac_svc.list_vlans(db, site_id=site_id, vlan_group_id=vlan_group_id)]
 
 
 @router.post("/vlans", response_model=IpamVlanRead)
@@ -996,7 +999,7 @@ def create_ipam_vlan(data: IpamVlanCreate, db: Session = Depends(get_db)) -> Ipa
             status_code=409,
             detail={"code": "vlan_conflict", "detail": "VLAN-ID finnes allerede i gruppen, eller slug er opptatt på siten"},
         ) from e
-    return fac_svc.vlan_to_read(row, created=True)
+    return fac_svc.vlan_to_read(row, created=True, db=db)
 
 
 @router.post("/vlans/ensure", response_model=IpamVlanRead)
@@ -1014,7 +1017,7 @@ def ensure_ipam_vlan(
             status_code=409,
             detail={"code": "vlan_conflict", "detail": "VLAN-ID finnes allerede i gruppen, eller slug er opptatt på siten"},
         ) from e
-    return fac_svc.vlan_to_read(row, created=created)
+    return fac_svc.vlan_to_read(row, created=created, db=db)
 
 
 @router.get("/vlans/{vlan_id}", response_model=IpamVlanRead)
@@ -1022,7 +1025,7 @@ def get_ipam_vlan(vlan_id: int, db: Session = Depends(get_db)) -> IpamVlanRead:
     row = fac_svc.get_vlan(db, vlan_id)
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "vlan_not_found", "detail": "VLAN ikke funnet"})
-    return fac_svc.vlan_to_read(row)
+    return fac_svc.vlan_to_read(row, db=db)
 
 
 @router.patch("/vlans/{vlan_id}", response_model=IpamVlanRead)
@@ -1031,7 +1034,7 @@ def patch_ipam_vlan(vlan_id: int, data: IpamVlanUpdate, db: Session = Depends(ge
     if row is None:
         raise HTTPException(status_code=404, detail={"code": "vlan_not_found", "detail": "VLAN ikke funnet"})
     try:
-        return fac_svc.vlan_to_read(fac_svc.update_vlan(db, row, data))
+        return fac_svc.vlan_to_read(fac_svc.update_vlan(db, row, data), db=db)
     except ValueError as e:
         raise HTTPException(status_code=404, detail={"code": "vlan_ref_missing", "detail": str(e)}) from e
 
@@ -1918,6 +1921,32 @@ def delete_address_space(space_id: int, db: Session = Depends(get_db)) -> None:
     if row is None:
         raise HTTPException(status_code=404, detail="adresseplan ikke funnet")
     as_svc.delete_space(db, row)
+
+
+@router.get("/l2-domains", response_model=list[IpamL2DomainRead])
+def list_l2_domains(db: Session = Depends(get_db)) -> list[IpamL2DomainRead]:
+    return [l2_svc.domain_to_read(r) for r in l2_svc.list_domains(db)]
+
+
+@router.post("/l2-domains", response_model=IpamL2DomainRead)
+def create_l2_domain(data: IpamL2DomainCreate, db: Session = Depends(get_db)) -> IpamL2DomainRead:
+    return l2_svc.domain_to_read(l2_svc.create_domain(db, data))
+
+
+@router.get("/l2-domains/{domain_id}", response_model=IpamL2DomainRead)
+def get_l2_domain(domain_id: int, db: Session = Depends(get_db)) -> IpamL2DomainRead:
+    row = l2_svc.get_domain(db, domain_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="L2-domene ikke funnet")
+    return l2_svc.domain_to_read(row)
+
+
+@router.delete("/l2-domains/{domain_id}", status_code=204)
+def delete_l2_domain(domain_id: int, db: Session = Depends(get_db)) -> None:
+    row = l2_svc.get_domain(db, domain_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="L2-domene ikke funnet")
+    l2_svc.delete_domain(db, row)
 
 
 @router.get("/tunnel-profiles", response_model=list[IpamTunnelProfileRead])

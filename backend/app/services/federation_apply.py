@@ -51,6 +51,7 @@ from app.schemas.ipam import (
     IpamGreProfileCreate,
     IpamGreTunnelCreate,
     IpamAddressSpaceCreate,
+    IpamL2DomainCreate,
     IpamDualStackGroupCreate,
     IpamAsAssignmentCreate,
     IpamAutonomousSystemCreate,
@@ -115,6 +116,7 @@ from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
 from app.services import ipam_gre as gre_svc
 from app.services import ipam_address_space as as_svc
+from app.services import ipam_l2_domain as l2_svc
 from app.services import ipam_dual_stack as ds_svc
 from app.services import tenant as tenant_svc
 from app.schemas.tenant import TenantCreate
@@ -495,6 +497,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
 
     _apply_dual_stack_groups(db, doc)
     _apply_address_spaces(db, doc)
+    _apply_l2_domains(db, doc)
     for ipam in doc.get("ipam") or []:
         _apply_site_ipam(db, ipam)
     _apply_device_interface_ips(db, doc)
@@ -931,6 +934,24 @@ def _apply_address_spaces(db: Session, doc: dict[str, Any]) -> None:
             continue
 
 
+def _apply_l2_domains(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("l2_domains") or []:
+        slug = str(rec.get("slug") or "").strip()
+        if not slug or l2_svc.get_domain_by_slug(db, slug) is not None:
+            continue
+        try:
+            l2_svc.create_domain(
+                db,
+                IpamL2DomainCreate(
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
+                    notes=rec.get("notes"),
+                ),
+            )
+        except Exception:
+            continue
+
+
 def _apply_gre_tunnels(db: Session, doc: dict[str, Any]) -> None:
     for rec in doc.get("gre_tunnels") or []:
         vpn_slug = str(rec.get("vpn_slug") or "").strip()
@@ -1334,8 +1355,17 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                     name=v.get("name") or v["slug"],
                     slug=v["slug"],
                     vlan_group_id=group_id,
+                    l2_domain_slug=str(v.get("l2_domain_slug") or "").strip() or None,
                 ),
             )
+        else:
+            slug = str(v.get("l2_domain_slug") or "").strip()
+            if slug:
+                try:
+                    found.l2_domain_id = l2_svc.resolve_ref(db, domain_slug=slug)
+                    db.commit()
+                except Exception:
+                    db.rollback()
     for o in ipam.get("overlay_segments") or []:
         slug = (o.get("slug") or "").strip().lower()
         vni = o.get("vni")

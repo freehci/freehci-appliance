@@ -1673,6 +1673,15 @@ export const nb = {
   "ipam.addressSpace.name": "Navn",
   "ipam.addressSpace.add": "Legg til plan",
   "ipam.addressSpace.none": "— ingen —",
+  "ipam.l2Domain.title": "L2-domener",
+  "ipam.l2Domain.hint":
+    "Opprett et domene først, og knytt deretter VLAN. Samme VID eller navn på to sites er aldri samme domene. En A–B-strekning er ikke et domene, og et fritt tall er ikke et medlemskap.",
+  "ipam.l2Domain.empty": "Ingen L2-domene registrert.",
+  "ipam.l2Domain.name": "Navn",
+  "ipam.l2Domain.add": "Legg til domene",
+  "ipam.l2Domain.none": "— ingen —",
+  "ipam.l2Domain.col": "L2-domene",
+  "ipam.l2Domain.optional": "L2-domene (valgfritt)",
   "ipam.gitops.title": "IPAM — GitOps",
   "ipam.gitops.intro":
     "Drift mot siste skann, eksport av site som YAML/JSON, webhooks og revisjonslogg. Dette er det GUI-brukere trenger fra sync- og audit-kontrakten.",
@@ -1836,7 +1845,7 @@ export const nb = {
   "ipam.overlay.noVlan": "— ingen —",
   "ipam.stretch.title": "Strekte VLAN",
   "ipam.stretch.hint":
-    "Registrer at to VLAN på ulike sites er samme L2-domene. Samme VID eller navn gjettes aldri som strekning, og ingenting påføres svitsjer.",
+    "Registrer en A–B-strekning mellom to VLAN. Samme VID eller navn gjettes aldri som strekning. En strekning er ikke et L2-domene — tre sites krever et registrert domene og eksplisitte medlemskap.",
   "ipam.stretch.add": "Legg til strekning",
   "ipam.stretch.empty": "Ingen VLAN-strekning registrert ennå.",
   "ipam.stretch.vlanA": "VLAN A",
