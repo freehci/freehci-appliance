@@ -38,6 +38,7 @@ from app.services import tenant as tenant_svc
 from app.services import ipam_facilities as fac_svc
 from app.services.ipam_errors import ipam_error
 from app.services import ipam_audit as audit_svc
+from app.services import ipam_address_space as as_svc
 from app.services import ipam_dual_stack as ds_svc
 from app.services import ipam_etag as etag_svc
 
@@ -164,6 +165,7 @@ def new_ipv4_prefix_orm(
     reserved_slugs: set[str] | None = None,
     overlap_policy: str | None = None,
     dual_stack_group_id: int | None = None,
+    address_space_id: int | None = None,
 ) -> IpamIpv4Prefix:
     explicit = slug is not None
     require_vlan_allowed(role, vlan_id)
@@ -186,6 +188,7 @@ def new_ipv4_prefix_orm(
         status=status,
         overlap_policy=resolve_overlap_policy(role, overlap_policy),
         dual_stack_group_id=dual_stack_group_id,
+        address_space_id=address_space_id,
         description=description,
         cidr=cidr,
         subnet_services=subnet_services,
@@ -431,6 +434,7 @@ def ipv4_prefix_read(
     except Exception:
         services = getattr(row, "subnet_services", None)
     ds_slug, ds_name = ds_svc.labels(db, getattr(row, "dual_stack_group_id", None))
+    as_slug, as_name = as_svc.labels(db, getattr(row, "address_space_id", None))
     return Ipv4PrefixRead(
         id=row.id,
         site_id=row.site_id,
@@ -456,6 +460,9 @@ def ipv4_prefix_read(
         dual_stack_group_id=getattr(row, "dual_stack_group_id", None),
         dual_stack_group_slug=ds_slug,
         dual_stack_group_name=ds_name,
+        address_space_id=getattr(row, "address_space_id", None),
+        address_space_slug=as_slug,
+        address_space_name=as_name,
         etag=etag_svc.format_etag(row),
     )
 
@@ -732,6 +739,11 @@ def create_ipv4_prefix(db: Session, data: Ipv4PrefixCreate) -> Ipv4PrefixRead:
             group_id=data.dual_stack_group_id,
             group_slug=getattr(data, "dual_stack_group_slug", None),
         ),
+        address_space_id=as_svc.resolve_ref(
+            db,
+            space_id=data.address_space_id,
+            space_slug=getattr(data, "address_space_slug", None),
+        ),
     )
     db.add(row)
     try:
@@ -802,6 +814,12 @@ def _apply_prefix_ensure_update(db: Session, row: IpamIpv4Prefix, data: Ipv4Pref
             group_id=data.dual_stack_group_id,
             group_slug=getattr(data, "dual_stack_group_slug", None),
         )
+    if data.address_space_id is not None or getattr(data, "address_space_slug", None):
+        row.address_space_id = as_svc.resolve_ref(
+            db,
+            space_id=data.address_space_id,
+            space_slug=getattr(data, "address_space_slug", None),
+        )
     return row
 
 
@@ -852,6 +870,11 @@ def ensure_ipv4_prefix(db: Session, data: Ipv4PrefixEnsure, *, update: bool = Fa
             group_id=data.dual_stack_group_id,
             group_slug=getattr(data, "dual_stack_group_slug", None),
         ),
+        address_space_id=as_svc.resolve_ref(
+            db,
+            space_id=data.address_space_id,
+            space_slug=getattr(data, "address_space_slug", None),
+        ),
     )
     try:
         return create_ipv4_prefix(db, create)
@@ -897,6 +920,8 @@ def update_ipv4_prefix(db: Session, row: IpamIpv4Prefix, data: Ipv4PrefixUpdate)
         )
     if "dual_stack_group_id" in patch:
         row.dual_stack_group_id = ds_svc.require_existing(db, patch["dual_stack_group_id"])
+    if "address_space_id" in patch:
+        row.address_space_id = as_svc.require_existing(db, patch["address_space_id"])
     if "description" in patch:
         v = patch["description"]
         row.description = None if v is None else (str(v).strip() or None)

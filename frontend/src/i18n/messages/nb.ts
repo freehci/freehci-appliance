@@ -1665,6 +1665,14 @@ export const nb = {
   "ipam.dualStack.name": "Navn",
   "ipam.dualStack.add": "Legg til gruppe",
   "ipam.dualStack.none": "— ingen —",
+  "ipam.gitops.addressSpace": "Adresseplan",
+  "ipam.addressSpace.title": "Adresseplaner",
+  "ipam.addressSpace.hint":
+    "Opprett en plan først, og knytt deretter prefiks. Samme CIDR på to sites er aldri samme plan. Et fritt tall er ikke en plan.",
+  "ipam.addressSpace.empty": "Ingen adresseplan registrert.",
+  "ipam.addressSpace.name": "Navn",
+  "ipam.addressSpace.add": "Legg til plan",
+  "ipam.addressSpace.none": "— ingen —",
   "ipam.gitops.title": "IPAM — GitOps",
   "ipam.gitops.intro":
     "Drift mot siste skann, eksport av site som YAML/JSON, webhooks og revisjonslogg. Dette er det GUI-brukere trenger fra sync- og audit-kontrakten.",

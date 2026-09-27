@@ -45,6 +45,7 @@ export function IpamIpv6PrefixesPage() {
   const [newStatus, setNewStatus] = useState("active");
   const [newOverlap, setNewOverlap] = useState("");
   const [newDualStack, setNewDualStack] = useState("");
+  const [newAddressSpace, setNewAddressSpace] = useState("");
   const [newVrf, setNewVrf] = useState("");
   const [explore, setExplore] = useState<Ipv6Prefix | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
@@ -66,6 +67,7 @@ export function IpamIpv6PrefixesPage() {
   const sitesQ = useQuery({ queryKey: ["dcim", "sites"], queryFn: dcimApi.listSites });
   const vrfsQ = useQuery({ queryKey: ["ipam", "vrfs", "all-for-prefixes"], queryFn: () => ipamApi.listIpamVrfs() });
   const dsGroupsQ = useQuery({ queryKey: ["ipam", "dual-stack-groups"], queryFn: ipamApi.listDualStackGroups });
+  const spacesQ = useQuery({ queryKey: ["ipam", "address-spaces"], queryFn: ipamApi.listAddressSpaces });
   const prefixesQ = useQuery({
     queryKey: ["ipam", "ipv6-prefixes", siteIdFilter ?? "all"],
     queryFn: () => ipamApi.listIpv6Prefixes(siteIdFilter),
@@ -178,12 +180,14 @@ export function IpamIpv6PrefixesPage() {
         status: newStatus,
         overlap_policy: newOverlap || undefined,
         dual_stack_group_id: newDualStack.trim() === "" ? undefined : Number(newDualStack),
+        address_space_id: newAddressSpace.trim() === "" ? undefined : Number(newAddressSpace),
         vrf_id: newVrf === "" ? undefined : Number(newVrf),
       }),
     onSuccess: () => {
       setNewName("");
       setNewCidr("");
       setNewDualStack("");
+      setNewAddressSpace("");
       setDrawerOpen(false);
       setErr(null);
       invalidate();
@@ -395,6 +399,9 @@ export function IpamIpv6PrefixesPage() {
               {explore.overlap_policy}
               {explore.dual_stack_group_name || explore.dual_stack_group_slug
                 ? ` · dual-stack ${explore.dual_stack_group_name ?? explore.dual_stack_group_slug}`
+                : ""}
+              {explore.address_space_name || explore.address_space_slug
+                ? ` · ${t("ipam.gitops.addressSpace")} ${explore.address_space_name ?? explore.address_space_slug}`
                 : ""}
             </span>
           </h3>
@@ -859,6 +866,17 @@ export function IpamIpv6PrefixesPage() {
               {(dsGroupsQ.data ?? []).map((g) => (
                 <option key={g.id} value={String(g.id)}>
                   {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("ipam.gitops.addressSpace")}
+            <select value={newAddressSpace} onChange={(e) => setNewAddressSpace(e.target.value)}>
+              <option value="">{t("ipam.addressSpace.none")}</option>
+              {(spacesQ.data ?? []).map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
                 </option>
               ))}
             </select>

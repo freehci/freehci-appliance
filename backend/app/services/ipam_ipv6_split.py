@@ -138,6 +138,7 @@ def ipv6_prefix_split(db: Session, parent_id: int, data: Ipv6PrefixSplitRequest)
         status=parent.status,
         overlap_policy=parent.overlap_policy,
         dual_stack_group_id=parent.dual_stack_group_id,
+        address_space_id=parent.address_space_id,
         reserved_slugs=reserved_slugs,
     )
     right = ipv6_svc.new_ipv6_prefix_orm(
@@ -152,6 +153,7 @@ def ipv6_prefix_split(db: Session, parent_id: int, data: Ipv6PrefixSplitRequest)
         status=parent.status,
         overlap_policy=parent.overlap_policy,
         dual_stack_group_id=parent.dual_stack_group_id,
+        address_space_id=parent.address_space_id,
         reserved_slugs=reserved_slugs,
     )
     db.add(left)
@@ -305,6 +307,7 @@ def ipv6_prefix_split_equal(
             status=parent.status,
             overlap_policy=parent.overlap_policy,
             dual_stack_group_id=parent.dual_stack_group_id,
+            address_space_id=parent.address_space_id,
             reserved_slugs=reserved_slugs,
         )
         db.add(pr)

@@ -41,6 +41,9 @@ export type Ipv4Prefix = {
   dual_stack_group_id?: number | null;
   dual_stack_group_slug?: string | null;
   dual_stack_group_name?: string | null;
+  address_space_id?: number | null;
+  address_space_slug?: string | null;
+  address_space_name?: string | null;
   etag?: string | null;
   cidr: string;
   description: string | null;
@@ -657,6 +660,14 @@ export type IpamDualStackGroup = {
   created_at: string;
 };
 
+export type IpamAddressSpace = {
+  id: number;
+  name: string;
+  slug: string;
+  notes: string | null;
+  created_at: string;
+};
+
 export type IpamGreProfile = {
   id: number;
   name: string;
@@ -711,6 +722,9 @@ export type Ipv6Prefix = {
   dual_stack_group_id?: number | null;
   dual_stack_group_slug?: string | null;
   dual_stack_group_name?: string | null;
+  address_space_id?: number | null;
+  address_space_slug?: string | null;
+  address_space_name?: string | null;
   cidr: string;
   description?: string | null;
   parent_id?: number | null;

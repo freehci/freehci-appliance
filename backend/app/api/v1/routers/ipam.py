@@ -86,6 +86,8 @@ from app.schemas.ipam import (
     IpamGreTunnelRead,
     IpamDualStackGroupCreate,
     IpamDualStackGroupRead,
+    IpamAddressSpaceCreate,
+    IpamAddressSpaceRead,
     IpamVpnMemberCreate,
     IpamVpnMemberRead,
     IpamVpnServiceCreate,
@@ -165,6 +167,7 @@ from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
 from app.services import ipam_gre as gre_svc
+from app.services import ipam_address_space as as_svc
 from app.services import ipam_dual_stack as ds_svc
 from app.services import ipam_prefix_grid as grid_svc
 from app.services import ipam_subnet_scan as scan_svc
@@ -1889,6 +1892,32 @@ def delete_dual_stack_group(group_id: int, db: Session = Depends(get_db)) -> Non
     if row is None:
         raise HTTPException(status_code=404, detail="dual-stack-gruppe ikke funnet")
     ds_svc.delete_group(db, row)
+
+
+@router.get("/address-spaces", response_model=list[IpamAddressSpaceRead])
+def list_address_spaces(db: Session = Depends(get_db)) -> list[IpamAddressSpaceRead]:
+    return [as_svc.space_to_read(r) for r in as_svc.list_spaces(db)]
+
+
+@router.post("/address-spaces", response_model=IpamAddressSpaceRead)
+def create_address_space(data: IpamAddressSpaceCreate, db: Session = Depends(get_db)) -> IpamAddressSpaceRead:
+    return as_svc.space_to_read(as_svc.create_space(db, data))
+
+
+@router.get("/address-spaces/{space_id}", response_model=IpamAddressSpaceRead)
+def get_address_space(space_id: int, db: Session = Depends(get_db)) -> IpamAddressSpaceRead:
+    row = as_svc.get_space(db, space_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="adresseplan ikke funnet")
+    return as_svc.space_to_read(row)
+
+
+@router.delete("/address-spaces/{space_id}", status_code=204)
+def delete_address_space(space_id: int, db: Session = Depends(get_db)) -> None:
+    row = as_svc.get_space(db, space_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="adresseplan ikke funnet")
+    as_svc.delete_space(db, row)
 
 
 @router.get("/tunnel-profiles", response_model=list[IpamTunnelProfileRead])

@@ -35,6 +35,7 @@ from app.models.ipam import (
     IpamGreProfile,
     IpamGreTunnel,
     IpamDualStackGroup,
+    IpamAddressSpace,
 )
 from app.models.platform import PlatformCloudSubscription, PlatformCluster, PlatformVirtualDisk, PlatformVirtualMachine
 from app.models.federation import FederationLocal, FederationPairingToken, FederationPeer, FederationTenantRole
@@ -75,6 +76,7 @@ _STRIP_KEYS = frozenset(
         "tenant_id",
         "site_id",
         "dual_stack_group_id",
+        "address_space_id",
         "a_site_id",
         "z_site_id",
         "cluster_id",
@@ -554,6 +556,7 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "vrf_slug": p.get("vrf_slug"),
                 "overlap_policy": p.get("overlap_policy"),
                 "dual_stack_group_slug": p.get("dual_stack_group_slug"),
+                "address_space_slug": p.get("address_space_slug"),
             }
             for p in raw.get("prefixes") or []
         ],
@@ -565,6 +568,7 @@ def _ipam_for_site(db: Session, site: Site) -> dict[str, Any]:
                 "role": p.get("role"),
                 "status": p.get("status"),
                 "dual_stack_group_slug": p.get("dual_stack_group_slug"),
+                "address_space_slug": p.get("address_space_slug"),
             }
             for p in raw.get("ipv6_prefixes") or []
         ],
@@ -962,6 +966,7 @@ def export_tenant_document(db: Session, tenant: Tenant) -> dict[str, Any]:
         **_export_ipsec(db),
         **_export_gre(db),
         **_export_dual_stack(db),
+        **_export_address_spaces(db),
         **_export_device_interface_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_device_ips(db, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
         **_export_platform_catalog(db, sites=sites, devices=devices, site_by_id=site_by_id, device_by_id=device_by_id),
@@ -1535,6 +1540,16 @@ def _export_dual_stack(db: Session) -> dict[str, Any]:
         "dual_stack_groups": [
             {"slug": g.slug, "name": g.name, "notes": g.notes}
             for g in groups
+        ],
+    }
+
+
+def _export_address_spaces(db: Session) -> dict[str, Any]:
+    spaces = list(db.execute(select(IpamAddressSpace).order_by(IpamAddressSpace.slug)).scalars().all())
+    return {
+        "address_spaces": [
+            {"slug": s.slug, "name": s.name, "notes": s.notes}
+            for s in spaces
         ],
     }
 

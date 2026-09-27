@@ -490,6 +490,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "dual_stack_group_slug": (
                     ds_by_id[p.dual_stack_group_id].slug if p.dual_stack_group_id in ds_by_id else None
                 ),
+                "address_space_slug": getattr(p, "address_space_slug", None),
                 "subnet_services": p.subnet_services,
             }
             for p in prefixes
@@ -522,6 +523,7 @@ def export_site(db: Session, site_id: int) -> dict[str, Any]:
                 "dual_stack_group_slug": (
                     ds_by_id[p.dual_stack_group_id].slug if p.dual_stack_group_id in ds_by_id else None
                 ),
+                "address_space_slug": getattr(p, "address_space_slug", None),
             }
             for p in v6
         ],

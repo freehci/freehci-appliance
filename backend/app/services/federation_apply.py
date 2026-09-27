@@ -50,6 +50,7 @@ from app.schemas.ipam import (
     IpamIpsecTunnelCreate,
     IpamGreProfileCreate,
     IpamGreTunnelCreate,
+    IpamAddressSpaceCreate,
     IpamDualStackGroupCreate,
     IpamAsAssignmentCreate,
     IpamAutonomousSystemCreate,
@@ -113,6 +114,7 @@ from app.services import ipam_vpn as vpn_svc
 from app.services import ipam_wireguard as wg_svc
 from app.services import ipam_ipsec as ipsec_svc
 from app.services import ipam_gre as gre_svc
+from app.services import ipam_address_space as as_svc
 from app.services import ipam_dual_stack as ds_svc
 from app.services import tenant as tenant_svc
 from app.schemas.tenant import TenantCreate
@@ -492,6 +494,7 @@ def apply_tenant_document(db: Session, doc: dict[str, Any]) -> None:
             )
 
     _apply_dual_stack_groups(db, doc)
+    _apply_address_spaces(db, doc)
     for ipam in doc.get("ipam") or []:
         _apply_site_ipam(db, ipam)
     _apply_device_interface_ips(db, doc)
@@ -901,6 +904,24 @@ def _apply_dual_stack_groups(db: Session, doc: dict[str, Any]) -> None:
             ds_svc.create_group(
                 db,
                 IpamDualStackGroupCreate(
+                    name=str(rec.get("name") or slug).strip() or slug,
+                    slug=slug,
+                    notes=rec.get("notes"),
+                ),
+            )
+        except Exception:
+            continue
+
+
+def _apply_address_spaces(db: Session, doc: dict[str, Any]) -> None:
+    for rec in doc.get("address_spaces") or []:
+        slug = str(rec.get("slug") or "").strip()
+        if not slug or as_svc.get_space_by_slug(db, slug) is not None:
+            continue
+        try:
+            as_svc.create_space(
+                db,
+                IpamAddressSpaceCreate(
                     name=str(rec.get("name") or slug).strip() or slug,
                     slug=slug,
                     notes=rec.get("notes"),
@@ -1367,6 +1388,7 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 vrf_slug=p.get("vrf_slug"),
                 overlap_policy=p.get("overlap_policy"),
                 dual_stack_group_slug=str(p.get("dual_stack_group_slug") or "").strip() or None,
+                address_space_slug=str(p.get("address_space_slug") or "").strip() or None,
             ),
             update=True,
         )
@@ -1422,6 +1444,7 @@ def _apply_site_ipam(db: Session, ipam: dict[str, Any]) -> None:
                 role=p.get("role"),
                 status=p.get("status"),
                 dual_stack_group_slug=str(p.get("dual_stack_group_slug") or "").strip() or None,
+                address_space_slug=str(p.get("address_space_slug") or "").strip() or None,
             ),
             update=True,
         )

@@ -94,6 +94,7 @@ export function IpamPrefixesPage() {
   const [newStatus, setNewStatus] = useState("active");
   const [newOverlap, setNewOverlap] = useState("");
   const [newDualStack, setNewDualStack] = useState("");
+  const [newAddressSpace, setNewAddressSpace] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editCidr, setEditCidr] = useState("");
@@ -145,6 +146,7 @@ export function IpamPrefixesPage() {
   });
   const vrfsQ = useQuery({ queryKey: ["ipam", "vrfs", "all-for-prefixes"], queryFn: () => ipamApi.listIpamVrfs() });
   const dsGroupsQ = useQuery({ queryKey: ["ipam", "dual-stack-groups"], queryFn: ipamApi.listDualStackGroups });
+  const spacesQ = useQuery({ queryKey: ["ipam", "address-spaces"], queryFn: ipamApi.listAddressSpaces });
   const siteIdFilter = filterSite === "" ? undefined : Number(filterSite);
   const tenantIdFilter = filterTenant === "" ? undefined : Number(filterTenant);
 
@@ -326,6 +328,7 @@ export function IpamPrefixesPage() {
         status: newStatus,
         overlap_policy: newOverlap || undefined,
         dual_stack_group_id: newDualStack.trim() === "" ? undefined : Number(newDualStack),
+        address_space_id: newAddressSpace.trim() === "" ? undefined : Number(newAddressSpace),
       }),
     onSuccess: () => {
       setNewName("");
@@ -337,6 +340,7 @@ export function IpamPrefixesPage() {
       setNewStatus("active");
       setNewOverlap("");
       setNewDualStack("");
+      setNewAddressSpace("");
       setCreateParentHint(null);
       setDrawerMode(null);
       setErr(null);
@@ -1129,6 +1133,9 @@ export function IpamPrefixesPage() {
                   {exploreQ.data.prefix.overlap_policy ? ` · ${exploreQ.data.prefix.overlap_policy}` : ""}
                   {exploreQ.data.prefix.dual_stack_group_name || exploreQ.data.prefix.dual_stack_group_slug
                     ? ` · dual-stack ${exploreQ.data.prefix.dual_stack_group_name ?? exploreQ.data.prefix.dual_stack_group_slug}`
+                    : ""}
+                  {exploreQ.data.prefix.address_space_name || exploreQ.data.prefix.address_space_slug
+                    ? ` · ${t("ipam.gitops.addressSpace")} ${exploreQ.data.prefix.address_space_name ?? exploreQ.data.prefix.address_space_slug}`
                     : ""}
                 </span>
               </h3>
@@ -2223,6 +2230,17 @@ export function IpamPrefixesPage() {
                     {(dsGroupsQ.data ?? []).map((g) => (
                       <option key={g.id} value={String(g.id)}>
                         {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("ipam.gitops.addressSpace")}
+                  <select value={newAddressSpace} onChange={(e) => setNewAddressSpace(e.target.value)}>
+                    <option value="">{t("ipam.addressSpace.none")}</option>
+                    {(spacesQ.data ?? []).map((s) => (
+                      <option key={s.id} value={String(s.id)}>
+                        {s.name}
                       </option>
                     ))}
                   </select>

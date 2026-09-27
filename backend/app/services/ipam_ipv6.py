@@ -24,6 +24,7 @@ from app.schemas.ipam import (
 )
 from app.services import ipam as ipam_svc
 from app.services import ipam_audit as audit_svc
+from app.services import ipam_address_space as as_svc
 from app.services import ipam_dual_stack as ds_svc
 from app.services import ipam_etag as etag_svc
 from app.services.ipam_errors import ipam_error
@@ -83,6 +84,7 @@ def ipv6_prefix_read(db: Session, row: IpamIpv6Prefix, *, created: bool | None =
         if ip in net:
             in_net += 1
     ds_slug, ds_name = ds_svc.labels(db, row.dual_stack_group_id)
+    as_slug, as_name = as_svc.labels(db, row.address_space_id)
     return Ipv6PrefixRead(
         id=row.id,
         site_id=row.site_id,
@@ -99,6 +101,9 @@ def ipv6_prefix_read(db: Session, row: IpamIpv6Prefix, *, created: bool | None =
         dual_stack_group_id=row.dual_stack_group_id,
         dual_stack_group_slug=ds_slug,
         dual_stack_group_name=ds_name,
+        address_space_id=row.address_space_id,
+        address_space_slug=as_slug,
+        address_space_name=as_name,
         parent_id=parent.id if parent is not None else None,
         used_count=in_net,
         created=created,
@@ -137,6 +142,7 @@ def new_ipv6_prefix_orm(
     reserved_slugs: set[str] | None = None,
     overlap_policy: str | None = None,
     dual_stack_group_id: int | None = None,
+    address_space_id: int | None = None,
 ) -> IpamIpv6Prefix:
     cidr_n = _normalize_cidr(cidr)
     slug_s = _unique_v6_slug(db, site_id=site_id, desired=slug or name or cidr_n, explicit=slug is not None)
@@ -160,6 +166,7 @@ def new_ipv6_prefix_orm(
         status=status,
         overlap_policy=ipam_svc.resolve_overlap_policy(role, overlap_policy),
         dual_stack_group_id=dual_stack_group_id,
+        address_space_id=address_space_id,
         description=description,
         cidr=cidr_n,
         subnet_services=ipam_svc.dump_subnet_services(subnet_services) if subnet_services else None,
@@ -313,6 +320,11 @@ def create_ipv6_prefix(db: Session, data: Ipv6PrefixCreate) -> Ipv6PrefixRead:
             group_id=data.dual_stack_group_id,
             group_slug=getattr(data, "dual_stack_group_slug", None),
         ),
+        address_space_id=as_svc.resolve_ref(
+            db,
+            space_id=data.address_space_id,
+            space_slug=getattr(data, "address_space_slug", None),
+        ),
         description=data.description,
         cidr=cidr,
         subnet_services=ipam_svc.dump_subnet_services(data.subnet_services),
@@ -384,6 +396,12 @@ def ensure_ipv6_prefix(db: Session, data: Ipv6PrefixEnsure, *, update: bool = Fa
                     group_id=data.dual_stack_group_id,
                     group_slug=getattr(data, "dual_stack_group_slug", None),
                 )
+            if data.address_space_id is not None or getattr(data, "address_space_slug", None):
+                existing.address_space_id = as_svc.resolve_ref(
+                    db,
+                    space_id=data.address_space_id,
+                    space_slug=getattr(data, "address_space_slug", None),
+                )
             db.commit()
             db.refresh(existing)
         return ipv6_prefix_read(db, existing, created=False)
@@ -402,6 +420,8 @@ def ensure_ipv6_prefix(db: Session, data: Ipv6PrefixEnsure, *, update: bool = Fa
         overlap_policy=data.overlap_policy,
         dual_stack_group_id=data.dual_stack_group_id,
         dual_stack_group_slug=getattr(data, "dual_stack_group_slug", None),
+        address_space_id=data.address_space_id,
+        address_space_slug=getattr(data, "address_space_slug", None),
     )
     return create_ipv6_prefix(db, create)
 
@@ -436,6 +456,7 @@ def allocate_child_ipv6(db: Session, parent: IpamIpv6Prefix, data: Ipv6PrefixAll
             vrf_id=parent.vrf_id,
             overlap_policy=parent.overlap_policy,
             dual_stack_group_id=parent.dual_stack_group_id,
+            address_space_id=parent.address_space_id,
         )
         return create_ipv6_prefix(db, create)
     raise ipam_error(409, "no_free_prefix", f"ingen ledig /{data.prefixlen} i {parent.cidr}")

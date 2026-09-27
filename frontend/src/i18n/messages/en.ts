@@ -1654,6 +1654,14 @@ export const en = {
   "ipam.dualStack.name": "Name",
   "ipam.dualStack.add": "Add group",
   "ipam.dualStack.none": "— none —",
+  "ipam.gitops.addressSpace": "Address space",
+  "ipam.addressSpace.title": "Address spaces",
+  "ipam.addressSpace.hint":
+    "Create a space first, then attach prefixes. Matching CIDRs on two sites never share a plan. A typed number is not a space.",
+  "ipam.addressSpace.empty": "No address space recorded.",
+  "ipam.addressSpace.name": "Name",
+  "ipam.addressSpace.add": "Add space",
+  "ipam.addressSpace.none": "— none —",
   "ipam.gitops.title": "IPAM — GitOps",
   "ipam.gitops.intro":
     "Drift vs last scan, site export as YAML/JSON, webhooks, and audit log — the GUI view of the sync and audit contract.",

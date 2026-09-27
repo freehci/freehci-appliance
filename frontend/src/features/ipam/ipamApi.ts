@@ -28,6 +28,7 @@ import type {
   IpamIpsecTunnelBind,
   IpamGreProfile,
   IpamGreTunnelBind,
+  IpamAddressSpace,
   IpamDualStackGroup,
   Ipv6Range,
   IpamVpnMember,
@@ -157,6 +158,7 @@ export function createIpv4Prefix(body: {
   status?: string;
   overlap_policy?: string;
   dual_stack_group_id?: number | null;
+  address_space_id?: number | null;
 }): Promise<Ipv4Prefix> {
   return apiPost(`${P}/ipv4-prefixes`, body);
 }
@@ -1036,6 +1038,22 @@ export function deleteDualStackGroup(id: number): Promise<void> {
   return apiDelete(`${P}/dual-stack-groups/${id}`);
 }
 
+export function listAddressSpaces(): Promise<IpamAddressSpace[]> {
+  return apiGet(`${P}/address-spaces`);
+}
+
+export function createAddressSpace(body: {
+  name: string;
+  slug?: string | null;
+  notes?: string | null;
+}): Promise<IpamAddressSpace> {
+  return apiPost(`${P}/address-spaces`, body);
+}
+
+export function deleteAddressSpace(id: number): Promise<void> {
+  return apiDelete(`${P}/address-spaces/${id}`);
+}
+
 export function listTunnelProfiles(): Promise<IpamTunnelProfile[]> {
   return apiGet(`${P}/tunnel-profiles`);
 }
@@ -1152,6 +1170,7 @@ export function createIpv6Prefix(body: {
   status?: string;
   overlap_policy?: string;
   dual_stack_group_id?: number | null;
+  address_space_id?: number | null;
   tenant_id?: number | null;
   vlan_id?: number | null;
   vrf_id?: number | null;
