@@ -8,6 +8,7 @@ from app.api.v1.routers import (
     health,
     iam,
     integration_connections,
+    integration_ownership,
     ipam,
     network_scan,
     platform,
@@ -32,6 +33,8 @@ api_router.include_router(network_scan.router)
 api_router.include_router(snmp.router)
 api_router.include_router(federation.router)
 api_router.include_router(integration_connections.router)
+api_router.include_router(integration_ownership.maps_router)
+api_router.include_router(integration_ownership.owns_router)
 api_router.include_router(catalog.router)
 api_router.include_router(platform.router)
 api_router.include_router(platform.cloud_router)

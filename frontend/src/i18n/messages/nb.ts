@@ -2244,6 +2244,7 @@ export const nb = {
     "Tilkoblinger og utgående webhooks. Plugin-pakker ligger under Utvidelser. Replikaer styres på System.",
   "integrations.tabs": "Integrasjonsseksjoner",
   "integrations.tabConnections": "Tilkoblinger",
+  "integrations.tabOwnership": "Eierskap",
   "integrations.tabWebhooks": "Webhooks",
   "integrations.connectionsHint":
     "En tilkobling er en instans av en plugin-pakke: URL, hemmelighetsreferanse og mapping. To kilder som ser samme server knyttes sammen; konflikt vises i stedet for en ny enhet.",
@@ -2257,6 +2258,24 @@ export const nb = {
   "integrations.neverSynced": "Ikke synket",
   "integrations.conflictsTitle": "Identitetskonflikter",
   "integrations.conflictsHint": "Samme eksterne identitet peker på mer enn én enhet. Ingenting er slått sammen.",
+  "integrations.mapsTitle": "Eksterne objektmappinger",
+  "integrations.mapsHint":
+    "En mapping er en eksplisitt ekstern ID på en tilkobling. Samme navn som en enhet lager ingen binding.",
+  "integrations.mapsEmpty": "Ingen objektmappinger ennå.",
+  "integrations.addMap": "Ny mapping",
+  "integrations.externalId": "Ekstern ID",
+  "integrations.objectType": "Objekttype",
+  "integrations.objectDevice": "Enhet",
+  "integrations.unlinked": "Ikke bundet",
+  "integrations.ownTitle": "Felteierskap",
+  "integrations.ownHint":
+    "Ett felt på én enhet har én tilkobling som eier. mapping_json på tilkoblingen er ikke eierskap.",
+  "integrations.ownEmpty": "Ingen felteierskap ennå.",
+  "integrations.addOwn": "Nytt eierskap",
+  "integrations.fieldName": "Felt",
+  "integrations.connection": "Tilkobling",
+  "integrations.chooseConnection": "Velg tilkobling",
+  "integrations.chooseDevice": "Velg enhet",
   "extensions.title": "Utvidelser",
   "extensions.intro":
     "Installer valgfrie backend-plugins som ZIP eller fra Git. Hver installasjon må inneholde plugin.py som eksporterer «plugin» (BackendPlugin). Start API-containeren på nytt for å laste inn nye plugins.",

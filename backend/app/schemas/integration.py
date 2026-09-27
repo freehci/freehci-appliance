@@ -96,3 +96,91 @@ class IdentityConflictRead(BaseModel):
     device_b_id: int | None
     status: str
     created_at: dt.datetime
+
+
+EXTERNAL_OBJECT_TYPES = frozenset({"device"})
+OWNED_DEVICE_FIELDS = frozenset(
+    {
+        "name",
+        "serial_number",
+        "asset_tag",
+        "site_id",
+        "device_role_id",
+        "device_type_id",
+        "device_model_id",
+    }
+)
+
+
+class ExternalObjectMappingCreate(BaseModel):
+    """Eksplisitt ekstern ID. infer_*/navn-matching avvises (extra=forbid)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    connection_id: int = Field(..., ge=1)
+    object_type: str = "device"
+    external_id: str = Field(..., min_length=1, max_length=255)
+    device_id: int | None = Field(None, ge=1)
+
+    @field_validator("object_type")
+    @classmethod
+    def type_ok(cls, v: str) -> str:
+        s = v.strip().lower()
+        if s not in EXTERNAL_OBJECT_TYPES:
+            raise ValueError(f"object_type må være en av: {', '.join(sorted(EXTERNAL_OBJECT_TYPES))}")
+        return s
+
+    @field_validator("external_id")
+    @classmethod
+    def ext_ok(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("external_id kan ikke være tom")
+        return s
+
+
+class ExternalObjectMappingUpdate(BaseModel):
+    """Kun typet device_id. None fjerner binding; navn brukes aldri."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    device_id: int | None = Field(None, ge=1)
+
+
+class ExternalObjectMappingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    connection_id: int
+    object_type: str
+    external_id: str
+    device_id: int | None
+    created_at: dt.datetime
+
+
+class FieldOwnershipCreate(BaseModel):
+    """Ett felt, én tilkobling. mapping_json og infer_* avvises."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    connection_id: int = Field(..., ge=1)
+    device_id: int = Field(..., ge=1)
+    field_name: str = Field(..., min_length=1, max_length=64)
+
+    @field_validator("field_name")
+    @classmethod
+    def field_ok(cls, v: str) -> str:
+        s = v.strip()
+        if s not in OWNED_DEVICE_FIELDS:
+            raise ValueError(f"field_name må være en av: {', '.join(sorted(OWNED_DEVICE_FIELDS))}")
+        return s
+
+
+class FieldOwnershipRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    connection_id: int
+    device_id: int
+    field_name: str
+    created_at: dt.datetime

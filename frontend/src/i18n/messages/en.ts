@@ -2233,6 +2233,7 @@ export const en = {
     "Connections and outbound webhooks. Plugin packages live under Extensions. Replicas are managed on System.",
   "integrations.tabs": "Integration sections",
   "integrations.tabConnections": "Connections",
+  "integrations.tabOwnership": "Ownership",
   "integrations.tabWebhooks": "Webhooks",
   "integrations.connectionsHint":
     "A connection is an instance of a plugin package: URL, credential reference and mapping. Two sources that see the same server are linked; a clash is shown instead of a second device.",
@@ -2246,6 +2247,24 @@ export const en = {
   "integrations.neverSynced": "Not synced",
   "integrations.conflictsTitle": "Identity conflicts",
   "integrations.conflictsHint": "Same external identity points at more than one device. Nothing was merged.",
+  "integrations.mapsTitle": "External object mappings",
+  "integrations.mapsHint":
+    "A mapping is an explicit external ID on a connection. A matching device name does not create a binding.",
+  "integrations.mapsEmpty": "No object mappings yet.",
+  "integrations.addMap": "Add mapping",
+  "integrations.externalId": "External ID",
+  "integrations.objectType": "Object type",
+  "integrations.objectDevice": "Device",
+  "integrations.unlinked": "Unlinked",
+  "integrations.ownTitle": "Field ownership",
+  "integrations.ownHint":
+    "One field on one device has one owning connection. mapping_json on the connection is not ownership.",
+  "integrations.ownEmpty": "No field ownership yet.",
+  "integrations.addOwn": "Add ownership",
+  "integrations.fieldName": "Field",
+  "integrations.connection": "Connection",
+  "integrations.chooseConnection": "Choose connection",
+  "integrations.chooseDevice": "Choose device",
   "extensions.title": "Extensions",
   "extensions.intro":
     "Install optional backend plugins as a ZIP or from Git. Each installed folder must contain plugin.py exporting plugin (BackendPlugin). Restart the API container to load new plugins.",

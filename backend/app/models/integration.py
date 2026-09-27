@@ -29,6 +29,14 @@ class IntegrationConnection(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     claims: Mapped[list["DeviceIdentityClaim"]] = relationship(back_populates="connection", cascade="all, delete-orphan")
+    object_maps: Mapped[list["ExternalObjectMapping"]] = relationship(
+        back_populates="connection",
+        cascade="all, delete-orphan",
+    )
+    field_owns: Mapped[list["FieldOwnership"]] = relationship(
+        back_populates="connection",
+        cascade="all, delete-orphan",
+    )
 
 
 class DeviceIdentity(Base):
@@ -109,3 +117,48 @@ class IdentityConflict(Base):
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ExternalObjectMapping(Base):
+    """Eksplisitt ekstern ID → Device. Matching navn lager aldri rad eller binding."""
+
+    __tablename__ = "integration_object_maps"
+    __table_args__ = (
+        UniqueConstraint("connection_id", "object_type", "external_id", name="uq_int_object_map"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    connection_id: Mapped[int] = mapped_column(
+        ForeignKey("integration_connections.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    object_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    connection: Mapped["IntegrationConnection"] = relationship(back_populates="object_maps")
+
+
+class FieldOwnership(Base):
+    """Hvilken tilkobling eier ett Device-felt. mapping_json er ikke eierskap."""
+
+    __tablename__ = "integration_field_owns"
+    __table_args__ = (UniqueConstraint("device_id", "field_name", name="uq_int_field_own"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    connection_id: Mapped[int] = mapped_column(
+        ForeignKey("integration_connections.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dcim_device_instances.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    field_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    connection: Mapped["IntegrationConnection"] = relationship(back_populates="field_owns")
