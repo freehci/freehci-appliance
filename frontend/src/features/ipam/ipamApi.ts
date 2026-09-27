@@ -1243,7 +1243,7 @@ export function listIpamWebhooks(): Promise<IpamWebhook[]> {
 
 export function createIpamWebhook(body: {
   url: string;
-  secret?: string | null;
+  secret_ref?: string | null;
   events?: string[] | null;
   enabled?: boolean;
 }): Promise<IpamWebhook> {

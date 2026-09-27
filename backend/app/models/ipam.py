@@ -1285,6 +1285,8 @@ class IpamAuditEvent(Base):
 
 
 class IpamWebhook(Base):
+    """Utgående webhook. Kolonnen secret lagrer kun secret:-referanse, aldri HMAC-materiale."""
+
     __tablename__ = "ipam_webhooks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

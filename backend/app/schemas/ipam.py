@@ -2972,10 +2972,19 @@ class IpamBulkEnsureRead(BaseModel):
 
 
 class IpamWebhookCreate(BaseModel):
+    """Utgående webhook. HMAC er secret:-referanse, aldri nøkkelmateriale. extra=forbid."""
+
+    model_config = ConfigDict(extra="forbid")
+
     url: str = Field(..., min_length=8, max_length=512)
-    secret: str | None = Field(None, max_length=255)
+    secret_ref: str | None = Field(None, max_length=255)
     events: list[str] | None = None
     enabled: bool = True
+
+    @field_validator("secret_ref")
+    @classmethod
+    def secret_ref_ok(cls, v: str | None) -> str | None:
+        return normalize_secret_ref(v)
 
 
 class IpamWebhookRead(BaseModel):
@@ -2983,6 +2992,7 @@ class IpamWebhookRead(BaseModel):
 
     id: int
     url: str
+    secret_ref: str | None = None
     events: list[str] | None = None
     enabled: bool
     created_at: dt.datetime

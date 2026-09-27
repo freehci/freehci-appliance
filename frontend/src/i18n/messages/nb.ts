@@ -1688,8 +1688,9 @@ export const nb = {
   "ipam.gitops.seenUnmanaged": "Sett, ikke styrt",
   "ipam.gitops.reservedMissing": "Reservert, mangler",
   "ipam.gitops.webhooksTitle": "Webhooks",
-  "ipam.gitops.webhooksHint": "Hendelser: prefix.created, prefix.updated, address.ensured, address.released.",
-  "ipam.gitops.webhookSecret": "HMAC-hemmelighet (valgfritt)",
+  "ipam.gitops.webhooksHint":
+    "Hendelser: prefix.created, prefix.updated, address.ensured, address.released. HMAC er en secret:-referanse. URL eller vertsnavn er aldri en nøkkel.",
+  "ipam.gitops.webhookSecret": "HMAC (secret:…, valgfritt)",
   "ipam.gitops.webhooksEmpty": "Ingen webhooks ennå.",
   "ipam.gitops.deliveries": "Leveranser",
   "ipam.gitops.event": "Hendelse",

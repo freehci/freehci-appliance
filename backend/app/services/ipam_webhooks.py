@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 from typing import Any
 from urllib.parse import urlparse
@@ -14,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import SessionLocal
+from app.core.secret_ref import is_secret_ref
 from app.models.ipam import IpamWebhook, IpamWebhookDelivery
 from app.schemas.ipam import IpamWebhookCreate, IpamWebhookDeliveryRead, IpamWebhookRead
 from app.services.ipam_errors import ipam_error
@@ -44,7 +43,7 @@ def create_webhook(db: Session, data: IpamWebhookCreate) -> IpamWebhook:
             raise ipam_error(400, "invalid_webhook_event", f"ukjent event: {', '.join(unknown)}")
     row = IpamWebhook(
         url=_validate_url(data.url),
-        secret=data.secret.strip() if data.secret else None,
+        secret=data.secret_ref,
         events=events,
         enabled=data.enabled,
     )
@@ -79,18 +78,24 @@ def list_deliveries(db: Session, webhook_id: int, *, limit: int = 50) -> list[Ip
 
 
 def webhook_to_read(row: IpamWebhook) -> IpamWebhookRead:
-    return IpamWebhookRead.model_validate(row)
+    return IpamWebhookRead(
+        id=row.id,
+        url=row.url,
+        secret_ref=row.secret if is_secret_ref(row.secret) else None,
+        events=row.events,
+        enabled=row.enabled,
+        created_at=row.created_at,
+    )
 
 
 def delivery_to_read(row: IpamWebhookDelivery) -> IpamWebhookDeliveryRead:
     return IpamWebhookDeliveryRead.model_validate(row)
 
 
-def _sign(secret: str | None, body: bytes) -> str | None:
-    if not secret:
-        return None
-    digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-    return f"sha256={digest}"
+def _sign(secret: str | None, _body: bytes) -> str | None:
+    """Referanse og nøkkelmateriale i kolonnen er aldri HMAC-nøkkel."""
+    del secret
+    return None
 
 
 def _matches(hook: IpamWebhook, event: str) -> bool:

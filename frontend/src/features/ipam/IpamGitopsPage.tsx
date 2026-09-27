@@ -61,7 +61,7 @@ export function IpamGitopsPage() {
     mutationFn: () =>
       ipamApi.createIpamWebhook({
         url: hookUrl.trim(),
-        secret: hookSecret.trim() || null,
+        secret_ref: hookSecret.trim() || null,
         events: [...HOOK_EVENTS],
       }),
     onSuccess: () => {
@@ -177,7 +177,7 @@ export function IpamGitopsPage() {
           </label>
           <label>
             {t("ipam.gitops.webhookSecret")}
-            <input value={hookSecret} onChange={(e) => setHookSecret(e.target.value)} />
+            <input value={hookSecret} onChange={(e) => setHookSecret(e.target.value)} placeholder="secret:…" />
           </label>
           <button type="submit" className={dcimStyles.btn} disabled={createHook.isPending}>
             {t("dcim.common.add")}

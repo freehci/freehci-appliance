@@ -1677,8 +1677,9 @@ export const en = {
   "ipam.gitops.seenUnmanaged": "Seen unmanaged",
   "ipam.gitops.reservedMissing": "Reserved missing",
   "ipam.gitops.webhooksTitle": "Webhooks",
-  "ipam.gitops.webhooksHint": "Events: prefix.created, prefix.updated, address.ensured, address.released.",
-  "ipam.gitops.webhookSecret": "HMAC secret (optional)",
+  "ipam.gitops.webhooksHint":
+    "Events: prefix.created, prefix.updated, address.ensured, address.released. HMAC is a secret: reference. A URL or hostname is never a key.",
+  "ipam.gitops.webhookSecret": "HMAC (secret:…, optional)",
   "ipam.gitops.webhooksEmpty": "No webhooks yet.",
   "ipam.gitops.deliveries": "Deliveries",
   "ipam.gitops.event": "Event",

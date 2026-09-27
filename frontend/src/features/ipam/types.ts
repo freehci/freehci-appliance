@@ -841,6 +841,7 @@ export type SiteDrift = {
 export type IpamWebhook = {
   id: number;
   url: string;
+  secret_ref?: string | null;
   events?: string[] | null;
   enabled: boolean;
   created_at: string;
